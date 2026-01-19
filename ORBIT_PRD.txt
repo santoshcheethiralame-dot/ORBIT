@@ -1,0 +1,193 @@
+
+study planner
+onboarding pages- user sets these up and forgets
+1.semester details - semester name, major, start and end date of semester ( must fill all the details before proceeding to next page)
+2.subjects - add multiple subjects - each with name, code, credits, difficulty level ( must have atleast 1 subject, a subject cant be confirmed if and only if all the details are filled about it ) can add or  delete  subjects.
+3. weekly college timetable -  5 day week with 2 collapsable  weekend options and each day has time slots of 1 hr each from 8 am to  4pm and an  option to delete or add subject tiles  and extend timeslots  if necessary ( can proceed to next page only if  every subject is placed atleast once in a week )
+4. projects -  level of progression ( keep some metrics ),  how much time needed everyday
+
+daily context page  - user see this page everyday as soon as  they  open the app
+1. ask for user mood  ( 3 levels  -  low normal high )
+2. ask for what kinda day (  3 types  -  normal ISA ESA , if exam which and how many days for preperation )
+3. ask for what  spl day  (  bunked, ill, holiday  ) optional
+4. assigment ( none, if any - subject,  title, end date )
+
+plan generator - the main brain
+it generates the daily study plan accounting for all the user inputs
+1. if esa day -  4 units , multiple prep days for the exam, and completely theroretical questions(100marks) , so a lot of studying and revising
+2. if isa day - 2 units, 0.5-1 prep day, major chunk from MCQs(24 marks, usually veryy tricky ) and a lil theory ( very direct and 16 marks )
+3. if holiday - be extra regerous from morning itself with a couple of breaks for food and relaxation ( be generous )
+4. if bunked - same as holiday but just a little less to cover up the classes he missed THAT day  ( no need to cover up classes if bunked during isa/esa )
+5. if sick - be veryy light but not completely nill
+but no matter what the project should be alloted some time everyday ( normal days depending on how much time it takes, 1/3rd of it on esa days and sick/assignment days, none on isas)
+6. if assignment day - the assignment should be prioritzed over everything else
+7. if any  blocks are left unfinished from the previous
+7. the study blocks generated must be variable depending on all these factors COMBINED/INTER-RELATED.
+
+dashboard - the main page of the app ( this comes after taking inputs from daily context )
+should have  all these 
+1. a navigation system for all the pages ( dashboard/home , stats, courses, settings)
+2. a main focus card ( it should have the current subject to be studied and the time for how long the block is and a button that opens the focus session page )
+3. a today's schedule that shows what all subjects are planned for that day, that gets slashed/grayed or smtg after completed and next study block is loaded into the focus card
+4. daily goal  stat - how much of daily blocks are completed ( hours or blocks )
+4. a daily streak thing
+5. a pending assignment card or previous day's rollback subject blocks if any
+6. can choose any order to compelete the subject block -  if clicked on any card on today's schedule it should be the focus card
+7. should have a good greeting message with a small icon of date, mood, day type ( isa/ esa / normal )
+
+
+
+Focus Session - the page where user spends during the entirity of study block for that alloted time ( should be invoked when start focus session button is pressed on focus card in dashboard )
+1. should have a bigggg pomodoro timer in the focus of the page that ticks down till the amount of time given for tthattt block
+2. should have take a break button ( 5 mins of break , end break button )
+3. a finish early button, a pause button
+4. a quit button
+5. a notes icon to quikly take down any notes
+6. the tab should show the countdown
+7. after the timer runs out - should be redirected back to dashboard wheere the next subject block will be loaded into the focus card
+8. should have a fluid/dynamic background but not too distracting
+
+
+
+
+stats page - shows the statistics
+1.  how much time over the week/month/10 days is spent in focus session
+2. top subject of week/month/10days
+3. total no of study blocks completed in a week/month/10 days
+4. how many hours is spent ( in a week/month/10 days ) for each subject
+5. a heatmap ( we will figure out for what )
+6. subject trends - subject, focus score, weekly/10day/monthly trend, change %
+
+courses -  should store everything related to courses
+1. subject name ,  code, credit
+2.  when opened  -  should have unit details, slides,  pdfs, any links for resources, textbooks,  class timings in the week, readniess for exam
+3. should be able to add or delete  subjects ( if any new subjects added   - should update  the timetable too )
+4. any more features 
+
+
+settings page -
+
+1. make any changes
+2. toggle dark  and light mode
+3. export data
+4. reseting data
+5. links or integrations
+
+long term / experimental features -
+1. Smart Scheduling Suggestions  
+
+AI suggests the best study times for each subject based on your personal habits and approaching deadlines.
+
+
+
+2. Spaced Repetition Planner  
+
+Organizes topic reviews at optimal intervals to boost long-term memory retention.
+
+
+
+3. Habit Tracker Integration  
+
+Lets you track your personal habits, such as sleep or exercise, alongside your study goals.
+
+
+
+4. Collaborative Study Groups  
+
+Work together on shared study plans with peers and track group progress in real time.
+
+
+
+5. Voice Commands  
+
+Control study timers and blocks using simple voice commands.
+
+
+
+6. Pomodoro Variations  
+
+Use preset or custom timer intervals for focused study and break sessions.
+
+
+
+7. Gamification System  
+
+Earn points, levels, and badges based on your study activity and achievements.
+
+
+
+8. Study Music Playlists  
+
+Listen to handpicked or integrated playlists to maintain focus while studying.
+
+
+
+9. AI Study Tips  
+
+Get personalized daily study advice based on your usage and progress.
+
+
+
+10. Flashcard Builder  
+
+Create digital flashcards and test yourself interactively.
+
+
+
+11. Mind Map Tool  
+
+Visually organize concepts and topics with digital mind mapping.
+
+
+
+12. Voice Journaling  
+
+Record quick audio reflections after each study session.
+
+
+
+13. Biometric Integration  
+
+Connect with wearables to track your heart rate and other metrics during study.
+
+
+
+14. AI Tutor Chatbot  
+
+Ask questions and get instant AI-driven explanations while studying.
+
+
+
+15. VR Study Environment  
+
+Immerse yourself in a 3D virtual study room using WebXR for enhanced focus.
+
+
+
+16. Calendar Sync  
+
+See and update your study blocks directly in Google Calendar.
+
+
+
+17. Video Lecture Time-stamping  
+
+Mark key spots in study videos for easy access and review later.
+
+
+
+18. Study Buddy Matching  
+
+Find peers studying the same subjects and connect for mutual support.
+
+
+
+19. Resource Library  
+
+Access curated study materials and resources for each subject.
+
+
+
+20. Accessibility Audit Mode  
+
+Scan your app for accessibility issues and get suggestions for improvements.
