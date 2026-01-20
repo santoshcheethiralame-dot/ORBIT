@@ -7,19 +7,19 @@ class OrbitDB extends Dexie {
   projects!: Table<Project, number>;
   schedule!: Table<ScheduleSlot, number>;
   assignments!: Table<Assignment, string>;
-  plans!: Table<DailyPlan, string>; // key is date string YYYY-MM-DD
+  plans!: Table<DailyPlan, string>;
   logs!: Table<StudyLog, number>;
 
   constructor() {
     super("OrbitDB");
-    this.version(3).stores({
+    this.version(4).stores({ 
       semesters: "++id",
       subjects: "++id, name, code",
       projects: "++id, subjectId",
       schedule: "++id, day, slot",
       assignments: "id, subjectId, dueDate",
       plans: "date",
-      logs: "++id, date, subjectId, type"
+      logs: "++id, date, subjectId, type" // notes will be stored but not indexed
     });
   }
 }

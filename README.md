@@ -62,4 +62,7 @@ A distraction-free "Flight Deck" for deep work.
 Orbit was designed to solve the friction of academic planning. It doesn't just track time; it manages your **mental energy**. By using a "Daily Context" model, it adapts to your life, whether you're in a high-stress exam season or a recovery period.
 
 ---
+<<<<<<< HEAD
 **Orbit v2.0.1** | *Designed for the scholars of the digital age.*
+=======
+>>>>>>> af54891 (temp)

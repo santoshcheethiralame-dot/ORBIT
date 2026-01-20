@@ -1,3 +1,6 @@
+// ./types.ts
+export type ID = number | string;
+
 export interface Semester {
   id?: number;
   name: string;
@@ -12,29 +15,55 @@ export interface SyllabusUnit {
   completed: boolean;
 }
 
+export type ResourceType = 'link' | 'pdf' | 'video' | 'slide' | string;
+export type ResourcePriority = 'required' | 'recommended' | 'optional' | string;
+
+export interface Resource {
+  id: string;
+  title: string;
+  url: string;
+  type: ResourceType;
+  priority?: ResourcePriority;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface Grade {
+  id: string;
+  type: string;        // e.g. "ISA-1", "Quiz 3"
+  score: number;
+  maxScore: number;
+  date: string;        // YYYY-MM-DD
+  notes?: string;
+}
+
 export interface Subject {
-  id?: number;
+  id?: number;             // Dexie ++id (numeric)
   name: string;
   code: string;
   credits: number;
-  difficulty: number; // 1-5
-  syllabus?: SyllabusUnit[]; // Updated to be structured
-  color?: string; // UI color helper
+  difficulty: number;      // 1-5
+  syllabus?: SyllabusUnit[];
+  resources?: Resource[];  // ADDED
+  grades?: Grade[];        // ADDED
+  color?: string;
+  notes?: string;
+  createdAt?: string;
 }
 
 export interface Project {
   id?: number;
   name: string;
-  subjectId?: number; // Optional link to subject
-  progression: number; // 0-100
+  subjectId?: number;
+  progression: number;     // 0-100
   effort: 'low' | 'med' | 'high';
   deadline?: string;
 }
 
 export interface ScheduleSlot {
   id?: number;
-  day: number; // 0=Mon, 1=Tue...
-  slot: number; // 0=8-10, 1=10-12, 2=1-3, 3=3-5 (Simplified)
+  day: number;    // 0=Mon...
+  slot: number;   // 0=8-10...
   subjectId: number;
 }
 
@@ -45,7 +74,7 @@ export interface StudyBlock {
   type: 'review' | 'project' | 'prep' | 'recovery' | 'assignment';
   duration: number; // minutes
   completed: boolean;
-  priority: number; // 1 (Highest) to 5 (Lowest)
+  priority: number; // 1..5
   notes?: string;
   assignmentId?: string;
   projectId?: number;
@@ -77,18 +106,11 @@ export interface DailyPlan {
 
 export interface StudyLog {
   id?: number;
+  date: string;          // YYYY-MM-DD (IST effective)
   subjectId: number;
-  duration: number; // minutes
-  date: string;
+  duration: number;      // minutes
+  type: StudyBlock['type'];
   timestamp: number;
   projectId?: number;
-}
-
-export interface StudyLog {
-  id?: number;
-  date: string;       // YYYY-MM-DD
-  subjectId: number;
-  duration: number;   // minutes
-  type: string;       // <--- Add this line (matches StudyBlock.type)
-  timestamp: number;
+  notes?: string;
 }

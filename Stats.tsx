@@ -2,7 +2,7 @@ import React from "react";
 import { StudyLog, Subject, Project } from "./types";
 import { GlassCard } from "./components";
 import { PageHeader } from "./PageHeader";
-import { Clock, Check, Briefcase } from "lucide-react";
+import { Clock, Check, Briefcase, FileText, Download } from "lucide-react";
 import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
 
@@ -33,6 +33,46 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       if (dailyMins < 120) return 2;
       return 3;
     });
+
+  // Export session notes to a plaintext file
+  const exportNotes = () => {
+    const notesLogs = logs.filter((l) => l.notes && l.notes.trim());
+    if (notesLogs.length === 0) {
+      alert("No session notes to export yet!");
+      return;
+    }
+
+    const notesText = notesLogs
+      .slice() // shallow copy
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .map((l) => {
+        const subject = subjects.find((s) => s.id === l.subjectId);
+        return `═══════════════════════════════════════════════
+📅 ${l.date} | ⏱️ ${l.duration}min | 📚 ${subject?.name || "Unknown"}
+───────────────────────────────────────────────
+${l.notes}
+`;
+      })
+      .join("\n\n");
+
+    const header = `ORBIT SESSION NOTES EXPORT
+Generated: ${new Date().toLocaleString()}
+Total Sessions with Notes: ${notesLogs.length}
+
+═══════════════════════════════════════════════
+
+`;
+
+    const blob = new Blob([header + notesText], { type: "text/plain; charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `orbit-notes-${new Date().toISOString().split("T")[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="pb-24 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-6 animate-fade-in">
@@ -87,6 +127,27 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
                   />
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* Session Notes Card (Export) */}
+          <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-6 hover:border-purple-500/20 transition-all duration-300 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
+            <div className="relative z-10">
+              <h3 className="text-sm font-bold text-zinc-400 mb-4 uppercase tracking-wider group-hover:text-purple-300 transition-colors flex items-center gap-2">
+                <FileText size={16} />
+                Session Notes
+              </h3>
+              <p className="text-xs text-zinc-500 mb-4">
+                {logs.filter((l) => l.notes && l.notes.trim()).length} sessions with notes recorded
+              </p>
+              <button
+                onClick={exportNotes}
+                className="w-full py-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 rounded-lg transition-all font-medium text-sm border border-purple-500/20 hover:border-purple-500/40 flex items-center justify-center gap-2"
+              >
+                <Download size={14} />
+                Export All Notes
+              </button>
             </div>
           </div>
         </div>

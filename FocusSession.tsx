@@ -23,7 +23,7 @@ export const FocusSession = ({
   onExit,
 }: {
   block: StudyBlock;
-  onComplete: (elapsedMin?: number) => void;
+  onComplete: (elapsedMin?: number, sessionNotes?: string) => void; // UPDATED
   onExit: () => void;
 }) => {
   const [timeLeft, setTimeLeft] = useState(block.duration * 60);
@@ -52,7 +52,7 @@ export const FocusSession = ({
         setTimeLeft((t) => {
           if (t <= 1) {
             setIsActive(false);
-            onComplete(block.duration);
+            onComplete(block.duration, notes); // PASS NOTES HERE
             return 0;
           }
           return t - 1;
@@ -61,7 +61,7 @@ export const FocusSession = ({
     }, 1000);
 
     return () => clearInterval(id);
-  }, [isActive, isBreak, block.duration, onComplete]);
+  }, [isActive, isBreak, block.duration, notes, onComplete]); // ADDED notes to dependencies
 
   /* ---------------- Accessibility & Escape handling for modal ---------------- */
   useEffect(() => {
@@ -114,7 +114,7 @@ export const FocusSession = ({
       1,
       Math.round((block.duration * 60 - timeLeft) / 60)
     );
-    onComplete(elapsed);
+    onComplete(elapsed, notes); // PASS NOTES HERE
   };
 
   const formatTime = (s: number) =>

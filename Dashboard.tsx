@@ -28,55 +28,78 @@ export const Dashboard = ({
   onStartFocus,
   subjects,
   logs,
+  onRefresh, // Added this prop to trigger re-fetches in index.tsx
 }: {
   plan: DailyPlan;
   onStartFocus: (b: StudyBlock) => void;
   subjects: Subject[];
   logs: StudyLog[];
+  onRefresh: () => void;
 }) => {
   const [backlog, setBacklog] = useState<StudyBlock[]>([]);
   const [showBacklog, setShowBacklog] = useState(false);
   const [animatedProgress, setAnimatedProgress] = useState(0);
   const [animatedStreak, setAnimatedStreak] = useState(0);
 
+  const getISTEffectiveDate = () => {
+    const istNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    if (istNow.getHours() < 2) {
+      istNow.setDate(istNow.getDate() - 1);
+    }
+    return istNow.toISOString().split('T')[0];
+  };
+
   // Fetch backlog
+  // Inside Dashboard.tsx
   const fetchBacklog = async () => {
     const allPlans = await db.plans.toArray();
-    const today = new Date().toISOString().split("T")[0];
-    const incomplete: StudyBlock[] = [];
+    // Use the same IST logic as index.tsx here
+    const today = getISTEffectiveDate();
+    const incomplete: any[] = [];
 
     allPlans.forEach((p) => {
       if (p.date < today) {
         p.blocks.forEach((b) => {
-          if (!b.completed) incomplete.push(b);
+          // Store the source date so we can find it later
+          if (!b.completed) incomplete.push({ ...b, sourceDate: p.date });
         });
       }
     });
     setBacklog(incomplete);
   };
-
   useEffect(() => {
     fetchBacklog();
   }, [plan]);
 
-  const addToToday = async (block: StudyBlock) => {
+  const addToToday = async (block: any) => {
     try {
-      const todayStr = new Date().toISOString().split("T")[0];
+      const todayStr = getISTEffectiveDate();
+
+      // 1. Mark as completed in the ORIGINAL plan so it doesn't stay in backlog
+      const originalPlan = await db.plans.get(block.sourceDate);
+      if (originalPlan) {
+        const updatedOrigBlocks = originalPlan.blocks.map(b =>
+          b.id === block.id ? { ...b, completed: true } : b
+        );
+        await db.plans.put({ ...originalPlan, blocks: updatedOrigBlocks });
+      }
+
+      // 2. Add to Today's plan (existing logic)
       const currentPlan = await db.plans.get(todayStr);
+      const newBlock = { ...block, id: Math.random().toString(36).substr(2, 9), completed: false };
+      delete newBlock.sourceDate; // Clean up the helper property
 
       if (!currentPlan) {
-        const newBlock = { ...block, id: Math.random().toString(36).substr(2, 9) };
         await db.plans.put({ date: todayStr, blocks: [newBlock], context: plan.context });
       } else {
-        const newBlock = { ...block, id: Math.random().toString(36).substr(2, 9) };
-        const updatedBlocks = [...currentPlan.blocks, newBlock];
-        await db.plans.put({ ...currentPlan, blocks: updatedBlocks });
+        await db.plans.put({ ...currentPlan, blocks: [...currentPlan.blocks, newBlock] });
       }
 
       setBacklog((prev) => prev.filter((b) => b.id !== block.id));
-      window.location.reload();
+      // Optional: instead of reload, just refresh state
+      // window.location.reload(); 
     } catch (err) {
-      console.error("Failed to add backlog to today", err);
+      console.error("Failed to migrate backlog item", err);
     }
   };
 
@@ -91,7 +114,7 @@ export const Dashboard = ({
       );
 
       await db.plans.put({ ...currentPlan, blocks: updatedBlocks });
-      window.location.reload();
+      onRefresh();
     } catch (err) {
       console.error("Failed to mark complete", err);
     }
@@ -118,7 +141,7 @@ export const Dashboard = ({
       const moved = { ...block, id: Math.random().toString(36).substr(2, 9), completed: false };
       await db.plans.put({ ...tomorrowPlan, blocks: [...tomorrowPlan.blocks, moved] });
 
-      window.location.reload();
+      onRefresh();
     } catch (err) {
       console.error("Failed to snooze block", err);
     }
@@ -155,6 +178,7 @@ export const Dashboard = ({
     const progressTimer = setInterval(() => {
       setAnimatedProgress((prev) => {
         if (prev < progressPercent) return Math.min(prev + 2, progressPercent);
+        if (prev > progressPercent) return progressPercent; // Handle downward changes
         return prev;
       });
     }, 20);
@@ -172,7 +196,6 @@ export const Dashboard = ({
     };
   }, [progressPercent, streak]);
 
-  // Get greeting
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good Morning";
@@ -181,7 +204,6 @@ export const Dashboard = ({
     return "Burning the Midnight Oil";
   };
 
-  // Get mood icon
   const getMoodIcon = () => {
     switch (plan.context.mood) {
       case "high":
@@ -193,7 +215,6 @@ export const Dashboard = ({
     }
   };
 
-  // Get day type badge
   const getDayTypeBadge = () => {
     if (plan.context.dayType === "esa") {
       return (
@@ -212,7 +233,6 @@ export const Dashboard = ({
     return null;
   };
 
-  // Calculate time until completion
   const estimatedCompletionTime = () => {
     const remainingMinutes = plan.blocks
       .filter((b) => !b.completed)
@@ -249,7 +269,6 @@ export const Dashboard = ({
             </div>
           </div>
 
-          {/* Quick Stats */}
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-2">
               <Target size={16} className="text-indigo-400" />
@@ -265,10 +284,9 @@ export const Dashboard = ({
         </div>
       </div>
 
-      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
-        {/* Hero Focus Card - Enhanced */}
+        {/* Hero Focus Card */}
         <div className="lg:col-span-8 flex">
           {nextBlock ? (
             <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl shadow-2xl transition-all duration-300 hover:border-indigo-500/30 hover:shadow-indigo-500/10 group flex-1">
@@ -305,8 +323,6 @@ export const Dashboard = ({
               </div>
 
               <div className="relative z-10 p-6 h-full flex flex-col">
-
-                {/* Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-3">
@@ -335,31 +351,24 @@ export const Dashboard = ({
                   </div>
                 </div>
 
-                {/* Context Badges */}
-                {(nextBlock.type === "assignment" || nextBlock.type === "review" || nextBlock.type === "project" || plan.context.dayType !== "normal") && (
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {nextBlock.type === "assignment" && (
-                      <span className="text-xs px-2 py-1 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 flex items-center gap-1">
-                        <Zap size={12} />
-                        Priority
-                      </span>
-                    )}
-                    {nextBlock.type === "review" && (
-                      <span className="text-xs px-2 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1">
-                        <TrendingUp size={12} />
-                        Retention
-                      </span>
-                    )}
-                    {nextBlock.type === "project" && (
-                      <span className="text-xs px-2 py-1 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center gap-1">
-                        <Sparkles size={12} />
-                        Creative
-                      </span>
-                    )}
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {nextBlock.type === "assignment" && (
+                    <span className="text-xs px-2 py-1 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 flex items-center gap-1">
+                      <Zap size={12} /> Priority
+                    </span>
+                  )}
+                  {nextBlock.type === "review" && (
+                    <span className="text-xs px-2 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1">
+                      <TrendingUp size={12} /> Retention
+                    </span>
+                  )}
+                  {nextBlock.type === "project" && (
+                    <span className="text-xs px-2 py-1 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center gap-1">
+                      <Sparkles size={12} /> Creative
+                    </span>
+                  )}
+                </div>
 
-                {/* CTA Button */}
                 <button
                   onClick={() => onStartFocus(nextBlock)}
                   className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-white text-black rounded-xl font-bold text-base hover:bg-indigo-500 hover:text-white hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/20 active:scale-[0.98] transition-all duration-300 mt-auto group/btn"
@@ -368,8 +377,6 @@ export const Dashboard = ({
                   <span>Initialize Focus</span>
                 </button>
               </div>
-
-              {/* Subtle gradient overlay */}
               <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 via-transparent to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
             </div>
           ) : (
@@ -387,10 +394,8 @@ export const Dashboard = ({
           )}
         </div>
 
-        {/* Stats Column - Enhanced */}
+        {/* Stats Column */}
         <div className="lg:col-span-4 flex flex-col gap-5">
-
-          {/* Progress Card with Animation */}
           <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
             <div className="relative z-10">
@@ -403,7 +408,6 @@ export const Dashboard = ({
                   {animatedProgress}%
                 </span>
               </div>
-
               <div className="relative w-full h-3 bg-zinc-900/50 rounded-full overflow-hidden mb-2.5 shadow-inner">
                 <div
                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-500 to-cyan-500 rounded-full transition-all duration-700 ease-out"
@@ -412,20 +416,17 @@ export const Dashboard = ({
                   <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
                 </div>
               </div>
-
               <div className="text-[11px] text-zinc-500 flex items-center justify-between">
                 <span>{completedCount} of {totalCount} blocks</span>
                 {completedCount > 0 && (
                   <span className="text-emerald-400 flex items-center gap-1">
-                    <TrendingUp size={10} />
-                    +{completedCount}
+                    <TrendingUp size={10} /> +{completedCount}
                   </span>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Streak Card with Animation */}
           <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.03] to-transparent"></div>
             <div className="relative z-10">
@@ -438,27 +439,19 @@ export const Dashboard = ({
                   {animatedStreak}
                 </span>
               </div>
-
               <div className="flex items-center gap-1 mb-2">
                 {[...Array(7)].map((_, i) => (
                   <div
                     key={i}
-                    className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${i < Math.min(animatedStreak, 7)
-                        ? "bg-gradient-to-r from-orange-500 to-red-500"
-                        : "bg-zinc-800"
-                      }`}
+                    className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${i < Math.min(animatedStreak, 7) ? "bg-gradient-to-r from-orange-500 to-red-500" : "bg-zinc-800"}`}
                     style={{ transitionDelay: `${i * 50}ms` }}
                   ></div>
                 ))}
               </div>
-
-              <div className="text-[11px] text-orange-500/60 uppercase">
-                day{animatedStreak !== 1 ? 's' : ''} • Don't break it
-              </div>
+              <div className="text-[11px] text-orange-500/60 uppercase">day{animatedStreak !== 1 ? 's' : ''} • Don't break it</div>
             </div>
           </div>
 
-          {/* Backlog Card */}
           {backlog.length > 0 && (
             <div
               onClick={() => setShowBacklog(!showBacklog)}
@@ -493,34 +486,16 @@ export const Dashboard = ({
                   <Inbox size={18} className="text-yellow-400" />
                   <span>Backlog Items</span>
                 </h3>
-                <button
-                  onClick={() => setShowBacklog(false)}
-                  className="p-2 hover:bg-zinc-800 rounded-lg transition-all hover:scale-110 active:scale-95"
-                >
-                  <X size={16} />
-                </button>
+                <button onClick={() => setShowBacklog(false)} className="p-2 hover:bg-zinc-800 rounded-lg transition-all hover:scale-110 active:scale-95"><X size={16} /></button>
               </div>
-
               <div className="space-y-2.5 max-h-80 overflow-y-auto pr-2">
                 {backlog.map((b) => (
-                  <div
-                    key={b.id}
-                    className="flex items-center justify-between p-3.5 bg-zinc-900/60 rounded-xl border border-zinc-800 hover:border-yellow-500/30 hover:bg-zinc-900/80 transition-all group"
-                  >
+                  <div key={b.id} className="flex items-center justify-between p-3.5 bg-zinc-900/60 rounded-xl border border-zinc-800 hover:border-yellow-500/30 hover:bg-zinc-900/80 transition-all group">
                     <div className="flex-1 min-w-0 mr-3">
                       <div className="font-bold text-zinc-200 truncate group-hover:text-white transition-colors">{b.subjectName}</div>
-                      <div className="text-[11px] text-zinc-500 uppercase mt-0.5">
-                        {b.type} • {b.duration}m
-                      </div>
+                      <div className="text-[11px] text-zinc-500 uppercase mt-0.5">{b.type} • {b.duration}m</div>
                     </div>
-
-                    <button
-                      onClick={() => addToToday(b)}
-                      className="flex items-center gap-2 px-3.5 py-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-300 rounded-lg transition-all font-medium text-sm hover:scale-105 active:scale-95"
-                    >
-                      <PlusCircle size={14} />
-                      <span className="hidden sm:inline">Add</span>
-                    </button>
+                    <button onClick={() => addToToday(b)} className="flex items-center gap-2 px-3.5 py-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-300 rounded-lg transition-all font-medium text-sm hover:scale-105 active:scale-95"><PlusCircle size={14} /><span className="hidden sm:inline">Add</span></button>
                   </div>
                 ))}
               </div>
@@ -539,39 +514,18 @@ export const Dashboard = ({
                 <Calendar size={18} className="text-indigo-400" />
                 <span>Today's Flight Plan</span>
               </h3>
-              <div className="text-xs text-zinc-500 font-mono">
-                {completedCount}/{totalCount} complete
-              </div>
+              <div className="text-xs text-zinc-500 font-mono">{completedCount}/{totalCount} complete</div>
             </div>
 
             <div className="space-y-2.5">
               {plan.blocks.map((b, i) => {
                 const isNext = nextBlock?.id === b.id;
                 const isCompleted = b.completed;
-
                 return (
-                  <div
-                    key={b.id}
-                    className={`group relative flex items-center gap-3.5 p-3.5 rounded-xl border transition-all duration-200 ${isCompleted
-                        ? "bg-zinc-900/30 border-zinc-800/50 opacity-60"
-                        : isNext
-                          ? "bg-indigo-500/5 border-indigo-500/30 shadow-lg shadow-indigo-500/5"
-                          : "bg-zinc-900/40 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60"
-                      }`}
-                  >
-                    {/* Number/Check */}
-                    <div
-                      className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm transition-all ${isCompleted
-                          ? "bg-zinc-800 text-zinc-600"
-                          : isNext
-                            ? "bg-indigo-600 text-white group-hover:scale-110"
-                            : "bg-zinc-800 text-zinc-400 group-hover:scale-105"
-                        }`}
-                    >
+                  <div key={b.id} className={`group relative flex items-center gap-3.5 p-3.5 rounded-xl border transition-all duration-200 ${isCompleted ? "bg-zinc-900/30 border-zinc-800/50 opacity-60" : isNext ? "bg-indigo-500/5 border-indigo-500/30 shadow-lg shadow-indigo-500/5" : "bg-zinc-900/40 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60"}`}>
+                    <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm transition-all ${isCompleted ? "bg-zinc-800 text-zinc-600" : isNext ? "bg-indigo-600 text-white group-hover:scale-110" : "bg-zinc-800 text-zinc-400 group-hover:scale-105"}`}>
                       {isCompleted ? <Check size={16} /> : i + 1}
                     </div>
-
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className={`font-bold text-sm truncate transition-colors ${isCompleted ? "line-through decoration-zinc-700 text-zinc-600" : "group-hover:text-white"}`}>
                         {b.subjectName}
@@ -580,49 +534,17 @@ export const Dashboard = ({
                         {b.type} • {b.duration}m {b.notes && `• ${b.notes}`}
                       </div>
                     </div>
-
-                    {/* Actions */}
                     {!isCompleted && (
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
-                        <button
-                          onClick={() => onStartFocus(b)}
-                          className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 rounded-lg transition-all font-medium text-xs hover:scale-105 active:scale-95"
-                        >
-                          <Play size={14} />
-                          <span>Start</span>
-                        </button>
-
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (confirm("Mark as complete?")) await markComplete(b.id);
-                          }}
-                          className="p-2 hover:bg-emerald-500/10 text-emerald-400 rounded-lg transition-all hover:scale-110 active:scale-95"
-                          title="Mark complete"
-                        >
-                          <CheckCircle size={18} />
-                        </button>
-
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (confirm("Move to tomorrow?")) await snoozeBlock(b.id);
-                          }}
-                          className="p-2 hover:bg-yellow-500/10 text-yellow-400 rounded-lg transition-all hover:scale-110 active:scale-95"
-                          title="Snooze to tomorrow"
-                        >
-                          <ArrowRight size={18} />
-                        </button>
+                        <button onClick={() => onStartFocus(b)} className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 rounded-lg transition-all font-medium text-xs hover:scale-105 active:scale-95"><Play size={14} /><span>Start</span></button>
+                        <button onClick={async (e) => { e.stopPropagation(); if (confirm("Mark as complete?")) await markComplete(b.id); }} className="p-2 hover:bg-emerald-500/10 text-emerald-400 rounded-lg transition-all hover:scale-110 active:scale-95" title="Mark complete"><CheckCircle size={18} /></button>
+                        <button onClick={async (e) => { e.stopPropagation(); if (confirm("Move to tomorrow?")) await snoozeBlock(b.id); }} className="p-2 hover:bg-yellow-500/10 text-yellow-400 rounded-lg transition-all hover:scale-110 active:scale-95" title="Snooze to tomorrow"><ArrowRight size={18} /></button>
                       </div>
                     )}
-
-                    {isCompleted && (
-                      <div className="text-[11px] text-zinc-600 font-mono px-2.5 uppercase">Done</div>
-                    )}
+                    {isCompleted && <div className="text-[11px] text-zinc-600 font-mono px-2.5 uppercase">Done</div>}
                   </div>
                 );
               })}
-
               {plan.blocks.length === 0 && (
                 <div className="text-center py-12 text-zinc-600">
                   <p className="mb-1 text-sm">No blocks scheduled for today.</p>
@@ -634,7 +556,6 @@ export const Dashboard = ({
         </div>
       </div>
 
-      {/* Quick Break Suggestion - Subtle Footer */}
       <div className="flex justify-center pt-4">
         <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/5 text-zinc-500 text-xs">
           <Coffee size={14} />
