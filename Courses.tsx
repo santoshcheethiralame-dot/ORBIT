@@ -1,747 +1,533 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  CheckSquare,
-  Square,
-  Plus,
   BookOpen,
-  Clock,
   Award,
   FileText,
   Upload,
   Trash2,
   X,
   Search,
-  TrendingUp,
-  Calendar,
-  Briefcase,
-  ExternalLink,
+  Target,
+  Clock,
   Download,
-  Edit2,
-  Save,
-  Target
+  File,
+  CheckSquare,
+  Square,
 } from "lucide-react";
+import { db } from "./db";
+import { useLiveQuery } from "dexie-react-hooks";
 
-// Mock DB and types for demonstration
-const db = {
-  subjects: {
-    get: async (id) => mockSubjects.find(s => s.id === id),
-    update: async (id, data) => {
-      const idx = mockSubjects.findIndex(s => s.id === id);
-      if (idx >= 0) mockSubjects[idx] = { ...mockSubjects[idx], ...data };
-    },
-    delete: async (id) => {
-      mockSubjects = mockSubjects.filter(s => s.id !== id);
-    },
-    toArray: async () => mockSubjects
-  },
-  assignments: {
-    toArray: async () => mockAssignments,
-    where: (field) => ({
-      equals: (val) => ({
-        delete: async () => {
-          mockAssignments = mockAssignments.filter(a => a[field] !== val);
-        }
-      })
-    })
-  },
-  projects: {
-    toArray: async () => mockProjects,
-    where: (field) => ({
-      equals: (val) => ({
-        delete: async () => {
-          mockProjects = mockProjects.filter(p => p[field] !== val);
-        }
-      })
-    })
-  },
-  logs: {
-    toArray: async () => mockLogs,
-    where: (field) => ({
-      equals: (val) => ({
-        delete: async () => {
-          mockLogs = mockLogs.filter(l => l[field] !== val);
-        }
-      })
-    }),
-    add: async (log) => mockLogs.push({ ...log, id: Date.now() })
-  },
-  schedule: {
-    where: (field) => ({
-      equals: (val) => ({
-        delete: async () => {
-          mockSchedule = mockSchedule.filter(s => s[field] !== val);
-        }
-      })
-    })
-  },
-  transaction: async (mode, tables, callback) => {
-    await callback();
-  }
+/* ====================== HELPERS ====================== */
+
+const base64ToBlobUrl = (dataUrl: string, mime: string) => {
+  const base64 = dataUrl.split(",")[1];
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  return URL.createObjectURL(new Blob([bytes], { type: mime }));
 };
 
-let mockSubjects = [
-  {
-    id: 1,
-    name: "Computer Intelligence & Engineering",
-    code: "CS006",
-    credits: 4,
-    difficulty: 4,
-    syllabus: [
-      { id: "u1", title: "Introduction to AI", completed: true },
-      { id: "u2", title: "Machine Learning Basics", completed: true },
-      { id: "u3", title: "Neural Networks", completed: false },
-      { id: "u4", title: "Deep Learning", completed: false }
-    ],
-    resources: [],
-    grades: [
-      { id: "g1", type: "Quiz 1", score: 18, maxScore: 20, date: "2026-01-15" }
-    ]
-  },
-  {
-    id: 2,
-    name: "Data Structures & Algorithms",
-    code: "CS201",
-    credits: 4,
-    difficulty: 5,
-    syllabus: [
-      { id: "u1", title: "Arrays & Linked Lists", completed: true },
-      { id: "u2", title: "Stacks & Queues", completed: false }
-    ],
-    resources: [],
-    grades: []
-  },
-  {
-    id: 3,
-    name: "Web Development",
-    code: "CS301",
-    credits: 3,
-    difficulty: 2,
-    syllabus: [],
-    resources: [],
-    grades: []
-  }
-];
+const isOfficeDoc = (type: string) =>
+  type.includes("presentation") ||
+  type.includes("msword") ||
+  type.includes("officedocument");
 
-let mockAssignments = [];
-let mockProjects = [];
-let mockLogs = [
-  { id: 1, subjectId: 1, duration: 45, date: "2026-01-20", timestamp: Date.now() - 86400000 },
-  { id: 2, subjectId: 1, duration: 60, date: "2026-01-19", timestamp: Date.now() - 172800000 },
-  { id: 3, subjectId: 2, duration: 30, date: "2026-01-20", timestamp: Date.now() - 86400000 }
-];
-let mockSchedule = [];
+/* ===================================================== */
 
-export  function CoursesView({ subjects: propSubjects, logs: propLogs, onRefresh }) {
-  // Use props if provided, otherwise use mock data
-  const [subjects, setSubjects] = useState(propSubjects || mockSubjects);
-  const [logs, setLogs] = useState(propLogs || mockLogs);
-  const [assignments, setAssignments] = useState([]);
-  const [projects, setProjects] = useState([]);
+export default function CoursesView({
+  subjects: propSubjects,
+  logs: propLogs,
+}: {
+  subjects?: any[];
+  logs?: any[];
+}) {
+  const subjects =
+    useLiveQuery(() => db.subjects.toArray()) || propSubjects || [];
+  const logs = useLiveQuery(() => db.logs.toArray()) || propLogs || [];
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState("name");
-  const [selectedSubjectId, setSelectedSubjectId] = useState(null);
-  const [subjectDetail, setSubjectDetail] = useState(null);
-  const [gradeInputs, setGradeInputs] = useState({ type: "", score: "", maxScore: "" });
-  const [uploading, setUploading] = useState(false);
+  const [sortBy, setSortBy] = useState<"name" | "difficulty">("name");
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [selectedResource, setSelectedResource] = useState<any>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [spinClose, setSpinClose] = useState(false);
+  const [newUnit, setNewUnit] = useState("");
 
+  const selectedSubject = subjects.find((s) => s.id === selectedSubjectId);
+
+  /* ---------------- BODY LOCK ---------------- */
   useEffect(() => {
-    const fetchMeta = async () => {
-      const a = await db.assignments.toArray();
-      const p = await db.projects.toArray();
-      setAssignments(a);
-      setProjects(p);
+    document.body.style.overflow =
+      selectedSubject || selectedResource ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
     };
-    fetchMeta();
-  }, []);
+  }, [selectedSubject, selectedResource]);
 
+  /* ---------------- ESC ---------------- */
   useEffect(() => {
-    if (selectedSubjectId == null) {
-      setSubjectDetail(null);
-      return;
-    }
-    let mounted = true;
-    (async () => {
-      const s = await db.subjects.get(selectedSubjectId);
-      if (!mounted) return;
-      setSubjectDetail(s || null);
-      setGradeInputs({ type: "", score: "", maxScore: "" });
-    })();
-    return () => { mounted = false; };
-  }, [selectedSubjectId]);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (selectedResource) setSelectedResource(null);
+        else setSelectedSubjectId(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedResource]);
 
-  const filteredSubjects = useMemo(() => {
-    return subjects
-      .filter(s =>
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.code.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-      .sort((a, b) =>
-        sortBy === "name" ? a.name.localeCompare(b.name) : (b.difficulty || 0) - (a.difficulty || 0)
-      );
-  }, [subjects, searchQuery, sortBy]);
+  /* ---------------- PREVIEW URL ---------------- */
+  useEffect(() => {
+    if (!selectedResource) return;
+    const url = base64ToBlobUrl(
+      selectedResource.fileData,
+      selectedResource.fileType
+    );
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [selectedResource]);
+
+  /* ---------------- HELPERS ---------------- */
 
   const themes = [
-    { text: "text-indigo-400", bg: "bg-indigo-500", border: "border-indigo-500/20" },
-    { text: "text-emerald-400", bg: "bg-emerald-500", border: "border-emerald-500/20" },
-    { text: "text-amber-400", bg: "bg-amber-500", border: "border-amber-500/20" },
-    { text: "text-rose-400", bg: "bg-rose-500", border: "border-rose-500/20" },
-    { text: "text-cyan-400", bg: "bg-cyan-500", border: "border-cyan-500/20" }
+    { text: "text-indigo-400", bg: "bg-indigo-500" },
+    { text: "text-emerald-400", bg: "bg-emerald-500" },
+    { text: "text-amber-400", bg: "bg-amber-500" },
+    { text: "text-rose-400", bg: "bg-rose-500" },
+    { text: "text-cyan-400", bg: "bg-cyan-500" },
   ];
 
-  const getInitials = (name) => {
-    const parts = name.split(" ");
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return name.substring(0, 2).toUpperCase();
+  const getInitials = (name: string) =>
+    name
+      .split(" ")
+      .slice(0, 2)
+      .map((p) => p[0])
+      .join("")
+      .toUpperCase();
+
+  const computeProgress = (s: any) => {
+    const total = s.syllabus?.length || 0;
+    const done = (s.syllabus || []).filter((u: any) => u.completed).length;
+    return total ? Math.round((done / total) * 100) : 0;
   };
 
-  const computeProgress = (sub) => {
-    if (!sub.syllabus || sub.syllabus.length === 0) return 0;
-    const done = sub.syllabus.filter(u => u.completed).length;
-    return Math.round((done / sub.syllabus.length) * 100);
+  const getTotalHours = (id: string) =>
+    Math.round(
+      (logs
+        .filter((l: any) => l.subjectId === id)
+        .reduce((a: number, b: any) => a + (b.duration || 0), 0) /
+        60) *
+      10
+    ) / 10;
+
+  /* ---------------- FILE SAVE ---------------- */
+
+  const processAndSaveFile = async (file: File) => {
+    if (!selectedSubject) return;
+
+    const reader = new FileReader();
+    const base64 = await new Promise<string>((res, rej) => {
+      reader.onload = () => res(reader.result as string);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+
+    await db.subjects.update(selectedSubject.id, {
+      resources: [
+        ...(selectedSubject.resources || []),
+        {
+          id: crypto.randomUUID(),
+          title: file.name,
+          fileData: base64,
+          fileType: file.type,
+          fileSize: file.size,
+          dateAdded: new Date().toISOString().split("T")[0],
+        },
+      ],
+    });
   };
 
-  const getTotalHours = (subjectId) => {
-    const totalMinutes = logs.filter(l => l.subjectId === subjectId).reduce((sum, log) => sum + (log.duration || 0), 0);
-    return Math.round((totalMinutes / 60) * 10) / 10;
-  };
+  const openExternally = (r: any) => {
+    const url = base64ToBlobUrl(r.fileData, r.fileType);
 
-  const refreshSubjectDetail = async () => {
-    if (!subjectDetail?.id) return;
-    const s = await db.subjects.get(subjectDetail.id);
-    setSubjectDetail(s || null);
-    setSubjects(await db.subjects.toArray());
-    if (onRefresh) onRefresh();
-  };
+    // For Office docs, use Google Docs Viewer
+    if (isOfficeDoc(r.fileType)) {
+      // Create a temporary download to get the file URL
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = r.title;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-  const toggleSyllabusUnit = async (subId, unitId) => {
-    const s = await db.subjects.get(subId);
-    if (!s) return;
-    const updatedSyllabus = (s.syllabus || []).map(u => u.id === unitId ? { ...u, completed: !u.completed } : u);
-    await db.subjects.update(subId, { syllabus: updatedSyllabus });
-    await refreshSubjectDetail();
-  };
-
-  const addGrade = async () => {
-    if (!subjectDetail || !gradeInputs.type || !gradeInputs.score) return;
-    const grade = {
-      id: crypto.randomUUID(),
-      type: gradeInputs.type,
-      score: Number(gradeInputs.score),
-      maxScore: Number(gradeInputs.maxScore) || 100,
-      date: new Date().toISOString().split("T")[0]
-    };
-    await db.subjects.update(subjectDetail.id, { grades: [...(subjectDetail.grades || []), grade] });
-    setGradeInputs({ type: "", score: "", maxScore: "" });
-    await refreshSubjectDetail();
-  };
-
-  const deleteGrade = async (gradeId) => {
-    if (!subjectDetail) return;
-    const updated = (subjectDetail.grades || []).filter(g => g.id !== gradeId);
-    await db.subjects.update(subjectDetail.id, { grades: updated });
-    await refreshSubjectDetail();
-  };
-
-  const processAndSaveFile = async (file) => {
-    if (!subjectDetail) return;
-    setUploading(true);
-    try {
-      const reader = new FileReader();
-      const base64 = await new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const newRes = {
-        id: crypto.randomUUID(),
-        title: file.name,
-        url: "#",
-        fileData: base64,
-        fileType: file.type,
-        fileSize: file.size,
-        dateAdded: new Date().toISOString().split("T")[0]
-      };
-      const current = subjectDetail.resources || [];
-      await db.subjects.update(subjectDetail.id, { resources: [...current, newRes] });
-      await refreshSubjectDetail();
-    } catch (err) {
-      console.error("File save failed", err);
-    } finally {
-      setUploading(false);
+      // Then open in Google Docs viewer (requires the file to be accessible via URL)
+      // Alternative: Show a message to user
+      alert(`Office documents can't be previewed in browser. File will be downloaded. You can open it with Microsoft Office or Google Docs.`);
+    } else {
+      window.open(url, "_blank");
     }
   };
+  /* =====================================================
+     RESOURCE VIEWER
+  ===================================================== */
 
-  const handleFileInput = async (e) => {
-    const files = e.target.files;
-    if (!files || !subjectDetail) return;
-    for (let i = 0; i < files.length; i++) {
-      await processAndSaveFile(files[i]);
-    }
-    e.currentTarget.value = "";
-  };
+  if (selectedResource) {
+    const canPreview =
+      selectedResource.fileType.includes("pdf") ||
+      selectedResource.fileType.startsWith("image") ||
+      selectedResource.fileType.startsWith("video");
 
-  const downloadResource = (res) => {
-    if (!res) return;
-    if (res.fileData) {
-      const a = document.createElement("a");
-      a.href = res.fileData;
-      a.download = res.title;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } else if (res.url && res.url !== "#") {
-      window.open(res.url, "_blank", "noreferrer");
-    }
-  };
+    return (
+      <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center">
+        <button
+          onClick={() => {
+            setSpinClose(true);
+            setTimeout(() => {
+              setSpinClose(false);
+              setSelectedResource(null);
+            }, 250);
+          }}
+          className={`fixed top-6 right-6 p-3 bg-white/10 rounded-xl transition-transform ${spinClose ? "rotate-180 scale-90" : ""
+            }`}
+        >
+          <X />
+        </button>
 
-  const deleteResource = async (resourceId) => {
-    if (!subjectDetail) return;
-    const updated = (subjectDetail.resources || []).filter(r => r.id !== resourceId);
-    await db.subjects.update(subjectDetail.id, { resources: updated });
-    await refreshSubjectDetail();
-  };
+        <div className="w-full max-w-6xl h-[90vh] bg-zinc-900 rounded-2xl border border-white/10 flex flex-col">
+          <div className="p-4 border-b border-white/10 flex justify-between">
+            <div className="font-bold truncate">
+              {selectedResource.title}
+            </div>
+            <button
+              onClick={() => openExternally(selectedResource)}
+              className="px-4 py-2 bg-indigo-500/20 rounded-lg"
+            >
+              Open in new tab
+            </button>
+          </div>
 
-  const deleteSubject = async (subId) => {
-    const s = await db.subjects.get(subId);
-    if (!s) return;
-    const subjectName = s.name;
-    const confirmText = `Type "${subjectName}" to confirm deletion:`;
-    const userInput = prompt(confirmText);
-    if (userInput !== subjectName) {
-      alert("Subject name did not match. Deletion cancelled.");
-      return;
-    }
-
-    try {
-      await db.transaction("rw", [db.subjects, db.assignments, db.projects, db.schedule, db.logs], async () => {
-        await db.subjects.delete(subId);
-        await db.assignments.where("subjectId").equals(subId).delete();
-        await db.projects.where("subjectId").equals(subId).delete();
-        await db.schedule.where("subjectId").equals(subId).delete();
-        await db.logs.where("subjectId").equals(subId).delete();
-      });
-      setSelectedSubjectId(null);
-      setSubjectDetail(null);
-      setSubjects(await db.subjects.toArray());
-      if (onRefresh) onRefresh();
-      alert(`"${subjectName}" has been permanently deleted.`);
-    } catch (err) {
-      console.error("Failed to delete subject:", err);
-      alert("An error occurred. Please try again.");
-    }
-  };
-
-  const openSubject = (id) => setSelectedSubjectId(id);
-  const closeDetail = () => {
-    setSelectedSubjectId(null);
-    setSubjectDetail(null);
-  };
-
-  return (
-    <div className="pb-24 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-6 animate-fade-in">
-      {/* Header with Date - Matching AboutView */}
-      <div className="flex flex-col gap-2">
-        <div className="text-sm text-zinc-500 font-mono uppercase tracking-wider">
-          {new Date().toLocaleDateString("en-US", {
-            weekday: "long",
-            month: "short",
-            day: "numeric",
-          })}
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-3xl md:text-4xl font-display font-bold">Subject Array</h1>
+          <div className="flex-1 bg-zinc-950 p-4">
+            {canPreview ? (
+              selectedResource.fileType.includes("pdf") ? (
+                <iframe
+                  src={previewUrl ?? ""}
+                  className="w-full h-full bg-white rounded-lg"
+                />
+              ) : selectedResource.fileType.startsWith("image") ? (
+                <img
+                  src={previewUrl ?? ""}
+                  className="max-w-full max-h-full mx-auto"
+                />
+              ) : (
+                <video
+                  src={previewUrl ?? ""}
+                  controls
+                  className="w-full h-full"
+                />
+              )
+            ) : (
+              <div className="h-full flex items-center justify-center text-zinc-500 text-center">
+                Preview not supported for this file type.<br />
+                Use “Open in new tab”.
+              </div>
+            )}
+          </div>
         </div>
       </div>
+    );
+  }
 
-      {/* Search & Filters */}
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+  /* =====================================================
+     SUBJECT DETAIL
+  ===================================================== */
+
+  if (selectedSubject) {
+    const theme =
+      themes[
+      subjects.findIndex((s) => s.id === selectedSubject.id) % themes.length
+      ];
+
+    return (
+      <div className="fixed inset-0 z-40 bg-black overflow-y-auto pt-16">
+        <div className="max-w-[1400px] mx-auto p-6 space-y-6 pb-24">
+          <button
+            onClick={() => setSelectedSubjectId(null)}
+            className="fixed top-20 right-6 p-3 bg-white/10 rounded-xl"
+          >
+            <X />
+          </button>
+
+          {/* HEADER */}
+          <div className="flex items-center gap-4">
+            <div
+              className={`w-16 h-16 ${theme.bg} rounded-2xl flex items-center justify-center font-bold text-black`}
+            >
+              {getInitials(selectedSubject.name)}
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold">{selectedSubject.name}</h1>
+              <div className="text-zinc-400 text-sm">
+                {selectedSubject.code} • {selectedSubject.credits} credits
+              </div>
+            </div>
+          </div>
+
+          {/* STATS */}
+          <div className="grid grid-cols-3 gap-6">
+            <div>
+              <div className="text-xs text-zinc-500">Progress</div>
+              <div className="text-4xl font-bold">
+                {computeProgress(selectedSubject)}%
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-zinc-500">Study Time</div>
+              <div className="text-4xl font-bold">
+                {getTotalHours(selectedSubject.id)}h
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-zinc-500">Grades</div>
+              <div className="text-4xl font-bold">
+                {(selectedSubject.grades || []).length}
+              </div>
+            </div>
+          </div>
+
+          {/* UNITS */}
+          <div className="border border-white/10 rounded-2xl p-6">
+            <h3 className="font-bold mb-4">Syllabus</h3>
+
+            {(selectedSubject.syllabus || []).map((u: any) => (
+              <div
+                key={u.id}
+                className="flex items-center gap-3 mb-2 cursor-pointer"
+                onClick={() =>
+                  db.subjects.update(selectedSubject.id, {
+                    syllabus: selectedSubject.syllabus.map((x: any) =>
+                      x.id === u.id
+                        ? { ...x, completed: !x.completed }
+                        : x
+                    ),
+                  })
+                }
+              >
+                {u.completed ? (
+                  <CheckSquare className="text-emerald-400" />
+                ) : (
+                  <Square />
+                )}
+                <span className={u.completed ? "line-through text-zinc-500" : ""}>
+                  {u.title}
+                </span>
+              </div>
+            ))}
+
+            <div className="flex gap-2 mt-3">
+              <input
+                value={newUnit}
+                onChange={(e) => setNewUnit(e.target.value)}
+                placeholder="Add unit"
+                className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2"
+              />
+              <button
+                onClick={async () => {
+                  if (!newUnit.trim()) return;
+                  await db.subjects.update(selectedSubject.id, {
+                    syllabus: [
+                      ...(selectedSubject.syllabus || []),
+                      {
+                        id: crypto.randomUUID(),
+                        title: newUnit,
+                        completed: false,
+                      },
+                    ],
+                  });
+                  setNewUnit("");
+                }}
+                className="px-4 py-2 bg-indigo-500/20 rounded-lg"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+
+          {/* SESSION NOTES */}
+          <div className="border border-white/10 rounded-2xl p-6">
+            <h3 className="font-bold mb-4">Session Notes</h3>
+
+            {logs
+              .filter(
+                (l: any) =>
+                  l.subjectId === selectedSubject.id &&
+                  l.notes &&
+                  l.notes.trim()
+              )
+              .map((s: any) => (
+                <div
+                  key={s.id}
+                  className="p-4 bg-zinc-900 rounded-xl border border-zinc-800 mb-3"
+                >
+                  <div className="flex justify-between text-xs text-zinc-500 mb-2">
+                    <span>{s.type}</span>
+                    <span>{s.duration} min</span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm">{s.notes}</p>
+                </div>
+              ))}
+          </div>
+
+          {/* RESOURCES */}
+          <div className="border border-white/10 rounded-2xl p-6">
+            <h3 className="font-bold mb-4">Resources</h3>
+
+            {(selectedSubject.resources || []).map((r: any) => (
+              <div
+                key={r.id}
+                className="flex items-center justify-between p-3 bg-zinc-900 rounded-lg mb-2"
+              >
+                <span
+                  className="truncate cursor-pointer"
+                  onClick={() => setSelectedResource(r)}
+                >
+                  {r.title}
+                </span>
+                <Trash2
+                  size={16}
+                  className="text-red-400 cursor-pointer"
+                  onClick={() =>
+                    db.subjects.update(selectedSubject.id, {
+                      resources: selectedSubject.resources.filter(
+                        (x: any) => x.id !== r.id
+                      ),
+                    })
+                  }
+                />
+              </div>
+            ))}
+
+            <label
+              className={`mt-4 block px-4 py-3 text-sm text-center rounded-lg border cursor-pointer ${dragActive
+                  ? "border-cyan-400 bg-cyan-500/20"
+                  : "border-white/10 hover:border-cyan-500/40"
+                }`}
+              onDragEnter={() => setDragActive(true)}
+              onDragLeave={() => setDragActive(false)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={async (e) => {
+                e.preventDefault();
+                setDragActive(false);
+                for (const f of e.dataTransfer.files) {
+                  await processAndSaveFile(f);
+                }
+              }}
+            >
+              <input
+                type="file"
+                multiple
+                hidden
+                onChange={async (e: any) => {
+                  for (const f of e.target.files) {
+                    await processAndSaveFile(f);
+                  }
+                }}
+              />
+              + Add files (PDF, images, videos, PPT, DOC)
+            </label>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ================= MAIN LIST ================= */
+
+  const filtered = subjects
+    .filter(
+      (s) =>
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.code.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) =>
+      sortBy === "name"
+        ? a.name.localeCompare(b.name)
+        : (b.difficulty || 0) - (a.difficulty || 0)
+    );
+
+  return (
+    <div className="max-w-[1400px] mx-auto p-6 space-y-6 pb-24">
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-3 text-zinc-500" size={16} />
           <input
-            type="text"
+            className="w-full pl-9 py-2 bg-zinc-900 border border-zinc-800 rounded-xl"
             placeholder="Search subjects..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-600 outline-none focus:border-indigo-500/50 transition-all"
           />
         </div>
         <select
+          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3"
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white outline-none focus:border-indigo-500/50 transition-all"
+          onChange={(e) => setSortBy(e.target.value as any)}
         >
-          <option value="name">Sort: Name</option>
-          <option value="difficulty">Sort: Difficulty</option>
+          <option value="name">Name</option>
+          <option value="difficulty">Difficulty</option>
         </select>
       </div>
 
-      {/* Subjects Grid - Two Columns */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {filteredSubjects.map((sub, idx) => {
-          const theme = themes[idx % themes.length];
-          const progress = computeProgress(sub);
-          const totalHours = getTotalHours(sub.id);
-          const pending = (sub.syllabus || []).filter(u => !u.completed).length;
-
+      <div className="grid md:grid-cols-2 gap-5">
+        {filtered.map((s, i) => {
+          const t = themes[i % themes.length];
+          const progress = computeProgress(s);
           return (
             <div
-              key={sub.id}
-              className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 relative overflow-hidden group hover:border-indigo-500/30 transition-all duration-300 hover:-translate-y-1"
+              key={s.id}
+              onClick={() => setSelectedSubjectId(s.id)}
+              className="cursor-pointer border border-white/10 rounded-2xl p-5 bg-white/[0.02] hover:border-indigo-500/30"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
-
-              <div className="relative z-10">
-                <div className="flex items-start justify-between gap-4 mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-xl ${theme.bg} flex items-center justify-center font-bold text-lg text-black`}>
-                      {getInitials(sub.name)}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-white">{sub.name}</h3>
-                      <div className="text-xs text-zinc-400 uppercase mt-1">{sub.code} • {sub.credits} CR</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`text-2xl font-bold ${theme.text}`}>{progress}%</div>
-                  </div>
-                </div>
-
-                <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden mb-4">
-                  <div className={`${theme.bg} h-full transition-all duration-500`} style={{ width: `${progress}%` }} />
-                </div>
-
-                <div className="flex items-center gap-4 text-xs text-zinc-400 mb-4">
-                  <div className="flex items-center gap-1">
-                    <Clock size={14} />
-                    <span>{totalHours}h</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Target size={14} />
-                    <span>{pending} pending</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Award size={14} />
-                    <span>{(sub.grades || []).length} grades</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => openSubject(sub.id)}
-                    className="flex-1 py-2 px-4 rounded-xl bg-white text-black font-bold hover:bg-zinc-200 transition-all"
+              <div className="flex justify-between mb-4">
+                <div className="flex gap-3">
+                  <div
+                    className={`w-12 h-12 ${t.bg} rounded-xl flex items-center justify-center font-bold text-black`}
                   >
-                    Open
-                  </button>
-                  <button
-                    onClick={() => {
-                      const next = (sub.syllabus || []).find(u => !u.completed);
-                      if (next) toggleSyllabusUnit(sub.id, next.id);
-                      else alert("No pending units");
-                    }}
-                    className="py-2 px-4 rounded-xl bg-zinc-800 text-white hover:bg-zinc-700 transition-all text-sm"
-                  >
-                    Continue
-                  </button>
+                    {getInitials(s.name)}
+                  </div>
+                  <div>
+                    <div className="font-bold">{s.name}</div>
+                    <div className="text-xs text-zinc-400">
+                      {s.code} • {s.credits} CR
+                    </div>
+                  </div>
+                </div>
+                <div className={`text-2xl font-bold ${t.text}`}>
+                  {progress}%
+                </div>
+              </div>
+
+              <div className="h-2 bg-white/5 rounded-full mb-3 overflow-hidden">
+                <div
+                  className={`${t.bg} h-full`}
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+
+              <div className="flex gap-4 text-xs text-zinc-400">
+                <div className="flex items-center gap-1">
+                  <Clock size={12} /> {getTotalHours(s.id)}h
+                </div>
+                <div className="flex items-center gap-1">
+                  <Target size={12} />{" "}
+                  {(s.syllabus || []).filter((u: any) => !u.completed).length}{" "}
+                  pending
+                </div>
+                <div className="flex items-center gap-1">
+                  <Award size={12} /> {(s.grades || []).length} grades
                 </div>
               </div>
             </div>
           );
         })}
       </div>
-
-      {/* Subject Detail Modal */}
-      {subjectDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
-          <div className="w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl shadow-2xl">
-            <div className="p-6">
-              {/* Header */}
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-xl bg-white/5 flex items-center justify-center text-xl font-bold">
-                    {getInitials(subjectDetail.name)}
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-white">{subjectDetail.name}</h2>
-                    <div className="text-sm text-zinc-400 mt-1">{subjectDetail.code} • {subjectDetail.credits} Credits</div>
-                  </div>
-                </div>
-                <button onClick={closeDetail} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Bento Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                {/* Left Column - Main Content */}
-                <div className="lg:col-span-8 flex flex-col gap-5">
-                  {/* Overview */}
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-6">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
-                    <div className="relative z-10">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-xs text-zinc-500 uppercase mb-2">Progress</div>
-                          <div className="text-3xl font-bold text-white">{computeProgress(subjectDetail)}%</div>
-                          <div className="text-xs text-zinc-400 mt-1">{(subjectDetail.syllabus || []).length} units</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-zinc-500 uppercase mb-2">Time Logged</div>
-                          <div className="text-3xl font-bold text-indigo-400">{getTotalHours(subjectDetail.id)}h</div>
-                          <div className="text-xs text-zinc-400 mt-1">{logs.filter(l => l.subjectId === subjectDetail.id).length} sessions</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Syllabus */}
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 max-h-[400px] overflow-y-auto">
-                    <h3 className="text-sm font-bold text-zinc-300 mb-4 flex items-center gap-2">
-                      <FileText size={16} className="text-indigo-400" />
-                      Syllabus Tracker
-                    </h3>
-                    <div className="space-y-2">
-                      {(subjectDetail.syllabus || []).length === 0 ? (
-                        <div className="text-zinc-500 py-8 text-center text-sm">No units tracked</div>
-                      ) : (
-                        (subjectDetail.syllabus || []).map(u => (
-                          <div key={u.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-all group">
-                            <button onClick={() => toggleSyllabusUnit(subjectDetail.id, u.id)}>
-                              {u.completed ? (
-                                <CheckSquare size={18} className="text-emerald-400" />
-                              ) : (
-                                <Square size={18} className="text-zinc-600 group-hover:text-indigo-400" />
-                              )}
-                            </button>
-                            <span className={`flex-1 text-sm ${u.completed ? "line-through text-zinc-500" : "text-white"}`}>
-                              {u.title}
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Sessions Timeline */}
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 max-h-[300px] overflow-y-auto">
-                    <h3 className="text-sm font-bold text-zinc-300 mb-4 flex items-center gap-2">
-                      <Clock size={16} className="text-cyan-400" />
-                      Recent Sessions
-                    </h3>
-                    <div className="space-y-3">
-                      {(() => {
-                        const sessions = logs
-                          .filter(l => l.subjectId === subjectDetail.id)
-                          .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-                          .slice(0, 5);
-
-                        if (sessions.length === 0) {
-                          return <div className="text-zinc-500 py-8 text-center text-sm">No sessions logged</div>;
-                        }
-
-                        return sessions.map(s => (
-                          <div key={s.id} className="p-3 bg-zinc-900/40 rounded-lg border border-zinc-800">
-                            <div className="flex justify-between items-start">
-                              <div className="text-xs text-zinc-400">{s.date}</div>
-                              <div className="text-sm font-bold text-indigo-300">{s.duration} min</div>
-                            </div>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Column - Actions & Data */}
-                <div className="lg:col-span-4 flex flex-col gap-5">
-                  {/* Quick Actions */}
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5">
-                    <h3 className="text-sm font-bold text-zinc-300 mb-4">Quick Actions</h3>
-                    <div className="space-y-3">
-                      <button
-                        onClick={async () => {
-                          const next = (subjectDetail.syllabus || []).find(u => !u.completed);
-                          if (next) {
-                            await toggleSyllabusUnit(subjectDetail.id, next.id);
-                            alert("Unit marked complete!");
-                          } else {
-                            alert("No pending units");
-                          }
-                        }}
-                        className="w-full py-2.5 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-left text-sm transition-all"
-                      >
-                        Mark next unit complete
-                      </button>
-                      <button
-                        onClick={async () => {
-                          await db.logs.add({
-                            subjectId: subjectDetail.id,
-                            duration: 25,
-                            date: new Date().toISOString().split("T")[0],
-                            timestamp: Date.now()
-                          });
-                          setLogs(await db.logs.toArray());
-                          await refreshSubjectDetail();
-                          alert("Added 25-minute session");
-                        }}
-                        className="w-full py-2.5 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-left text-sm transition-all"
-                      >
-                        Log 25 min session
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Grades */}
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5">
-                    <h3 className="text-sm font-bold text-zinc-300 mb-4 flex items-center gap-2">
-                      <Award size={16} className="text-yellow-400" />
-                      Grades
-                    </h3>
-
-                    <div className="flex gap-2 mb-4">
-                      <input
-                        placeholder="Exam"
-                        className="flex-1 bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-lg text-sm outline-none focus:border-indigo-500/50"
-                        value={gradeInputs.type}
-                        onChange={(e) => setGradeInputs({ ...gradeInputs, type: e.target.value })}
-                      />
-                      <input
-                        placeholder="Score"
-                        className="w-20 bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-lg text-sm outline-none focus:border-indigo-500/50"
-                        value={gradeInputs.score}
-                        onChange={(e) => setGradeInputs({ ...gradeInputs, score: e.target.value })}
-                      />
-                      <button
-                        onClick={addGrade}
-                        className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 transition-all"
-                      >
-                        <Plus size={16} />
-                      </button>
-                    </div>
-
-                    <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                      {(subjectDetail.grades || []).length === 0 ? (
-                        <div className="text-zinc-500 py-6 text-center text-sm">No grades recorded</div>
-                      ) : (
-                        (subjectDetail.grades || []).map(g => (
-                          <div key={g.id} className="flex items-center justify-between p-3 bg-zinc-900/40 rounded-lg border border-zinc-800">
-                            <div>
-                              <div className="text-sm font-bold text-white">{g.type}</div>
-                              <div className="text-xs text-zinc-500">{g.date}</div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <div className="text-sm font-bold text-emerald-300">
-                                {g.score}<span className="text-xs text-zinc-400">/{g.maxScore}</span>
-                              </div>
-                              <button
-                                onClick={() => deleteGrade(g.id)}
-                                className="p-1 text-zinc-600 hover:text-red-400 transition-all"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Resources */}
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5">
-                    <h3 className="text-sm font-bold text-zinc-300 mb-4 flex items-center gap-2">
-                      <BookOpen size={16} className="text-cyan-400" />
-                      Resources
-                    </h3>
-
-                    <label className="block mb-4">
-                      <input
-                        type="file"
-                        multiple
-                        onChange={handleFileInput}
-                        className="hidden"
-                      />
-                      <div className="w-full py-3 px-4 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer transition-all text-center text-sm flex items-center justify-center gap-2">
-                        <Upload size={16} />
-                        {uploading ? "Uploading..." : "Upload Files"}
-                      </div>
-                    </label>
-
-                    <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                      {(subjectDetail.resources || []).length === 0 ? (
-                        <div className="text-zinc-500 py-6 text-center text-sm">No resources uploaded</div>
-                      ) : (
-                        (subjectDetail.resources || []).map(res => (
-                          <div key={res.id} className="flex items-center justify-between p-3 bg-zinc-900/40 rounded-lg border border-zinc-800 group">
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm text-white truncate">{res.title}</div>
-                              <div className="text-xs text-zinc-500">
-                                {res.fileSize ? `${Math.round(res.fileSize / 1024)} KB` : res.dateAdded}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => downloadResource(res)}
-                                className="p-2 text-zinc-400 hover:text-indigo-400 transition-all"
-                                title="Download"
-                              >
-                                <Download size={14} />
-                              </button>
-                              <button
-                                onClick={() => deleteResource(res.id)}
-                                className="p-2 text-zinc-400 hover:text-red-400 transition-all"
-                                title="Delete"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Settings */}
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5">
-                    <h3 className="text-sm font-bold text-zinc-300 mb-4">Settings</h3>
-                    <div className="space-y-3">
-                      <button
-                        onClick={() => {
-                          const newName = prompt("Rename subject", subjectDetail.name || "");
-                          if (newName && subjectDetail.id) {
-                            db.subjects.update(subjectDetail.id, { name: newName }).then(refreshSubjectDetail);
-                          }
-                        }}
-                        className="w-full py-2.5 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-left text-sm transition-all"
-                      >
-                        Rename Subject
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (!subjectDetail?.id) return;
-                          if (!confirm("Archive this subject? (This will hide it from the main view)")) return;
-                          db.subjects.update(subjectDetail.id, { archived: true }).then(() => {
-                            if (onRefresh) onRefresh();
-                            setSelectedSubjectId(null);
-                          });
-                        }}
-                        className="w-full py-2.5 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-left text-sm transition-all"
-                      >
-                        Archive Subject
-                      </button>
-                      <button
-                        onClick={() => subjectDetail?.id && deleteSubject(subjectDetail.id)}
-                        className="w-full py-2.5 px-4 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-left text-sm transition-all"
-                      >
-                        Delete Subject
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

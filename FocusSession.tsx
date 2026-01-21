@@ -1,4 +1,4 @@
-// FocusSession — UX locked (v1)
+// FocusSession – UX locked (v1)
 // Do not refactor visuals unless product direction changes
 
 import React, { useEffect, useState } from "react";
@@ -17,13 +17,13 @@ const RADIUS = 120;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const SVG_SIZE = 280; // should be >= 2 * (RADIUS + stroke/2)
 
-export const FocusSession = ({
+const FocusSession = ({
   block,
   onComplete,
   onExit,
 }: {
   block: StudyBlock;
-  onComplete: (elapsedMin?: number, sessionNotes?: string) => void; // UPDATED
+  onComplete: (elapsedMin?: number, sessionNotes?: string) => void;
   onExit: () => void;
 }) => {
   const [timeLeft, setTimeLeft] = useState(block.duration * 60);
@@ -52,7 +52,7 @@ export const FocusSession = ({
         setTimeLeft((t) => {
           if (t <= 1) {
             setIsActive(false);
-            onComplete(block.duration, notes); // PASS NOTES HERE
+            onComplete(block.duration, notes);
             return 0;
           }
           return t - 1;
@@ -61,7 +61,7 @@ export const FocusSession = ({
     }, 1000);
 
     return () => clearInterval(id);
-  }, [isActive, isBreak, block.duration, notes, onComplete]); // ADDED notes to dependencies
+  }, [isActive, isBreak, block.duration, notes, onComplete]);
 
   /* ---------------- Accessibility & Escape handling for modal ---------------- */
   useEffect(() => {
@@ -114,7 +114,7 @@ export const FocusSession = ({
       1,
       Math.round((block.duration * 60 - timeLeft) / 60)
     );
-    onComplete(elapsed, notes); // PASS NOTES HERE
+    onComplete(elapsed, notes);
   };
 
   const formatTime = (s: number) =>
@@ -139,12 +139,12 @@ export const FocusSession = ({
 
   /* ---------------- Microinteractions ---------------- */
 
-  // 1) Progress tick — subtle per-second visual nudge while active
+  // 1) Progress tick – subtle per-second visual nudge while active
   useEffect(() => {
     if (!isActive) return;
     const el = document.getElementById("progress-ring");
     if (!el) return;
-    // animate small quick opacity pulse — doesn't move layout
+    // animate small quick opacity pulse – doesn't move layout
     try {
       el.animate(
         [{ opacity: 1 }, { opacity: 0.88 }, { opacity: 1 }],
@@ -467,7 +467,7 @@ export const FocusSession = ({
               <div>
                 <h3 className="text-lg font-semibold text-white">Quick Notes</h3>
                 <p className="text-xs text-zinc-400 mt-1">
-                  Capture distracting thoughts — they won't interrupt your focus.
+                  Capture distracting thoughts – they won't interrupt your focus.
                 </p>
               </div>
 
@@ -520,3 +520,6 @@ export const FocusSession = ({
     </div>
   );
 };
+
+// DEFAULT EXPORT (this was missing!)
+export default FocusSession;

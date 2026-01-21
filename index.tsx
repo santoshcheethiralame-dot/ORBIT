@@ -7,8 +7,8 @@ import { Subject, DailyPlan, StudyBlock, StudyLog, DailyContext } from "./types"
 import { generateDailyPlan } from "./brain";
 import { Onboarding } from "./Onboarding";
 import { Dashboard } from "./Dashboard";
-import { FocusSession } from "./FocusSession";
-import { CoursesView } from "./Courses";
+import FocusSession from "./FocusSession"; // Changed to default import
+import CoursesView from "./Courses"; // Changed to default import
 import { StatsView } from "./Stats";
 import { SpaceBackground } from "./SpaceBackground";
 import { DailyContextModal } from "./DailyContextModal";
@@ -44,16 +44,15 @@ const App = () => {
     const lgs = await db.logs.toArray();
     setLogs(lgs);
 
-    const istDateStr = getISTEffectiveDate();
-    const existing = await db.plans.get(istDateStr);
+    const todayStr = getISTEffectiveDate();
+    const existing = await db.plans.get(todayStr);
 
     if (existing) {
       setTodayPlan(existing);
       setNeedsContext(false);
     } else {
-      const subCount = await db.subjects.count();
-      if (subCount > 0) setNeedsContext(true);
-      else setTodayPlan(null);
+      // NEW DAY - show context modal
+      setNeedsContext(true);
     }
   };
 
@@ -69,16 +68,19 @@ const App = () => {
     init();
   }, []);
 
+  // Check for day change every minute
   useEffect(() => {
-    const ticker = setInterval(() => {
-      const istNow = getISTTime();
-      if (istNow.getHours() === 2 && istNow.getMinutes() === 0) {
-        setShowRolloverModal(true);
+    const interval = setInterval(() => {
+      const currentDate = getISTEffectiveDate();
+      if (todayPlan && todayPlan.date !== currentDate) {
+        // Day has changed - trigger context modal
+        setNeedsContext(true);
+        setTodayPlan(null);
       }
-    }, 60000);
-    return () => clearInterval(ticker);
-  }, []);
+    }, 60000); // Check every minute
 
+    return () => clearInterval(interval);
+  }, [todayPlan]);
   const handleContextGenerate = async (ctx: DailyContext) => {
     const blocks = await generateDailyPlan(ctx);
     const istDateStr = getISTEffectiveDate();
@@ -116,7 +118,6 @@ const App = () => {
         await db.assignments.update(activeBlock.assignmentId, { completed: true });
       }
 
-      // Ensure loadData is invoked but pass a void-returning wrapper to satisfy props expecting () => void
       await loadData();
       setActiveBlock(null);
       setView(activeTab as any);
@@ -224,11 +225,11 @@ const App = () => {
               onRefresh={() => { void loadData(); }}
             />
           )}
+
           {activeTab === 'courses' && (
             <CoursesView
               subjects={subjects}
               logs={logs}
-              onRefresh={() => { void loadData(); }}
             />
           )}
 

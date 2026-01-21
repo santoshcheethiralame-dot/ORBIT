@@ -49,24 +49,23 @@ export const Dashboard = ({
     return istNow.toISOString().split('T')[0];
   };
 
-  // Fetch backlog
-  // Inside Dashboard.tsx
   const fetchBacklog = async () => {
     const allPlans = await db.plans.toArray();
-    // Use the same IST logic as index.tsx here
     const today = getISTEffectiveDate();
     const incomplete: any[] = [];
 
     allPlans.forEach((p) => {
       if (p.date < today) {
         p.blocks.forEach((b) => {
-          // Store the source date so we can find it later
-          if (!b.completed) incomplete.push({ ...b, sourceDate: p.date });
+          // Only add to backlog if not completed AND not already migrated
+          if (!b.completed && !b.migrated) {
+            incomplete.push({ ...b, sourceDate: p.date });
+          }
         });
       }
     });
     setBacklog(incomplete);
-  };
+  };;
   useEffect(() => {
     fetchBacklog();
   }, [plan]);
@@ -75,19 +74,19 @@ export const Dashboard = ({
     try {
       const todayStr = getISTEffectiveDate();
 
-      // 1. Mark as completed in the ORIGINAL plan so it doesn't stay in backlog
+      // 1. Mark as migrated in the ORIGINAL plan
       const originalPlan = await db.plans.get(block.sourceDate);
       if (originalPlan) {
         const updatedOrigBlocks = originalPlan.blocks.map(b =>
-          b.id === block.id ? { ...b, completed: true } : b
+          b.id === block.id ? { ...b, migrated: true } : b // Changed from completed to migrated
         );
         await db.plans.put({ ...originalPlan, blocks: updatedOrigBlocks });
       }
 
-      // 2. Add to Today's plan (existing logic)
+      // 2. Add to Today's plan
       const currentPlan = await db.plans.get(todayStr);
-      const newBlock = { ...block, id: Math.random().toString(36).substr(2, 9), completed: false };
-      delete newBlock.sourceDate; // Clean up the helper property
+      const newBlock = { ...block, id: Math.random().toString(36).substr(2, 9), completed: false, migrated: false };
+      delete newBlock.sourceDate;
 
       if (!currentPlan) {
         await db.plans.put({ date: todayStr, blocks: [newBlock], context: plan.context });
@@ -96,8 +95,7 @@ export const Dashboard = ({
       }
 
       setBacklog((prev) => prev.filter((b) => b.id !== block.id));
-      // Optional: instead of reload, just refresh state
-      // window.location.reload(); 
+      onRefresh();
     } catch (err) {
       console.error("Failed to migrate backlog item", err);
     }
