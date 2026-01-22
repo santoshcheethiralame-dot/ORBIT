@@ -5,10 +5,12 @@ import { DailyContext, StudyBlock, Subject, Assignment, Project } from "./types"
  * Generate a day's study blocks from context.
  *
  * - Preserves original priority / block-type logic but hardens edge cases.
- * - Small behavioral improvements:
- *   * urgent assignments are sorted by nearest due date first
- *   * avoids duplicate assignment/project/subject blocks
- *   * safe fallbacks when subject metadata is missing
+ * - Improvements included here:
+ *   * Robust duplicate prevention for assignment/project/subject blocks
+ *   * Normalized ID comparisons (Number(...)) to avoid string/number mismatches
+ *   * Use assignment estimated duration when available
+ *   * Distribute project slots across multiple projects rather than always picking one
+ *   * Safer fallback selection (pseudo-random)
  */
 
 const DEFAULT_REVIEW_MIN = 30;
@@ -27,7 +29,6 @@ function makeId(): string {
 }
 
 export const generateDailyPlan = async (context: DailyContext): Promise<StudyBlock[]> => {
-  // Defensive: guard DB access
   try {
     const blocks: StudyBlock[] = [];
     const subjects = (await db.subjects.toArray()) || [];
@@ -45,7 +46,7 @@ export const generateDailyPlan = async (context: DailyContext): Promise<StudyBlo
     ): StudyBlock => {
       const base: StudyBlock = {
         id: makeId(),
-        subjectId: sub.id ?? 0,
+        subjectId: Number(sub.id ?? 0),
         subjectName: sub.name ?? "Unknown",
         type,
         duration,
@@ -64,7 +65,7 @@ export const generateDailyPlan = async (context: DailyContext): Promise<StudyBlo
 
     // ---- Helpers for checks ----
     const hasBlockForSubject = (subjectId?: number | string) =>
-      subjectId !== undefined && blocks.some((b) => String(b.subjectId) === String(subjectId));
+      subjectId !== undefined && blocks.some((b) => Number(b.subjectId) === Number(subjectId));
 
     const pushIfNotDuplicate = (blk: StudyBlock) => {
       // Avoid duplicate assignment/project blocks by unique metadata keys
@@ -79,13 +80,13 @@ export const generateDailyPlan = async (context: DailyContext): Promise<StudyBlo
 
     // 1) ESA Prep (highest priority) - override routine
     if (context.dayType === "esa" && context.focusSubjectId) {
-      const sub = subjects.find((s) => s.id === context.focusSubjectId);
+      const sub = subjects.find((s) => Number(s.id) === Number(context.focusSubjectId));
       if (sub) {
         const loadFactor = context.isSick ? 0.6 : 1.0;
         const totalHours = ESA_BASE_HOURS * loadFactor;
         const blockCount = Math.max(1, Math.ceil(totalHours)); // 1 block per hour unit
         for (let i = 0; i < blockCount; i++) {
-          blocks.push(createBlock(sub, "review", 60, 1));
+          pushIfNotDuplicate(createBlock(sub, "review", 60, 1));
         }
         // return high-priority-only plan
         return blocks.sort((a, b) => a.priority - b.priority);
@@ -94,7 +95,7 @@ export const generateDailyPlan = async (context: DailyContext): Promise<StudyBlo
 
     // 2) ISA Prep (high priority, small fixed blocks)
     if (context.dayType === "isa" && context.focusSubjectId) {
-      const sub = subjects.find((s) => s.id === context.focusSubjectId);
+      const sub = subjects.find((s) => Number(s.id) === Number(context.focusSubjectId));
       if (sub) {
         pushIfNotDuplicate(createBlock(sub, "prep", ISA_PREP_MIN, 2, { notes: "MCQ Focus" }));
         pushIfNotDuplicate(createBlock(sub, "prep", ISA_PREP_MIN, 2, { notes: "Direct Theory" }));
@@ -103,26 +104,68 @@ export const generateDailyPlan = async (context: DailyContext): Promise<StudyBlo
     }
 
     // 3) Urgent assignments
-    addUrgentAssignments(assignments, subjects, pushIfNotDuplicate, createBlock, context);
+    // Local helper that uses the in-scope 'blocks' and 'pushIfNotDuplicate' for duplicate prevention.
+    const addUrgentAssignments = (
+      assignmentsList: Assignment[],
+      subjectsList: Subject[]
+    ) => {
+      if (!assignmentsList || !assignmentsList.length) return;
+
+      // Normalize and support multiple due date field names
+      const assignmentsWithDates = assignmentsList.map((a) => {
+        const due = (a as any).dueDate ?? (a as any).submissionDeadline ?? null;
+        return { asm: a, due: due ? new Date(due) : null };
+      });
+
+      // Sort by nearest due date first (nulls go last)
+      assignmentsWithDates.sort((x, y) => {
+        if (x.due && y.due) return x.due.getTime() - y.due.getTime();
+        if (x.due && !y.due) return -1;
+        if (!x.due && y.due) return 1;
+        return 0;
+      });
+
+      const MAX_URGENT = 3;
+      let added = 0;
+      for (const { asm } of assignmentsWithDates) {
+        if (added >= MAX_URGENT) break;
+        // skip if assignment already represented in blocks
+        if (asm && asm.id && blocks.some((b) => b.assignmentId === asm.id)) continue;
+
+        const subj = subjectsList.find((s) => Number(s.id) === Number(asm.subjectId));
+        if (!subj) continue; // skip if subject unknown
+
+        // Use assignment estimatedMinutes if provided; fall back to 60
+        const duration = (asm as any).estimatedMinutes && Number((asm as any).estimatedMinutes) > 0
+          ? Number((asm as any).estimatedMinutes)
+          : 60;
+
+        const blk = createBlock(subj, "assignment", duration, 2, { assignmentId: asm.id, notes: `Work on ${asm.title ?? asm.id}` });
+        pushIfNotDuplicate(blk);
+        added++;
+      }
+    };
+
+    addUrgentAssignments(assignments, subjects);
 
     // 4) Bunked recovery
     if (context.bunkedSubjectId && !context.isHoliday) {
-      const sub = subjects.find((s) => s.id === context.bunkedSubjectId);
+      const sub = subjects.find((s) => Number(s.id) === Number(context.bunkedSubjectId));
       if (sub && !hasBlockForSubject(sub.id)) {
         pushIfNotDuplicate(createBlock(sub, "recovery", DEFAULT_RECOVERY_MIN, 3, { notes: "Catch up on missed lecture" }));
       }
     }
 
     // 5) Timetable context (routine) - today's review, tomorrow's prep
-    const subjectsToday = schedule.filter((s) => s.day === todayIdx).map((s) => s.subjectId);
-    const subjectsTomorrow = schedule.filter((s) => s.day === tomorrowIdx).map((s) => s.subjectId);
+    const subjectsToday = schedule.filter((s) => Number(s.day) === Number(todayIdx)).map((s) => s.subjectId);
+    const subjectsTomorrow = schedule.filter((s) => Number(s.day) === Number(tomorrowIdx)).map((s) => s.subjectId);
 
     // Review blocks for today's classes (if not holiday / not sick)
     if (!context.isHoliday && subjectsToday.length > 0 && !context.isSick) {
-      const uniqueToday = Array.from(new Set(subjectsToday));
+      const uniqueToday = Array.from(new Set(subjectsToday.map((id) => Number(id))));
       for (const sid of uniqueToday) {
         if (hasBlockForSubject(sid)) continue;
-        const sub = subjects.find((s) => s.id === sid);
+        const sub = subjects.find((s) => Number(s.id) === Number(sid));
         if (!sub) continue;
         pushIfNotDuplicate(createBlock(sub, "review", DEFAULT_REVIEW_MIN, 4, { notes: "Daily Review" }));
       }
@@ -130,10 +173,10 @@ export const generateDailyPlan = async (context: DailyContext): Promise<StudyBlo
 
     // Prep blocks for tomorrow's classes (only if required by difficulty or mood)
     if (!context.isHoliday && subjectsTomorrow.length > 0) {
-      const uniqueTomorrow = Array.from(new Set(subjectsTomorrow));
+      const uniqueTomorrow = Array.from(new Set(subjectsTomorrow.map((id) => Number(id))));
       for (const sid of uniqueTomorrow) {
         if (hasBlockForSubject(sid)) continue;
-        const sub = subjects.find((s) => s.id === sid);
+        const sub = subjects.find((s) => Number(s.id) === Number(sid));
         if (!sub) continue;
         if ((sub.difficulty ?? 0) >= 3 || context.mood === "high") {
           pushIfNotDuplicate(createBlock(sub, "prep", DEFAULT_PREP_MIN, 4, { notes: "Pre-read for tomorrow" }));
@@ -141,27 +184,44 @@ export const generateDailyPlan = async (context: DailyContext): Promise<StudyBlo
       }
     }
 
-    // 6) Project work (fillers) - add one project block if capacity available
+    // 6) Project work (fillers) - distribute across multiple projects if capacity available
     let maxSlots = context.isHoliday ? MAX_HOLIDAY_SLOTS : context.isSick ? 2 : MAX_PROJECT_SLOTS;
     if (context.mood === "low") maxSlots = Math.max(1, maxSlots - 1);
 
-    if (blocks.length < maxSlots && !context.isSick && projects.length > 0) {
-      // pick lowest progression project first
-      const activeProject = [...projects].sort((a, b) => (a.progression ?? 0) - (b.progression ?? 0))[0];
-      if (activeProject) {
-        // try to find a subject for this project
-        const sub = subjects.find((s) => s.id === activeProject.subjectId) || ({ id: 0, name: activeProject.name } as Subject);
-        pushIfNotDuplicate(createBlock(sub, "project", DEFAULT_PROJECT_MIN, 5, { projectId: activeProject.id, notes: `Continue ${activeProject.name}` }));
+    // Fill available slots with project work (but don't exceed maxSlots)
+    if (!context.isSick && projects.length > 0) {
+      let slotsToFill = Math.max(0, maxSlots - blocks.length);
+      if (slotsToFill > 0) {
+        // Sort projects by lowest progression first (we want to push forward stalled projects)
+        const sortedProjects = [...projects].sort((a, b) => (a.progression ?? 0) - (b.progression ?? 0));
+        // iterate and allocate one block per project until slots exhausted
+        for (const p of sortedProjects) {
+          if (slotsToFill <= 0) break;
+          // skip if a block for this project already exists
+          if (blocks.some((b) => b.projectId === p.id)) continue;
+          const subjectForProject = subjects.find((s) => Number(s.id) === Number(p.subjectId)) || ({ id: 0, name: p.name } as Subject);
+          pushIfNotDuplicate(createBlock(subjectForProject, "project", DEFAULT_PROJECT_MIN, 5, { projectId: p.id, notes: `Continue ${p.name}` }));
+          slotsToFill--;
+        }
       }
     }
 
     // 7) Fallback: ensure a couple of blocks exist so UI has something to show
     if (blocks.length < MIN_BLOCKS_FALLBACK && !context.isSick && subjects.length > 0) {
-      // push a random-ish subject review (deterministic-ish by time)
-      const randomIndex = Math.abs(Date.now()) % subjects.length;
-      const randomSub = subjects[randomIndex];
-      if (randomSub) {
-        pushIfNotDuplicate(createBlock(randomSub, "review", 45, 6, { notes: "General Revision" }));
+      // Select a pseudo-random subject (seeded by date for day-to-day variety)
+      try {
+        const seed = parseInt(new Date().toISOString().split("T")[0].replace(/-/g, ""), 10) || Date.now();
+        const randomIndex = Math.abs(seed + Date.now()) % subjects.length;
+        const randomSub = subjects[randomIndex];
+        if (randomSub) {
+          pushIfNotDuplicate(createBlock(randomSub, "review", 45, 6, { notes: "General Revision" }));
+        }
+      } catch {
+        const fallbackIndex = Math.floor(Math.random() * subjects.length);
+        const randomSub = subjects[fallbackIndex];
+        if (randomSub) {
+          pushIfNotDuplicate(createBlock(randomSub, "review", 45, 6, { notes: "General Revision" }));
+        }
       }
     }
 
@@ -176,52 +236,3 @@ export const generateDailyPlan = async (context: DailyContext): Promise<StudyBlo
     return [];
   }
 };
-
-/**
- * Add urgent assignments to plan.
- *
- * - Prioritises assignments by nearest due date first.
- * - Avoids adding duplicates if the subject / assignment already has a block.
- * - Uses createFn to produce StudyBlock objects.
- */
-function addUrgentAssignments(
-  assignments: Assignment[],
-  subjects: Subject[],
-  pushIfNotDuplicate: (blk: StudyBlock) => void,
-  createFn: (sub: Subject, type: StudyBlock["type"], duration: number, priority: number, meta?: any) => StudyBlock,
-  context?: DailyContext
-) {
-  if (!assignments || !assignments.length) return;
-
-  // Normalize and filter: prefer assignments with a dueDate/due property if present
-  const assignmentsWithDates = assignments.map((a) => {
-    // support both dueDate and submissionDeadline variants gracefully
-    const due = (a as any).dueDate ?? (a as any).submissionDeadline ?? null;
-    return { asm: a, due: due ? new Date(due) : null };
-  });
-
-  // Sort by nearest due date first (nulls go last)
-  assignmentsWithDates.sort((x, y) => {
-    if (x.due && y.due) return x.due.getTime() - y.due.getTime();
-    if (x.due && !y.due) return -1;
-    if (!x.due && y.due) return 1;
-    return 0;
-  });
-
-  // Add assignment blocks; small heuristic: only add top few urgent ones to avoid overload
-  const MAX_URGENT = 3;
-  let added = 0;
-  for (const { asm } of assignmentsWithDates) {
-    if (added >= MAX_URGENT) break;
-    const subj = subjects.find((s) => s.id === asm.subjectId);
-    if (!subj) continue; // skip if subject unknown
-    // avoid duplicates
-    if ((asm as any).id && (asm as any).id && (asm as any).id in {}) {
-      // noop (kept for readability)
-    }
-    // create assignment block (60min default)
-    const blk = createFn(subj, "assignment", 60, 2, { assignmentId: asm.id, notes: `Work on ${asm.title ?? asm.id}` });
-    pushIfNotDuplicate(blk);
-    added++;
-  }
-}

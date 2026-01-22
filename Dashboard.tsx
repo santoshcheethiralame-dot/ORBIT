@@ -28,7 +28,7 @@ export const Dashboard = ({
   onStartFocus,
   subjects,
   logs,
-  onRefresh, // Added this prop to trigger re-fetches in index.tsx
+  onRefresh,
 }: {
   plan: DailyPlan;
   onStartFocus: (b: StudyBlock) => void;
@@ -41,8 +41,12 @@ export const Dashboard = ({
   const [animatedProgress, setAnimatedProgress] = useState(0);
   const [animatedStreak, setAnimatedStreak] = useState(0);
 
+  const getISTTime = () => {
+    return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  };
+
   const getISTEffectiveDate = () => {
-    const istNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    const istNow = getISTTime();
     if (istNow.getHours() < 2) {
       istNow.setDate(istNow.getDate() - 1);
     }
@@ -65,9 +69,10 @@ export const Dashboard = ({
       }
     });
     setBacklog(incomplete);
-  };;
+  };
+
   useEffect(() => {
-    fetchBacklog();
+    void fetchBacklog();
   }, [plan]);
 
   const addToToday = async (block: any) => {
@@ -78,14 +83,19 @@ export const Dashboard = ({
       const originalPlan = await db.plans.get(block.sourceDate);
       if (originalPlan) {
         const updatedOrigBlocks = originalPlan.blocks.map(b =>
-          b.id === block.id ? { ...b, migrated: true } : b // Changed from completed to migrated
+          b.id === block.id ? { ...b, migrated: true } : b
         );
         await db.plans.put({ ...originalPlan, blocks: updatedOrigBlocks });
       }
 
       // 2. Add to Today's plan
       const currentPlan = await db.plans.get(todayStr);
-      const newBlock = { ...block, id: Math.random().toString(36).substr(2, 9), completed: false, migrated: false };
+      const newBlock = {
+        ...block,
+        id: Math.random().toString(36).substr(2, 9),
+        completed: false,
+        migrated: false
+      };
       delete newBlock.sourceDate;
 
       if (!currentPlan) {
@@ -103,7 +113,7 @@ export const Dashboard = ({
 
   const markComplete = async (blockId: string) => {
     try {
-      const todayStr = new Date().toISOString().split("T")[0];
+      const todayStr = getISTEffectiveDate();
       const currentPlan = await db.plans.get(todayStr);
       if (!currentPlan) return;
 
@@ -120,23 +130,33 @@ export const Dashboard = ({
 
   const snoozeBlock = async (blockId: string) => {
     try {
-      const today = new Date();
-      const todayStr = today.toISOString().split("T")[0];
-      const tomorrow = new Date(today);
-      tomorrow.setDate(today.getDate() + 1);
-      const tomorrowStr = tomorrow.toISOString().split("T")[0];
-
+      const todayStr = getISTEffectiveDate();
       const currentPlan = await db.plans.get(todayStr);
       if (!currentPlan) return;
 
       const block = currentPlan.blocks.find((b) => b.id === blockId);
       if (!block) return;
 
+      // Remove from today
       const updatedTodayBlocks = currentPlan.blocks.filter((b) => b.id !== blockId);
       await db.plans.put({ ...currentPlan, blocks: updatedTodayBlocks });
 
-      const tomorrowPlan = (await db.plans.get(tomorrowStr)) || { date: tomorrowStr, blocks: [], context: plan.context };
-      const moved = { ...block, id: Math.random().toString(36).substr(2, 9), completed: false };
+      // Add to tomorrow (IST-aware)
+      const istNow = getISTTime();
+      const tomorrowDate = new Date(istNow);
+      tomorrowDate.setDate(istNow.getDate() + 1);
+      const tomorrowStr = tomorrowDate.toISOString().split("T")[0];
+
+      const tomorrowPlan = (await db.plans.get(tomorrowStr)) || {
+        date: tomorrowStr,
+        blocks: [],
+        context: plan.context
+      };
+      const moved = {
+        ...block,
+        id: Math.random().toString(36).substr(2, 9),
+        completed: false
+      };
       await db.plans.put({ ...tomorrowPlan, blocks: [...tomorrowPlan.blocks, moved] });
 
       onRefresh();
@@ -158,8 +178,7 @@ export const Dashboard = ({
     let count = 0;
     const daysSeen = new Set<string>();
     logs.forEach((l) => {
-      const d = new Date(l.date).toISOString().split("T")[0];
-      daysSeen.add(d);
+      if (l && l.date) daysSeen.add(String(l.date)); // use stored YYYY-MM-DD directly
     });
     for (let i = 0; i < 365; i++) {
       const d = new Date();
@@ -176,7 +195,7 @@ export const Dashboard = ({
     const progressTimer = setInterval(() => {
       setAnimatedProgress((prev) => {
         if (prev < progressPercent) return Math.min(prev + 2, progressPercent);
-        if (prev > progressPercent) return progressPercent; // Handle downward changes
+        if (prev > progressPercent) return progressPercent;
         return prev;
       });
     }, 20);
@@ -235,7 +254,7 @@ export const Dashboard = ({
     const remainingMinutes = plan.blocks
       .filter((b) => !b.completed)
       .reduce((sum, b) => sum + b.duration, 0);
-    const now = new Date();
+    const now = getISTTime();
     const completion = new Date(now.getTime() + remainingMinutes * 60000);
     return completion.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
   };

@@ -72,10 +72,10 @@ export interface StudyBlock {
   subjectId: number;
   subjectName: string;
   type: 'review' | 'project' | 'prep' | 'recovery' | 'assignment';
-  duration: number;
+  duration: number; // minutes
   completed: boolean;
-  migrated?: boolean; // ADD THIS
-  priority: number;
+  migrated?: boolean; // ADD THIS LINE
+  priority: number; // 1..5
   notes?: string;
   assignmentId?: string;
   projectId?: number;

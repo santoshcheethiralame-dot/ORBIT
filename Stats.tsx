@@ -8,12 +8,12 @@ import { useLiveQuery } from "dexie-react-hooks";
 
 export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subject[] }) => {
   const projects = useLiveQuery(() => db.projects.toArray()) || [];
-  const totalMinutes = logs.reduce((acc, log) => acc + log.duration, 0);
+  const totalMinutes = (logs || []).reduce((acc, log) => acc + (log.duration || 0), 0);
   const totalHours = (totalMinutes / 60).toFixed(1);
 
-  const subjectStats = subjects
+  const subjectStats = (subjects || [])
     .map((sub) => {
-      const mins = logs.filter((l) => l.subjectId === sub.id).reduce((a, b) => a + b.duration, 0);
+      const mins = (logs || []).filter((l) => Number(l.subjectId) === Number(sub.id)).reduce((a, b) => a + (b.duration || 0), 0);
       return { ...sub, mins };
     })
     .sort((a, b) => b.mins - a.mins);
@@ -26,7 +26,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       const d = new Date();
       d.setDate(today.getDate() - (29 - i));
       const dateStr = d.toISOString().split("T")[0];
-      const dailyMins = logs.filter((l) => l.date === dateStr).reduce((sum, log) => sum + log.duration, 0);
+      const dailyMins = (logs || []).filter((l) => l.date === dateStr).reduce((sum, log) => sum + (log.duration || 0), 0);
 
       if (dailyMins === 0) return 0;
       if (dailyMins < 45) return 1;
@@ -36,7 +36,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
 
   // Export session notes to a plaintext file
   const exportNotes = () => {
-    const notesLogs = logs.filter((l) => l.notes && l.notes.trim());
+    const notesLogs = (logs || []).filter((l) => l.notes && l.notes.trim());
     if (notesLogs.length === 0) {
       alert("No session notes to export yet!");
       return;
@@ -46,7 +46,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       .slice() // shallow copy
       .sort((a, b) => b.timestamp - a.timestamp)
       .map((l) => {
-        const subject = subjects.find((s) => s.id === l.subjectId);
+        const subject = (subjects || []).find((s) => Number(s.id) === Number(l.subjectId));
         return `═══════════════════════════════════════════════
 📅 ${l.date} | ⏱️ ${l.duration}min | 📚 ${subject?.name || "Unknown"}
 ───────────────────────────────────────────────
@@ -98,7 +98,7 @@ Total Sessions with Notes: ${notesLogs.length}
               <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
               <div className="relative z-10">
                 <Check className="text-emerald-400 mb-3 group-hover:scale-110 transition-transform" size={20} />
-                <div className="text-3xl font-mono font-bold mb-1 group-hover:text-emerald-100 transition-colors">{logs.length}</div>
+                <div className="text-3xl font-mono font-bold mb-1 group-hover:text-emerald-100 transition-colors">{(logs || []).length}</div>
                 <div className="text-xs text-zinc-500 uppercase tracking-wider">Sessions</div>
               </div>
             </div>
@@ -139,7 +139,7 @@ Total Sessions with Notes: ${notesLogs.length}
                 Session Notes
               </h3>
               <p className="text-xs text-zinc-500 mb-4">
-                {logs.filter((l) => l.notes && l.notes.trim()).length} sessions with notes recorded
+                {(logs || []).filter((l) => l.notes && l.notes.trim()).length} sessions with notes recorded
               </p>
               <button
                 onClick={exportNotes}
@@ -200,7 +200,7 @@ Total Sessions with Notes: ${notesLogs.length}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {projects.map((p, index) => {
-                const projMins = logs.filter((l) => l.projectId === p.id).reduce((sum, l) => sum + l.duration, 0);
+                const projMins = (logs || []).filter((l) => l.projectId === p.id).reduce((sum, l) => sum + (l.duration || 0), 0);
                 return (
                   <div
                     key={p.id}
@@ -214,7 +214,7 @@ Total Sessions with Notes: ${notesLogs.length}
                         <span className="text-xs ml-0.5">h</span>
                       </div>
                       <div className="text-xs font-bold px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700 group-hover/proj:bg-indigo-500/20 group-hover/proj:text-indigo-300 group-hover/proj:border-indigo-500/30 transition-all">
-                        {p.progression}% Done
+                        {p.progression ?? 0}% Done
                       </div>
                     </div>
                   </div>

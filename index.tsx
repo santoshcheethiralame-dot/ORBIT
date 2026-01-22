@@ -7,8 +7,8 @@ import { Subject, DailyPlan, StudyBlock, StudyLog, DailyContext } from "./types"
 import { generateDailyPlan } from "./brain";
 import { Onboarding } from "./Onboarding";
 import { Dashboard } from "./Dashboard";
-import FocusSession from "./FocusSession"; // Changed to default import
-import CoursesView from "./Courses"; // Changed to default import
+import FocusSession from "./FocusSession";
+import CoursesView from "./Courses";
 import { StatsView } from "./Stats";
 import { SpaceBackground } from "./SpaceBackground";
 import { DailyContextModal } from "./DailyContextModal";
@@ -68,19 +68,19 @@ const App = () => {
     init();
   }, []);
 
-  // Check for day change every minute
+  // ADD THIS useEffect after the initial loadData effect:
   useEffect(() => {
     const interval = setInterval(() => {
       const currentDate = getISTEffectiveDate();
       if (todayPlan && todayPlan.date !== currentDate) {
-        // Day has changed - trigger context modal
         setNeedsContext(true);
         setTodayPlan(null);
       }
-    }, 60000); // Check every minute
+    }, 60000);
 
     return () => clearInterval(interval);
   }, [todayPlan]);
+
   const handleContextGenerate = async (ctx: DailyContext) => {
     const blocks = await generateDailyPlan(ctx);
     const istDateStr = getISTEffectiveDate();

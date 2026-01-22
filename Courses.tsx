@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import FocusTrap from 'focus-trap-react';
 import {
   BookOpen,
   Award,
@@ -20,9 +21,16 @@ import { useLiveQuery } from "dexie-react-hooks";
 /* ====================== HELPERS ====================== */
 
 const base64ToBlobUrl = (dataUrl: string, mime: string) => {
-  const base64 = dataUrl.split(",")[1];
-  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-  return URL.createObjectURL(new Blob([bytes], { type: mime }));
+  try {
+    const parts = dataUrl.split(",");
+    if (parts.length < 2) throw new Error("Invalid data URL");
+    const base64 = parts[1];
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    return URL.createObjectURL(new Blob([bytes], { type: mime }));
+  } catch (err) {
+    console.error("Failed to create blob url from base64:", err);
+    return null;
+  }
 };
 
 const isOfficeDoc = (type: string) =>
@@ -39,20 +47,24 @@ export default function CoursesView({
   subjects?: any[];
   logs?: any[];
 }) {
-  const subjects =
-    useLiveQuery(() => db.subjects.toArray()) || propSubjects || [];
+  // prefer live query; fall back to props if provided
+  const subjects = useLiveQuery(() => db.subjects.toArray()) || propSubjects || [];
   const logs = useLiveQuery(() => db.logs.toArray()) || propLogs || [];
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "difficulty">("name");
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  // subject ids in the DB are numeric -> use number|null
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
   const [selectedResource, setSelectedResource] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [spinClose, setSpinClose] = useState(false);
   const [newUnit, setNewUnit] = useState("");
 
-  const selectedSubject = subjects.find((s) => s.id === selectedSubjectId);
+  // find subject with numeric id comparison
+  const selectedSubject = selectedSubjectId != null
+    ? subjects.find((s) => Number(s.id) === Number(selectedSubjectId))
+    : null;
 
   /* ---------------- BODY LOCK ---------------- */
   useEffect(() => {
@@ -77,13 +89,23 @@ export default function CoursesView({
 
   /* ---------------- PREVIEW URL ---------------- */
   useEffect(() => {
-    if (!selectedResource) return;
+    if (!selectedResource) {
+      setPreviewUrl(null);
+      return;
+    }
     const url = base64ToBlobUrl(
       selectedResource.fileData,
       selectedResource.fileType
     );
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
+    if (url) {
+      setPreviewUrl(url);
+      return () => {
+        URL.revokeObjectURL(url);
+        setPreviewUrl(null);
+      };
+    } else {
+      setPreviewUrl(null);
+    }
   }, [selectedResource]);
 
   /* ---------------- HELPERS ---------------- */
@@ -97,23 +119,23 @@ export default function CoursesView({
   ];
 
   const getInitials = (name: string) =>
-    name
+    (name || "")
       .split(" ")
       .slice(0, 2)
-      .map((p) => p[0])
+      .map((p) => (p && p[0]) || "")
       .join("")
       .toUpperCase();
 
   const computeProgress = (s: any) => {
-    const total = s.syllabus?.length || 0;
-    const done = (s.syllabus || []).filter((u: any) => u.completed).length;
+    const total = s?.syllabus?.length || 0;
+    const done = (s?.syllabus || []).filter((u: any) => u.completed).length;
     return total ? Math.round((done / total) * 100) : 0;
   };
 
-  const getTotalHours = (id: string) =>
+  const getTotalHours = (id: number | string) =>
     Math.round(
       (logs
-        .filter((l: any) => l.subjectId === id)
+        .filter((l: any) => Number(l.subjectId) === Number(id))
         .reduce((a: number, b: any) => a + (b.duration || 0), 0) /
         60) *
       10
@@ -124,44 +146,50 @@ export default function CoursesView({
   const processAndSaveFile = async (file: File) => {
     if (!selectedSubject) return;
 
-    const reader = new FileReader();
-    const base64 = await new Promise<string>((res, rej) => {
-      reader.onload = () => res(reader.result as string);
-      reader.onerror = rej;
-      reader.readAsDataURL(file);
-    });
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((res, rej) => {
+        reader.onload = () => res(reader.result as string);
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
 
-    await db.subjects.update(selectedSubject.id, {
-      resources: [
-        ...(selectedSubject.resources || []),
-        {
-          id: crypto.randomUUID(),
-          title: file.name,
-          fileData: base64,
-          fileType: file.type,
-          fileSize: file.size,
-          dateAdded: new Date().toISOString().split("T")[0],
-        },
-      ],
-    });
+      await db.subjects.update(selectedSubject.id, {
+        resources: [
+          ...(selectedSubject.resources || []),
+          {
+            id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+            title: file.name,
+            fileData: base64,
+            fileType: file.type,
+            fileSize: file.size,
+            dateAdded: new Date().toISOString().split("T")[0],
+          },
+        ],
+      });
+    } catch (err) {
+      console.error("Failed to process and save file", err);
+      alert("Failed to upload file.");
+    }
   };
 
   const openExternally = (r: any) => {
     const url = base64ToBlobUrl(r.fileData, r.fileType);
+    if (!url) {
+      alert("Unable to preview file.");
+      return;
+    }
 
-    // For Office docs, use Google Docs Viewer
+    // For Office docs, just trigger a download (can't reliably preview in-browser)
     if (isOfficeDoc(r.fileType)) {
-      // Create a temporary download to get the file URL
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.download = r.title;
+      link.download = r.title || "file";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-
-      // Then open in Google Docs viewer (requires the file to be accessible via URL)
-      // Alternative: Show a message to user
-      alert(`Office documents can't be previewed in browser. File will be downloaded. You can open it with Microsoft Office or Google Docs.`);
+      // Inform user
+      alert(`Office documents will be downloaded. Open with your local Office suite or Google Drive.`);
     } else {
       window.open(url, "_blank");
     }
@@ -243,7 +271,7 @@ export default function CoursesView({
   if (selectedSubject) {
     const theme =
       themes[
-      subjects.findIndex((s) => s.id === selectedSubject.id) % themes.length
+      subjects.findIndex((s) => Number(s.id) === Number(selectedSubject.id)) % themes.length
       ];
 
     return (
@@ -264,9 +292,9 @@ export default function CoursesView({
               {getInitials(selectedSubject.name)}
             </div>
             <div>
-              <h1 className="text-4xl font-bold">{selectedSubject.name}</h1>
+              <h1 className="text-4xl font-bold">{selectedSubject.name || "Untitled"}</h1>
               <div className="text-zinc-400 text-sm">
-                {selectedSubject.code} • {selectedSubject.credits} credits
+                {(selectedSubject.code || "")} • {(selectedSubject.credits ?? 0)} credits
               </div>
             </div>
           </div>
@@ -303,7 +331,7 @@ export default function CoursesView({
                 className="flex items-center gap-3 mb-2 cursor-pointer"
                 onClick={() =>
                   db.subjects.update(selectedSubject.id, {
-                    syllabus: selectedSubject.syllabus.map((x: any) =>
+                    syllabus: (selectedSubject.syllabus || []).map((x: any) =>
                       x.id === u.id
                         ? { ...x, completed: !x.completed }
                         : x
@@ -336,7 +364,7 @@ export default function CoursesView({
                     syllabus: [
                       ...(selectedSubject.syllabus || []),
                       {
-                        id: crypto.randomUUID(),
+                        id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
                         title: newUnit,
                         completed: false,
                       },
@@ -358,7 +386,7 @@ export default function CoursesView({
             {logs
               .filter(
                 (l: any) =>
-                  l.subjectId === selectedSubject.id &&
+                  Number(l.subjectId) === Number(selectedSubject.id) &&
                   l.notes &&
                   l.notes.trim()
               )
@@ -396,7 +424,7 @@ export default function CoursesView({
                   className="text-red-400 cursor-pointer"
                   onClick={() =>
                     db.subjects.update(selectedSubject.id, {
-                      resources: selectedSubject.resources.filter(
+                      resources: (selectedSubject.resources || []).filter(
                         (x: any) => x.id !== r.id
                       ),
                     })
@@ -416,7 +444,8 @@ export default function CoursesView({
               onDrop={async (e) => {
                 e.preventDefault();
                 setDragActive(false);
-                for (const f of e.dataTransfer.files) {
+                const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []) as File[];
+                for (const f of files) {
                   await processAndSaveFile(f);
                 }
               }}
@@ -426,7 +455,8 @@ export default function CoursesView({
                 multiple
                 hidden
                 onChange={async (e: any) => {
-                  for (const f of e.target.files) {
+                  const files = Array.from((e.target && e.target.files) || []) as File[];
+                  for (const f of files) {
                     await processAndSaveFile(f);
                   }
                 }}
@@ -441,15 +471,15 @@ export default function CoursesView({
 
   /* ================= MAIN LIST ================= */
 
-  const filtered = subjects
+  const filtered = (subjects || [])
     .filter(
       (s) =>
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.code.toLowerCase().includes(searchQuery.toLowerCase())
+        (s.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (s.code || "").toLowerCase().includes(searchQuery.toLowerCase())
     )
     .sort((a, b) =>
       sortBy === "name"
-        ? a.name.localeCompare(b.name)
+        ? (a.name || "").localeCompare(b.name || "")
         : (b.difficulty || 0) - (a.difficulty || 0)
     );
 
@@ -482,7 +512,7 @@ export default function CoursesView({
           return (
             <div
               key={s.id}
-              onClick={() => setSelectedSubjectId(s.id)}
+              onClick={() => setSelectedSubjectId(Number(s.id))}
               className="cursor-pointer border border-white/10 rounded-2xl p-5 bg-white/[0.02] hover:border-indigo-500/30"
             >
               <div className="flex justify-between mb-4">
@@ -495,7 +525,7 @@ export default function CoursesView({
                   <div>
                     <div className="font-bold">{s.name}</div>
                     <div className="text-xs text-zinc-400">
-                      {s.code} • {s.credits} CR
+                      {s.code || ""} • {s.credits ?? 0} CR
                     </div>
                   </div>
                 </div>
