@@ -700,7 +700,7 @@ export const Dashboard = ({
                   <p className="text-xs">Add items from backlog or take the day off to recharge.</p>
                 </div>
               )}
-            </div>  
+            </div>
           </div>
         </div>
       </div>

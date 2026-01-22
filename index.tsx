@@ -1,4 +1,3 @@
-// index.tsx
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { LayoutGrid, BookOpen, BarChart2, Settings, Info, Clock, ArrowRight } from "lucide-react";
@@ -26,18 +25,40 @@ const App = () => {
   const [showRocket, setShowRocket] = useState(false);
   const [showRolloverModal, setShowRolloverModal] = useState(false);
 
+  // IST Time Helpers
   const getISTTime = () => {
-    return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    // Get current time in IST
+    const now = new Date();
+    const istString = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+    return new Date(istString);
   };
 
   const getISTEffectiveDate = () => {
     const istNow = getISTTime();
+    
+    console.log('🕐 IST Time Debug:', {
+      istNow: istNow.toString(),
+      hour: istNow.getHours(),
+      shouldUsePrevDay: istNow.getHours() < 2
+    });
+    
+    // If before 2 AM IST, use previous day
     if (istNow.getHours() < 2) {
       istNow.setDate(istNow.getDate() - 1);
     }
-    return istNow.toISOString().split('T')[0];
+    
+    // ✅ Ensure consistent YYYY-MM-DD format
+    const year = istNow.getFullYear();
+    const month = String(istNow.getMonth() + 1).padStart(2, '0');
+    const day = String(istNow.getDate()).padStart(2, '0');
+    
+    const effectiveDate = `${year}-${month}-${day}`;
+    console.log('📅 Effective Date:', effectiveDate);
+    
+    return effectiveDate;
   };
 
+  // Load Data Function
   const loadData = async () => {
     const subs = await db.subjects.toArray();
     setSubjects(subs);
@@ -47,15 +68,28 @@ const App = () => {
     const todayStr = getISTEffectiveDate();
     const existing = await db.plans.get(todayStr);
 
-    if (existing) {
+    console.log('📊 LoadData:', {
+      effectiveDate: todayStr,
+      existingPlan: existing?.date,
+      hasMatch: existing?.date === todayStr
+    });
+
+    // ✅ FIX: Only use existing plan if dates EXACTLY match
+    if (existing && existing.date === todayStr) {
       setTodayPlan(existing);
       setNeedsContext(false);
     } else {
-      // NEW DAY - show context modal
-      setNeedsContext(true);
+      // No plan for today OR plan is from wrong date
+      const subCount = await db.subjects.count();
+      if (subCount > 0) {
+        console.log('🎯 Need context - no valid plan for:', todayStr);
+        setNeedsContext(true);
+        setTodayPlan(null); // ✅ Clear old plan
+      }
     }
   };
 
+  // Initial Load
   useEffect(() => {
     const init = async () => {
       const count = await db.semesters.count();
@@ -68,34 +102,65 @@ const App = () => {
     init();
   }, []);
 
-  // ADD THIS useEffect after the initial loadData effect:
+  // ✅ IST ROLLOVER DETECTION - Catches offline rollovers
   useEffect(() => {
-    const interval = setInterval(() => {
-      const currentDate = getISTEffectiveDate();
-      if (todayPlan && todayPlan.date !== currentDate) {
+    const ROLLOVER_HOUR = 2; // 2 AM IST
+    const STORAGE_KEY = 'orbit_last_check_date';
+
+    const checkRollover = () => {
+      const currentEffectiveDate = getISTEffectiveDate();
+      const lastCheckedDate = localStorage.getItem(STORAGE_KEY);
+
+      console.log('⏰ Rollover Check:', {
+        currentEffective: currentEffectiveDate,
+        lastChecked: lastCheckedDate,
+        todayPlanDate: todayPlan?.date,
+        currentISTTime: getISTTime().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+      });
+
+      // ✅ FIX: Also check if todayPlan date doesn't match current effective date
+      if (todayPlan && todayPlan.date !== currentEffectiveDate) {
+        console.log('🔄 Rollover detected via plan date mismatch!');
         setNeedsContext(true);
         setTodayPlan(null);
+        loadData();
       }
-    }, 60000);
+      // Also check localStorage (for offline cases)
+      else if (lastCheckedDate && lastCheckedDate !== currentEffectiveDate) {
+        console.log('🔄 Rollover detected via localStorage:', lastCheckedDate, '→', currentEffectiveDate);
+        setNeedsContext(true);
+        setTodayPlan(null);
+        loadData();
+      }
+
+      // Store current effective date
+      localStorage.setItem(STORAGE_KEY, currentEffectiveDate);
+    };
+
+    // Check immediately on mount (catches offline rollovers)
+    checkRollover();
+
+    // Then check every minute
+    const interval = setInterval(checkRollover, 60000);
 
     return () => clearInterval(interval);
-  }, [todayPlan]);
+  }, [todayPlan]); // ✅ Add todayPlan as dependency
 
+  // Context Generation
   const handleContextGenerate = async (ctx: DailyContext) => {
     const blocks = await generateDailyPlan(ctx);
     const istDateStr = getISTEffectiveDate();
 
-    // Extract load analysis from first block (hack from brain.ts)
+    // Extract load analysis from first block (if exists)
     const loadAnalysis = blocks.length > 0 ? (blocks[0] as any).__loadAnalysis : null;
     if (loadAnalysis && blocks.length > 0) {
-      delete (blocks[0] as any).__loadAnalysis; // Clean up
+      delete (blocks[0] as any).__loadAnalysis;
     }
 
     const plan: DailyPlan = {
       date: istDateStr,
       blocks,
       context: ctx,
-      // Attach load metadata
       warning: loadAnalysis?.warning,
       loadLevel: loadAnalysis?.loadLevel,
       loadScore: loadAnalysis?.loadScore,
@@ -107,6 +172,7 @@ const App = () => {
     setShowRocket(true);
   };
 
+  // Focus Session Complete
   const handleFocusComplete = async (actualDuration?: number, sessionNotes?: string) => {
     if (activeBlock) {
       const durationToLog = actualDuration || activeBlock.duration;
@@ -142,6 +208,7 @@ const App = () => {
   const isOnboarding = view === 'onboarding' || needsContext;
   const showNavigation = !isOnboarding;
 
+  // ONBOARDING VIEW
   if (view === 'onboarding') return (
     <>
       <header className="flex items-center justify-between px-8 py-4 border-b border-white/10 bg-white/[0.02] backdrop-blur-2xl sticky top-0 z-50">
@@ -161,12 +228,17 @@ const App = () => {
     </>
   );
 
-  if (view === 'focus' && activeBlock) return <FocusSession block={activeBlock} onComplete={handleFocusComplete} onExit={() => setView(activeTab as any)} />;
+  // FOCUS SESSION VIEW
+  if (view === 'focus' && activeBlock) {
+    return <FocusSession block={activeBlock} onComplete={handleFocusComplete} onExit={() => setView(activeTab as any)} />;
+  }
 
+  // MAIN APP VIEW
   return (
     <div className="min-h-screen text-zinc-200 font-sans flex flex-col">
       <SpaceBackground />
 
+      {/* 2 AM IST ROLLOVER MODAL */}
       {showRolloverModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-2xl">
           <div className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-[2.5rem] p-8 text-center space-y-6 shadow-2xl">
@@ -190,8 +262,12 @@ const App = () => {
         </div>
       )}
 
-      {needsContext && subjects.length > 0 && <DailyContextModal subjects={subjects} onGenerate={handleContextGenerate} />}
+      {/* DAILY CONTEXT MODAL */}
+      {needsContext && subjects.length > 0 && (
+        <DailyContextModal subjects={subjects} onGenerate={handleContextGenerate} />
+      )}
 
+      {/* DESKTOP TOP NAVIGATION */}
       <header className="hidden md:flex items-center justify-between px-8 py-4 border-b border-white/10 bg-white/[0.02] backdrop-blur-2xl sticky top-0 z-50 h-16">
         <div className="absolute inset-0 bg-gradient-to-r from-white/[0.02] to-transparent"></div>
         <div className="flex items-center gap-3 relative z-10">
@@ -229,6 +305,7 @@ const App = () => {
         <div className="text-xs text-zinc-600 font-mono relative z-10">v2.0.1</div>
       </header>
 
+      {/* MAIN CONTENT AREA */}
       <main className="flex-1 min-h-screen pb-20 md:pb-0 overflow-x-hidden">
         <div className="max-w-7xl mx-auto w-full">
           {activeTab === 'dashboard' && todayPlan && (
@@ -254,6 +331,7 @@ const App = () => {
         </div>
       </main>
 
+      {/* MOBILE BOTTOM BAR */}
       {showNavigation && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/[0.02] backdrop-blur-2xl border-t border-white/10 flex justify-around items-center px-6 z-40">
           <div className="absolute inset-0 bg-gradient-to-t from-white/[0.02] to-transparent"></div>
@@ -264,7 +342,11 @@ const App = () => {
             { id: 'about', icon: Info, label: 'INFO' },
             { id: 'settings', icon: Settings, label: 'SET' }
           ].map(tab => (
-            <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); setView(tab.id as any); }} className={`${activeTab === tab.id ? 'text-white' : 'text-zinc-500'} flex flex-col items-center gap-1 transition-colors relative z-10`}>
+            <button 
+              key={tab.id} 
+              onClick={() => { setActiveTab(tab.id as any); setView(tab.id as any); }} 
+              className={`${activeTab === tab.id ? 'text-white' : 'text-zinc-500'} flex flex-col items-center gap-1 transition-colors relative z-10`}
+            >
               <tab.icon size={20} />
               <span className="text-[10px] font-bold uppercase">{tab.label}</span>
             </button>
