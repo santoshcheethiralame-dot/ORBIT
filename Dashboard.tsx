@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { DailyPlan, StudyBlock, Subject, StudyLog } from "./types";
-import { PageHeader } from "./PageHeader";
+import { WeekPreviewModal } from "./WeekPreviewModal";
+import { BlockReason } from "./components";
+
 import {
   Play,
   Check,
@@ -20,8 +22,10 @@ import {
   Sun,
   Cloud,
   Sparkles,
+  AlertCircle,
 } from "lucide-react";
 import { db } from "./db";
+
 
 export const Dashboard = ({
   plan,
@@ -40,6 +44,11 @@ export const Dashboard = ({
   const [showBacklog, setShowBacklog] = useState(false);
   const [animatedProgress, setAnimatedProgress] = useState(0);
   const [animatedStreak, setAnimatedStreak] = useState(0);
+  const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
+
+  // Week Preview State
+  const [showWeekPreview, setShowWeekPreview] = useState(false);
+  const [weekPreview, setWeekPreview] = useState<any>(null);
 
   const getISTTime = () => {
     return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
@@ -61,7 +70,6 @@ export const Dashboard = ({
     allPlans.forEach((p) => {
       if (p.date < today) {
         p.blocks.forEach((b) => {
-          // Only add to backlog if not completed AND not already migrated
           if (!b.completed && !b.migrated) {
             incomplete.push({ ...b, sourceDate: p.date });
           }
@@ -79,7 +87,6 @@ export const Dashboard = ({
     try {
       const todayStr = getISTEffectiveDate();
 
-      // 1. Mark as migrated in the ORIGINAL plan
       const originalPlan = await db.plans.get(block.sourceDate);
       if (originalPlan) {
         const updatedOrigBlocks = originalPlan.blocks.map(b =>
@@ -88,7 +95,6 @@ export const Dashboard = ({
         await db.plans.put({ ...originalPlan, blocks: updatedOrigBlocks });
       }
 
-      // 2. Add to Today's plan
       const currentPlan = await db.plans.get(todayStr);
       const newBlock = {
         ...block,
@@ -137,11 +143,9 @@ export const Dashboard = ({
       const block = currentPlan.blocks.find((b) => b.id === blockId);
       if (!block) return;
 
-      // Remove from today
       const updatedTodayBlocks = currentPlan.blocks.filter((b) => b.id !== blockId);
       await db.plans.put({ ...currentPlan, blocks: updatedTodayBlocks });
 
-      // Add to tomorrow (IST-aware)
       const istNow = getISTTime();
       const tomorrowDate = new Date(istNow);
       tomorrowDate.setDate(istNow.getDate() + 1);
@@ -165,20 +169,30 @@ export const Dashboard = ({
     }
   };
 
-  // Calculate stats
+  // Load Week Preview
+  const loadWeekPreview = async () => {
+    try {
+      const { simulateWeek } = await import('./brain');
+      const preview = await simulateWeek();
+      setWeekPreview(preview);
+      setShowWeekPreview(true);
+    } catch (err) {
+      console.error('Failed to load week preview:', err);
+    }
+  };
+
   const nextBlock = plan.blocks.find((b) => !b.completed);
   const completedCount = plan.blocks.filter((b) => b.completed).length;
   const totalCount = plan.blocks.length;
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  // Calculate streak
   const streak = (() => {
     if (!logs || logs.length === 0) return 0;
     const today = new Date();
     let count = 0;
     const daysSeen = new Set<string>();
     logs.forEach((l) => {
-      if (l && l.date) daysSeen.add(String(l.date)); // use stored YYYY-MM-DD directly
+      if (l && l.date) daysSeen.add(String(l.date));
     });
     for (let i = 0; i < 365; i++) {
       const d = new Date();
@@ -190,7 +204,6 @@ export const Dashboard = ({
     return count;
   })();
 
-  // Animate progress and streak on mount
   useEffect(() => {
     const progressTimer = setInterval(() => {
       setAnimatedProgress((prev) => {
@@ -259,10 +272,21 @@ export const Dashboard = ({
     return completion.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
   };
 
+  const toggleBlockExplanation = (blockId: string) => {
+    setExpandedBlocks(prev => {
+      const next = new Set(prev);
+      if (next.has(blockId)) {
+        next.delete(blockId);
+      } else {
+        next.add(blockId);
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="pb-24 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-6 animate-fade-in">
 
-      {/* Enhanced Header with Greeting */}
       <div className="flex flex-col gap-3">
         <div className="text-sm text-zinc-500 font-mono uppercase tracking-wider">
           {new Date().toLocaleDateString("en-US", {
@@ -297,42 +321,56 @@ export const Dashboard = ({
                 <span className="text-zinc-400">Done by {estimatedCompletionTime()}</span>
               </div>
             )}
+            {/* Week Preview Button */}
+            <button
+              onClick={loadWeekPreview}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 transition-all text-xs font-bold uppercase tracking-wide"
+            >
+              <Calendar size={14} />
+              <span>Week</span>
+            </button>
           </div>
         </div>
       </div>
 
+      {/* Workload Warning */}
+      {plan.warning && (
+        <div className="animate-fade-in">
+          <div className={`rounded-xl border p-4 flex items-start gap-3 ${plan.loadLevel === 'extreme'
+            ? 'bg-red-500/10 border-red-500/30 text-red-300'
+            : plan.loadLevel === 'heavy'
+              ? 'bg-orange-500/10 border-orange-500/30 text-orange-300'
+              : 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+            }`}>
+            <AlertCircle size={20} className="shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <div className="font-bold text-sm mb-1">
+                {plan.loadLevel === 'extreme' ? '⚠️ Extreme Load' :
+                  plan.loadLevel === 'heavy' ? '⚡ Heavy Load' :
+                    '💡 Light Load'}
+              </div>
+              <div className="text-sm opacity-90">{plan.warning}</div>
+              {plan.loadScore !== undefined && (
+                <div className="text-xs opacity-60 mt-2 font-mono">
+                  Load Score: {plan.loadScore}/100
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
-        {/* Hero Focus Card */}
         <div className="lg:col-span-8 flex">
           {nextBlock ? (
             <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl shadow-2xl transition-all duration-300 hover:border-indigo-500/30 hover:shadow-indigo-500/10 group flex-1">
               <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
 
-              {/* Progress Ring Background */}
               <div className="absolute top-6 right-6 w-24 h-24 opacity-20">
                 <svg className="transform -rotate-90" width="96" height="96">
-                  <circle
-                    cx="48"
-                    cy="48"
-                    r="44"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="none"
-                    className="text-zinc-700"
-                  />
-                  <circle
-                    cx="48"
-                    cy="48"
-                    r="44"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="none"
-                    className="text-indigo-400"
-                    strokeDasharray={`${2 * Math.PI * 44}`}
-                    strokeDashoffset={`${2 * Math.PI * 44 * (1 - animatedProgress / 100)}`}
-                    style={{ transition: "stroke-dashoffset 0.5s ease" }}
-                  />
+                  <circle cx="48" cy="48" r="44" stroke="currentColor" strokeWidth="4" fill="none" className="text-zinc-700" />
+                  <circle cx="48" cy="48" r="44" stroke="currentColor" strokeWidth="4" fill="none" className="text-indigo-400" strokeDasharray={`${2 * Math.PI * 44}`} strokeDashoffset={`${2 * Math.PI * 44 * (1 - animatedProgress / 100)}`} style={{ transition: "stroke-dashoffset 0.5s ease" }} />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-indigo-300">
                   {animatedProgress}%
@@ -411,7 +449,6 @@ export const Dashboard = ({
           )}
         </div>
 
-        {/* Stats Column */}
         <div className="lg:col-span-4 flex flex-col gap-5">
           <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
@@ -492,7 +529,6 @@ export const Dashboard = ({
         </div>
       </div>
 
-      {/* Backlog Modal */}
       {showBacklog && backlog.length > 0 && (
         <div className="animate-fade-in">
           <div className="rounded-2xl border border-yellow-500/30 bg-white/[0.02] backdrop-blur-2xl shadow-2xl shadow-yellow-500/5 relative overflow-hidden">
@@ -521,6 +557,14 @@ export const Dashboard = ({
         </div>
       )}
 
+      {/* Week Preview Modal */}
+      {showWeekPreview && weekPreview && (
+        <WeekPreviewModal
+          weekPreview={weekPreview}
+          onClose={() => setShowWeekPreview(false)}
+        />
+      )}
+
       {/* Today's Flight Plan */}
       <div>
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl shadow-xl relative overflow-hidden">
@@ -531,48 +575,137 @@ export const Dashboard = ({
                 <Calendar size={18} className="text-indigo-400" />
                 <span>Today's Flight Plan</span>
               </h3>
-              <div className="text-xs text-zinc-500 font-mono">{completedCount}/{totalCount} complete</div>
+              <div className="text-xs text-zinc-500 font-mono">
+                {completedCount}/{totalCount} complete
+              </div>
             </div>
 
             <div className="space-y-2.5">
               {plan.blocks.map((b, i) => {
                 const isNext = nextBlock?.id === b.id;
                 const isCompleted = b.completed;
+                const isExpanded = expandedBlocks.has(b.id); // ✅ This is correct - uses existing state
+                const hasExplanation = !!(b.reason || b.displaced);
+
                 return (
-                  <div key={b.id} className={`group relative flex items-center gap-3.5 p-3.5 rounded-xl border transition-all duration-200 ${isCompleted ? "bg-zinc-900/30 border-zinc-800/50 opacity-60" : isNext ? "bg-indigo-500/5 border-indigo-500/30 shadow-lg shadow-indigo-500/5" : "bg-zinc-900/40 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60"}`}>
-                    <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm transition-all ${isCompleted ? "bg-zinc-800 text-zinc-600" : isNext ? "bg-indigo-600 text-white group-hover:scale-110" : "bg-zinc-800 text-zinc-400 group-hover:scale-105"}`}>
-                      {isCompleted ? <Check size={16} /> : i + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className={`font-bold text-sm truncate transition-colors ${isCompleted ? "line-through decoration-zinc-700 text-zinc-600" : "group-hover:text-white"}`}>
-                        {b.subjectName}
+                  <div key={b.id} className="group flex flex-col gap-2 transition-all">
+                    {/* Main Block Row */}
+                    <div
+                      className={`relative flex items-center gap-3.5 p-3.5 rounded-xl border transition-all duration-200 ${isCompleted
+                        ? "bg-zinc-900/30 border-zinc-800/50 opacity-60"
+                        : isNext
+                          ? "bg-indigo-500/5 border-indigo-500/30 shadow-lg shadow-indigo-500/5"
+                          : "bg-zinc-900/40 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60"
+                        }`}
+                    >
+                      {/* Number/Check */}
+                      <div
+                        className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm transition-all ${isCompleted
+                          ? "bg-zinc-800 text-zinc-600"
+                          : isNext
+                            ? "bg-indigo-600 text-white group-hover:scale-110"
+                            : "bg-zinc-800 text-zinc-400 group-hover:scale-105"
+                          }`}
+                      >
+                        {isCompleted ? <Check size={16} /> : i + 1}
                       </div>
-                      <div className="text-[11px] text-zinc-500 uppercase mt-0.5 truncate">
-                        {b.type} • {b.duration}m {b.notes && `• ${b.notes}`}
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className={`font-bold text-sm truncate transition-colors ${isCompleted
+                            ? "line-through decoration-zinc-700 text-zinc-600"
+                            : "group-hover:text-white"
+                            }`}
+                        >
+                          {b.subjectName}
+                        </div>
+                        <div className="text-[11px] text-zinc-500 uppercase mt-0.5 truncate">
+                          {b.type} • {b.duration}m {b.notes && `• ${b.notes}`}
+                        </div>
                       </div>
+
+                      {/* Why? Button */}
+                      {hasExplanation && !isCompleted && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleBlockExplanation(b.id);
+                          }}
+                          className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${isExpanded
+                            ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                            : "bg-zinc-900 text-zinc-500 border border-zinc-800 hover:text-indigo-400 hover:border-indigo-500/30"
+                            }`}
+                        >
+                          {isExpanded ? "Hide" : "Why?"}
+                        </button>
+                      )}
+
+                      {/* Actions */}
+                      {!isCompleted && (
+                        <div
+                          className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={() => onStartFocus(b)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 rounded-lg transition-all font-medium text-xs hover:scale-105 active:scale-95"
+                          >
+                            <Play size={14} />
+                            <span>Start</span>
+                          </button>
+
+                          <button
+                            onClick={async () => {
+                              if (confirm("Mark as complete?")) await markComplete(b.id);
+                            }}
+                            className="p-2 hover:bg-emerald-500/10 text-emerald-400 rounded-lg transition-all hover:scale-110 active:scale-95"
+                            title="Mark complete"
+                          >
+                            <CheckCircle size={18} />
+                          </button>
+
+                          <button
+                            onClick={async () => {
+                              if (confirm("Move to tomorrow?")) await snoozeBlock(b.id);
+                            }}
+                            className="p-2 hover:bg-yellow-500/10 text-yellow-400 rounded-lg transition-all hover:scale-110 active:scale-95"
+                            title="Snooze to tomorrow"
+                          >
+                            <ArrowRight size={18} />
+                          </button>
+                        </div>
+                      )}
+
+                      {isCompleted && (
+                        <div className="text-[11px] text-zinc-600 font-mono px-2.5 uppercase">
+                          Done
+                        </div>
+                      )}
                     </div>
-                    {!isCompleted && (
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
-                        <button onClick={() => onStartFocus(b)} className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 rounded-lg transition-all font-medium text-xs hover:scale-105 active:scale-95"><Play size={14} /><span>Start</span></button>
-                        <button onClick={async (e) => { e.stopPropagation(); if (confirm("Mark as complete?")) await markComplete(b.id); }} className="p-2 hover:bg-emerald-500/10 text-emerald-400 rounded-lg transition-all hover:scale-110 active:scale-95" title="Mark complete"><CheckCircle size={18} /></button>
-                        <button onClick={async (e) => { e.stopPropagation(); if (confirm("Move to tomorrow?")) await snoozeBlock(b.id); }} className="p-2 hover:bg-yellow-500/10 text-yellow-400 rounded-lg transition-all hover:scale-110 active:scale-95" title="Snooze to tomorrow"><ArrowRight size={18} /></button>
+
+                    {/* Logic Explanation Dropdown */}
+                    {isExpanded && !isCompleted && hasExplanation && (
+                      <div className="animate-fade-in pl-12 pr-2">
+                        <BlockReason block={b} />
                       </div>
                     )}
-                    {isCompleted && <div className="text-[11px] text-zinc-600 font-mono px-2.5 uppercase">Done</div>}
                   </div>
                 );
               })}
+
               {plan.blocks.length === 0 && (
                 <div className="text-center py-12 text-zinc-600">
                   <p className="mb-1 text-sm">No blocks scheduled for today.</p>
                   <p className="text-xs">Add items from backlog or take the day off to recharge.</p>
                 </div>
               )}
-            </div>
+            </div>  
           </div>
         </div>
       </div>
 
+      {/* Quick Break Suggestion - Subtle Footer */}
       <div className="flex justify-center pt-4">
         <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/5 text-zinc-500 text-xs">
           <Coffee size={14} />

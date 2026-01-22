@@ -84,7 +84,22 @@ const App = () => {
   const handleContextGenerate = async (ctx: DailyContext) => {
     const blocks = await generateDailyPlan(ctx);
     const istDateStr = getISTEffectiveDate();
-    const plan: DailyPlan = { date: istDateStr, blocks, context: ctx };
+
+    // Extract load analysis from first block (hack from brain.ts)
+    const loadAnalysis = blocks.length > 0 ? (blocks[0] as any).__loadAnalysis : null;
+    if (loadAnalysis && blocks.length > 0) {
+      delete (blocks[0] as any).__loadAnalysis; // Clean up
+    }
+
+    const plan: DailyPlan = {
+      date: istDateStr,
+      blocks,
+      context: ctx,
+      // Attach load metadata
+      warning: loadAnalysis?.warning,
+      loadLevel: loadAnalysis?.loadLevel,
+      loadScore: loadAnalysis?.loadScore,
+    };
 
     await db.plans.put(plan);
     setTodayPlan(plan);

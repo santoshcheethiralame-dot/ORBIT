@@ -74,11 +74,20 @@ export interface StudyBlock {
   type: 'review' | 'project' | 'prep' | 'recovery' | 'assignment';
   duration: number; // minutes
   completed: boolean;
-  migrated?: boolean; // ADD THIS LINE
-  priority: number; // 1..5
+
+  migrated?: boolean; // existing
+  priority: number; // lower = stronger
+
   notes?: string;
   assignmentId?: string;
   projectId?: number;
+
+  // 👇 NEW — Explainability (SAFE)
+  reason?: string;
+  displaced?: {
+    type: StudyBlock['type'];
+    subjectName: string;
+  };
 }
 
 export interface Assignment {
@@ -103,6 +112,11 @@ export interface DailyPlan {
   date: string;
   blocks: StudyBlock[];
   context: DailyContext;
+
+  // 👇 NEW: Overload detection
+  warning?: string;
+  loadLevel?: 'light' | 'normal' | 'heavy' | 'extreme';
+  loadScore?: number; // 0-100
 }
 
 export interface StudyLog {
@@ -116,3 +130,26 @@ export interface StudyLog {
   notes?: string;
 }
 
+/* ======================================================
+   WEEK SIMULATION
+====================================================== */
+
+export interface DayPreview {
+  date: string;
+  dayName: string; // "Mon", "Tue", etc.
+  blockCount: number;
+  totalMinutes: number;
+  loadLevel: 'light' | 'normal' | 'heavy' | 'extreme';
+  hasESA: boolean;
+  hasISA: boolean;
+  urgentAssignments: number;
+  projects: string[]; // project names
+}
+
+export interface WeekPreview {
+  days: DayPreview[];
+  warnings: string[];
+  neglectedProjects: string[];
+  overloadDays: string[];
+  peakDay: string; // heaviest day
+}
