@@ -15,17 +15,23 @@ export interface SyllabusUnit {
   completed: boolean;
 }
 
-export type ResourceType = 'link' | 'pdf' | 'video' | 'slide' | string;
+export type ResourceType = 'link' | 'pdf' | 'video' | 'slide' | 'file' | string;
 export type ResourcePriority = 'required' | 'recommended' | 'optional' | string;
 
+// Enhanced Resource interface to support both files and links
 export interface Resource {
   id: string;
   title: string;
-  url: string;
+  url?: string;           // For web links
   type: ResourceType;
   priority?: ResourcePriority;
   notes?: string;
   createdAt?: string;
+  // File-specific fields
+  fileData?: string;      // Base64 encoded file data
+  fileType?: string;      // MIME type
+  fileSize?: number;      // Size in bytes
+  dateAdded?: string;     // YYYY-MM-DD
 }
 
 export interface Grade {
@@ -44,8 +50,8 @@ export interface Subject {
   credits: number;
   difficulty: number;      // 1-5
   syllabus?: SyllabusUnit[];
-  resources?: Resource[];  // ADDED
-  grades?: Grade[];        // ADDED
+  resources?: Resource[];
+  grades?: Grade[];
   color?: string;
   notes?: string;
   createdAt?: string;
@@ -75,14 +81,14 @@ export interface StudyBlock {
   duration: number; // minutes
   completed: boolean;
 
-  migrated?: boolean; // existing
+  migrated?: boolean;
   priority: number; // lower = stronger
 
   notes?: string;
   assignmentId?: string;
   projectId?: number;
 
-  // 👇 NEW — Explainability (SAFE)
+  // Explainability
   reason?: string;
   displaced?: {
     type: StudyBlock['type'];
@@ -113,7 +119,7 @@ export interface DailyPlan {
   blocks: StudyBlock[];
   context: DailyContext;
 
-  // 👇 NEW: Overload detection
+  // Overload detection
   warning?: string;
   loadLevel?: 'light' | 'normal' | 'heavy' | 'extreme';
   loadScore?: number; // 0-100

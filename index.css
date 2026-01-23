@@ -1,0 +1,320 @@
+/* Light Mode Theme Variables */
+:root {
+    --bg-primary: #09090b;
+    --bg-secondary: #18181b;
+    --text-primary: #e4e4e7;
+    --text-secondary: #a1a1aa;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --glass-bg: rgba(255, 255, 255, 0.02);
+}
+
+.light-mode {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f4f4f5;
+    --text-primary: #18181b;
+    --text-secondary: #52525b;
+    --border-color: rgba(0, 0, 0, 0.1);
+    --glass-bg: rgba(0, 0, 0, 0.02);
+}
+
+/* Light Mode Overrides */
+.light-mode {
+    background-color: #ffffff;
+    color: #18181b;
+}
+
+.light-mode body {
+    background-color: #ffffff;
+    color: #18181b;
+}
+
+/* Text colors */
+.light-mode .text-white {
+    color: #18181b !important;
+}
+
+.light-mode .text-zinc-200 {
+    color: #3f3f46 !important;
+}
+
+.light-mode .text-zinc-300 {
+    color: #52525b !important;
+}
+
+.light-mode .text-zinc-400 {
+    color: #71717a !important;
+}
+
+.light-mode .text-zinc-500 {
+    color: #a1a1aa !important;
+}
+
+.light-mode .text-zinc-600 {
+    color: #d4d4d8 !important;
+}
+
+/* Background colors */
+.light-mode .bg-black {
+    background-color: #ffffff !important;
+}
+
+.light-mode .bg-zinc-900 {
+    background-color: #f4f4f5 !important;
+}
+
+.light-mode .bg-zinc-800 {
+    background-color: #e4e4e7 !important;
+}
+
+.light-mode .bg-zinc-950 {
+    background-color: #fafafa !important;
+}
+
+/* Borders */
+.light-mode .border-white\/10,
+.light-mode .border-white\/5,
+.light-mode [class*="border-white/"] {
+    border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-mode .border-zinc-800 {
+    border-color: #d4d4d8 !important;
+}
+
+.light-mode .border-zinc-700 {
+    border-color: #e4e4e7 !important;
+}
+
+/* Glass panels */
+.light-mode .glass-panel,
+.light-mode .backdrop-blur-2xl,
+.light-mode .backdrop-blur-xl {
+    background: rgba(255, 255, 255, 0.8) !important;
+    border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Preserve accent colors in light mode */
+.light-mode .text-indigo-400,
+.light-mode .text-indigo-300 {
+    color: #6366f1 !important;
+}
+
+.light-mode .text-emerald-400,
+.light-mode .text-emerald-300 {
+    color: #10b981 !important;
+}
+
+.light-mode .text-amber-400,
+.light-mode .text-amber-300 {
+    color: #f59e0b !important;
+}
+
+.light-mode .text-red-400,
+.light-mode .text-red-300 {
+    color: #ef4444 !important;
+}
+
+.light-mode .text-cyan-400,
+.light-mode .text-cyan-300 {
+    color: #06b6d4 !important;
+}
+
+.light-mode .text-purple-400,
+.light-mode .text-purple-300 {
+    color: #a855f7 !important;
+}
+
+.light-mode .text-orange-400,
+.light-mode .text-orange-300 {
+    color: #f97316 !important;
+}
+
+.light-mode .text-yellow-400,
+.light-mode .text-yellow-300 {
+    color: #eab308 !important;
+}
+
+/* Accent backgrounds */
+.light-mode .bg-indigo-500 {
+    background-color: #6366f1 !important;
+}
+
+.light-mode .bg-emerald-500 {
+    background-color: #10b981 !important;
+}
+
+.light-mode .bg-amber-500 {
+    background-color: #f59e0b !important;
+}
+
+.light-mode .bg-red-500 {
+    background-color: #ef4444 !important;
+}
+
+.light-mode .bg-cyan-500 {
+    background-color: #06b6d4 !important;
+}
+
+.light-mode .bg-purple-500 {
+    background-color: #a855f7 !important;
+}
+
+.light-mode .bg-rose-500 {
+    background-color: #f43f5e !important;
+}
+
+/* Input fields */
+.light-mode input,
+.light-mode textarea,
+.light-mode select {
+    background-color: #ffffff !important;
+    color: #18181b !important;
+    border-color: #d4d4d8 !important;
+}
+
+.light-mode input::placeholder,
+.light-mode textarea::placeholder {
+    color: #a1a1aa !important;
+}
+
+/* Buttons */
+.light-mode button {
+    color: inherit;
+}
+
+.light-mode .bg-white {
+    background-color: #18181b !important;
+    color: #ffffff !important;
+}
+
+/* Hover states in light mode */
+.light-mode .hover\:bg-zinc-800:hover {
+    background-color: #e4e4e7 !important;
+}
+
+.light-mode .hover\:bg-zinc-900:hover {
+    background-color: #f4f4f5 !important;
+}
+
+.light-mode .hover\:text-white:hover {
+    color: #18181b !important;
+}
+
+/* Cards and panels */
+.light-mode [class*="bg-white/[0.02]"] {
+    background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+.light-mode [class*="bg-white/5"] {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Shadows */
+.light-mode .shadow-2xl {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.light-mode .shadow-xl {
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-mode .shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Space background - hide in light mode */
+.light-mode .fixed.inset-0.z-\[-1\] {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #fef3c7 100%) !important;
+}
+
+/* Make sure stars are hidden in light mode */
+.light-mode .fixed.inset-0.z-\[-1\]>div:not(:first-child) {
+    display: none !important;
+}
+
+/* Scrollbar in light mode */
+.light-mode ::-webkit-scrollbar-thumb {
+    background: #d4d4d8 !important;
+}
+
+.light-mode ::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+/* Preserve gradient texts */
+.light-mode .text-transparent {
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+}
+
+/* Animation adjustments */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+}
+
+/* Ensure proper contrast for badges in light mode */
+.light-mode .bg-indigo-500\/10 {
+    background-color: rgba(99, 102, 241, 0.15) !important;
+}
+
+.light-mode .bg-emerald-500\/10 {
+    background-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+.light-mode .bg-red-500\/10 {
+    background-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+.light-mode .bg-orange-500\/10 {
+    background-color: rgba(249, 115, 22, 0.15) !important;
+}
+
+.light-mode .bg-cyan-500\/10 {
+    background-color: rgba(6, 182, 212, 0.15) !important;
+}
+
+.light-mode .bg-purple-500\/10 {
+    background-color: rgba(168, 85, 247, 0.15) !important;
+}
+
+.light-mode .bg-amber-500\/10 {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+/* Modal overlays in light mode */
+.light-mode .bg-black\/95,
+.light-mode .bg-black\/90,
+.light-mode .bg-black\/80,
+.light-mode .bg-black\/70,
+.light-mode .bg-black\/60 {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(20px);
+}
+
+/* Ensure proper readability in light mode cards */
+.light-mode .bg-zinc-900\/60,
+.light-mode .bg-zinc-900\/40,
+.light-mode .bg-zinc-900\/30 {
+    background-color: rgba(244, 244, 245, 0.8) !important;
+}
+
+/* Light mode specific adjustments for better UX */
+.light-mode {
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.light-mode * {
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}

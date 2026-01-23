@@ -1,24 +1,12 @@
 import React, { useEffect, useState } from "react";
-import FocusTrap from 'focus-trap-react';
 import {
-  BookOpen,
-  Award,
-  FileText,
-  Upload,
-  Trash2,
-  X,
-  Search,
-  Target,
-  Clock,
-  Download,
-  File,
-  CheckSquare,
-  Square,
+  BookOpen, Award, FileText, Upload, Trash2, X, Search, Target, 
+  Clock, Download, CheckSquare, Square, Calculator, TrendingUp,
+  LinkIcon, ExternalLink, Plus, Edit2
 } from "lucide-react";
 import { db } from "./db";
+import { ResourceType } from "./types";
 import { useLiveQuery } from "dexie-react-hooks";
-
-/* ====================== HELPERS ====================== */
 
 const base64ToBlobUrl = (dataUrl: string, mime: string) => {
   try {
@@ -28,54 +16,39 @@ const base64ToBlobUrl = (dataUrl: string, mime: string) => {
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     return URL.createObjectURL(new Blob([bytes], { type: mime }));
   } catch (err) {
-    console.error("Failed to create blob url from base64:", err);
+    console.error("Failed to create blob url:", err);
     return null;
   }
 };
 
 const isOfficeDoc = (type: string) =>
-  type.includes("presentation") ||
-  type.includes("msword") ||
-  type.includes("officedocument");
+  type.includes("presentation") || type.includes("msword") || type.includes("officedocument");
 
-/* ===================================================== */
-
-export default function CoursesView({
-  subjects: propSubjects,
-  logs: propLogs,
-}: {
-  subjects?: any[];
-  logs?: any[];
-}) {
-  // prefer live query; fall back to props if provided
-  const subjects = useLiveQuery(() => db.subjects.toArray()) || propSubjects || [];
-  const logs = useLiveQuery(() => db.logs.toArray()) || propLogs || [];
+export default function EnhancedCoursesView() {
+  const subjects = useLiveQuery(() => db.subjects.toArray()) || [];
+  const logs = useLiveQuery(() => db.logs.toArray()) || [];
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"name" | "difficulty">("name");
-  // subject ids in the DB are numeric -> use number|null
+  const [sortBy, setSortBy] = useState<"name" | "difficulty" | "progress">("name");
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
   const [selectedResource, setSelectedResource] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [spinClose, setSpinClose] = useState(false);
   const [newUnit, setNewUnit] = useState("");
+  const [showGradeForm, setShowGradeForm] = useState(false);
+  const [newGrade, setNewGrade] = useState({ type: "", score: "", maxScore: "100", date: "" });
+  const [showLinkForm, setShowLinkForm] = useState(false);
+  const [newLink, setNewLink] = useState({ title: "", url: "" });
 
-  // find subject with numeric id comparison
   const selectedSubject = selectedSubjectId != null
     ? subjects.find((s) => Number(s.id) === Number(selectedSubjectId))
     : null;
 
-  /* ---------------- BODY LOCK ---------------- */
   useEffect(() => {
-    document.body.style.overflow =
-      selectedSubject || selectedResource ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
+    document.body.style.overflow = selectedSubject || selectedResource ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
   }, [selectedSubject, selectedResource]);
 
-  /* ---------------- ESC ---------------- */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -87,16 +60,12 @@ export default function CoursesView({
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedResource]);
 
-  /* ---------------- PREVIEW URL ---------------- */
   useEffect(() => {
     if (!selectedResource) {
       setPreviewUrl(null);
       return;
     }
-    const url = base64ToBlobUrl(
-      selectedResource.fileData,
-      selectedResource.fileType
-    );
+    const url = base64ToBlobUrl(selectedResource.fileData, selectedResource.fileType);
     if (url) {
       setPreviewUrl(url);
       return () => {
@@ -108,23 +77,16 @@ export default function CoursesView({
     }
   }, [selectedResource]);
 
-  /* ---------------- HELPERS ---------------- */
-
   const themes = [
-    { text: "text-indigo-400", bg: "bg-indigo-500" },
-    { text: "text-emerald-400", bg: "bg-emerald-500" },
-    { text: "text-amber-400", bg: "bg-amber-500" },
-    { text: "text-rose-400", bg: "bg-rose-500" },
-    { text: "text-cyan-400", bg: "bg-cyan-500" },
+    { text: "text-indigo-400", bg: "bg-indigo-500", border: "border-indigo-500" },
+    { text: "text-emerald-400", bg: "bg-emerald-500", border: "border-emerald-500" },
+    { text: "text-amber-400", bg: "bg-amber-500", border: "border-amber-500" },
+    { text: "text-rose-400", bg: "bg-rose-500", border: "border-rose-500" },
+    { text: "text-cyan-400", bg: "bg-cyan-500", border: "border-cyan-500" },
   ];
 
   const getInitials = (name: string) =>
-    (name || "")
-      .split(" ")
-      .slice(0, 2)
-      .map((p) => (p && p[0]) || "")
-      .join("")
-      .toUpperCase();
+    (name || "").split(" ").slice(0, 2).map((p) => (p && p[0]) || "").join("").toUpperCase();
 
   const computeProgress = (s: any) => {
     const total = s?.syllabus?.length || 0;
@@ -133,19 +95,16 @@ export default function CoursesView({
   };
 
   const getTotalHours = (id: number | string) =>
-    Math.round(
-      (logs
-        .filter((l: any) => Number(l.subjectId) === Number(id))
-        .reduce((a: number, b: any) => a + (b.duration || 0), 0) /
-        60) *
-      10
-    ) / 10;
+    Math.round((logs.filter((l: any) => Number(l.subjectId) === Number(id)).reduce((a: number, b: any) => a + (b.duration || 0), 0) / 60) * 10) / 10;
 
-  /* ---------------- FILE SAVE ---------------- */
+  const calculateGPA = (grades: any[]) => {
+    if (!grades || grades.length === 0) return null;
+    const total = grades.reduce((sum, g) => sum + (g.score / g.maxScore) * 100, 0);
+    return (total / grades.length).toFixed(1);
+  };
 
   const processAndSaveFile = async (file: File) => {
     if (!selectedSubject) return;
-
     try {
       const reader = new FileReader();
       const base64 = await new Promise<string>((res, rej) => {
@@ -158,8 +117,12 @@ export default function CoursesView({
         resources: [
           ...(selectedSubject.resources || []),
           {
-            id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+            id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
             title: file.name,
+            type: file.type.startsWith('image/') ? 'image' as ResourceType
+                 : file.type.includes('pdf') ? 'pdf' as ResourceType
+                 : file.type.includes('video') ? 'video' as ResourceType
+                 : 'file' as ResourceType,
             fileData: base64,
             fileType: file.type,
             fileSize: file.size,
@@ -168,19 +131,63 @@ export default function CoursesView({
         ],
       });
     } catch (err) {
-      console.error("Failed to process and save file", err);
+      console.error("Failed to save file", err);
       alert("Failed to upload file.");
     }
   };
 
+  const addWebLink = async () => {
+    if (!selectedSubject || !newLink.title || !newLink.url) return;
+    
+    await db.subjects.update(selectedSubject.id, {
+      resources: [
+        ...(selectedSubject.resources || []),
+        {
+          id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+          title: newLink.title,
+          url: newLink.url,
+          type: 'link',
+          dateAdded: new Date().toISOString().split("T")[0],
+        },
+      ],
+    });
+    
+    setNewLink({ title: "", url: "" });
+    setShowLinkForm(false);
+  };
+
+  const addGrade = async () => {
+    if (!selectedSubject || !newGrade.type || !newGrade.score) return;
+    
+    await db.subjects.update(selectedSubject.id, {
+      grades: [
+        ...(selectedSubject.grades || []),
+        {
+          id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+          type: newGrade.type,
+          score: parseFloat(newGrade.score),
+          maxScore: parseFloat(newGrade.maxScore),
+          date: newGrade.date || new Date().toISOString().split("T")[0],
+        },
+      ],
+    });
+    
+    setNewGrade({ type: "", score: "", maxScore: "100", date: "" });
+    setShowGradeForm(false);
+  };
+
   const openExternally = (r: any) => {
+    if (r.type === 'link') {
+      window.open(r.url, '_blank');
+      return;
+    }
+    
     const url = base64ToBlobUrl(r.fileData, r.fileType);
     if (!url) {
       alert("Unable to preview file.");
       return;
     }
 
-    // For Office docs, just trigger a download (can't reliably preview in-browser)
     if (isOfficeDoc(r.fileType)) {
       const link = document.createElement("a");
       link.href = url;
@@ -188,47 +195,28 @@ export default function CoursesView({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      // Inform user
-      alert(`Office documents will be downloaded. Open with your local Office suite or Google Drive.`);
+      alert(`Office documents will be downloaded. Open with your local Office suite.`);
     } else {
       window.open(url, "_blank");
     }
   };
-  /* =====================================================
-     RESOURCE VIEWER
-  ===================================================== */
 
-  if (selectedResource) {
-    const canPreview =
-      selectedResource.fileType.includes("pdf") ||
-      selectedResource.fileType.startsWith("image") ||
-      selectedResource.fileType.startsWith("video");
+  // Resource Viewer
+  if (selectedResource && selectedResource.type !== 'link') {
+    const canPreview = selectedResource.fileType?.includes("pdf") || 
+                       selectedResource.fileType?.startsWith("image") || 
+                       selectedResource.fileType?.startsWith("video");
 
     return (
       <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center">
-        <button
-          onClick={() => {
-            setSpinClose(true);
-            setTimeout(() => {
-              setSpinClose(false);
-              setSelectedResource(null);
-            }, 250);
-          }}
-          className={`fixed top-6 right-6 p-3 bg-white/10 rounded-xl transition-transform ${spinClose ? "rotate-180 scale-90" : ""
-            }`}
-        >
+        <button onClick={() => setSelectedResource(null)} className="fixed top-6 right-6 p-3 bg-white/10 rounded-xl">
           <X />
         </button>
 
         <div className="w-full max-w-6xl h-[90vh] bg-zinc-900 rounded-2xl border border-white/10 flex flex-col">
           <div className="p-4 border-b border-white/10 flex justify-between">
-            <div className="font-bold truncate">
-              {selectedResource.title}
-            </div>
-            <button
-              onClick={() => openExternally(selectedResource)}
-              className="px-4 py-2 bg-indigo-500/20 rounded-lg"
-            >
+            <div className="font-bold truncate">{selectedResource.title}</div>
+            <button onClick={() => openExternally(selectedResource)} className="px-4 py-2 bg-indigo-500/20 rounded-lg">
               Open in new tab
             </button>
           </div>
@@ -236,26 +224,15 @@ export default function CoursesView({
           <div className="flex-1 bg-zinc-950 p-4">
             {canPreview ? (
               selectedResource.fileType.includes("pdf") ? (
-                <iframe
-                  src={previewUrl ?? ""}
-                  className="w-full h-full bg-white rounded-lg"
-                />
+                <iframe src={previewUrl ?? ""} className="w-full h-full bg-white rounded-lg" />
               ) : selectedResource.fileType.startsWith("image") ? (
-                <img
-                  src={previewUrl ?? ""}
-                  className="max-w-full max-h-full mx-auto"
-                />
+                <img src={previewUrl ?? ""} className="max-w-full max-h-full mx-auto" />
               ) : (
-                <video
-                  src={previewUrl ?? ""}
-                  controls
-                  className="w-full h-full"
-                />
+                <video src={previewUrl ?? ""} controls className="w-full h-full" />
               )
             ) : (
               <div className="h-full flex items-center justify-center text-zinc-500 text-center">
-                Preview not supported for this file type.<br />
-                Use “Open in new tab”.
+                Preview not supported.<br />Use "Open in new tab".
               </div>
             )}
           </div>
@@ -264,224 +241,303 @@ export default function CoursesView({
     );
   }
 
-  /* =====================================================
-     SUBJECT DETAIL
-  ===================================================== */
-
+  // Subject Detail View
   if (selectedSubject) {
-    const theme =
-      themes[
-      subjects.findIndex((s) => Number(s.id) === Number(selectedSubject.id)) % themes.length
-      ];
+    const theme = themes[subjects.findIndex((s) => Number(s.id) === Number(selectedSubject.id)) % themes.length];
+    const gpa = calculateGPA(selectedSubject.grades || []);
 
     return (
       <div className="fixed inset-0 z-40 bg-black overflow-y-auto pt-16">
         <div className="max-w-[1400px] mx-auto p-6 space-y-6 pb-24">
-          <button
-            onClick={() => setSelectedSubjectId(null)}
-            className="fixed top-20 right-6 p-3 bg-white/10 rounded-xl"
-          >
+          <button onClick={() => setSelectedSubjectId(null)} className="fixed top-20 right-6 p-3 bg-white/10 rounded-xl">
             <X />
           </button>
 
-          {/* HEADER */}
+          {/* Header */}
           <div className="flex items-center gap-4">
-            <div
-              className={`w-16 h-16 ${theme.bg} rounded-2xl flex items-center justify-center font-bold text-black`}
-            >
+            <div className={`w-16 h-16 ${theme.bg} rounded-2xl flex items-center justify-center font-bold text-black`}>
               {getInitials(selectedSubject.name)}
             </div>
             <div>
               <h1 className="text-4xl font-bold">{selectedSubject.name || "Untitled"}</h1>
               <div className="text-zinc-400 text-sm">
-                {(selectedSubject.code || "")} • {(selectedSubject.credits ?? 0)} credits
+                {selectedSubject.code || ""} • {selectedSubject.credits ?? 0} credits
               </div>
             </div>
           </div>
 
-          {/* STATS */}
-          <div className="grid grid-cols-3 gap-6">
+          {/* Stats */}
+          <div className="grid grid-cols-4 gap-6">
             <div>
               <div className="text-xs text-zinc-500">Progress</div>
-              <div className="text-4xl font-bold">
-                {computeProgress(selectedSubject)}%
-              </div>
+              <div className="text-4xl font-bold">{computeProgress(selectedSubject)}%</div>
             </div>
             <div>
               <div className="text-xs text-zinc-500">Study Time</div>
-              <div className="text-4xl font-bold">
-                {getTotalHours(selectedSubject.id)}h
-              </div>
+              <div className="text-4xl font-bold">{getTotalHours(selectedSubject.id)}h</div>
             </div>
             <div>
-              <div className="text-xs text-zinc-500">Grades</div>
-              <div className="text-4xl font-bold">
-                {(selectedSubject.grades || []).length}
-              </div>
+              <div className="text-xs text-zinc-500">Avg Score</div>
+              <div className="text-4xl font-bold">{gpa || '--'}%</div>
+            </div>
+            <div>
+              <div className="text-xs text-zinc-500">Resources</div>
+              <div className="text-4xl font-bold">{(selectedSubject.resources || []).length}</div>
             </div>
           </div>
 
-          {/* UNITS */}
-          <div className="border border-white/10 rounded-2xl p-6">
-            <h3 className="font-bold mb-4">Syllabus</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Syllabus */}
+            <div className="border border-white/10 rounded-2xl p-6">
+              <h3 className="font-bold mb-4 flex items-center gap-2">
+                <Target size={18} className="text-indigo-400" />
+                Syllabus
+              </h3>
 
-            {(selectedSubject.syllabus || []).map((u: any) => (
-              <div
-                key={u.id}
-                className="flex items-center gap-3 mb-2 cursor-pointer"
-                onClick={() =>
-                  db.subjects.update(selectedSubject.id, {
-                    syllabus: (selectedSubject.syllabus || []).map((x: any) =>
-                      x.id === u.id
-                        ? { ...x, completed: !x.completed }
-                        : x
-                    ),
-                  })
-                }
-              >
-                {u.completed ? (
-                  <CheckSquare className="text-emerald-400" />
-                ) : (
-                  <Square />
-                )}
-                <span className={u.completed ? "line-through text-zinc-500" : ""}>
-                  {u.title}
-                </span>
-              </div>
-            ))}
-
-            <div className="flex gap-2 mt-3">
-              <input
-                value={newUnit}
-                onChange={(e) => setNewUnit(e.target.value)}
-                placeholder="Add unit"
-                className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2"
-              />
-              <button
-                onClick={async () => {
-                  if (!newUnit.trim()) return;
-                  await db.subjects.update(selectedSubject.id, {
-                    syllabus: [
-                      ...(selectedSubject.syllabus || []),
-                      {
-                        id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-                        title: newUnit,
-                        completed: false,
-                      },
-                    ],
-                  });
-                  setNewUnit("");
-                }}
-                className="px-4 py-2 bg-indigo-500/20 rounded-lg"
-              >
-                Add
-              </button>
-            </div>
-          </div>
-
-          {/* SESSION NOTES */}
-          <div className="border border-white/10 rounded-2xl p-6">
-            <h3 className="font-bold mb-4">Session Notes</h3>
-
-            {logs
-              .filter(
-                (l: any) =>
-                  Number(l.subjectId) === Number(selectedSubject.id) &&
-                  l.notes &&
-                  l.notes.trim()
-              )
-              .map((s: any) => (
+              {(selectedSubject.syllabus || []).map((u: any) => (
                 <div
-                  key={s.id}
-                  className="p-4 bg-zinc-900 rounded-xl border border-zinc-800 mb-3"
-                >
-                  <div className="flex justify-between text-xs text-zinc-500 mb-2">
-                    <span>{s.type}</span>
-                    <span>{s.duration} min</span>
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm">{s.notes}</p>
-                </div>
-              ))}
-          </div>
-
-          {/* RESOURCES */}
-          <div className="border border-white/10 rounded-2xl p-6">
-            <h3 className="font-bold mb-4">Resources</h3>
-
-            {(selectedSubject.resources || []).map((r: any) => (
-              <div
-                key={r.id}
-                className="flex items-center justify-between p-3 bg-zinc-900 rounded-lg mb-2"
-              >
-                <span
-                  className="truncate cursor-pointer"
-                  onClick={() => setSelectedResource(r)}
-                >
-                  {r.title}
-                </span>
-                <Trash2
-                  size={16}
-                  className="text-red-400 cursor-pointer"
+                  key={u.id}
+                  className="flex items-center gap-3 mb-2 cursor-pointer hover:bg-zinc-900/40 p-2 rounded-lg transition-all"
                   onClick={() =>
                     db.subjects.update(selectedSubject.id, {
-                      resources: (selectedSubject.resources || []).filter(
-                        (x: any) => x.id !== r.id
+                      syllabus: (selectedSubject.syllabus || []).map((x: any) =>
+                        x.id === u.id ? { ...x, completed: !x.completed } : x
                       ),
                     })
                   }
-                />
-              </div>
-            ))}
+                >
+                  {u.completed ? <CheckSquare className="text-emerald-400" size={20} /> : <Square size={20} />}
+                  <span className={u.completed ? "line-through text-zinc-500" : ""}>{u.title}</span>
+                </div>
+              ))}
 
-            <label
-              className={`mt-4 block px-4 py-3 text-sm text-center rounded-lg border cursor-pointer ${dragActive
-                  ? "border-cyan-400 bg-cyan-500/20"
-                  : "border-white/10 hover:border-cyan-500/40"
-                }`}
-              onDragEnter={() => setDragActive(true)}
-              onDragLeave={() => setDragActive(false)}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={async (e) => {
-                e.preventDefault();
-                setDragActive(false);
-                const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []) as File[];
-                for (const f of files) {
-                  await processAndSaveFile(f);
-                }
-              }}
-            >
-              <input
-                type="file"
-                multiple
-                hidden
-                onChange={async (e: any) => {
-                  const files = Array.from((e.target && e.target.files) || []) as File[];
-                  for (const f of files) {
-                    await processAndSaveFile(f);
-                  }
-                }}
-              />
-              + Add files (PDF, images, videos, PPT, DOC)
-            </label>
+              <div className="flex gap-2 mt-3">
+                <input
+                  value={newUnit}
+                  onChange={(e) => setNewUnit(e.target.value)}
+                  placeholder="Add unit"
+                  className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newUnit.trim()) {
+                      db.subjects.update(selectedSubject.id, {
+                        syllabus: [
+                          ...(selectedSubject.syllabus || []),
+                          {
+                            id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+                            title: newUnit,
+                            completed: false,
+                          },
+                        ],
+                      });
+                      setNewUnit("");
+                    }
+                  }}
+                />
+                <button
+                  onClick={async () => {
+                    if (!newUnit.trim()) return;
+                    await db.subjects.update(selectedSubject.id, {
+                      syllabus: [
+                        ...(selectedSubject.syllabus || []),
+                        {
+                          id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+                          title: newUnit,
+                          completed: false,
+                        },
+                      ],
+                    });
+                    setNewUnit("");
+                  }}
+                  className="px-4 py-2 bg-indigo-500/20 rounded-lg hover:bg-indigo-500/30"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Grades */}
+            <div className="border border-white/10 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold flex items-center gap-2">
+                  <Calculator size={18} className="text-emerald-400" />
+                  Grades
+                </h3>
+                <button
+                  onClick={() => setShowGradeForm(!showGradeForm)}
+                  className="p-2 hover:bg-zinc-800 rounded-lg transition-all"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+
+              {showGradeForm && (
+                <div className="mb-4 p-4 bg-zinc-900/60 rounded-xl space-y-3 animate-fade-in">
+                  <input
+                    placeholder="Type (e.g., ISA-1, Quiz 2)"
+                    value={newGrade.type}
+                    onChange={(e) => setNewGrade({...newGrade, type: e.target.value})}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      placeholder="Score"
+                      value={newGrade.score}
+                      onChange={(e) => setNewGrade({...newGrade, score: e.target.value})}
+                      className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max (100)"
+                      value={newGrade.maxScore}
+                      onChange={(e) => setNewGrade({...newGrade, maxScore: e.target.value})}
+                      className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <input
+                    type="date"
+                    value={newGrade.date}
+                    onChange={(e) => setNewGrade({...newGrade, date: e.target.value})}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm"
+                  />
+                  <button
+                    onClick={addGrade}
+                    className="w-full py-2 bg-emerald-500/20 hover:bg-emerald-500/30 rounded-lg text-sm font-bold"
+                  >
+                    Add Grade
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {(selectedSubject.grades || []).map((g: any) => (
+                  <div key={g.id} className="flex justify-between items-center p-3 bg-zinc-900 rounded-lg">
+                    <div>
+                      <div className="font-bold">{g.type}</div>
+                      <div className="text-xs text-zinc-500">{g.date}</div>
+                    </div>
+                    <div className="text-lg font-mono font-bold">
+                      {g.score}/{g.maxScore}
+                      <span className="text-sm text-zinc-500 ml-2">
+                        ({((g.score/g.maxScore)*100).toFixed(0)}%)
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {(!selectedSubject.grades || selectedSubject.grades.length === 0) && !showGradeForm && (
+                  <div className="text-zinc-500 text-sm italic text-center py-4">No grades yet</div>
+                )}
+              </div>
+            </div>
+
+            {/* Resources */}
+            <div className="lg:col-span-2 border border-white/10 rounded-2xl p-6">
+              <h3 className="font-bold mb-4 flex items-center gap-2">
+                <FileText size={18} className="text-purple-400" />
+                Resources
+              </h3>
+
+              <div className="space-y-2 mb-4">
+                {(selectedSubject.resources || []).map((r: any) => (
+                  <div key={r.id} className="flex items-center justify-between p-3 bg-zinc-900 rounded-lg hover:bg-zinc-800 transition-all group">
+                    <div 
+                      className="flex items-center gap-3 flex-1 cursor-pointer"
+                      onClick={() => r.type === 'link' ? openExternally(r) : setSelectedResource(r)}
+                    >
+                      {r.type === 'link' ? <LinkIcon size={16} className="text-cyan-400" /> : <FileText size={16} />}
+                      <span className="truncate">{r.title}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {r.type === 'link' && (
+                        <ExternalLink size={14} className="text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      )}
+                      <Trash2
+                        size={16}
+                        className="text-red-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() =>
+                          db.subjects.update(selectedSubject.id, {
+                            resources: (selectedSubject.resources || []).filter((x: any) => x.id !== r.id),
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <label
+                  className={`flex-1 px-4 py-3 text-sm text-center rounded-lg border cursor-pointer hover:border-indigo-500/40 ${
+                    dragActive ? "border-cyan-400 bg-cyan-500/20" : "border-white/10"
+                  }`}
+                  onDragEnter={() => setDragActive(true)}
+                  onDragLeave={() => setDragActive(false)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    setDragActive(false);
+                    const files = Array.from((e.dataTransfer?.files || [])) as File[];
+                    for (const f of files) await processAndSaveFile(f);
+                  }}
+                >
+                  <input type="file" multiple hidden onChange={async (e: any) => {
+                    const files = Array.from((e.target?.files || [])) as File[];
+                    for (const f of files) await processAndSaveFile(f);
+                  }} />
+                  <Upload size={16} className="inline mr-2" />
+                  Upload Files
+                </label>
+
+                <button
+                  onClick={() => setShowLinkForm(!showLinkForm)}
+                  className="px-4 py-3 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-lg text-sm font-bold"
+                >
+                  <LinkIcon size={16} className="inline mr-2" />
+                  Add Link
+                </button>
+              </div>
+
+              {showLinkForm && (
+                <div className="mt-4 p-4 bg-zinc-900/60 rounded-xl space-y-3 animate-fade-in">
+                  <input
+                    placeholder="Link title"
+                    value={newLink.title}
+                    onChange={(e) => setNewLink({...newLink, title: e.target.value})}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm"
+                  />
+                  <input
+                    placeholder="URL"
+                    value={newLink.url}
+                    onChange={(e) => setNewLink({...newLink, url: e.target.value})}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm"
+                  />
+                  <button
+                    onClick={addWebLink}
+                    className="w-full py-2 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-lg text-sm font-bold"
+                  >
+                    Add Link
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  /* ================= MAIN LIST ================= */
-
-  const filtered = (subjects || [])
-    .filter(
-      (s) =>
-        (s.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (s.code || "").toLowerCase().includes(searchQuery.toLowerCase())
+  // Main List
+  const filtered = subjects
+    .filter((s) =>
+      (s.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.code || "").toLowerCase().includes(searchQuery.toLowerCase())
     )
-    .sort((a, b) =>
-      sortBy === "name"
-        ? (a.name || "").localeCompare(b.name || "")
-        : (b.difficulty || 0) - (a.difficulty || 0)
-    );
+    .sort((a, b) => {
+      if (sortBy === "name") return (a.name || "").localeCompare(b.name || "");
+      if (sortBy === "difficulty") return (b.difficulty || 0) - (a.difficulty || 0);
+      return computeProgress(b) - computeProgress(a);
+    });
 
   return (
     <div className="max-w-[1400px] mx-auto p-6 space-y-6 pb-24">
@@ -502,6 +558,7 @@ export default function CoursesView({
         >
           <option value="name">Name</option>
           <option value="difficulty">Difficulty</option>
+          <option value="progress">Progress</option>
         </select>
       </div>
 
@@ -509,36 +566,32 @@ export default function CoursesView({
         {filtered.map((s, i) => {
           const t = themes[i % themes.length];
           const progress = computeProgress(s);
+          const gpa = calculateGPA(s.grades || []);
+          
           return (
             <div
               key={s.id}
               onClick={() => setSelectedSubjectId(Number(s.id))}
-              className="cursor-pointer border border-white/10 rounded-2xl p-5 bg-white/[0.02] hover:border-indigo-500/30"
+              className="cursor-pointer border border-white/10 rounded-2xl p-5 bg-white/[0.02] hover:border-indigo-500/30 transition-all group"
             >
               <div className="flex justify-between mb-4">
                 <div className="flex gap-3">
-                  <div
-                    className={`w-12 h-12 ${t.bg} rounded-xl flex items-center justify-center font-bold text-black`}
-                  >
+                  <div className={`w-12 h-12 ${t.bg} rounded-xl flex items-center justify-center font-bold text-black`}>
                     {getInitials(s.name)}
                   </div>
                   <div>
-                    <div className="font-bold">{s.name}</div>
-                    <div className="text-xs text-zinc-400">
-                      {s.code || ""} • {s.credits ?? 0} CR
-                    </div>
+                    <div className="font-bold group-hover:text-indigo-100 transition-colors">{s.name}</div>
+                    <div className="text-xs text-zinc-400">{s.code || ""} • {s.credits ?? 0} CR</div>
                   </div>
                 </div>
-                <div className={`text-2xl font-bold ${t.text}`}>
-                  {progress}%
+                <div className="text-right">
+                  <div className={`text-2xl font-bold ${t.text}`}>{progress}%</div>
+                  {gpa && <div className="text-xs text-zinc-500">{gpa}% avg</div>}
                 </div>
               </div>
 
               <div className="h-2 bg-white/5 rounded-full mb-3 overflow-hidden">
-                <div
-                  className={`${t.bg} h-full`}
-                  style={{ width: `${progress}%` }}
-                />
+                <div className={`${t.bg} h-full transition-all duration-500`} style={{ width: `${progress}%` }} />
               </div>
 
               <div className="flex gap-4 text-xs text-zinc-400">
@@ -546,12 +599,10 @@ export default function CoursesView({
                   <Clock size={12} /> {getTotalHours(s.id)}h
                 </div>
                 <div className="flex items-center gap-1">
-                  <Target size={12} />{" "}
-                  {(s.syllabus || []).filter((u: any) => !u.completed).length}{" "}
-                  pending
+                  <Target size={12} /> {(s.syllabus || []).filter((u: any) => !u.completed).length} pending
                 </div>
                 <div className="flex items-center gap-1">
-                  <Award size={12} /> {(s.grades || []).length} grades
+                  <FileText size={12} /> {(s.resources || []).length} files
                 </div>
               </div>
             </div>

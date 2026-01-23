@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { DailyPlan, StudyBlock, Subject, StudyLog } from "./types";
 import { WeekPreviewModal } from "./WeekPreviewModal";
 import { BlockReason } from "./components";
+import { getISTTime, getISTEffectiveDate } from "./utils/time";
 
 import {
   Play,
@@ -49,18 +50,6 @@ export const Dashboard = ({
   // Week Preview State
   const [showWeekPreview, setShowWeekPreview] = useState(false);
   const [weekPreview, setWeekPreview] = useState<any>(null);
-
-  const getISTTime = () => {
-    return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-  };
-
-  const getISTEffectiveDate = () => {
-    const istNow = getISTTime();
-    if (istNow.getHours() < 2) {
-      istNow.setDate(istNow.getDate() - 1);
-    }
-    return istNow.toISOString().split('T')[0];
-  };
 
   const fetchBacklog = async () => {
     const allPlans = await db.plans.toArray();
