@@ -318,3 +318,17 @@
 .light-mode * {
     transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
+
+/* Add safe area padding */
+.safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-pt {
+    padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-px {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+}

@@ -379,7 +379,7 @@ export const SettingsView = () => {
       <div className="text-center pt-8 pb-4">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/5 text-[10px] text-zinc-500 font-mono">
           <Monitor size={12} />
-          <span>ORBIT v2.1.0 // LOCAL_FIRST_ARCH</span>
+          <span>ORBIT v3.1.1 // LOCAL_FIRST_ARCH</span>
         </div>
       </div>
     </div>

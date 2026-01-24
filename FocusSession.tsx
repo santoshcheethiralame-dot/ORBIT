@@ -1,4 +1,4 @@
-// FocusSession — UX locked (v1)
+// FocusSession – UX locked (v1)
 // Do not refactor visuals unless product direction changes
 
 import React, { useEffect, useState } from "react";
@@ -15,9 +15,8 @@ import { StudyBlock } from "./types";
 const BREAK_TOTAL = 5 * 60; // seconds
 const RADIUS = 120;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-const SVG_SIZE = 280; // should be >= 2 * (RADIUS + stroke/2)
+const SVG_SIZE = 280;
 
-// ✅ CHANGED: Named export instead of default
 export const FocusSession = ({
   block,
   onComplete,
@@ -27,52 +26,83 @@ export const FocusSession = ({
   onComplete: (elapsedMin?: number, sessionNotes?: string) => void;
   onExit: () => void;
 }) => {
+  // ✅ FIXED: Drift-free timer using timestamps
+  const [sessionStartTime] = useState(() => Date.now());
+  const [pausedAt, setPausedAt] = useState<number | null>(null);
+  const [totalPausedTime, setTotalPausedTime] = useState(0);
+
   const [timeLeft, setTimeLeft] = useState(block.duration * 60);
   const [isActive, setIsActive] = useState(false);
   const [isBreak, setIsBreak] = useState(false);
   const [breakTime, setBreakTime] = useState(0);
+  const [breakStartTime, setBreakStartTime] = useState<number | null>(null);
+
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
   const [confirmFinish, setConfirmFinish] = useState(false);
 
-  /* ---------------- TIMER LOOP (stable, avoids stale closures) ---------------- */
+  /* ---------------- FIXED TIMER LOOP (no drift) ---------------- */
   useEffect(() => {
-    if (!isActive) return;
-
-    const id = window.setInterval(() => {
-      if (isBreak) {
-        setBreakTime((t) => {
-          if (t <= 1) {
-            setIsBreak(false);
-            setIsActive(false);
-            return 0;
-          }
-          return t - 1;
-        });
-      } else {
-        setTimeLeft((t) => {
-          if (t <= 1) {
-            setIsActive(false);
-            // Pass notes to onComplete
-            onComplete(block.duration, notes);
-            return 0;
-          }
-          return t - 1;
-        });
+    if (!isActive) {
+      if (pausedAt === null && !isBreak) {
+        setPausedAt(Date.now());
       }
-    }, 1000);
+      return;
+    }
 
-    return () => clearInterval(id);
-  }, [isActive, isBreak, block.duration, onComplete, notes]);
+    // Resume from pause
+    if (pausedAt !== null) {
+      setTotalPausedTime(prev => prev + (Date.now() - pausedAt));
+      setPausedAt(null);
+    }
 
-  /* ---------------- Accessibility & Escape handling for modal ---------------- */
+    let animationId: number;
+    
+    const updateTimer = () => {
+      if (isBreak) {
+        if (!breakStartTime) {
+          setBreakStartTime(Date.now());
+        }
+        const elapsed = Math.floor((Date.now() - (breakStartTime || Date.now())) / 1000);
+        const remaining = BREAK_TOTAL - elapsed;
+        
+        if (remaining <= 0) {
+          setIsBreak(false);
+          setBreakTime(0);
+          setBreakStartTime(null);
+          setIsActive(false);
+        } else {
+          setBreakTime(remaining);
+        }
+      } else {
+        const totalElapsed = Date.now() - sessionStartTime - totalPausedTime;
+        const totalSeconds = block.duration * 60;
+        const remaining = totalSeconds - Math.floor(totalElapsed / 1000);
+        
+        if (remaining <= 0) {
+          setTimeLeft(0);
+          setIsActive(false);
+          onComplete(block.duration, notes);
+          return;
+        }
+        
+        setTimeLeft(remaining);
+      }
+      
+      animationId = requestAnimationFrame(updateTimer);
+    };
+
+    animationId = requestAnimationFrame(updateTimer);
+    return () => cancelAnimationFrame(animationId);
+  }, [isActive, isBreak, sessionStartTime, totalPausedTime, pausedAt, block.duration, notes, onComplete, breakStartTime]);
+
+  /* ---------------- Accessibility & Escape handling ---------------- */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         if (showNotes) {
           setShowNotes(false);
         } else {
-          // minor quick-exit behavior: pauses if running
           setIsActive(false);
         }
       }
@@ -81,17 +111,15 @@ export const FocusSession = ({
     return () => window.removeEventListener("keydown", onKey);
   }, [showNotes]);
 
-  /* ---------------- Pause when opening notes (explicit) ---------------- */
+  /* ---------------- Pause when opening notes ---------------- */
   useEffect(() => {
     if (showNotes) {
-      // pause timer when modal open so user isn't losing time while writing notes
       setIsActive(false);
     }
   }, [showNotes]);
 
   /* ---------------- ACTIONS ---------------- */
   const toggleTimer = () => {
-    // haptic feedback on mobile (optional, silent failure on desktop)
     try {
       if (navigator && (navigator as any).vibrate) (navigator as any).vibrate(8);
     } catch {}
@@ -101,13 +129,13 @@ export const FocusSession = ({
   const startBreak = () => {
     setIsBreak(true);
     setBreakTime(BREAK_TOTAL);
+    setBreakStartTime(Date.now());
     setIsActive(true);
   };
 
   const finishSessionEarly = () => {
     if (!confirmFinish) {
       setConfirmFinish(true);
-      // shake animation handled by useEffect (microinteraction)
       setTimeout(() => setConfirmFinish(false), 3000);
       return;
     }
@@ -133,20 +161,16 @@ export const FocusSession = ({
   );
   const dashOffset = CIRCUMFERENCE * (1 - progress);
 
-  /* ---------------- STYLES (inline for single-file convenience) ---------------- */
-  const strokeWidth = 12; // thicker ring for better readability
+  const strokeWidth = 12;
   const trackColor = "rgba(255,255,255,0.04)";
-  const accentColor = isBreak ? "#2dd4bf" : "#c4b5fd"; // mint for break, soft-lavender for focus
+  const accentColor = isBreak ? "#2dd4bf" : "#c4b5fd";
   const accentGlow = isBreak ? "rgba(45,212,191,0.18)" : "rgba(196,181,253,0.15)";
 
   /* ---------------- Microinteractions ---------------- */
-
-  // 1) Progress tick — subtle per-second visual nudge while active
   useEffect(() => {
     if (!isActive) return;
     const el = document.getElementById("progress-ring");
     if (!el) return;
-    // animate small quick opacity pulse — doesn't move layout
     try {
       el.animate(
         [{ opacity: 1 }, { opacity: 0.88 }, { opacity: 1 }],
@@ -155,7 +179,6 @@ export const FocusSession = ({
     } catch {}
   }, [currentVal, isActive]);
 
-  // 2) Finish early "shake" when confirmFinish first toggles on
   useEffect(() => {
     if (!confirmFinish) return;
     const el = document.getElementById("finish-early");
@@ -173,43 +196,32 @@ export const FocusSession = ({
     } catch {}
   }, [confirmFinish]);
 
-  // 3) Optional idle ring breathe handled by CSS class applied conditionally below
-
   return (
     <div className="fixed inset-0 z-50 bg-black flex items-center justify-center overflow-hidden">
-      {/* Inject small CSS for microinteractions and glass effects */}
       <style>{`
-        /* Ring breathe (very slow) */
         @keyframes ring-breathe {
           0%,100% { transform: scale(1); opacity: 0.94; }
           50% { transform: scale(1.01); opacity: 1; }
         }
 
-        /* Modal glass entrance */
         @keyframes glass-in {
           from { opacity: 0; transform: translateY(12px) scale(0.992); }
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
-        /* CTA button tactile press */
         .cta-button:active {
           transform: scale(0.985);
           box-shadow: inset 0 2px 8px rgba(0,0,0,0.45) !important;
         }
 
-        /* Notes textarea focus halo */
         .notes-textarea:focus {
           box-shadow: 0 6px 40px rgba(255,255,255,0.04), 0 0 0 4px rgba(255,255,255,0.02) !important;
           outline: none;
         }
 
-        /* Slight elevation when hovering the glass Done button */
         .glass-done:hover { transform: translateY(-2px); }
-
-        /* Finish early id for programmatic animations (no CSS shake here; JS uses WAAPI) */
       `}</style>
 
-      {/* Ambient fluid background (static, not tied to progress) */}
       <div className="absolute inset-0 pointer-events-none">
         <div
           aria-hidden
@@ -232,7 +244,6 @@ export const FocusSession = ({
       </div>
 
       <div className="relative z-10 w-full max-w-md flex flex-col items-center px-6">
-        {/* Header */}
         <div className="mb-8 text-center">
           <span className="px-3 py-1 rounded-full border text-xs font-mono tracking-widest text-zinc-400 border-zinc-700 bg-zinc-900/60">
             {isBreak ? "RECHARGE SEQUENCE" : "FOCUS MODE"}
@@ -245,10 +256,8 @@ export const FocusSession = ({
           </p>
         </div>
 
-        {/* Timer & SVG ring */}
         <div className="relative w-[280px] h-[280px] mb-12 flex items-center justify-center">
           <svg width={SVG_SIZE} height={SVG_SIZE} className="absolute">
-            {/* Background track */}
             <circle
               cx={SVG_SIZE / 2}
               cy={SVG_SIZE / 2}
@@ -257,7 +266,6 @@ export const FocusSession = ({
               strokeWidth={strokeWidth}
               fill="none"
             />
-            {/* Inner faint track for depth */}
             <circle
               cx={SVG_SIZE / 2}
               cy={SVG_SIZE / 2}
@@ -266,13 +274,11 @@ export const FocusSession = ({
               strokeWidth={strokeWidth / 1.2}
               fill="none"
             />
-            {/* Progress arc */}
             <g
               style={{
                 filter: `drop-shadow(0 8px 24px ${accentGlow})`,
                 transformOrigin: "center",
               }}
-              // idle breathe when paused and not in break
               className={!isActive && !isBreak ? "animate-[ring-breathe_6s_ease-in-out_infinite]" : ""}
             >
               <circle
@@ -292,7 +298,6 @@ export const FocusSession = ({
             </g>
           </svg>
 
-          {/* Central time */}
           <div className="text-center">
             <div className="text-6xl font-mono font-bold tabular-nums text-white">
               {formatTime(currentVal)}
@@ -301,7 +306,6 @@ export const FocusSession = ({
           </div>
         </div>
 
-        {/* Primary Controls (Start / Pause — inviting style) */}
         <div className="flex gap-4 w-full mb-6">
           <button
             onClick={toggleTimer}
@@ -325,7 +329,6 @@ export const FocusSession = ({
           </button>
         </div>
 
-        {/* Secondary actions: Take Break / End Break + Finish Early */}
         <div className="grid grid-cols-2 gap-3 w-full">
           {!isBreak ? (
             <button
@@ -338,11 +341,10 @@ export const FocusSession = ({
           ) : (
             <button
               onClick={() => {
-                // end break early: resume focus and keep timer paused
                 setIsBreak(false);
                 setBreakTime(0);
+                setBreakStartTime(null);
                 setIsActive(false);
-                // Keep timeLeft unchanged (already paused)
               }}
               className="h-12 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center gap-2 transition"
             >
@@ -367,7 +369,6 @@ export const FocusSession = ({
           </button>
         </div>
 
-        {/* Abort (subtle by default, red on hover, slightly smaller) */}
         <button
           onClick={onExit}
           className="mt-8 text-[12px] tracking-[0.2em] text-zinc-500 hover:text-red-500 transition-colors flex items-center gap-2"
@@ -378,43 +379,39 @@ export const FocusSession = ({
         </button>
       </div>
 
-      {/* NOTES MODAL (center, glassy/frosted, covers most of screen) */}
       {showNotes && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center"
           aria-modal="true"
           role="dialog"
         >
-          {/* backdrop */}
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setShowNotes(false)}
           />
 
-          {/* glass modal */}
           <div
             className="relative z-20 w-[92%] max-w-3xl h-[82vh] rounded-[28px] overflow-hidden"
             style={{
               animation: "glass-in 220ms cubic-bezier(.2,.8,.2,1)",
               background: `
-      linear-gradient(
-        180deg,
-        rgba(255,255,255,0.10) 0%,
-        rgba(255,255,255,0.04) 18%,
-        rgba(12,12,16,0.55) 100%
-      )
-    `,
+                linear-gradient(
+                  180deg,
+                  rgba(255,255,255,0.10) 0%,
+                  rgba(255,255,255,0.04) 18%,
+                  rgba(12,12,16,0.55) 100%
+                )
+              `,
               backdropFilter: "blur(26px) saturate(1.25)",
               WebkitBackdropFilter: "blur(26px) saturate(1.25)",
               border: "1px solid rgba(255,255,255,0.12)",
               boxShadow: `
-      inset 0 1px 0 rgba(255,255,255,0.25),
-      inset 0 -1px 0 rgba(255,255,255,0.05),
-      0 40px 120px rgba(0,0,0,0.8)
-    `,
+                inset 0 1px 0 rgba(255,255,255,0.25),
+                inset 0 -1px 0 rgba(255,255,255,0.05),
+                0 40px 120px rgba(0,0,0,0.8)
+              `,
             }}
           >
-            {/* SPECULAR HIGHLIGHT (top-left sheen) */}
             <div
               aria-hidden
               style={{
@@ -432,7 +429,6 @@ export const FocusSession = ({
               }}
             />
 
-            {/* subtle grain / microtexture (very low opacity) */}
             <div
               aria-hidden
               style={{
@@ -445,7 +441,6 @@ export const FocusSession = ({
               }}
             />
 
-            {/* subtle inner bezel shadow for better edge refraction */}
             <div
               aria-hidden
               style={{
@@ -458,18 +453,16 @@ export const FocusSession = ({
               }}
             />
 
-            {/* subtle highlight line */}
             <div
               style={{ height: 1 }}
               className="absolute inset-x-0 top-0 bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-30"
             />
 
-            {/* Header */}
             <div className="relative z-10 flex items-center justify-between px-8 py-5 border-b border-white/6">
               <div>
                 <h3 className="text-lg font-semibold text-white">Quick Notes</h3>
                 <p className="text-xs text-zinc-400 mt-1">
-                  Capture distracting thoughts — they won't interrupt your focus.
+                  Capture distracting thoughts – they won't interrupt your focus.
                 </p>
               </div>
 
@@ -489,7 +482,6 @@ export const FocusSession = ({
               </div>
             </div>
 
-            {/* Text area (glassy inner panel) */}
             <div className="relative z-10 w-full h-[calc(82vh-138px)]">
               <textarea
                 autoFocus
@@ -505,7 +497,6 @@ export const FocusSession = ({
               />
             </div>
 
-            {/* Footer */}
             <div className="relative z-10 px-8 py-4 border-t border-white/6 text-xs text-zinc-400 font-mono flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-red-500/40" />
@@ -522,6 +513,3 @@ export const FocusSession = ({
     </div>
   );
 };
-
-// ✅ REMOVED: Default export
-// export default FocusSession;

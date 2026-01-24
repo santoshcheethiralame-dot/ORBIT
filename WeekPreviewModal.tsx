@@ -49,7 +49,7 @@ export const WeekPreviewModal = ({
     return (
         <div className="fixed inset-0 z-[20] bg-black/70 backdrop-blur-xl flex items-center justify-center">
 
-            <div className="w-full max-w-6xl mx-4 sm:mx-6 md:mx-8 lg:mx-10 my-20 md:my-24 bg-[#09090b] border border-white/10 rounded-xl sm:rounded-2xl md:rounded-[3rem] shadow-[0_0_100px_-20px_rgba(0,0,0,0.8)] flex flex-col max-h-[calc(100vh-10rem)] md:max-h-[calc(100vh-12rem)] overflow-hidden animate-in fade-in zoom-in-95 duration-500">
+            <div className="w-full max-w-6xl mx-4 sm:mx-6 md:mx-8 lg:mx-10 my-8 md:my-20 lg:my-24 bg-[#09090b] border border-white/10 rounded-xl sm:rounded-2xl md:rounded-[3rem] shadow-[0_0_100px_-20px_rgba(0,0,0,0.8)] flex flex-col max-h-[calc(100vh-4rem)] md:max-h-[calc(100vh-10rem)] overflow-hidden">
                 {/* Header */}
                 <div className="px-4 sm:px-6 md:px-10 py-4 sm:py-6 md:py-8 border-b border-white/5 flex items-center justify-between bg-zinc-900/20">
                     <div className="flex items-center gap-3 sm:gap-4 md:gap-6">
@@ -176,8 +176,8 @@ export const WeekPreviewModal = ({
                         </span>
                     </div>
                     <div className="text-[8px] sm:text-[9px] md:text-[10px] font-mono text-zinc-500 uppercase">
-                        <span className="hidden sm:inline">Orbit Forecast Engine v2.5.0</span>
-                        <span className="sm:hidden">v2.5.0</span>
+                        <span className="hidden sm:inline">Orbit Forecast Engine v3.1.1</span>
+                        <span className="sm:hidden">v3.1.1</span>
                     </div>
                 </div>
             </div>

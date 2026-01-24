@@ -3,6 +3,7 @@ import { DailyPlan, StudyBlock, Subject, StudyLog } from "./types";
 import { WeekPreviewModal } from "./WeekPreviewModal";
 import { BlockReason } from "./components";
 import { getISTTime, getISTEffectiveDate } from "./utils/time";
+import { EmptyBacklog, EmptyTodayPlan } from './EmptyStates';
 
 import {
   Play,
@@ -24,9 +25,76 @@ import {
   Cloud,
   Sparkles,
   AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { db } from "./db";
 
+const BacklogItem = ({ block, onAdd, onDelete }: any) => {
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+    setTouchEnd(e.targetTouches[0].clientX);
+    setIsDragging(false);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+    const distance = Math.abs(touchStart - e.targetTouches[0].clientX);
+
+    // FIXED: Only prevent scroll if significant horizontal movement
+    if (distance > 10) {
+      setIsDragging(true);
+      e.preventDefault(); // Prevent scroll only when actually swiping
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return; // Ignore if not dragging
+
+    const swipeDistance = touchStart - touchEnd;
+    const threshold = 75; // Minimum swipe distance
+
+    if (swipeDistance > threshold) {
+      // Swiped left - delete
+      if (confirm("Remove from backlog?")) {
+        onDelete(block.id);
+      }
+    } else if (swipeDistance < -threshold) {
+      // Swiped right - add to today
+      onAdd(block);
+    }
+
+    setIsDragging(false);
+  };
+
+  return (
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="flex items-center justify-between p-3.5 bg-zinc-900/60 rounded-xl border border-zinc-800 hover:border-yellow-500/30 hover:bg-zinc-900/80 transition-all group"
+    >
+      <div className="flex-1 min-w-0 mr-3">
+        <div className="font-bold text-zinc-200 truncate group-hover:text-white transition-colors">
+          {block.subjectName}
+        </div>
+        <div className="text-[11px] text-zinc-500 uppercase mt-0.5">
+          {block.type} • {block.duration}m
+        </div>
+      </div>
+      <button
+        onClick={() => onAdd(block)}
+        className="flex items-center gap-2 px-3.5 py-3 md:py-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-300 rounded-lg transition-all font-medium text-sm hover:scale-105 active:scale-95 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0"
+      >
+        <PlusCircle size={14} />
+        <span className="hidden sm:inline">Add</span>
+      </button>
+    </div>
+  );
+};
 
 export const Dashboard = ({
   plan,
@@ -46,6 +114,11 @@ export const Dashboard = ({
   const [animatedProgress, setAnimatedProgress] = useState(0);
   const [animatedStreak, setAnimatedStreak] = useState(0);
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
+
+  // Pull to Refresh State
+  const [refreshing, setRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [touchStartY, setTouchStartY] = useState(0);
 
   // Week Preview State
   const [showWeekPreview, setShowWeekPreview] = useState(false);
@@ -106,6 +179,23 @@ export const Dashboard = ({
     }
   };
 
+  const deleteFromBacklog = async (blockId: string) => {
+    try {
+      // Find the block to get its source date
+      const blockToDelete = backlog.find(b => b.id === blockId) as any;
+      if (!blockToDelete) return;
+
+      const originalPlan = await db.plans.get(blockToDelete.sourceDate);
+      if (originalPlan) {
+        const updatedBlocks = originalPlan.blocks.filter(b => b.id !== blockId);
+        await db.plans.put({ ...originalPlan, blocks: updatedBlocks });
+      }
+      setBacklog(prev => prev.filter(b => b.id !== blockId));
+    } catch (err) {
+      console.error("Failed to delete backlog item", err);
+    }
+  };
+
   const markComplete = async (blockId: string) => {
     try {
       const todayStr = getISTEffectiveDate();
@@ -156,6 +246,28 @@ export const Dashboard = ({
     } catch (err) {
       console.error("Failed to snooze block", err);
     }
+  };
+
+  // Pull to Refresh Handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartY(e.touches[0].clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const currentTouch = e.touches[0].clientY;
+    const distance = currentTouch - touchStartY;
+    if (distance > 0 && window.scrollY === 0) {
+      setPullDistance(Math.min(distance, 100));
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (pullDistance > 60) {
+      setRefreshing(true);
+      await onRefresh();
+      setTimeout(() => setRefreshing(false), 500);
+    }
+    setPullDistance(0);
   };
 
   // Load Week Preview
@@ -274,7 +386,26 @@ export const Dashboard = ({
   };
 
   return (
-    <div className="pb-24 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-6 animate-fade-in">
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="pb-24 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-6 animate-fade-in"
+    >
+      {/* Pull indicator */}
+      {pullDistance > 0 && (
+        <div
+          className="fixed top-16 left-1/2 -translate-x-1/2 z-50 transition-all"
+          style={{ opacity: pullDistance / 60 }}
+        >
+          <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center shadow-lg">
+            <RefreshCw
+              size={16}
+              className={`text-white ${refreshing ? 'animate-spin' : ''}`}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         <div className="text-sm text-zinc-500 font-mono uppercase tracking-wider">
@@ -310,7 +441,6 @@ export const Dashboard = ({
                 <span className="text-zinc-400">Done by {estimatedCompletionTime()}</span>
               </div>
             )}
-            {/* Week Preview Button */}
             <button
               onClick={loadWeekPreview}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 transition-all text-xs font-bold uppercase tracking-wide"
@@ -350,7 +480,6 @@ export const Dashboard = ({
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-
         <div className="lg:col-span-8 flex">
           {nextBlock ? (
             <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl shadow-2xl transition-all duration-300 hover:border-indigo-500/30 hover:shadow-indigo-500/10 group flex-1">
@@ -373,11 +502,9 @@ export const Dashboard = ({
                       <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
                       <span className="text-[10px] font-bold tracking-[0.2em] text-indigo-400 uppercase">Next Mission</span>
                     </div>
-
                     <h2 className="text-3xl md:text-4xl font-display font-bold mb-2 leading-tight group-hover:text-indigo-100 transition-colors">
                       {nextBlock.subjectName}
                     </h2>
-
                     <div className="flex items-center gap-3 text-zinc-400 text-sm flex-wrap">
                       <div className="flex items-center gap-1.5">
                         <Clock size={14} />
@@ -385,12 +512,6 @@ export const Dashboard = ({
                       </div>
                       <div className="w-1 h-1 rounded-full bg-zinc-600"></div>
                       <span className="font-medium uppercase tracking-wide text-xs">{nextBlock.type}</span>
-                      {nextBlock.notes && (
-                        <>
-                          <div className="w-1 h-1 rounded-full bg-zinc-600"></div>
-                          <span className="text-xs text-zinc-500">{nextBlock.notes}</span>
-                        </>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -406,11 +527,6 @@ export const Dashboard = ({
                       <TrendingUp size={12} /> Retention
                     </span>
                   )}
-                  {nextBlock.type === "project" && (
-                    <span className="text-xs px-2 py-1 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center gap-1">
-                      <Sparkles size={12} /> Creative
-                    </span>
-                  )}
                 </div>
 
                 <button
@@ -421,7 +537,6 @@ export const Dashboard = ({
                   <span>Initialize Focus</span>
                 </button>
               </div>
-              <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 via-transparent to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
             </div>
           ) : (
             <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-8 flex flex-col items-center justify-center text-center min-h-[280px] flex-1 relative overflow-hidden">
@@ -440,113 +555,85 @@ export const Dashboard = ({
 
         <div className="lg:col-span-4 flex flex-col gap-5">
           <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Target size={16} className="text-indigo-400" />
                   <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-indigo-400">Daily Goal</span>
                 </div>
-                <span className="text-3xl font-mono font-bold text-indigo-200 group-hover:scale-110 transition-transform">
-                  {animatedProgress}%
-                </span>
+                <span className="text-3xl font-mono font-bold text-indigo-200">{animatedProgress}%</span>
               </div>
-              <div className="relative w-full h-3 bg-zinc-900/50 rounded-full overflow-hidden mb-2.5 shadow-inner">
-                <div
-                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-500 to-cyan-500 rounded-full transition-all duration-700 ease-out"
-                  style={{ width: `${animatedProgress}%` }}
-                >
-                  <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
-                </div>
-              </div>
-              <div className="text-[11px] text-zinc-500 flex items-center justify-between">
-                <span>{completedCount} of {totalCount} blocks</span>
-                {completedCount > 0 && (
-                  <span className="text-emerald-400 flex items-center gap-1">
-                    <TrendingUp size={10} /> +{completedCount}
-                  </span>
-                )}
+              <div className="relative w-full h-3 bg-zinc-900/50 rounded-full overflow-hidden mb-2.5">
+                <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-500 to-cyan-500 transition-all duration-700" style={{ width: `${animatedProgress}%` }}></div>
               </div>
             </div>
           </div>
 
-          <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.03] to-transparent"></div>
+          <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-orange-500/30 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Flame size={16} className="text-orange-400 group-hover:animate-pulse" />
+                  <Flame size={16} className="text-orange-400" />
                   <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-orange-400">Streak</span>
                 </div>
-                <span className="text-3xl font-mono font-bold text-orange-200 group-hover:scale-110 transition-transform">
-                  {animatedStreak}
-                </span>
+                <span className="text-3xl font-mono font-bold text-orange-200">{animatedStreak}</span>
               </div>
               <div className="flex items-center gap-1 mb-2">
                 {[...Array(7)].map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${i < Math.min(animatedStreak, 7) ? "bg-gradient-to-r from-orange-500 to-red-500" : "bg-zinc-800"}`}
-                    style={{ transitionDelay: `${i * 50}ms` }}
-                  ></div>
+                  <div key={i} className={`h-1.5 flex-1 rounded-full ${i < Math.min(animatedStreak, 7) ? "bg-orange-500" : "bg-zinc-800"}`}></div>
                 ))}
               </div>
-              <div className="text-[11px] text-orange-500/60 uppercase">day{animatedStreak !== 1 ? 's' : ''} • Don't break it</div>
             </div>
           </div>
 
           {backlog.length > 0 && (
             <div
               onClick={() => setShowBacklog(!showBacklog)}
-              className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-yellow-500/30 hover:shadow-lg hover:shadow-yellow-500/5 transition-all duration-300 hover:-translate-y-1 cursor-pointer relative overflow-hidden"
+              className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-yellow-500/30 cursor-pointer relative overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/[0.03] to-transparent"></div>
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Inbox size={16} className="text-yellow-400 group-hover:animate-bounce" />
+                    <Inbox size={16} className="text-yellow-400" />
                     <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400">Backlog</span>
                   </div>
-                  <span className="text-3xl font-mono font-bold text-yellow-200 group-hover:scale-110 transition-transform">
-                    {backlog.length}
-                  </span>
+                  <span className="text-3xl font-mono font-bold text-yellow-200">{backlog.length}</span>
                 </div>
-                <div className="text-[11px] text-yellow-500/60 uppercase">Click to view items</div>
+                <div className="text-[11px] text-yellow-500/60 uppercase">Tap to view / Swipe to manage</div>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {showBacklog && backlog.length > 0 && (
+      {showBacklog && (
         <div className="animate-fade-in">
-          <div className="rounded-2xl border border-yellow-500/30 bg-white/[0.02] backdrop-blur-2xl shadow-2xl shadow-yellow-500/5 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/[0.05] to-transparent"></div>
-            <div className="p-5 relative z-10">
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <Inbox size={18} className="text-yellow-400" />
-                  <span>Backlog Items</span>
-                </h3>
-                <button onClick={() => setShowBacklog(false)} className="p-2 hover:bg-zinc-800 rounded-lg transition-all hover:scale-110 active:scale-95"><X size={16} /></button>
-              </div>
-              <div className="space-y-2.5 max-h-80 overflow-y-auto pr-2">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 relative">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Inbox size={18} className="text-yellow-400" />
+                <span>Backlog Items</span>
+              </h3>
+              <button onClick={() => setShowBacklog(false)} className="p-2 hover:bg-zinc-800 rounded-lg">
+                <X size={16} />
+              </button>
+            </div>
+            {backlog.length === 0 ? <EmptyBacklog /> : (
+              <div className="space-y-3">
                 {backlog.map((b) => (
-                  <div key={b.id} className="flex items-center justify-between p-3.5 bg-zinc-900/60 rounded-xl border border-zinc-800 hover:border-yellow-500/30 hover:bg-zinc-900/80 transition-all group">
-                    <div className="flex-1 min-w-0 mr-3">
-                      <div className="font-bold text-zinc-200 truncate group-hover:text-white transition-colors">{b.subjectName}</div>
-                      <div className="text-[11px] text-zinc-500 uppercase mt-0.5">{b.type} • {b.duration}m</div>
-                    </div>
-                    <button onClick={() => addToToday(b)} className="flex items-center gap-2 px-3.5 py-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-300 rounded-lg transition-all font-medium text-sm hover:scale-105 active:scale-95"><PlusCircle size={14} /><span className="hidden sm:inline">Add</span></button>
-                  </div>
+                  <BacklogItem
+                    key={b.id}
+                    block={b}
+                    onAdd={addToToday}
+                    onDelete={deleteFromBacklog}
+                  />
                 ))}
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Week Preview Modal */}
       {showWeekPreview && weekPreview && (
         <WeekPreviewModal
           weekPreview={weekPreview}
@@ -555,146 +642,108 @@ export const Dashboard = ({
       )}
 
       {/* Today's Flight Plan */}
-      <div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl shadow-xl relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
-          <div className="p-5 relative z-10">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Calendar size={18} className="text-indigo-400" />
-                <span>Today's Flight Plan</span>
-              </h3>
-              <div className="text-xs text-zinc-500 font-mono">
-                {completedCount}/{totalCount} complete
-              </div>
-            </div>
-
-            <div className="space-y-2.5">
-              {plan.blocks.map((b, i) => {
-                const isNext = nextBlock?.id === b.id;
-                const isCompleted = b.completed;
-                const isExpanded = expandedBlocks.has(b.id); // ✅ This is correct - uses existing state
-                const hasExplanation = !!(b.reason || b.displaced);
-
-                return (
-                  <div key={b.id} className="group flex flex-col gap-2 transition-all">
-                    {/* Main Block Row */}
-                    <div
-                      className={`relative flex items-center gap-3.5 p-3.5 rounded-xl border transition-all duration-200 ${isCompleted
-                        ? "bg-zinc-900/30 border-zinc-800/50 opacity-60"
-                        : isNext
-                          ? "bg-indigo-500/5 border-indigo-500/30 shadow-lg shadow-indigo-500/5"
-                          : "bg-zinc-900/40 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60"
-                        }`}
-                    >
-                      {/* Number/Check */}
-                      <div
-                        className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm transition-all ${isCompleted
-                          ? "bg-zinc-800 text-zinc-600"
-                          : isNext
-                            ? "bg-indigo-600 text-white group-hover:scale-110"
-                            : "bg-zinc-800 text-zinc-400 group-hover:scale-105"
-                          }`}
-                      >
-                        {isCompleted ? <Check size={16} /> : i + 1}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div
-                          className={`font-bold text-sm truncate transition-colors ${isCompleted
-                            ? "line-through decoration-zinc-700 text-zinc-600"
-                            : "group-hover:text-white"
-                            }`}
-                        >
-                          {b.subjectName}
-                        </div>
-                        <div className="text-[11px] text-zinc-500 uppercase mt-0.5 truncate">
-                          {b.type} • {b.duration}m {b.notes && `• ${b.notes}`}
-                        </div>
-                      </div>
-
-                      {/* Why? Button */}
-                      {hasExplanation && !isCompleted && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleBlockExplanation(b.id);
-                          }}
-                          className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${isExpanded
-                            ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                            : "bg-zinc-900 text-zinc-500 border border-zinc-800 hover:text-indigo-400 hover:border-indigo-500/30"
-                            }`}
-                        >
-                          {isExpanded ? "Hide" : "Why?"}
-                        </button>
-                      )}
-
-                      {/* Actions */}
-                      {!isCompleted && (
-                        <div
-                          className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            onClick={() => onStartFocus(b)}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 rounded-lg transition-all font-medium text-xs hover:scale-105 active:scale-95"
-                          >
-                            <Play size={14} />
-                            <span>Start</span>
-                          </button>
-
-                          <button
-                            onClick={async () => {
-                              if (confirm("Mark as complete?")) await markComplete(b.id);
-                            }}
-                            className="p-2 hover:bg-emerald-500/10 text-emerald-400 rounded-lg transition-all hover:scale-110 active:scale-95"
-                            title="Mark complete"
-                          >
-                            <CheckCircle size={18} />
-                          </button>
-
-                          <button
-                            onClick={async () => {
-                              if (confirm("Move to tomorrow?")) await snoozeBlock(b.id);
-                            }}
-                            className="p-2 hover:bg-yellow-500/10 text-yellow-400 rounded-lg transition-all hover:scale-110 active:scale-95"
-                            title="Snooze to tomorrow"
-                          >
-                            <ArrowRight size={18} />
-                          </button>
-                        </div>
-                      )}
-
-                      {isCompleted && (
-                        <div className="text-[11px] text-zinc-600 font-mono px-2.5 uppercase">
-                          Done
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Logic Explanation Dropdown */}
-                    {isExpanded && !isCompleted && hasExplanation && (
-                      <div className="animate-fade-in pl-12 pr-2">
-                        <BlockReason block={b} />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {plan.blocks.length === 0 && (
-                <div className="text-center py-12 text-zinc-600">
-                  <p className="mb-1 text-sm">No blocks scheduled for today.</p>
-                  <p className="text-xs">Add items from backlog or take the day off to recharge.</p>
-                </div>
-              )}
-            </div>
+      <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 relative overflow-hidden">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <Calendar size={18} className="text-indigo-400" />
+            <span>Today's Flight Plan</span>
+          </h3>
+          <div className="text-xs text-zinc-500 font-mono">
+            {completedCount}/{totalCount} complete
           </div>
+        </div>
+
+        <div className="space-y-2.5">
+          {plan.blocks.map((b, i) => {
+            const isNext = nextBlock?.id === b.id;
+            const isCompleted = b.completed;
+            const isExpanded = expandedBlocks.has(b.id);
+            const hasExplanation = !!(b.reason || b.displaced);
+
+            return (
+              <div key={b.id} className="group flex flex-col gap-2 transition-all">
+                <div
+                  className={`relative flex items-center gap-3.5 p-3.5 rounded-xl border transition-all duration-200 ${isCompleted
+                    ? "bg-zinc-900/30 border-zinc-800/50 opacity-60"
+                    : isNext
+                      ? "bg-indigo-500/5 border-indigo-500/30 shadow-lg"
+                      : "bg-zinc-900/40 border-zinc-800 hover:border-zinc-700"
+                    }`}
+                >
+                  <div
+                    className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm ${isCompleted
+                      ? "bg-zinc-800 text-zinc-600"
+                      : isNext
+                        ? "bg-indigo-600 text-white"
+                        : "bg-zinc-800 text-zinc-400"
+                      }`}
+                  >
+                    {isCompleted ? <Check size={16} /> : i + 1}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className={`font-bold text-sm truncate ${isCompleted ? "line-through text-zinc-600" : ""}`}>
+                      {b.subjectName}
+                    </div>
+                    <div className="text-[11px] text-zinc-500 uppercase mt-0.5 truncate">
+                      {b.type} • {b.duration}m
+                    </div>
+                  </div>
+
+                  {hasExplanation && !isCompleted && (
+                    <button
+                      onClick={() => toggleBlockExplanation(b.id)}
+                      className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${isExpanded ? "bg-indigo-500/20 text-indigo-300" : "bg-zinc-900 text-zinc-500 border border-zinc-800"}`}
+                    >
+                      {isExpanded ? "Hide" : "Why?"}
+                    </button>
+                  )}
+
+                  {!isCompleted && (
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 md:transition-all sm:opacity-100 sm:flex-wrap">
+                      <button
+                        onClick={() => onStartFocus(b)}
+                        className="flex items-center gap-1.5 px-3 py-3 md:py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 rounded-lg transition-all font-medium text-xs min-h-[44px] md:min-h-0"
+                      >
+                        <Play size={14} />
+                        <span>Start</span>
+                      </button>
+
+                      <button
+                        onClick={async () => {
+                          if (confirm("Mark as complete?")) await markComplete(b.id);
+                        }}
+                        className="p-3 md:p-2 hover:bg-emerald-500/10 text-emerald-400 rounded-lg min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"
+                      >
+                        <CheckCircle size={18} />
+                      </button>
+
+                      <button
+                        onClick={async () => {
+                          if (confirm("Move to tomorrow?")) await snoozeBlock(b.id);
+                        }}
+                        className="p-3 md:p-2 hover:bg-yellow-500/10 text-yellow-400 rounded-lg min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"
+                      >
+                        <ArrowRight size={18} />
+                      </button>
+                    </div>
+                  )}
+
+                  {isCompleted && <div className="text-[11px] text-zinc-600 font-mono px-2.5 uppercase">Done</div>}
+                </div>
+
+                {isExpanded && !isCompleted && hasExplanation && (
+                  <div className="animate-fade-in pl-12 pr-2">
+                    <BlockReason block={b} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {plan.blocks.length === 0 && <EmptyTodayPlan />}
         </div>
       </div>
 
-      {/* Quick Break Suggestion - Subtle Footer */}
       <div className="flex justify-center pt-4">
         <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/5 text-zinc-500 text-xs">
           <Coffee size={14} />

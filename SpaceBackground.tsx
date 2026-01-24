@@ -154,12 +154,12 @@ const HangingAlienScholar = () => (
     <div 
       className="md:hidden fixed z-[60] animate-hanging-sway" 
       style={{ 
-        right: '8px', 
-        top: '0px',
+        right: '16px', 
+        top: '-5px',
         transformOrigin: 'top right'
       }}
     >
-      <AlienSVG scale={0.35} />
+      <AlienSVG scale={0.40} />
     </div>
 
     <style>{`

@@ -1,17 +1,32 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { StudyLog, Subject } from "./types";
-import { 
-  Clock, Check, TrendingUp, TrendingDown, Calendar, Target, 
+import {
+  Clock, Check, TrendingUp, TrendingDown, Calendar, Target,
   Award, Zap, BarChart3, Activity, Download, Eye, Brain,
-  Flame, Trophy, Star, ChevronRight
+  Flame, Trophy, Star, ChevronRight, StickyNote, X, FileText
 } from "lucide-react";
 import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
+import { EmptyStats, StatsSkeleton } from './EmptyStates';
 
 export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subject[] }) => {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | '10days'>('week');
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [selectedSubjectNotes, setSelectedSubjectNotes] = useState<StudyLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const projects = useLiveQuery(() => db.projects.toArray()) || [];
+
+  // Simulate initial load
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Early return for loading state
+  if (isLoading) {
+    return <StatsSkeleton />;
+  }
 
   // Calculate date range
   const now = new Date();
@@ -20,15 +35,55 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   else if (timeRange === '10days') rangeStart.setDate(now.getDate() - 10);
   else rangeStart.setDate(now.getDate() - 30);
 
-  rangeStart.setHours(0, 0, 0, 0); // Start of day
+  rangeStart.setHours(0, 0, 0, 0);
   const rangeStartStr = rangeStart.toISOString().split('T')[0];
-  
-  console.log('📊 Stats Range:', { timeRange, rangeStartStr, now: now.toISOString().split('T')[0] });
-  
+
   const filteredLogs = logs.filter(l => {
     const isInRange = l.date >= rangeStartStr;
     return isInRange;
   });
+
+  // Early return for no data
+  if (filteredLogs.length === 0) {
+    return (
+      <div className="pb-24 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto">
+        <div className="flex justify-between items-end mb-6">
+          <div className="flex flex-col gap-2">
+            <div className="text-sm text-zinc-500 font-mono uppercase tracking-wider">
+              {new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "short",
+                day: "numeric",
+              })}
+            </div>
+            <h1 className="text-3xl md:text-4xl font-display font-bold">Performance Analytics</h1>
+          </div>
+        </div>
+
+        {/* Time Range Selector (still visible) */}
+        <div className="flex gap-2 mb-8">
+          {(['week', '10days', 'month'] as const).map(range => (
+            <button
+              key={range}
+              onClick={() => setTimeRange(range)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                timeRange === range
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                  : 'bg-zinc-900 text-zinc-500 hover:text-white hover:bg-zinc-800 border border-zinc-800'
+              }`}
+            >
+              {range === '10days' ? '10 Days' : range}
+            </button>
+          ))}
+        </div>
+
+        <EmptyStats onStartStudying={() => {
+          // Navigate to dashboard via custom event
+          window.dispatchEvent(new CustomEvent('navigate-to-dashboard'));
+        }} />
+      </div>
+    );
+  }
 
   // Previous period for trends
   const prevRangeStart = new Date(rangeStart);
@@ -39,69 +94,68 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   const prevRangeStartStr = prevRangeStart.toISOString().split('T')[0];
   const prevLogs = logs.filter(l => l.date >= prevRangeStartStr && l.date < rangeStartStr);
 
-  // Core Stats
+  // Core Stats calculation
   const totalMinutes = filteredLogs.reduce((acc, log) => acc + log.duration, 0);
   const totalHours = (totalMinutes / 60).toFixed(1);
   const totalSessions = filteredLogs.length;
   const avgSessionMinutes = totalSessions > 0 ? Math.round(totalMinutes / totalSessions) : 0;
 
   const prevMinutes = prevLogs.reduce((a, b) => a + b.duration, 0);
-  const trend = prevMinutes > 0 
+  const trend = prevMinutes > 0
     ? Math.round(((totalMinutes - prevMinutes) / prevMinutes) * 100)
     : totalMinutes > 0 ? 100 : 0;
 
-  // Calculate Focus Score (0-100)
+  // Calculate Focus Score logic (0-100)
   const calculateFocusScore = (subjectId: number) => {
     const subLogs = filteredLogs.filter(l => l.subjectId === subjectId);
     if (subLogs.length === 0) return 0;
 
-    // Factors: consistency, session quality, total time, completion rate
     const daysInRange = timeRange === 'week' ? 7 : timeRange === '10days' ? 10 : 30;
     const uniqueDays = new Set(subLogs.map(l => l.date)).size;
     const consistencyScore = (uniqueDays / daysInRange) * 100;
 
     const avgDuration = subLogs.reduce((a, b) => a + b.duration, 0) / subLogs.length;
-    const qualityScore = Math.min((avgDuration / 45) * 100, 100); // 45min is ideal
+    const qualityScore = Math.min((avgDuration / 45) * 100, 100);
 
     const totalTime = subLogs.reduce((a, b) => a + b.duration, 0);
-    const timeScore = Math.min((totalTime / 300) * 100, 100); // 300min per period is excellent
+    const timeScore = Math.min((totalTime / 300) * 100, 100);
 
-    // Weighted average
     const score = (consistencyScore * 0.4) + (qualityScore * 0.3) + (timeScore * 0.3);
     return Math.round(score);
   };
 
-  // Subject stats with focus scores
+  // Subject stats aggregation
   const subjectStats = subjects
     .map((sub) => {
       const mins = filteredLogs
         .filter((l) => l.subjectId === sub.id)
         .reduce((a, b) => a + b.duration, 0);
-      
+
       const sessions = filteredLogs.filter(l => l.subjectId === sub.id).length;
       const focusScore = calculateFocusScore(sub.id!);
-      
-      // Previous period for trend
+
       const prevMins = prevLogs
         .filter(l => l.subjectId === sub.id)
         .reduce((a, b) => a + b.duration, 0);
-      
-      const trendPercent = prevMins > 0 
+
+      const trendPercent = prevMins > 0
         ? Math.round(((mins - prevMins) / prevMins) * 100)
         : mins > 0 ? 100 : 0;
 
-      return { ...sub, mins, sessions, focusScore, trend: trendPercent };
+      const notesCount = filteredLogs.filter(
+        l => l.subjectId === sub.id && l.notes && l.notes.trim().length > 0
+      ).length;
+
+      return { ...sub, mins, sessions, focusScore, trend: trendPercent, notesCount };
     })
     .filter(s => s.mins > 0)
     .sort((a, b) => b.focusScore - a.focusScore);
 
   const topSubject = subjectStats[0];
-
-  // Daily average
   const daysInRange = timeRange === 'week' ? 7 : timeRange === '10days' ? 10 : 30;
   const avgDailyHours = (totalMinutes / daysInRange / 60).toFixed(1);
 
-  // Heatmap (last 30 days)
+  // Heatmap generation
   const heatmapData = Array(30)
     .fill(0)
     .map((_, i) => {
@@ -116,7 +170,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       return 3;
     });
 
-  // Activity type breakdown
   const typeBreakdown = {
     review: filteredLogs.filter(l => l.type === 'review').reduce((a, b) => a + b.duration, 0),
     assignment: filteredLogs.filter(l => l.type === 'assignment').reduce((a, b) => a + b.duration, 0),
@@ -125,10 +178,18 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     recovery: filteredLogs.filter(l => l.type === 'recovery').reduce((a, b) => a + b.duration, 0),
   };
 
-  // Export detailed stats
+  const viewSubjectNotes = (subjectId: number) => {
+    const subjectLogs = logs
+      .filter(l => l.subjectId === subjectId && l.notes && l.notes.trim().length > 0)
+      .sort((a, b) => b.timestamp - a.timestamp);
+
+    setSelectedSubjectNotes(subjectLogs);
+    setShowNotesModal(true);
+  };
+
   const exportDetailedStats = () => {
     const csv = [
-      ['Subject', 'Code', 'Total Hours', 'Sessions', 'Focus Score', 'Trend %', 'Avg Session'],
+      ['Subject', 'Code', 'Total Hours', 'Sessions', 'Focus Score', 'Trend %', 'Avg Session', 'Notes Count'],
       ...subjectStats.map(s => [
         s.name,
         s.code,
@@ -136,7 +197,8 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         s.sessions,
         s.focusScore,
         s.trend,
-        Math.round(s.mins / s.sessions)
+        Math.round(s.mins / s.sessions),
+        s.notesCount
       ])
     ].map(row => row.join(',')).join('\n');
 
@@ -165,8 +227,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
 
   return (
     <div className="pb-24 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-6 animate-fade-in">
-      
-      {/* Header with Export */}
       <div className="flex justify-between items-end">
         <div className="flex flex-col gap-2">
           <div className="text-sm text-zinc-500 font-mono uppercase tracking-wider">
@@ -187,24 +247,21 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         </button>
       </div>
 
-      {/* Time Range Selector */}
       <div className="flex gap-2">
         {(['week', '10days', 'month'] as const).map(range => (
           <button
             key={range}
             onClick={() => setTimeRange(range)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-              timeRange === range
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-                : 'bg-zinc-900 text-zinc-500 hover:text-white hover:bg-zinc-800 border border-zinc-800'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${timeRange === range
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+              : 'bg-zinc-900 text-zinc-500 hover:text-white hover:bg-zinc-800 border border-zinc-800'
+              }`}
           >
             {range === '10days' ? '10 Days' : range}
           </button>
         ))}
       </div>
 
-      {/* Key Metrics Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] to-transparent"></div>
@@ -250,8 +307,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Subject Focus Scores (2 cols) */}
         <div className="lg:col-span-2 group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-6 hover:border-indigo-500/20 transition-all duration-300 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
           <div className="relative z-10">
@@ -267,12 +322,12 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
                 </div>
               )}
             </div>
-            
+
             <div className="space-y-4">
               {subjectStats.map((stat, index) => {
                 const scoreColor = getFocusScoreColor(stat.focusScore);
                 const scoreLabel = getFocusScoreLabel(stat.focusScore);
-                
+
                 return (
                   <div
                     key={stat.id}
@@ -295,6 +350,18 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
                             <span className={`text-xs px-2 py-0.5 rounded ${scoreColor.replace('text-', 'bg-')}/20 ${scoreColor} font-bold`}>
                               {scoreLabel}
                             </span>
+                            {stat.notesCount > 0 && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  viewSubjectNotes(stat.id!);
+                                }}
+                                className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all text-xs font-bold"
+                              >
+                                <FileText size={12} />
+                                {stat.notesCount}
+                              </button>
+                            )}
                           </div>
                           <div className="flex items-center gap-3 text-xs text-zinc-500 mt-1">
                             <span>{stat.sessions} sessions</span>
@@ -311,14 +378,13 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
                           </div>
                         </div>
                       </div>
-                      <ChevronRight 
-                        size={16} 
-                        className={`text-zinc-600 group-hover/item:text-indigo-400 transition-all ${
-                          selectedSubject === stat.id ? 'rotate-90' : ''
-                        }`}
+                      <ChevronRight
+                        size={16}
+                        className={`text-zinc-600 group-hover/item:text-indigo-400 transition-all ${selectedSubject === stat.id ? 'rotate-90' : ''
+                          }`}
                       />
                     </div>
-                    
+
                     {selectedSubject === stat.id && (
                       <div className="mt-3 p-4 bg-zinc-900/60 rounded-xl border border-zinc-800 animate-fade-in">
                         <div className="grid grid-cols-3 gap-4 text-center">
@@ -353,14 +419,10 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
                   </div>
                 );
               })}
-              {subjectStats.length === 0 && (
-                <div className="text-zinc-500 italic text-sm text-center py-8">No study data in this period</div>
-              )}
             </div>
           </div>
         </div>
 
-        {/* Activity Type Breakdown */}
         <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-6 hover:border-purple-500/20 transition-all duration-300 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
           <div className="relative z-10">
@@ -368,7 +430,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
               <Zap size={16} className="text-purple-400" />
               Activity Mix
             </h3>
-            
+
             <div className="space-y-4">
               {Object.entries(typeBreakdown)
                 .filter(([_, mins]) => mins > 0)
@@ -382,7 +444,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
                     prep: 'from-cyan-500 to-cyan-400',
                     recovery: 'from-emerald-500 to-emerald-400',
                   };
-                  
+
                   return (
                     <div key={type} className="group/item hover:translate-x-1 transition-all">
                       <div className="flex justify-between text-sm mb-2">
@@ -409,7 +471,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
           </div>
         </div>
 
-        {/* Heatmap */}
         <div className="lg:col-span-3 group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-6 hover:border-indigo-500/20 transition-all duration-300 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
           <div className="relative z-10">
@@ -417,31 +478,30 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
               <Calendar size={16} className="text-indigo-400" />
               30-Day Activity Heatmap
             </h3>
-            
+
             <div className="flex flex-wrap gap-1.5">
               {heatmapData.map((intensity, i) => {
                 const date = new Date();
                 date.setDate(date.getDate() - (29 - i));
                 const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                
+
                 return (
                   <div
                     key={i}
-                    className={`w-8 h-8 rounded-md transition-all duration-200 hover:scale-125 hover:z-10 cursor-pointer ${
-                      intensity === 0
-                        ? "bg-zinc-900 border border-zinc-800 hover:border-zinc-700"
-                        : intensity === 1
+                    className={`w-8 h-8 rounded-md transition-all duration-200 hover:scale-125 hover:z-10 cursor-pointer ${intensity === 0
+                      ? "bg-zinc-900 border border-zinc-800 hover:border-zinc-700"
+                      : intensity === 1
                         ? "bg-indigo-900/60 border border-indigo-900 hover:border-indigo-700"
                         : intensity === 2
-                        ? "bg-indigo-600 border border-indigo-500 hover:border-indigo-400"
-                        : "bg-indigo-400 border border-indigo-300 shadow-[0_0_10px_rgba(129,140,248,0.4)] hover:shadow-[0_0_15px_rgba(129,140,248,0.6)]"
-                    }`}
+                          ? "bg-indigo-600 border border-indigo-500 hover:border-indigo-400"
+                          : "bg-indigo-400 border border-indigo-300 shadow-[0_0_10px_rgba(129,140,248,0.4)] hover:shadow-[0_0_15px_rgba(129,140,248,0.6)]"
+                      }`}
                     title={dateStr}
                   />
                 );
               })}
             </div>
-            
+
             <div className="flex items-center justify-between mt-4 text-xs text-zinc-500">
               <span>Less</span>
               <div className="flex gap-1">
@@ -455,6 +515,63 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
           </div>
         </div>
       </div>
+
+      {showNotesModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="w-full max-w-4xl max-h-[80vh] bg-zinc-900 border border-white/10 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-zinc-900/50">
+              <div className="flex items-center gap-3">
+                <StickyNote size={20} className="text-amber-400" />
+                <div>
+                  <h3 className="text-lg font-bold text-white">Session Notes</h3>
+                  <p className="text-xs text-zinc-500">
+                    {subjects.find(s => s.id === selectedSubjectNotes[0]?.subjectId)?.name || 'Unknown'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowNotesModal(false)}
+                className="p-2 hover:bg-white/10 rounded-xl transition-all"
+              >
+                <X size={20} className="text-zinc-400 hover:text-white" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {selectedSubjectNotes.map((log) => (
+                <div
+                  key={log.id}
+                  className="p-4 bg-zinc-800/50 rounded-xl border border-zinc-700 hover:border-zinc-600 transition-all"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3 text-xs text-zinc-400">
+                      <span className="font-mono">{log.date}</span>
+                      <span>•</span>
+                      <span className="capitalize">{log.type}</span>
+                      <span>•</span>
+                      <span>{log.duration} min</span>
+                    </div>
+                    <div className="text-xs font-mono text-zinc-600">
+                      {new Date(log.timestamp).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </div>
+                  </div>
+                  <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                    {log.notes}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-6 py-4 border-t border-white/10 bg-zinc-950 flex items-center justify-between text-xs text-zinc-500">
+              <span>{selectedSubjectNotes.length} note{selectedSubjectNotes.length !== 1 ? 's' : ''} found</span>
+              <span>Sorted by most recent</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

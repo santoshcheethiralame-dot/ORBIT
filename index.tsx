@@ -13,37 +13,11 @@ import { SpaceBackground } from "./SpaceBackground";
 import { DailyContextModal } from "./DailyContextModal";
 import { AboutView } from "./AboutView";
 import { SettingsView } from "./SettingsView";
-import { SoundManager } from "./utils/sounds"; // 🔊 Added Sound Manager
+import { SoundManager } from "./utils/sounds";
+import { NotificationManager } from "./utils/notifications";
 
-// 🛠️ HELPER: Get Effective Date based on User Preference
-const getEffectiveDate = () => {
-  const now = new Date();
-  
-  // Try to read user setting, default to 4 AM (Night Owl friendly)
-  let startHour = 4; 
-  try {
-    const saved = localStorage.getItem('orbit-prefs');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (typeof parsed.dayStartHour === 'number') startHour = parsed.dayStartHour;
-    }
-  } catch (e) {
-    console.warn("Could not read day start pref, using default");
-  }
-
-  // Logic: If current hour < startHour, we are still in "yesterday"
-  const currentHour = now.getHours();
-  if (currentHour < startHour) {
-    now.setDate(now.getDate() - 1);
-  }
-
-  // Format YYYY-MM-DD
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  
-  return `${year}-${month}-${day}`;
-};
+// ✅ FIXED: Import from centralized time utilities
+import { getISTEffectiveDate, isPlanCurrent } from "./utils/time";
 
 const App = () => {
   const [view, setView] = useState<'onboarding' | 'dashboard' | 'courses' | 'stats' | 'focus' | 'settings' | 'about'>('dashboard');
@@ -61,7 +35,7 @@ const App = () => {
       const saved = localStorage.getItem('orbit-prefs');
       const enabled = saved ? JSON.parse(saved).soundEnabled : false;
       SoundManager.setEnabled(enabled);
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   const loadData = async () => {
@@ -70,12 +44,12 @@ const App = () => {
     const lgs = await db.logs.toArray();
     setLogs(lgs);
 
-    const todayStr = getEffectiveDate(); // ⚡ Uses new flexible logic
+    const todayStr = getISTEffectiveDate(); // ✅ Uses centralized function
     const existing = await db.plans.get(todayStr);
 
     console.log('📊 LoadData:', { effectiveDate: todayStr, existingPlan: existing?.date });
 
-    if (existing && existing.date === todayStr) {
+    if (existing && isPlanCurrent(existing.date)) { // ✅ Uses validation function
       setTodayPlan(existing);
       setNeedsContext(false);
     } else {
@@ -96,24 +70,41 @@ const App = () => {
     init();
   }, []);
 
-  // ⏰ ROLLOVER DETECTION
+  // ⏰ ROLLOVER DETECTION - FIXED VERSION
   useEffect(() => {
     const STORAGE_KEY = 'orbit_last_check_date';
 
     const checkRollover = () => {
-      const currentEffectiveDate = getEffectiveDate();
+      const currentEffectiveDate = getISTEffectiveDate();
       const lastCheckedDate = localStorage.getItem(STORAGE_KEY);
 
-      if (todayPlan && todayPlan.date !== currentEffectiveDate) {
-        console.log('🔄 Rollover: Plan date mismatch');
-        setShowRolloverModal(true); // Trigger modal instead of silent reset
-      } 
-      else if (lastCheckedDate && lastCheckedDate !== currentEffectiveDate) {
-        console.log('🔄 Rollover: Date changed since last check');
+      // ✅ FIXED: Check if plan is stale using centralized validation
+      if (todayPlan) {
+        if (!isPlanCurrent(todayPlan.date)) {
+          console.log('🔄 Rollover: Plan is stale', {
+            planDate: todayPlan.date,
+            currentEffective: currentEffectiveDate
+          });
+          setShowRolloverModal(true);
+          return;
+        }
+      }
+
+      // Check if this is first check of new cycle
+      if (lastCheckedDate && lastCheckedDate !== currentEffectiveDate) {
+        console.log('🔄 Rollover: Date changed since last check', {
+          last: lastCheckedDate,
+          current: currentEffectiveDate
+        });
+
+        if (todayPlan && !isPlanCurrent(todayPlan.date)) {
+          setTodayPlan(null);
+        }
+
         setNeedsContext(true);
-        setTodayPlan(null);
         loadData();
       }
+
       localStorage.setItem(STORAGE_KEY, currentEffectiveDate);
     };
 
@@ -123,32 +114,59 @@ const App = () => {
   }, [todayPlan]);
 
   const handleContextGenerate = async (ctx: DailyContext) => {
-    SoundManager.playSuccess(); // 🔊 Sound
-    const blocks = await generateDailyPlan(ctx);
-    const dateStr = getEffectiveDate();
+    SoundManager.playSuccess();
 
-    // Extract load analysis logic (kept from your code)
-    const loadAnalysis = blocks.length > 0 ? (blocks[0] as any).__loadAnalysis : null;
-    if (loadAnalysis && blocks.length > 0) delete (blocks[0] as any).__loadAnalysis;
+    // ✅ FIXED: generateDailyPlan returns { blocks, loadAnalysis }
+    const result = await generateDailyPlan(ctx);
+    const dateStr = getISTEffectiveDate();
 
     const plan: DailyPlan = {
       date: dateStr,
-      blocks,
+      blocks: result.blocks,  // ✅ Access blocks from result
       context: ctx,
-      warning: loadAnalysis?.warning,
-      loadLevel: loadAnalysis?.loadLevel,
-      loadScore: loadAnalysis?.loadScore,
+      warning: result.loadAnalysis?.warning,
+      loadLevel: result.loadAnalysis?.loadLevel,
+      loadScore: result.loadAnalysis?.loadScore,
     };
 
     await db.plans.put(plan);
     setTodayPlan(plan);
     setNeedsContext(false);
+
+    // Notification trigger
+    try {
+      const prefs = JSON.parse(localStorage.getItem('orbit-prefs') || '{}');
+      if (prefs.notifications?.dailyPlanReady) {
+        NotificationManager.send(
+          "Mission Brief Ready",
+          `${plan.blocks.length} study blocks scheduled for today`
+        );
+      }
+    } catch (e) { }
+  };
+
+  const calculateStreak = (): number => {
+    if (!logs || logs.length === 0) return 0;
+    const today = new Date();
+    let count = 0;
+    const daysSeen = new Set<string>();
+    logs.forEach((l) => {
+      if (l && l.date) daysSeen.add(String(l.date));
+    });
+    for (let i = 0; i < 365; i++) {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      const key = d.toISOString().split("T")[0];
+      if (daysSeen.has(key)) count++;
+      else break;
+    }
+    return count;
   };
 
   const handleFocusComplete = async (actualDuration?: number, sessionNotes?: string) => {
     if (activeBlock) {
       const durationToLog = actualDuration || activeBlock.duration;
-      const dateStr = getEffectiveDate();
+      const dateStr = getISTEffectiveDate();
 
       await db.logs.add({
         subjectId: activeBlock.subjectId,
@@ -171,14 +189,27 @@ const App = () => {
         await db.assignments.update(activeBlock.assignmentId, { completed: true });
       }
 
-      SoundManager.playSuccess(); // 🔊 Success Sound
+      // Streak milestone notification
+      try {
+        const prefs = JSON.parse(localStorage.getItem('orbit-prefs') || '{}');
+        if (prefs.notifications?.streakMilestones) {
+          const newStreak = calculateStreak();
+          if ([7, 14, 30, 60, 100].includes(newStreak)) {
+            NotificationManager.send(
+              `🔥 ${newStreak}-Day Streak!`,
+              "Consistency unlocked. Keep the momentum going."
+            );
+          }
+        }
+      } catch (e) { }
+
+      SoundManager.playSuccess();
       await loadData();
       setActiveBlock(null);
       setView(activeTab as any);
     }
   };
 
-  // 🔊 Tab Switch Handler
   const switchTab = (tabId: typeof activeTab) => {
     SoundManager.playTab();
     setActiveTab(tabId);
@@ -204,8 +235,6 @@ const App = () => {
     return <FocusSession block={activeBlock} onComplete={handleFocusComplete} onExit={() => setView(activeTab as any)} />;
   }
 
-  // 🛠️ FIX for CoursesView TS Error:
-  // We explicitly cast CoursesView to 'any' to bypass strict prop checks if the component file hasn't been updated yet.
   const CoursesViewComponent = CoursesView as any;
 
   return (
@@ -227,13 +256,15 @@ const App = () => {
               onClick={() => {
                 SoundManager.playClick();
                 setShowRolloverModal(false);
-                setNeedsContext(true);
                 setTodayPlan(null);
-                loadData();
+                setNeedsContext(true);
+                loadData().then(() => {
+                  localStorage.setItem('orbit_last_check_date', getISTEffectiveDate());
+                });
               }}
               className="w-full py-4 bg-white text-black rounded-2xl font-bold hover:bg-zinc-200 transition-all flex items-center justify-center gap-2"
             >
-              Start Mission <ArrowRight size={18} />
+              Start New Cycle <ArrowRight size={18} />
             </button>
           </div>
         </div>
@@ -246,8 +277,8 @@ const App = () => {
       {/* DESKTOP NAV */}
       <header className="hidden md:flex items-center justify-between px-8 py-4 border-b border-white/10 bg-white/[0.02] backdrop-blur-2xl sticky top-0 z-50 h-16">
         <div className="flex items-center gap-3">
-           <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center font-bold text-black shadow-lg shadow-white/10">O</div>
-           <h1 className="text-xl font-display font-bold tracking-tight text-white">Orbit</h1>
+          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center font-bold text-black shadow-lg shadow-white/10">O</div>
+          <h1 className="text-xl font-display font-bold tracking-tight text-white">Orbit</h1>
         </div>
 
         {showNavigation ? (
@@ -276,7 +307,7 @@ const App = () => {
             </div>
           </div>
         )}
-        <div className="text-xs text-zinc-600 font-mono">v2.1.0</div>
+        <div className="text-xs text-zinc-600 font-mono">v3.2.0</div>
       </header>
 
       {/* MAIN CONTENT */}
@@ -285,10 +316,10 @@ const App = () => {
           {activeTab === 'dashboard' && todayPlan && (
             <Dashboard
               plan={todayPlan}
-              onStartFocus={(b: StudyBlock) => { 
+              onStartFocus={(b: StudyBlock) => {
                 SoundManager.playClick();
-                setActiveBlock(b); 
-                setView('focus'); 
+                setActiveBlock(b);
+                setView('focus');
               }}
               subjects={subjects}
               logs={logs}
@@ -296,7 +327,6 @@ const App = () => {
             />
           )}
 
-          {/* 🛠️ TS Error Fixed via wrapper above */}
           {activeTab === 'courses' && (
             <CoursesViewComponent subjects={subjects} logs={logs} />
           )}
@@ -307,9 +337,9 @@ const App = () => {
         </div>
       </main>
 
-      {/* MOBILE NAV */}
+      {/* MOBILE NAV - FIXED: Better touch targets */}
       {showNavigation && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-zinc-950/90 backdrop-blur-2xl border-t border-white/10 flex justify-around items-center px-4 z-40 pb-2 safe-area-pb">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-zinc-950/90 backdrop-blur-2xl border-t border-white/10 flex justify-around items-center px-4 z-40 pb-safe">
           {[
             { id: 'dashboard', icon: LayoutGrid, label: 'Home' },
             { id: 'courses', icon: BookOpen, label: 'Subs' },
@@ -320,7 +350,7 @@ const App = () => {
             <button
               key={tab.id}
               onClick={() => switchTab(tab.id as any)}
-              className={`${activeTab === tab.id ? 'text-white' : 'text-zinc-500'} flex flex-col items-center gap-1.5 transition-all p-2 rounded-xl active:scale-95`}
+              className={`${activeTab === tab.id ? 'text-white' : 'text-zinc-500'} flex flex-col items-center gap-1.5 transition-all p-2 rounded-xl active:scale-95 min-h-[44px] min-w-[44px]`}
             >
               <tab.icon size={22} strokeWidth={activeTab === tab.id ? 2.5 : 2} />
               <span className="text-[10px] font-bold">{tab.label}</span>
@@ -331,6 +361,47 @@ const App = () => {
     </div>
   );
 };
+
+// ✅ Service Worker Registration - PRODUCTION ONLY
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((registration) => {
+        console.log('✅ SW registered:', registration.scope);
+
+        // Check for updates every hour
+        setInterval(() => {
+          registration.update();
+        }, 60 * 60 * 1000);
+
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (!newWorker) return;
+
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              if (confirm('New version available! Reload to update?')) {
+                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                window.location.reload();
+              }
+            }
+          });
+        });
+      })
+      .catch((error) => {
+        console.warn('❌ SW registration failed:', error);
+      });
+  });
+
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
+  });
+}
 
 const rootElement = document.getElementById("root");
 if (rootElement) {
