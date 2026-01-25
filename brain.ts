@@ -11,7 +11,6 @@ import {
 } from "./types";
 import { getISTEffectiveDate } from "./utils/time";
 
-
 /* ======================================================
   TYPES
 ====================================================== */
@@ -28,40 +27,56 @@ type LoadAnalysis = {
   warning?: string;
   loadLevel: 'light' | 'normal' | 'heavy' | 'extreme';
   loadScore: number; // 0-100
+  readinessImpact: number; // How much readiness will improve
 };
 
-// ✅ FIXED: Single export of PlanResult
+export type SubjectReadiness = {
+  score: number;
+  decay: number;
+  status: "critical" | "maintaining" | "mastered";
+  lastStudiedDays: number;
+};
+
 export type PlanResult = {
   blocks: StudyBlock[];
   loadAnalysis: LoadAnalysis;
 };
 
 /* ======================================================
-  CONSTANTS (PESU-calibrated)
+  CONSTANTS
 ====================================================== */
 
 const DEFAULT_REVIEW_MIN = 30;
 const DEFAULT_RECOVERY_MIN = 45;
 const DEFAULT_PROJECT_MIN = 60;
 
-const ESA_BASE_MIN = 360; // 6 hrs
+const ESA_BASE_MIN = 360;
 const ISA_PREP_MIN = 45;
 
-const MIN_BLOCKS_FALLBACK = 2;
+const MIN_BLOCKS_FALLBACK = 3; // 🆕 Increased from 2
+
+const READINESS_GOAL_HOURS_PER_CREDIT = 10;
+const READINESS_CRITICAL_THRESHOLD = 35;
+const READINESS_MAINTAINING_THRESHOLD = 70;
+
+const DEFAULT_ASSIGNMENT_EFFORT_MIN = 120;
 
 /* ======================================================
-  DOMINANCE (lower = stronger)
+  DOMINANCE
 ====================================================== */
 
 const DOMINANCE = {
   ESA: 0,
   ASSIGNMENT_URGENT: 1,
   ASSIGNMENT: 2,
-  PROJECT_DECAY: 3,
-  RECOVERY: 4,
-  REVIEW: 5,
-  PREP: 6,
-  PROJECT: 7,
+  ASSIGNMENT_BACKLOG: 2.5,
+  CRITICAL_REVIEW: 3,
+  PROJECT_DECAY: 4,
+  RECOVERY: 5,
+  REVIEW: 6,
+  PREP: 7,
+  PROJECT: 8,
+  FALLBACK: 90,
 };
 
 /* ======================================================
@@ -78,31 +93,75 @@ function clampDuration(d: number, max: number) {
   return Math.min(d, max);
 }
 
-function daysBetween(a: number, b: number) {
-  return Math.floor((a - b) / 86400000);
+function daysBetweenDates(a: string, b: string) {
+  const [ay, am, ad] = a.split("-").map(Number);
+  const [by, bm, bd] = b.split("-").map(Number);
+  const da = new Date(ay, am - 1, ad).getTime();
+  const db = new Date(by, bm - 1, bd).getTime();
+  return Math.floor((da - db) / 86400000);
 }
 
-// 🆕 Subject type classification for rotation
+/**
+ * 🆕 Track assignment progress when completing blocks
+ * Call this from FocusSession after completing an assignment block
+ */
+export async function updateAssignmentProgress(
+  assignmentId: string,
+  minutesCompleted: number
+): Promise<void> {
+  try {
+    const assignment = await db.assignments.get(assignmentId);
+    if (!assignment) return;
+
+    const currentProgress = assignment.progressMinutes ?? 0;
+    const newProgress = currentProgress + minutesCompleted;
+
+    await db.assignments.update(assignmentId, {
+      progressMinutes: newProgress
+    });
+
+    const estimatedEffort = assignment.estimatedEffort ?? DEFAULT_ASSIGNMENT_EFFORT_MIN;
+    if (newProgress >= estimatedEffort) {
+      await db.assignments.update(assignmentId, {
+        completed: true
+      });
+    }
+  } catch (err) {
+    console.error('Failed to update assignment progress:', err);
+  }
+}
+
 function getSubjectType(subject: Subject): 'analytical' | 'memory' | 'creative' | 'mixed' {
   const name = subject.name.toLowerCase();
 
-  // Analytical subjects (Math, Physics, Chemistry, etc.)
-  if (name.includes('math') || name.includes('calculus') ||
-    name.includes('physics') || name.includes('algorithm') ||
-    name.includes('statistics') || name.includes('chemistry')) {
+  if (
+    name.includes('math') ||
+    name.includes('calculus') ||
+    name.includes('physics') ||
+    name.includes('algorithm') ||
+    name.includes('statistics') ||
+    name.includes('chemistry')
+  ) {
     return 'analytical';
   }
 
-  // Memory-based subjects (History, Biology, Languages, etc.)
-  if (name.includes('history') || name.includes('biology') ||
-    name.includes('language') || name.includes('literature') ||
-    name.includes('geography') || name.includes('law')) {
+  if (
+    name.includes('history') ||
+    name.includes('biology') ||
+    name.includes('language') ||
+    name.includes('literature') ||
+    name.includes('geography') ||
+    name.includes('law')
+  ) {
     return 'memory';
   }
 
-  // Creative subjects (Design, Art, Writing, etc.)
-  if (name.includes('design') || name.includes('art') ||
-    name.includes('creative') || name.includes('music')) {
+  if (
+    name.includes('design') ||
+    name.includes('art') ||
+    name.includes('creative') ||
+    name.includes('music')
+  ) {
     return 'creative';
   }
 
@@ -110,7 +169,77 @@ function getSubjectType(subject: Subject): 'analytical' | 'memory' | 'creative' 
 }
 
 /* ======================================================
-  CONSTRAINT RESOLUTION (ENHANCED WITH DIFFICULTY)
+  🆕 READINESS ENGINE (Exam Confidence Score)
+====================================================== */
+
+export function calculateReadiness(
+  subject: Subject,
+  logs: StudyLog[],
+  effectiveDate: string
+): SubjectReadiness {
+  const totalStudiedMinutes = logs.filter(l => l.subjectId === subject.id)
+    .reduce((sum, l) => sum + (l.duration ?? 0), 0);
+  const totalStudiedHours = totalStudiedMinutes / 60;
+  const credits = subject.credits || 3;
+
+  // Factor 1: Volume Score (how much you've studied vs. goal)
+  const goal = READINESS_GOAL_HOURS_PER_CREDIT * credits;
+  let volume = Math.min(totalStudiedHours / goal, 1);
+
+  // Factor 2: Recency (decay based on last study)
+  const lastStudy = logs
+    .filter(l => l.subjectId === subject.id)
+    .sort((a, b) => b.timestamp - a.timestamp)[0];
+
+  let lastStudiedDays: number;
+  if (!lastStudy) {
+    lastStudiedDays = 999;
+  } else {
+    const lastDate = new Date(lastStudy.timestamp).toISOString().split("T")[0];
+    lastStudiedDays = daysBetweenDates(effectiveDate, lastDate);
+  }
+
+  // Exponential decay (harder subjects decay faster)
+  let decayRate = (subject.difficulty >= 4 ? 0.7 : 0.9);
+  let decay = Math.pow(decayRate, lastStudiedDays || 0);
+
+  // Final Score: Volume × Decay
+  let score = Math.round(volume * 100 * decay);
+
+  // Status Classification
+  let status: SubjectReadiness['status'] = "maintaining";
+  if (score < READINESS_CRITICAL_THRESHOLD) {
+    status = "critical";
+  } else if (score > READINESS_MAINTAINING_THRESHOLD) {
+    status = "mastered";
+  }
+
+  return {
+    score,
+    decay,
+    status,
+    lastStudiedDays
+  };
+}
+
+/**
+ * 🆕 Get readiness for all subjects (for dashboard display)
+ */
+export async function getAllReadinessScores(): Promise<Record<number, SubjectReadiness>> {
+  const subjects = await db.subjects.toArray();
+  const logs = await db.logs.toArray();
+  const effectiveDate = getISTEffectiveDate();
+
+  const readinessMap: Record<number, SubjectReadiness> = {};
+  for (const subject of subjects) {
+    readinessMap[Number(subject.id)] = calculateReadiness(subject, logs, effectiveDate);
+  }
+
+  return readinessMap;
+}
+
+/* ======================================================
+  CONSTRAINT RESOLUTION
 ====================================================== */
 
 export function resolveConstraints(ctx: DailyContext): DayConstraints {
@@ -122,11 +251,10 @@ export function resolveConstraints(ctx: DailyContext): DayConstraints {
     maxMinutes = 90;
     maxBlocks = 3;
   }
-
   if (ctx.mood === "high") {
     maxMinutes = 270;
     maxBlocks = 6;
-    maxBlockDuration = 60;
+    maxBlockDuration = 75;
   }
 
   if (ctx.isSick) {
@@ -168,7 +296,6 @@ export function resolveConstraints(ctx: DailyContext): DayConstraints {
   };
 }
 
-// 🆕 Adaptive block duration based on subject difficulty
 function getOptimalDuration(
   subject: Subject,
   baseMinutes: number,
@@ -176,16 +303,11 @@ function getOptimalDuration(
 ): number {
   let duration = baseMinutes;
 
-  // Hard subjects (4-5) → shorter blocks to prevent fatigue
   if (subject.difficulty >= 4) {
     duration = Math.min(duration, 45);
-  }
-  // Medium subjects (3) → standard blocks
-  else if (subject.difficulty === 3) {
+  } else if (subject.difficulty === 3) {
     duration = Math.min(duration, 50);
-  }
-  // Easy subjects (1-2) → can sustain longer blocks
-  else {
+  } else {
     duration = Math.min(duration, 60);
   }
 
@@ -193,7 +315,7 @@ function getOptimalDuration(
 }
 
 /* ======================================================
-  DISPLACEMENT ENGINE (with explainability)
+  DISPLACEMENT ENGINE
 ====================================================== */
 
 function tryInsertWithDisplacement(
@@ -202,7 +324,6 @@ function tryInsertWithDisplacement(
   constraints: DayConstraints,
   usedMinutes: { value: number }
 ): boolean {
-  // Direct insert
   if (
     blocks.length < constraints.maxBlocks &&
     usedMinutes.value + candidate.duration <= constraints.maxMinutes
@@ -212,7 +333,6 @@ function tryInsertWithDisplacement(
     return true;
   }
 
-  // Displace weaker block
   for (let i = blocks.length - 1; i >= 0; i--) {
     const victim = blocks[i];
 
@@ -239,7 +359,7 @@ function tryInsertWithDisplacement(
 }
 
 /* ======================================================
-  PLAN GENERATOR (v3 — FULL INTELLIGENCE)
+  🚀 PLAN GENERATOR v4 - ULTIMATE INTELLIGENCE
 ====================================================== */
 
 export const generateDailyPlan = async (
@@ -247,6 +367,7 @@ export const generateDailyPlan = async (
 ): Promise<PlanResult> => {
   try {
     const constraints = resolveConstraints(context);
+    const effectiveDate = getISTEffectiveDate();
 
     const blocks: StudyBlock[] = [];
     const usedMinutes = { value: 0 };
@@ -259,10 +380,18 @@ export const generateDailyPlan = async (
     const logs = await db.logs.toArray();
     const schedule = await db.schedule.toArray();
 
-    const todayJS = new Date().getDay();
-    const todayIdx = todayJS === 0 ? 6 : todayJS - 1;
+    // 🆕 Calculate readiness for all subjects upfront
+    const readinessMap: Record<number, SubjectReadiness> = {};
+    for (const subject of subjects) {
+      readinessMap[Number(subject.id)] = calculateReadiness(subject, logs, effectiveDate);
+    }
 
-    // 🆕 Enhanced createBlock with adaptive duration
+    const [y, m, d] = effectiveDate.split("-").map(Number);
+    const todayIdx =
+      new Date(y, m - 1, d).getDay() === 0
+        ? 6
+        : new Date(y, m - 1, d).getDay() - 1;
+
     const createBlock = (
       sub: Subject,
       type: StudyBlock["type"],
@@ -320,41 +449,113 @@ export const generateDailyPlan = async (
     }
 
     /* ============================
-      2. URGENT ASSIGNMENTS
+      2. 🆕 CRITICAL READINESS RECOVERY
     ============================ */
 
-    const sortedAssignments = [...assignments].sort((a, b) => {
-      const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-      const dbb = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-      return da - dbb;
-    });
+    if (!context.isHoliday && !context.isSick) {
+      // Get today's scheduled subjects
+      const todaySubs = Array.from(
+        new Set(
+          schedule
+            .filter((s) => Number(s.day) === todayIdx)
+            .map((s) => Number(s.subjectId))
+        )
+      );
 
-    for (const asm of sortedAssignments) {
-      const due = asm.dueDate ? new Date(asm.dueDate) : null;
-      const daysLeft =
-        due ? Math.ceil((due.getTime() - Date.now()) / 86400000) : Infinity;
+      // Add critical review blocks FIRST
+      for (const sid of todaySubs) {
+        const sub = subjects.find((s) => Number(s.id) === sid);
+        if (!sub) continue;
 
-      if (daysLeft > 2) continue;
+        const readiness = readinessMap[sid];
+        if (readiness && readiness.status === "critical") {
+          tryInsertWithDisplacement(
+            blocks,
+            createBlock(
+              sub,
+              "review",
+              Math.max(DEFAULT_REVIEW_MIN, 40),
+              DOMINANCE.CRITICAL_REVIEW,
+              {
+                notes: "🧠 Critical Review",
+                reason: `Readiness low (${readiness.score}/100) — ${readiness.lastStudiedDays} days since last study`,
+              }
+            ),
+            constraints,
+            usedMinutes
+          );
+        }
+      }
+    }
 
+    /* ============================
+      3. 🆕 SMART ASSIGNMENT PLANNING (Backward Planning)
+    ============================ */
+
+    for (const asm of assignments) {
+      if (!asm.dueDate) continue;
+
+      const daysLeft = daysBetweenDates(asm.dueDate, effectiveDate);
       const sub = subjects.find(
         (s) => Number(s.id) === Number(asm.subjectId)
       );
       if (!sub) continue;
 
-      tryInsertWithDisplacement(
-        blocks,
-        createBlock(sub, "assignment", 60, DOMINANCE.ASSIGNMENT_URGENT, {
-          assignmentId: asm.id,
-          notes: `Assignment due in ${daysLeft} day`,
-          reason: `Assignment due in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`,
-        }),
-        constraints,
-        usedMinutes
-      );
+      // 🔥 PANIC MODE: ≤1 day left
+      if (daysLeft <= 1) {
+        tryInsertWithDisplacement(
+          blocks,
+          createBlock(sub, "assignment", 60, DOMINANCE.ASSIGNMENT_URGENT, {
+            assignmentId: asm.id,
+            notes: daysLeft < 0
+              ? `⚠️ OVERDUE by ${Math.abs(daysLeft)} day(s)`
+              : `🔥 Due ${daysLeft === 0 ? 'TODAY' : 'TOMORROW'}`,
+            reason: daysLeft < 0
+              ? `Assignment overdue — immediate action required`
+              : `Critical deadline — ${daysLeft === 0 ? 'due today' : 'due tomorrow'}`,
+          }),
+          constraints,
+          usedMinutes
+        );
+        continue;
+      }
+
+      // 📋 BACKWARD PLANNING: 2-14 days left
+      if (daysLeft > 1 && daysLeft <= 14) {
+        const totalEffort = asm.estimatedEffort ?? DEFAULT_ASSIGNMENT_EFFORT_MIN;
+        const progressSoFar = asm.progressMinutes ?? 0;
+        const remainingEffort = Math.max(0, totalEffort - progressSoFar);
+
+        if (remainingEffort <= 0) continue; // Already done
+
+        const workDays = Math.max(1, daysLeft - 1);
+        const dailyTarget = Math.ceil(remainingEffort / workDays);
+
+        if (dailyTarget >= 15) {
+          const todayChunk = Math.min(dailyTarget, 60);
+
+          tryInsertWithDisplacement(
+            blocks,
+            createBlock(
+              sub,
+              "assignment",
+              todayChunk,
+              DOMINANCE.ASSIGNMENT_BACKLOG,
+              {
+                assignmentId: asm.id,
+                notes: `📋 ${asm.title}`,
+                reason: `Backward plan: ${todayChunk}m/day for ${workDays} days (${Math.round(remainingEffort / 60)}h remaining)`,
+              }
+            ),
+            constraints,
+            usedMinutes
+          );
+        }
+      }
     }
 
     /* ============================
-      3. PROJECT INTELLIGENCE (FIXED)
+      4. PROJECT INTELLIGENCE
     ============================ */
 
     if (constraints.allowProjects && projects.length > 0) {
@@ -363,99 +564,41 @@ export const generateDailyPlan = async (
           .filter((l) => l.projectId === p.id)
           .sort((a, b) => b.timestamp - a.timestamp)[0];
 
-        let daysIdle: number;
-        let isNewProject = false;
-        let isStalled = false;
+        const lastDate = lastLog
+          ? new Date(lastLog.timestamp).toISOString().split("T")[0]
+          : null;
 
-        if (lastLog) {
-          daysIdle = daysBetween(Date.now(), lastLog.timestamp);
-        } else {
-          if (p.progression === 0) {
-            daysIdle = 1;
-            isNewProject = true;
-          } else {
-            daysIdle = 3;
-            isStalled = true;
-          }
-        }
+        let daysIdle =
+          lastDate ? daysBetweenDates(effectiveDate, lastDate) : p.progression === 0 ? 1 : 3;
+
+        let isNewProject = !lastLog && p.progression === 0;
+        let isStalled = !lastLog && p.progression > 0;
 
         if (daysIdle < 3 && !isNewProject) continue;
 
-        // FIXED: Proper subject handling
         const sub = subjects.find((s) => Number(s.id) === Number(p.subjectId));
+        if (!sub) continue;
 
-        if (!sub) {
-          // Project has no linked subject - skip scheduling
-          console.warn(`Project "${p.name}" has no linked subject (ID: ${p.subjectId}) - skipping`);
-          continue;
-        }
-
-        // Enhanced priority based on multiple factors
         let priority = DOMINANCE.PROJECT;
         let reason = "";
         let notes = "";
 
-        // Critical decay (7+ days idle)
         if (daysIdle >= 7) {
           priority = DOMINANCE.PROJECT_DECAY;
-          reason = `⚠️ Critical: Project abandoned for ${daysIdle} days – momentum lost, urgent attention needed`;
+          reason = `⚠️ Critical: Project abandoned for ${daysIdle} days`;
           notes = `Abandoned ${daysIdle}d`;
-        }
-        // Stalled project (started but no logs)
-        else if (isStalled) {
+        } else if (isStalled) {
           priority = DOMINANCE.PROJECT_DECAY + 1;
-          reason = `⚠️ Stalled: Project ${p.progression}% complete but never logged – needs restart to build momentum`;
+          reason = `⚠️ Stalled project`;
           notes = `Stalled at ${p.progression}%`;
-        }
-        // New project (gentle nudge)
-        else if (isNewProject) {
-          priority = DOMINANCE.PROJECT;
-          reason = `🚀 New project – establishing early momentum is critical for long-term success`;
+        } else if (isNewProject) {
           notes = "Start project";
-        }
-        // Near completion (80%+)
-        else if (p.progression >= 80) {
-          priority = DOMINANCE.PROJECT_DECAY - 1;
-          reason = `🎯 Final push: Project ${p.progression}% complete – finish line in sight, maintain momentum`;
-          notes = `${p.progression}% – Final sprint`;
-        }
-        // Mid-project decay (3-6 days)
-        else if (daysIdle >= 3) {
-          priority = DOMINANCE.PROJECT;
-          reason = `⏰ Moderate decay: ${daysIdle} days idle – maintain consistency to prevent skill degradation`;
-          notes = `${daysIdle}d idle`;
+          reason = "New project — establish momentum";
         }
 
-        // Effort-based duration adjustment
         let projectDuration = DEFAULT_PROJECT_MIN;
-        if (p.effort === 'high') {
-          projectDuration = 90;
-        } else if (p.effort === 'low') {
-          projectDuration = 30;
-        }
-
-        // Deadline urgency (if exists)
-        if (p.deadline) {
-          const deadlineDate = new Date(p.deadline);
-          const daysUntilDeadline = Math.ceil((deadlineDate.getTime() - Date.now()) / 86400000);
-
-          if (daysUntilDeadline <= 3 && daysUntilDeadline > 0) {
-            priority = DOMINANCE.ASSIGNMENT;
-            reason = `🔥 Deadline in ${daysUntilDeadline} day${daysUntilDeadline === 1 ? '' : 's'} – project completion critical`;
-            notes = `DUE in ${daysUntilDeadline}d`;
-          } else if (daysUntilDeadline <= 0) {
-            priority = DOMINANCE.ASSIGNMENT_URGENT;
-            reason = `🚨 OVERDUE: Deadline passed ${Math.abs(daysUntilDeadline)} day${Math.abs(daysUntilDeadline) === 1 ? '' : 's'} ago – immediate action required`;
-            notes = `OVERDUE ${Math.abs(daysUntilDeadline)}d`;
-          } else if (daysUntilDeadline <= 7) {
-            reason += ` (${daysUntilDeadline}d until deadline)`;
-          }
-        }
-
-        // Progression-based encouragement
-        if (p.progression > 0 && p.progression < 80 && !isStalled) {
-          reason += ` – Current progress: ${p.progression}%`;
-        }
+        if (p.effort === "high") projectDuration = 90;
+        if (p.effort === "low") projectDuration = 30;
 
         tryInsertWithDisplacement(
           blocks,
@@ -471,7 +614,7 @@ export const generateDailyPlan = async (
     }
 
     /* ============================
-      4. CREDITS-BASED REVIEW CADENCE (ENHANCED)
+      5. REGULAR REVIEW CADENCE
     ============================ */
 
     if (!context.isHoliday && !context.isSick) {
@@ -487,44 +630,36 @@ export const generateDailyPlan = async (
         const sub = subjects.find((s) => Number(s.id) === sid);
         if (!sub) continue;
 
+        // Skip if already added as critical review
+        const alreadyCritical = blocks.some(
+          b => b.subjectId === sid && b.notes?.includes("Critical Review")
+        );
+        if (alreadyCritical) continue;
+
         const lastStudy = logs
-          .filter(l => l.subjectId === sid)
+          .filter((l) => l.subjectId === sid)
           .sort((a, b) => b.timestamp - a.timestamp)[0];
 
-        const daysSinceStudy = lastStudy
-          ? daysBetween(Date.now(), lastStudy.timestamp)
+        const lastDate = lastStudy
+          ? new Date(lastStudy.timestamp).toISOString().split("T")[0]
+          : null;
+
+        const daysSinceStudy = lastDate
+          ? daysBetweenDates(effectiveDate, lastDate)
           : 999;
 
-        // 🆕 Dynamic review interval based on credits AND difficulty
-        const creditFactor = sub.credits >= 4 ? 2 : sub.credits === 3 ? 3 : 5;
-        const difficultyFactor = sub.difficulty >= 4 ? 0.8 : sub.difficulty <= 2 ? 1.2 : 1;
-        const reviewInterval = Math.round(creditFactor * difficultyFactor);
+        const reviewInterval =
+          Math.round(
+            (sub.credits >= 4 ? 2 : sub.credits === 3 ? 3 : 5) *
+            (sub.difficulty >= 4 ? 0.8 : sub.difficulty <= 2 ? 1.2 : 1)
+          );
 
-        // Skip if studied too recently (unless it's class day)
-        const isClassToday = todaySubs.includes(sid);
-        if (daysSinceStudy < reviewInterval && !isClassToday) {
-          continue;
-        }
-
-        // 🆕 Enhanced reasons
-        let reason = "";
-        if (isClassToday) {
-          reason = `📚 Class scheduled today — pre/post-class review proven to boost retention by 40%`;
-        } else if (sub.credits >= 4) {
-          reason = `⭐ High-value subject (${sub.credits} credits) — frequent review maintains grade momentum`;
-        } else if (sub.difficulty >= 4) {
-          reason = `🧠 High difficulty — spaced repetition critical for long-term retention`;
-        } else if (daysSinceStudy >= reviewInterval * 2) {
-          reason = `⚠️ Extended gap (${daysSinceStudy} days) — knowledge decay likely, review needed`;
-        } else {
-          reason = `📖 Regular review — maintaining ${reviewInterval}-day consistency cycle`;
-        }
+        if (daysSinceStudy < reviewInterval) continue;
 
         tryInsertWithDisplacement(
           blocks,
           createBlock(sub, "review", DEFAULT_REVIEW_MIN, DOMINANCE.REVIEW, {
-            notes: isClassToday ? "Daily Review" : "Scheduled Review",
-            reason,
+            reason: `Scheduled review (${daysSinceStudy} days since last study)`,
           }),
           constraints,
           usedMinutes
@@ -533,221 +668,221 @@ export const generateDailyPlan = async (
     }
 
     /* ============================
-      5. FALLBACK
+      6. 🆕 SMART FALLBACK (Readiness-Based)
     ============================ */
 
-    if (
-      blocks.length < MIN_BLOCKS_FALLBACK &&
-      !context.isSick &&
-      subjects.length > 0
-    ) {
-      // 🆕 Prioritize high-credit subjects in fallback
-      const highCreditSubs = subjects
-        .filter(s => s.credits >= 3)
-        .sort((a, b) => b.credits - a.credits);
+    const currentBlockCount = blocks.length;
+    const targetMinBlocks = Math.min(MIN_BLOCKS_FALLBACK, constraints.maxBlocks);
 
-      const sub = highCreditSubs.length > 0
-        ? highCreditSubs[0]
-        : subjects[0];
+    if (currentBlockCount < targetMinBlocks && !context.isSick && subjects.length > 0) {
+      console.log(`📊 Fallback: ${currentBlockCount} < ${targetMinBlocks} target`);
+
+      const scheduledSubjectIds = new Set<number>(blocks.map(b => b.subjectId));
+
+      // Sort subjects by readiness (weakest first)
+      let unscheduledSubjects = subjects.filter(
+        (s) => !scheduledSubjectIds.has(Number(s.id))
+      );
+
+      unscheduledSubjects.sort(
+        (a, b) =>
+          (readinessMap[Number(a.id)]?.score ?? 100) -
+          (readinessMap[Number(b.id)]?.score ?? 100)
+      );
+
+      // If all subjects already scheduled, re-sort all subjects by readiness
+      if (unscheduledSubjects.length === 0) {
+        unscheduledSubjects = [...subjects].sort(
+          (a, b) =>
+            (readinessMap[Number(a.id)]?.score ?? 100) -
+            (readinessMap[Number(b.id)]?.score ?? 100)
+        );
+      }
+
+      let index = 0;
+      while (
+        blocks.length < targetMinBlocks &&
+        usedMinutes.value + DEFAULT_REVIEW_MIN <= constraints.maxMinutes &&
+        index < unscheduledSubjects.length
+      ) {
+        const weakest = unscheduledSubjects[index];
+        const readiness = readinessMap[Number(weakest.id)];
+
+        tryInsertWithDisplacement(
+          blocks,
+          createBlock(
+            weakest,
+            "review",
+            45,
+            DOMINANCE.FALLBACK + index,
+            {
+              notes: "📈 Readiness Boost",
+              reason: currentBlockCount === 0
+                ? `No timetable entries — auto-selected weakest subjects (${readiness?.score ?? '?'}%)`
+                : `Maintaining study rhythm — boosting readiness (currently ${readiness?.score ?? '?'}%)`,
+            }
+          ),
+          constraints,
+          usedMinutes
+        );
+        index++;
+      }
+
+      console.log(`✅ Fallback added ${index} blocks`);
+    }
+
+    // 🆘 Emergency fallback: If STILL no blocks
+    if (blocks.length === 0 && subjects.length > 0) {
+      console.warn('⚠️ Emergency fallback');
+
+      const emergencySub = subjects
+        .sort((a, b) =>
+          (readinessMap[Number(a.id)]?.score ?? 100) -
+          (readinessMap[Number(b.id)]?.score ?? 100)
+        )[0];
 
       tryInsertWithDisplacement(
         blocks,
-        createBlock(sub, "review", 45, 99, {
-          notes: "General Revision",
-          reason: sub.credits >= 4
-            ? "High-value subject — maintaining consistency"
-            : undefined,
+        createBlock(emergencySub, "review", 45, 99, {
+          notes: "Maintenance Review",
+          reason: "Light study day — keeping momentum alive"
         }),
         constraints,
         usedMinutes
       );
     }
 
-    // 🆕 Smart ordering with all enhancements
-    const ordered = await orderBlocksIntelligent(blocks, subjects);
+    const ordered = await orderBlocksCircadian(blocks, subjects);
+    const loadAnalysis = await analyzeLoad(ordered, context, constraints, readinessMap);
 
-    // Analyze load
-    const loadAnalysis = await analyzeLoad(ordered, context, constraints);
+    console.log(`🎯 Final plan: ${ordered.length} blocks, ${usedMinutes.value} minutes`);
 
-    // ✅ FIXED: Return proper PlanResult object
-    return { blocks: ordered, loadAnalysis };
-
+    return {
+      blocks: ordered,
+      loadAnalysis
+    };
   } catch (err) {
-    console.error("generateDailyPlan v3 error:", err);
+    console.error("generateDailyPlan v4 error:", err);
     return {
       blocks: [],
-      loadAnalysis: { loadLevel: 'light', loadScore: 0 }
+      loadAnalysis: { loadLevel: "light", loadScore: 0, readinessImpact: 0 },
     };
   }
 };
 
 /* ======================================================
-  INTELLIGENT BLOCK ORDERING (v2 — ALL ENHANCEMENTS)
+  🆕 WHAT-IF SCENARIO ENGINE
 ====================================================== */
 
-async function orderBlocksIntelligent(
+export async function runWhatIfScenario(
+  baseContext: DailyContext,
+  overrides: Partial<DailyContext>
+): Promise<PlanResult> {
+  const scenarioContext: DailyContext = { ...baseContext, ...overrides };
+  return await generateDailyPlan(scenarioContext);
+}
+
+/* ======================================================
+  🆕 CIRCADIAN ORDERING (Time-of-Day Optimization)
+====================================================== */
+
+async function orderBlocksCircadian(
   blocks: StudyBlock[],
   subjects: Subject[]
 ): Promise<StudyBlock[]> {
   if (blocks.length <= 1) return blocks;
 
   const subjectMap = new Map(subjects.map(s => [s.id!, s]));
-  const copy = [...blocks];
 
-  // Categorize blocks
-  const warmUp: StudyBlock[] = [];
-  const deepWork: StudyBlock[] = [];
-  const projects: StudyBlock[] = [];
-  const reviews: StudyBlock[] = [];
-  const prep: StudyBlock[] = [];
-  const recovery: StudyBlock[] = [];
+  // Categorize by cognitive type
+  const warmup: StudyBlock[] = [];
+  const analytical: StudyBlock[] = [];
+  const memory: StudyBlock[] = [];
+  const creative: StudyBlock[] = [];
 
-  copy.forEach((b) => {
+  for (const b of blocks) {
+    const sub = subjectMap.get(b.subjectId);
+
+    // Warmup: short, easy blocks
     if (
-      b.notes?.toLowerCase().includes("esa") ||
-      b.type === "assignment" ||
-      (b.priority !== undefined && b.priority <= DOMINANCE.ASSIGNMENT_URGENT)
+      b.type === "recovery" ||
+      (b.type === "review" && b.duration <= 20)
     ) {
-      deepWork.push(b);
-      return;
+      warmup.push(b);
+      continue;
     }
 
-    if (b.type === "recovery" || (b.type === "review" && b.duration <= 30)) {
-      warmUp.push(b);
-      return;
+    // Analytical: Math, Physics (best in morning)
+    if (
+      sub && (
+        getSubjectType(sub) === "analytical" ||
+        (b.type === "assignment" && (b.priority ?? 99) <= DOMINANCE.ASSIGNMENT_URGENT)
+      )
+    ) {
+      analytical.push(b);
+      continue;
     }
 
-    if (b.type === "project") projects.push(b);
-    else if (b.type === "review") reviews.push(b);
-    else if (b.type === "prep") prep.push(b);
-    else if (b.type === "recovery") recovery.push(b);
-  });
-
-  // 🆕 Sort deep work by difficulty (hardest first for morning)
-  deepWork.sort((a, b) => {
-    const subA = subjectMap.get(a.subjectId);
-    const subB = subjectMap.get(b.subjectId);
-    if (!subA || !subB) return (a.priority ?? 99) - (b.priority ?? 99);
-
-    // Primary: priority (urgency)
-    const priorityDiff = (a.priority ?? 99) - (b.priority ?? 99);
-    if (priorityDiff !== 0) return priorityDiff;
-
-    // Secondary: difficulty (harder first)
-    return subB.difficulty - subA.difficulty;
-  });
-
-  // 🆕 Sort reviews by difficulty (harder first)
-  reviews.sort((a, b) => {
-    const subA = subjectMap.get(a.subjectId);
-    const subB = subjectMap.get(b.subjectId);
-    if (!subA || !subB) return 0;
-    return subB.difficulty - subA.difficulty;
-  });
-
-  const ordered: StudyBlock[] = [];
-  const used = new Set<StudyBlock>();
-
-  const take = (b?: StudyBlock) => {
-    if (!b || used.has(b)) return false;
-    used.add(b);
-    ordered.push(b);
-    return true;
-  };
-
-  // 🆕 Helper: Check if block can follow previous (rotation logic)
-  const canFollow = (current: StudyBlock, previous: StudyBlock): boolean => {
-    const currSub = subjectMap.get(current.subjectId);
-    const prevSub = subjectMap.get(previous.subjectId);
-    if (!currSub || !prevSub) return true;
-
-    const currType = getSubjectType(currSub);
-    const prevType = getSubjectType(prevSub);
-
-    // Don't put same type back-to-back
-    // Exception: if it's the same subject (continuity is OK)
-    if (currType === prevType && current.subjectId !== previous.subjectId) {
-      return false;
+    // Memory: History, Biology (good in afternoon/evening)
+    if (sub && getSubjectType(sub) === "memory") {
+      memory.push(b);
+      continue;
     }
 
-    return true;
-  };
-
-  // === ORDERING LOGIC ===
-
-  // 1. WARM-UP (easy start)
-  take(warmUp[0] || recovery[0]);
-
-  // 2. PRIMARY DEEP WORK (hardest/most urgent)
-  if (deepWork.length > 0) {
-    take(deepWork[0]);
-
-    // 3. CONTINUATION or ROTATION
-    if (deepWork.length > 1) {
-      // Try same subject for continuity
-      const continuation = deepWork.find(
-        b => !used.has(b) &&
-          b.subjectId === ordered[ordered.length - 1].subjectId
-      );
-
-      if (continuation) {
-        take(continuation);
-      } else {
-        // 🆕 Apply rotation: find different type
-        const last = ordered[ordered.length - 1];
-        const rotated = deepWork.find(b => !used.has(b) && canFollow(b, last));
-        take(rotated || deepWork.find(b => !used.has(b)));
-      }
+    // Creative: Projects, design (good in afternoon)
+    if (
+      b.type === "project" ||
+      (sub && getSubjectType(sub) === "creative")
+    ) {
+      creative.push(b);
+      continue;
     }
+
+    // Mixed subjects → treat as memory
+    if (sub && getSubjectType(sub) === "mixed") {
+      memory.push(b);
+      continue;
+    }
+
+    // Default: analytical
+    analytical.push(b);
   }
 
-  // 4. PROJECT (mid-pack)
-  if (projects.length > 0 && ordered.length >= 2) {
-    const last = ordered[ordered.length - 1];
-    const rotatedProject = projects.find(p => !used.has(p) && canFollow(p, last));
-    take(rotatedProject || projects[0]);
-  }
+  // Sort each category by priority
+  const byPriority = (a: StudyBlock, b: StudyBlock) =>
+    (a.priority ?? 99) - (b.priority ?? 99) || (b.duration - a.duration);
 
-  // 5. REVIEWS (with rotation)
-  while (reviews.length > 0 && reviews.some(r => !used.has(r))) {
-    if (ordered.length === 0) {
-      take(reviews[0]);
-    } else {
-      const last = ordered[ordered.length - 1];
-      const rotated = reviews.find(r => !used.has(r) && canFollow(r, last));
-      if (!take(rotated)) {
-        // If no good rotation found, take next available
-        take(reviews.find(r => !used.has(r)));
-      }
-    }
-  }
+  warmup.sort(byPriority);
+  analytical.sort(byPriority);
+  memory.sort(byPriority);
+  creative.sort(byPriority);
 
-  // 6. REMAINING DEEP WORK
-  deepWork.forEach(d => take(d));
-
-  // 7. PREP
-  prep.forEach(p => take(p));
-
-  // 8. REMAINING PROJECTS
-  projects.forEach(p => take(p));
-
-  // 9. FILL ANY REMAINING
-  copy.forEach(b => take(b));
-
-  return ordered;
+  // Optimal order: Warmup → Analytical (hard) → Memory → Creative
+  return [...warmup, ...analytical, ...memory, ...creative];
 }
 
 /* ======================================================
-  ENHANCED LOAD ANALYSIS (WITH DIFFICULTY & CREDITS)
+  🆕 ENHANCED LOAD ANALYSIS (with Readiness Impact)
 ====================================================== */
 
 export async function analyzeLoad(
   blocks: StudyBlock[],
   context: DailyContext,
-  constraints: DayConstraints
+  constraints: DayConstraints,
+  precomputedReadinessMap?: Record<number, SubjectReadiness>
 ): Promise<LoadAnalysis> {
   const subjects = await db.subjects.toArray();
   const subjectMap = new Map(subjects.map(s => [s.id!, s]));
+
+  // Get readiness map if not provided
+  let readinessMap: Record<number, SubjectReadiness> = precomputedReadinessMap || {};
+  if (Object.keys(readinessMap).length === 0) {
+    const logs = await db.logs.toArray();
+    const effectiveDate = getISTEffectiveDate();
+    subjects.forEach(subject => {
+      readinessMap[Number(subject.id)] = calculateReadiness(subject, logs, effectiveDate);
+    });
+  }
 
   const totalMinutes = blocks.reduce((sum, b) => sum + b.duration, 0);
   const deepWorkBlocks = blocks.filter(
@@ -761,7 +896,7 @@ export async function analyzeLoad(
     (b) => b.priority !== undefined && b.priority <= DOMINANCE.ASSIGNMENT
   ).length;
 
-  // 🆕 Calculate weighted cognitive load
+  // Cognitive load calculation
   let cognitiveLoad = 0;
   blocks.forEach(block => {
     const subject = subjectMap.get(block.subjectId);
@@ -769,11 +904,9 @@ export async function analyzeLoad(
 
     let blockCost = block.duration;
 
-    // Difficulty multiplier (1-5 → 0.8x to 1.4x)
     const difficultyMultiplier = 0.8 + ((subject.difficulty - 1) / 4) * 0.6;
     blockCost *= difficultyMultiplier;
 
-    // Credits weight (higher credits = more important)
     const creditsMultiplier = 0.9 + ((subject.credits - 1) / 10);
     blockCost *= creditsMultiplier;
 
@@ -801,7 +934,7 @@ export async function analyzeLoad(
   loadScore += priorityRatio * 15;
 
   // Context adjustments
-  if (context.mood === "low") loadScore *= 1.3;
+  if (context.mood === "low") loadScore *= 1.25;
   if (context.mood === "high") loadScore *= 0.8;
   if (context.isSick) loadScore *= 1.5;
   if (context.dayType === "esa") loadScore *= 0.9;
@@ -820,10 +953,10 @@ export async function analyzeLoad(
   if (loadLevel === 'extreme' && !context.dayType.match(/esa|isa/)) {
     warning = "Very high load — consider breaking into 2 days";
   } else if (loadLevel === 'heavy') {
-    if (deepWorkBlocks >= 3) {
+    if (context.mood === "low") {
+      warning = "⚡ Energy Mismatch: Heavy load on low mood day";
+    } else if (deepWorkBlocks >= 3) {
       warning = "Multiple deep work blocks — schedule recovery time";
-    } else if (context.mood === "low") {
-      warning = "Heavy load on low energy — reduce if possible";
     } else if (totalMinutes > constraints.maxMinutes * 0.9) {
       warning = "Near capacity — expect fatigue in evening";
     }
@@ -833,12 +966,33 @@ export async function analyzeLoad(
     }
   }
 
-  return { loadScore, loadLevel, warning };
+  // 🆕 Calculate readiness impact
+  let readinessImpact = 0;
+  for (const block of blocks) {
+    const subjectId = block.subjectId;
+    const subjectReadiness = readinessMap[subjectId];
+    const currentScore = subjectReadiness?.score ?? 100;
+
+    if (
+      block.type === "review" ||
+      block.type === "assignment" ||
+      block.type === "prep" ||
+      block.type === "project" ||
+      block.type === "recovery"
+    ) {
+      // Gain formula: hours × 5 points, scaled by how far from 100%
+      const gainRaw = (block.duration / 60) * 5;
+      const scaledGain = gainRaw * ((100 - currentScore) / 100);
+      readinessImpact += scaledGain;
+    }
+  }
+  readinessImpact = Math.max(0, Math.round(readinessImpact * 10) / 10);
+
+  return { loadScore, loadLevel, warning, readinessImpact };
 }
 
-
 /* ======================================================
-   WEEK SIMULATION ENGINE (using effective date logic)
+  WEEK SIMULATION ENGINE
 ====================================================== */
 
 export const simulateWeek = async (): Promise<WeekPreview> => {
@@ -852,8 +1006,8 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
   const logs = await db.logs.toArray();
   const schedule = await db.schedule.toArray();
 
-  // 🆕 Use flexible day start (read from preferences)
-  let dayStartHour = 2;
+  // Read day start hour from preferences
+  let dayStartHour = 4;
   try {
     const saved = localStorage.getItem('orbit-prefs');
     if (saved) {
@@ -865,7 +1019,7 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
   } catch (e) { }
 
   const today = new Date(getISTEffectiveDate() + 'T00:00:00');
-  
+
   projects.forEach(p => {
     projectWorkCounts[p.name] = 0;
   });
@@ -883,12 +1037,15 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
       isSick: false,
     };
 
+    // Detect ISA days (multiple assignments due)
     const dueThatDay = assignments.filter(a => a.dueDate === dateStr);
     if (dueThatDay.length >= 2) {
       simContext.dayType = 'isa';
     }
 
-    const { blocks, loadAnalysis } = await generateDailyPlan(simContext);
+    const result = await generateDailyPlan(simContext);
+    const blocks = result.blocks;
+    const loadAnalysis = result.loadAnalysis;
 
     const urgentCount = blocks.filter(
       b => b.type === 'assignment' && (b.priority ?? 99) <= DOMINANCE.ASSIGNMENT_URGENT
@@ -929,7 +1086,7 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
       consecutiveHeavy++;
 
       if (consecutiveHeavy >= 3) {
-        warnings.push(`Heavy load 3 days in a row (${d.dayName} week)`);
+        warnings.push(`⚠️ Heavy load 3 days in a row (${d.dayName} week)`);
       }
     } else {
       consecutiveHeavy = 0;
@@ -938,7 +1095,7 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
 
   const assignmentPeaks = days.filter(d => d.urgentAssignments >= 2);
   assignmentPeaks.forEach(d => {
-    warnings.push(`${d.urgentAssignments} urgent assignments on ${d.dayName}`);
+    warnings.push(`📋 ${d.urgentAssignments} urgent assignments on ${d.dayName}`);
   });
 
   const neglectedProjects: string[] = [];
@@ -949,12 +1106,12 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
   });
 
   if (neglectedProjects.length > 0) {
-    warnings.push(`Projects neglected all week: ${neglectedProjects.join(', ')}`);
+    warnings.push(`🎯 Projects neglected all week: ${neglectedProjects.join(', ')}`);
   }
 
   const collisions = days.filter(d => d.hasESA && d.urgentAssignments >= 1);
   collisions.forEach(d => {
-    warnings.push(`ESA prep + ${d.urgentAssignments} assignment(s) on ${d.dayName}`);
+    warnings.push(`⚡ ESA prep + ${d.urgentAssignments} assignment(s) on ${d.dayName}`);
   });
 
   const peakDay = days.reduce((max, d) =>
@@ -968,4 +1125,4 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
     overloadDays,
     peakDay: peakDay.dayName,
   };
-};
+}

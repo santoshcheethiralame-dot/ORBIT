@@ -40,14 +40,19 @@ const BacklogItem = ({ block, onAdd, onDelete }: any) => {
     setIsDragging(false);
   };
 
+  // ✅ FIX: Less aggressive preventDefault for horizontal swipe only
   const handleTouchMove = (e: React.TouchEvent) => {
     setTouchEnd(e.targetTouches[0].clientX);
     const distance = Math.abs(touchStart - e.targetTouches[0].clientX);
 
-    // FIXED: Only prevent scroll if significant horizontal movement
-    if (distance > 10) {
+    // ✅ Only set isDragging if significant horizontal movement
+    if (distance > 15 && !isDragging) {
       setIsDragging(true);
-      e.preventDefault(); // Prevent scroll only when actually swiping
+    }
+
+    // ✅ Only prevent scroll if actually swiping horizontally
+    if (isDragging) {
+      e.preventDefault();
     }
   };
 
@@ -660,6 +665,11 @@ export const Dashboard = ({
             const isExpanded = expandedBlocks.has(b.id);
             const hasExplanation = !!(b.reason || b.displaced);
 
+            // Calculate progress for backlog chunks (show % done if applicable)
+            const progressPercent = b.isBacklogChunk && b.totalEffortRemaining
+              ? Math.round(((b.totalEffortRemaining - b.duration) / b.totalEffortRemaining) * 100)
+              : undefined;
+
             return (
               <div key={b.id} className="group flex flex-col gap-2 transition-all">
                 <div
@@ -685,8 +695,14 @@ export const Dashboard = ({
                     <div className={`font-bold text-sm truncate ${isCompleted ? "line-through text-zinc-600" : ""}`}>
                       {b.subjectName}
                     </div>
-                    <div className="text-[11px] text-zinc-500 uppercase mt-0.5 truncate">
-                      {b.type} • {b.duration}m
+                    <div className="text-[11px] text-zinc-500 uppercase mt-0.5 truncate flex items-center gap-2">
+                      <span>{b.type} • {b.duration}m</span>
+                      {b.isBacklogChunk && progressPercent !== undefined && (
+                        <>
+                          <span>•</span>
+                          <span className="text-amber-400">{progressPercent}% done</span>
+                        </>
+                      )}
                     </div>
                   </div>
 

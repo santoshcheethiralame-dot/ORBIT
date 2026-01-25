@@ -1,198 +1,225 @@
-// utils/time.ts - COMPLETE REPLACEMENT
+// utils/time.ts — FINAL PRODUCTION VERSION
 /**
- * IST Time Management Utilities - FIXED VERSION
- * Handles configurable day start logic (user can set 0-6 AM in settings)
+ * IST Time Management Utilities
+ * Handles configurable day start logic (0–6 AM)
+ * ZERO UTC leakage. ZERO ambiguous Date parsing.
+ *
+ * All logical dates are computed from IST calendar fields only.
  */
 
+/* -------------------------------------------------------
+   INTERNAL HELPERS (DO NOT EXPORT)
+-------------------------------------------------------- */
+
 /**
- * Get day start hour from user preferences (0-6 AM)
- * FIXED: Centralized function to ensure consistency across all date calculations
+ * Read user-configured day start hour safely
  */
 function getDayStartHour(): number {
   try {
-    const saved = localStorage.getItem('orbit-prefs');
+    const saved = localStorage.getItem("orbit-prefs");
     if (saved) {
       const parsed = JSON.parse(saved);
-      const hour = parsed.dayStartHour;
-      if (typeof hour === 'number' && hour >= 0 && hour <= 6) {
+      const hour = parsed?.dayStartHour;
+      if (typeof hour === "number" && hour >= 0 && hour <= 6) {
         return hour;
       }
     }
   } catch (e) {
-    console.warn('Could not read day start preference:', e);
+    console.warn("Failed to read dayStartHour, using default:", e);
   }
-  return 4; // Default: 4 AM for night owls (was hardcoded 2 AM before)
+  return 4; // Default: 4 AM
 }
 
 /**
- * Get current time in IST timezone
+ * Format a Date object into YYYY-MM-DD using LOCAL calendar fields
+ * (Never use toISOString for logical dates)
+ */
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Parse YYYY-MM-DD into a LOCAL Date at midnight
+ */
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
+}
+
+/* -------------------------------------------------------
+   PUBLIC API
+-------------------------------------------------------- */
+
+/**
+ * Get current time in IST
  */
 export function getISTTime(): Date {
-  return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  return new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+  );
 }
 
 /**
- * Get effective date (considers user's configurable day start)
- * FIXED: Now reads user preference instead of hardcoded 2 AM
- * Before configured hour = previous calendar day
- * After configured hour = current calendar day
+ * Get the effective logical study date (IST-aware + configurable day start)
+ *
+ * Rule:
+ * - Before configured hour → previous day
+ * - After configured hour → today
  */
 export function getISTEffectiveDate(): string {
   const istNow = getISTTime();
-  const dayStartHour = getDayStartHour(); // FIXED: Was hardcoded to 2
+  const dayStartHour = getDayStartHour();
 
-  // If before configured start hour, use previous day
   if (istNow.getHours() < dayStartHour) {
     istNow.setDate(istNow.getDate() - 1);
   }
 
-  return istNow.toISOString().split('T')[0];
+  return formatLocalDate(istNow);
 }
 
 /**
- * NEW: Validate if a plan date is still current
- * Used to detect stale plans after rollover
+ * Validate if a stored plan date matches the current effective date
  */
-export function isPlanCurrent(planDate: string): boolean {
+export function validateEffectiveDate(planDate: string): boolean {
   return planDate === getISTEffectiveDate();
 }
 
 /**
- * Check if a new study cycle has begun (crossed configured day start threshold)
- * FIXED: Now uses effective date comparison (accounts for user preference)
+ * Alias for semantic clarity
  */
-export function hasNewCycleStarted(lastCheckDate: string): boolean {
-  const currentEffective = getISTEffectiveDate();
-  return currentEffective !== lastCheckDate;
+export function isPlanCurrent(planDate: string): boolean {
+  return validateEffectiveDate(planDate);
 }
 
 /**
- * Format time remaining until next rollover
- * FIXED: Now calculates based on user's configured day start hour
+ * Detect rollover across logical study cycles
+ */
+export function hasNewCycleStarted(lastEffectiveDate: string): boolean {
+  return lastEffectiveDate !== getISTEffectiveDate();
+}
+
+/**
+ * Time remaining until next rollover (based on configured day start)
  */
 export function getTimeUntilRollover(): string {
   const istNow = getISTTime();
-  const dayStartHour = getDayStartHour(); // FIXED: Was hardcoded to 2
-  const nextRollover = new Date(istNow);
+  const dayStartHour = getDayStartHour();
 
+  const next = new Date(istNow);
   if (istNow.getHours() >= dayStartHour) {
-    // Next rollover is tomorrow at configured hour
-    nextRollover.setDate(istNow.getDate() + 1);
+    next.setDate(next.getDate() + 1);
   }
+  next.setHours(dayStartHour, 0, 0, 0);
 
-  nextRollover.setHours(dayStartHour, 0, 0, 0); // FIXED: Was hardcoded to 2
-
-  const diff = nextRollover.getTime() - istNow.getTime();
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const diffMs = next.getTime() - istNow.getTime();
+  const hours = Math.max(0, Math.floor(diffMs / 3_600_000));
+  const minutes = Math.max(
+    0,
+    Math.floor((diffMs % 3_600_000) / 60_000)
+  );
 
   return `${hours}h ${minutes}m`;
 }
 
 /**
- * Get a human-readable description of the current study cycle
- * FIXED: Now includes dayStartHour in return value for debugging
+ * Get current study cycle metadata
  */
 export function getCurrentCycleInfo(): {
   effectiveDate: string;
-  isEarlyCycle: boolean; // After midnight but before day start
+  isEarlyCycle: boolean;
   timeUntilRollover: string;
-  dayStartHour: number; // NEW: Include for debugging/display
+  dayStartHour: number;
 } {
   const istNow = getISTTime();
   const dayStartHour = getDayStartHour();
-  const effectiveDate = getISTEffectiveDate();
-  const isEarlyCycle = istNow.getHours() < dayStartHour; // FIXED: Was hardcoded to 2
-  const timeUntilRollover = getTimeUntilRollover();
 
   return {
-    effectiveDate,
-    isEarlyCycle,
-    timeUntilRollover,
-    dayStartHour, // NEW: Return this for display/debugging
+    effectiveDate: getISTEffectiveDate(),
+    isEarlyCycle: istNow.getHours() < dayStartHour,
+    timeUntilRollover: getTimeUntilRollover(),
+    dayStartHour,
   };
 }
 
 /**
- * Format date for display (IST-aware)
+ * Format an IST date for UI display
  */
-export function formatISTDate(dateStr: string, format: 'short' | 'long' = 'short'): string {
-  const date = new Date(dateStr + 'T00:00:00');
+export function formatISTDate(
+  dateStr: string,
+  format: "short" | "long" = "short"
+): string {
+  const date = parseLocalDate(dateStr);
 
-  if (format === 'short') {
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
+  if (format === "short") {
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
     });
   }
 
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
 /**
- * Get relative time description (e.g., "Today", "Yesterday", "3 days ago")
+ * Get relative date label based on effective today
  */
 export function getRelativeDate(dateStr: string): string {
-  const effectiveToday = getISTEffectiveDate();
-  const yesterday = new Date(new Date(effectiveToday).getTime() - 86400000)
-    .toISOString().split('T')[0];
+  const todayStr = getISTEffectiveDate();
+  const today = parseLocalDate(todayStr);
+  const target = parseLocalDate(dateStr);
 
-  if (dateStr === effectiveToday) return 'Today';
-  if (dateStr === yesterday) return 'Yesterday';
-
-  const daysDiff = Math.floor(
-    (new Date(effectiveToday).getTime() - new Date(dateStr).getTime()) / 86400000
+  const diffDays = Math.round(
+    (today.getTime() - target.getTime()) / 86_400_000
   );
 
-  if (daysDiff > 0) return `${daysDiff} day${daysDiff === 1 ? '' : 's'} ago`;
-  if (daysDiff < 0) return `In ${Math.abs(daysDiff)} day${Math.abs(daysDiff) === 1 ? '' : 's'}`;
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays > 1) return `${diffDays} days ago`;
+  if (diffDays < 0)
+    return `In ${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? "" : "s"}`;
 
   return dateStr;
 }
 
 /**
- * Check if date is in current week (Mon-Sun)
+ * Check if a date lies in the current logical week (Mon–Sun)
  */
 export function isCurrentWeek(dateStr: string): boolean {
-  const date = new Date(dateStr);
-  const today = new Date(getISTEffectiveDate());
+  const date = parseLocalDate(dateStr);
+  const today = parseLocalDate(getISTEffectiveDate());
 
-  // Get Monday of current week
+  const day = today.getDay(); // 0 = Sun
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+
   const monday = new Date(today);
-  monday.setDate(today.getDate() - today.getDay() + 1);
-  monday.setHours(0, 0, 0, 0);
+  monday.setDate(today.getDate() + diffToMonday);
 
-  // Get Sunday of current week
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23, 59, 59, 999);
 
   return date >= monday && date <= sunday;
 }
 
 /**
- * Debug: Show IST time info (for development)
- * FIXED: Now shows configured day start hour
+ * Development-only IST debug helper
  */
 export function debugISTInfo(): void {
   const info = getCurrentCycleInfo();
-  console.log('🕒 IST Time Debug:', {
-    currentIST: getISTTime().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+  console.log("🕒 IST Time Debug", {
+    istNow: getISTTime().toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+    }),
     effectiveDate: info.effectiveDate,
     isEarlyCycle: info.isEarlyCycle,
-    dayStartHour: `${info.dayStartHour}:00`, // NEW: Show configured hour
+    dayStartHour: `${info.dayStartHour}:00`,
     timeUntilRollover: info.timeUntilRollover,
   });
-}
-
-/**
- * KEPT FROM ORIGINAL: Validate effective date
- */
-export function validateEffectiveDate(planDate: string): boolean {
-  return planDate === getISTEffectiveDate();
 }

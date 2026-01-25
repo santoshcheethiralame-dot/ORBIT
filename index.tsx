@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { LayoutGrid, BookOpen, BarChart2, Settings, Info, Clock, ArrowRight } from "lucide-react";
 import { db } from "./db";
 import { Subject, DailyPlan, StudyBlock, StudyLog, DailyContext } from "./types";
-import { generateDailyPlan } from "./brain";
+import { generateDailyPlan, updateAssignmentProgress } from "./brain";
 import { Onboarding } from "./Onboarding";
 import { Dashboard } from "./Dashboard";
 import { FocusSession } from "./FocusSession";
@@ -70,46 +70,42 @@ const App = () => {
     init();
   }, []);
 
-  // ⏰ ROLLOVER DETECTION - FIXED VERSION
+  // ⏰ ROLLOVER DETECTION - FIX WITH TRY/CATCH AROUND loadData()
   useEffect(() => {
     const STORAGE_KEY = 'orbit_last_check_date';
 
-    const checkRollover = () => {
-      const currentEffectiveDate = getISTEffectiveDate();
-      const lastCheckedDate = localStorage.getItem(STORAGE_KEY);
+    // ✅ FIX: Now using async/await and proper try/catch for loadData
+    const checkRollover = async () => {
+      try {
+        const currentEffectiveDate = getISTEffectiveDate();
+        const lastCheckedDate = localStorage.getItem(STORAGE_KEY);
 
-      // ✅ FIXED: Check if plan is stale using centralized validation
-      if (todayPlan) {
-        if (!isPlanCurrent(todayPlan.date)) {
-          console.log('🔄 Rollover: Plan is stale', {
-            planDate: todayPlan.date,
-            currentEffective: currentEffectiveDate
-          });
+        if (todayPlan && !isPlanCurrent(todayPlan.date)) {
           setShowRolloverModal(true);
           return;
         }
-      }
 
-      // Check if this is first check of new cycle
-      if (lastCheckedDate && lastCheckedDate !== currentEffectiveDate) {
-        console.log('🔄 Rollover: Date changed since last check', {
-          last: lastCheckedDate,
-          current: currentEffectiveDate
-        });
-
-        if (todayPlan && !isPlanCurrent(todayPlan.date)) {
+        if (lastCheckedDate && lastCheckedDate !== currentEffectiveDate) {
           setTodayPlan(null);
+          setNeedsContext(true);
+          await loadData();
         }
 
+        localStorage.setItem(STORAGE_KEY, currentEffectiveDate);
+      } catch (error) {
+        console.error('Rollover check failed:', error);
+        // Fallback: force context refresh
         setNeedsContext(true);
-        loadData();
       }
-
-      localStorage.setItem(STORAGE_KEY, currentEffectiveDate);
     };
 
+    // Immediately run async check
     checkRollover();
-    const interval = setInterval(checkRollover, 60000);
+
+    const interval = setInterval(() => {
+      checkRollover();
+    }, 60000);
+
     return () => clearInterval(interval);
   }, [todayPlan]);
 

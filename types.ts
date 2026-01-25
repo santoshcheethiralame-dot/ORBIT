@@ -88,6 +88,10 @@ export interface StudyBlock {
   assignmentId?: string;
   projectId?: number;
 
+  // Backward planning metadata
+  isBacklogChunk?: boolean; // true for auto-scheduled assignment portions
+  totalEffortRemaining?: number; // used for progress tracking
+
   // Explainability
   reason?: string;
   displaced?: {
@@ -102,6 +106,8 @@ export interface Assignment {
   title: string;
   dueDate: string;
   completed: boolean;
+  estimatedEffort?: number; // in minutes - user can estimate or default to 120
+  progressMinutes?: number; // track actual time spent
 }
 
 export interface DailyContext {

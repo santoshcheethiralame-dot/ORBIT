@@ -1,7 +1,7 @@
 // FocusSession – UX locked (v1)
 // Do not refactor visuals unless product direction changes
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Play,
   Pause,
@@ -11,6 +11,10 @@ import {
   StopCircle,
 } from "lucide-react";
 import { StudyBlock } from "./types";
+import { updateAssignmentProgress } from "./brain";
+
+// TODO: Make sure you have access to your DB instance for assignments
+import { db } from "./db"; // <-- Adjust if db import path differs
 
 const BREAK_TOTAL = 5 * 60; // seconds
 const RADIUS = 120;
@@ -41,6 +45,43 @@ export const FocusSession = ({
   const [showNotes, setShowNotes] = useState(false);
   const [confirmFinish, setConfirmFinish] = useState(false);
 
+  // v2: Call this instead of onComplete directly (when session ends or finish early)
+  const handleFocusComplete = useCallback(
+    async (actualDuration?: number, sessionNotes?: string) => {
+      if (!block) return;
+
+      const durationToLog = actualDuration || block.duration;
+
+      // ... existing log code (if any, e.g. log to db, analytics, etc.) ...
+
+      // 🆕 Track assignment progress
+      if (block.type === 'assignment' && block.assignmentId) {
+        await updateAssignmentProgress(
+          block.assignmentId,
+          durationToLog
+        );
+
+        // Optional: Show progress toast
+        try {
+          const assignment = await db.assignments.get(block.assignmentId);
+          if (assignment) {
+            const progress = (assignment.progressMinutes || 0);
+            const total = assignment.estimatedEffort || 120;
+            const percent = Math.round((progress / total) * 100);
+            console.log(`📋 Assignment progress: ${percent}%`);
+            // TODO: Show toast notification here as desired
+          }
+        } catch (err) {
+          // Ignore db errors (offline/client/etc)
+        }
+      }
+
+      // ... rest of completion code ...
+      if (onComplete) onComplete(durationToLog, sessionNotes);
+    },
+    [block, onComplete]
+  );
+
   /* ---------------- FIXED TIMER LOOP (no drift) ---------------- */
   useEffect(() => {
     if (!isActive) {
@@ -57,7 +98,7 @@ export const FocusSession = ({
     }
 
     let animationId: number;
-    
+
     const updateTimer = () => {
       if (isBreak) {
         if (!breakStartTime) {
@@ -65,7 +106,7 @@ export const FocusSession = ({
         }
         const elapsed = Math.floor((Date.now() - (breakStartTime || Date.now())) / 1000);
         const remaining = BREAK_TOTAL - elapsed;
-        
+
         if (remaining <= 0) {
           setIsBreak(false);
           setBreakTime(0);
@@ -78,23 +119,25 @@ export const FocusSession = ({
         const totalElapsed = Date.now() - sessionStartTime - totalPausedTime;
         const totalSeconds = block.duration * 60;
         const remaining = totalSeconds - Math.floor(totalElapsed / 1000);
-        
+
         if (remaining <= 0) {
           setTimeLeft(0);
           setIsActive(false);
-          onComplete(block.duration, notes);
+          // --- call handleFocusComplete instead of onComplete ---
+          handleFocusComplete(block.duration, notes);
           return;
         }
-        
+
         setTimeLeft(remaining);
       }
-      
+
       animationId = requestAnimationFrame(updateTimer);
     };
 
     animationId = requestAnimationFrame(updateTimer);
     return () => cancelAnimationFrame(animationId);
-  }, [isActive, isBreak, sessionStartTime, totalPausedTime, pausedAt, block.duration, notes, onComplete, breakStartTime]);
+    // Add handleFocusComplete to deps
+  }, [isActive, isBreak, sessionStartTime, totalPausedTime, pausedAt, block.duration, notes, handleFocusComplete, breakStartTime]);
 
   /* ---------------- Accessibility & Escape handling ---------------- */
   useEffect(() => {
@@ -122,7 +165,7 @@ export const FocusSession = ({
   const toggleTimer = () => {
     try {
       if (navigator && (navigator as any).vibrate) (navigator as any).vibrate(8);
-    } catch {}
+    } catch { }
     setIsActive((v) => !v);
   };
 
@@ -133,7 +176,7 @@ export const FocusSession = ({
     setIsActive(true);
   };
 
-  const finishSessionEarly = () => {
+  const finishSessionEarly = async () => {
     if (!confirmFinish) {
       setConfirmFinish(true);
       setTimeout(() => setConfirmFinish(false), 3000);
@@ -144,7 +187,8 @@ export const FocusSession = ({
       1,
       Math.round((block.duration * 60 - timeLeft) / 60)
     );
-    onComplete(elapsed, notes);
+    // --- call handleFocusComplete instead of onComplete ---
+    await handleFocusComplete(elapsed, notes);
   };
 
   const formatTime = (s: number) =>
@@ -176,7 +220,7 @@ export const FocusSession = ({
         [{ opacity: 1 }, { opacity: 0.88 }, { opacity: 1 }],
         { duration: 260, easing: "ease-out" }
       );
-    } catch {}
+    } catch { }
   }, [currentVal, isActive]);
 
   useEffect(() => {
@@ -193,7 +237,7 @@ export const FocusSession = ({
         ],
         { duration: 260, easing: "cubic-bezier(.2,.7,.2,1)" }
       );
-    } catch {}
+    } catch { }
   }, [confirmFinish]);
 
   return (

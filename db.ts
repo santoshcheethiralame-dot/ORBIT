@@ -12,14 +12,25 @@ class OrbitDB extends Dexie {
 
   constructor() {
     super("OrbitDB");
-    this.version(4).stores({ 
+    // 🆕 Version 5: Add assignment tracking fields
+    this.version(5).stores({
       semesters: "++id",
       subjects: "++id, name, code",
       projects: "++id, subjectId",
       schedule: "++id, day, slot",
-      assignments: "id, subjectId, dueDate",
+      assignments: "id, subjectId, dueDate, estimatedEffort, progressMinutes", // Updated
       plans: "date",
-      logs: "++id, date, subjectId, type" // notes will be stored but not indexed
+      logs: "++id, date, subjectId, type"
+    }).upgrade(tx => {
+      // Migration: Add default values for existing assignments
+      return tx.table('assignments').toCollection().modify(assignment => {
+        if (assignment.estimatedEffort === undefined) {
+          assignment.estimatedEffort = 120; // Default 2 hours
+        }
+        if (assignment.progressMinutes === undefined) {
+          assignment.progressMinutes = 0;
+        }
+      });
     });
   }
 }
