@@ -220,8 +220,8 @@ export const WeekPreviewModal = ({
                         </span>
                     </div>
                     <div className="text-[7px] xs:text-[8px] sm:text-[9px] md:text-[10px] font-mono text-zinc-500 uppercase">
-                        <span className="hidden sm:inline">Orbit Forecast Engine v3.1.1</span>
-                        <span className="sm:hidden">v3.1.1</span>
+                        <span className="hidden sm:inline">Orbit Forecast Engine v3.2.0</span>
+                        <span className="sm:hidden">v3.2.0</span>
                     </div>
                 </div>
             </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Settings, Download, Upload, Trash2, Moon, Sun, 
-  Bell, Database, Shield, Volume2, VolumeX, 
+import {
+  Settings, Download, Upload, Trash2, Moon, Sun,
+  Bell, Database, Shield, Volume2, VolumeX,
   Monitor, Smartphone, Save, Clock, Sunrise
 } from 'lucide-react';
 import { db } from './db';
@@ -67,9 +67,9 @@ export const SettingsView = () => {
   useEffect(() => {
     if ('storage' in navigator && 'estimate' in navigator.storage) {
       navigator.storage.estimate().then(({ usage, quota }) => {
-        setStorageUsage({ 
-          used: usage || 0, 
-          quota: quota || 0 
+        setStorageUsage({
+          used: usage || 0,
+          quota: quota || 0
         });
       });
     }
@@ -87,7 +87,7 @@ export const SettingsView = () => {
   const updateNotify = async (key: keyof AppPreferences['notifications']) => {
     SoundManager.playClick();
     const newState = !prefs.notifications[key];
-    
+
     if (newState) {
       const granted = await NotificationManager.requestPermission();
       if (!granted) {
@@ -112,7 +112,7 @@ export const SettingsView = () => {
   };
 
   // --- Data Ops ---
-  
+
   const exportData = async () => {
     SoundManager.playClick();
     try {
@@ -159,9 +159,9 @@ export const SettingsView = () => {
         if (data.plans) await db.plans.bulkPut(data.plans);
         if (data.logs) await db.logs.bulkPut(data.logs);
       });
-      
+
       if (data.prefs) setPrefs(data.prefs);
-      
+
       showStatus('System restored successfully', 'success');
       setTimeout(() => window.location.reload(), 1500);
     } catch (err) {
@@ -216,7 +216,7 @@ export const SettingsView = () => {
 
   return (
     <div className="pb-32 pt-8 px-4 max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
+
       {/* Header */}
       <div className="flex items-end justify-between border-b border-white/10 pb-6">
         <div>
@@ -224,9 +224,8 @@ export const SettingsView = () => {
           <h1 className="text-4xl font-display font-bold text-white">Settings</h1>
         </div>
         {statusMsg && (
-          <div className={`px-4 py-2 rounded-full text-xs font-bold animate-in fade-in slide-in-from-right-4 ${
-            statusMsg.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
-          }`}>
+          <div className={`px-4 py-2 rounded-full text-xs font-bold animate-in fade-in slide-in-from-right-4 ${statusMsg.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+            }`}>
             {statusMsg.txt}
           </div>
         )}
@@ -237,7 +236,7 @@ export const SettingsView = () => {
         {/* 1. PROTOCOLS (New Feature: Day Start) */}
         <div className="p-6 rounded-3xl bg-zinc-900/50 border border-white/5 backdrop-blur-xl">
           <SectionHeader icon={Clock} title="Protocols" subtitle="Operational constraints & timing" />
-          
+
           <div className="space-y-6">
             <div className="bg-black/20 p-4 rounded-xl border border-white/5">
               <div className="flex justify-between items-center mb-3">
@@ -249,13 +248,13 @@ export const SettingsView = () => {
                   {prefs.dayStartHour.toString().padStart(2, '0')}:00
                 </span>
               </div>
-              
-              <input 
+
+              <input
                 type="range" min="0" max="6" step="1"
                 value={prefs.dayStartHour}
                 onChange={(e) => {
                   SoundManager.playClick();
-                  setPrefs({...prefs, dayStartHour: parseInt(e.target.value)})
+                  setPrefs({ ...prefs, dayStartHour: parseInt(e.target.value) })
                 }}
                 className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
               />
@@ -265,11 +264,11 @@ export const SettingsView = () => {
             </div>
 
             <div className="pt-4 border-t border-white/5">
-              <Toggle 
-                label="Interface Sounds" 
-                checked={prefs.soundEnabled} 
+              <Toggle
+                label="Interface Sounds"
+                checked={prefs.soundEnabled}
                 onChange={() => {
-                  setPrefs({...prefs, soundEnabled: !prefs.soundEnabled});
+                  setPrefs({ ...prefs, soundEnabled: !prefs.soundEnabled });
                   // Play a sound immediately if enabling
                   if (!prefs.soundEnabled) setTimeout(() => SoundManager.playSuccess(), 100);
                 }}
@@ -282,26 +281,26 @@ export const SettingsView = () => {
         {/* 2. NOTIFICATIONS */}
         <div className="p-6 rounded-3xl bg-zinc-900/50 border border-white/5 backdrop-blur-xl">
           <SectionHeader icon={Bell} title="Notifications" subtitle="Interrupt protocols (Default: Off)" />
-          
+
           <div className="space-y-1">
-            <Toggle 
-              label="Session Reminders" 
-              checked={prefs.notifications.sessionReminders} 
+            <Toggle
+              label="Session Reminders"
+              checked={prefs.notifications.sessionReminders}
               onChange={() => updateNotify('sessionReminders')}
             />
-            <Toggle 
-              label="Daily Plan Ready" 
-              checked={prefs.notifications.dailyPlanReady} 
+            <Toggle
+              label="Daily Plan Ready"
+              checked={prefs.notifications.dailyPlanReady}
               onChange={() => updateNotify('dailyPlanReady')}
             />
-            <Toggle 
-              label="Assignment Alerts" 
-              checked={prefs.notifications.assignmentDue} 
+            <Toggle
+              label="Assignment Alerts"
+              checked={prefs.notifications.assignmentDue}
               onChange={() => updateNotify('assignmentDue')}
             />
-            <Toggle 
-              label="Streak Milestones" 
-              checked={prefs.notifications.streakMilestones} 
+            <Toggle
+              label="Streak Milestones"
+              checked={prefs.notifications.streakMilestones}
               onChange={() => updateNotify('streakMilestones')}
             />
           </div>
@@ -309,7 +308,7 @@ export const SettingsView = () => {
           <div className="mt-6 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex gap-3">
             <Smartphone size={16} className="text-indigo-400 shrink-0 mt-0.5" />
             <p className="text-xs text-indigo-300/80 leading-relaxed">
-              Enable specifically to receive alerts. 
+              Enable specifically to receive alerts.
               {Notification.permission === 'denied' && <span className="text-red-400 block mt-1 font-bold">⚠️ Blocked by browser settings.</span>}
             </p>
           </div>
@@ -318,7 +317,7 @@ export const SettingsView = () => {
         {/* 3. DATA GOVERNANCE */}
         <div className="p-6 rounded-3xl bg-zinc-900/50 border border-white/5 backdrop-blur-xl">
           <SectionHeader icon={Database} title="Data Governance" subtitle="Local storage management" />
-          
+
           <div className="space-y-4">
             {storageUsage && (
               <div className="bg-black/20 p-4 rounded-xl border border-white/5">
@@ -327,9 +326,9 @@ export const SettingsView = () => {
                   <span className="font-mono text-zinc-300">{formatBytes(storageUsage.used)} / {formatBytes(storageUsage.quota)}</span>
                 </div>
                 <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-emerald-500 rounded-full" 
-                    style={{ width: `${Math.min((storageUsage.used / storageUsage.quota) * 100, 100)}%` }} 
+                  <div
+                    className="h-full bg-emerald-500 rounded-full"
+                    style={{ width: `${Math.min((storageUsage.used / storageUsage.quota) * 100, 100)}%` }}
                   />
                 </div>
               </div>
@@ -340,7 +339,7 @@ export const SettingsView = () => {
                 <Download size={20} className="text-indigo-400 mb-2" />
                 <span className="text-xs font-bold text-zinc-300">Backup</span>
               </button>
-              
+
               <label className="flex flex-col items-center justify-center p-4 bg-zinc-800/50 hover:bg-zinc-800 border border-white/5 hover:border-white/10 rounded-xl transition-all cursor-pointer">
                 <Upload size={20} className="text-emerald-400 mb-2" />
                 <span className="text-xs font-bold text-zinc-300">Restore</span>
@@ -353,19 +352,18 @@ export const SettingsView = () => {
         {/* 4. DANGER ZONE */}
         <div className="p-6 rounded-3xl bg-red-900/5 border border-red-500/10 backdrop-blur-xl">
           <SectionHeader icon={Shield} title="Danger Zone" subtitle="Irreversible actions" />
-          
+
           <div className="space-y-4">
             <div className="text-sm text-zinc-500">
-              Resetting will wipe all local data, including logs, schedule, and settings. 
+              Resetting will wipe all local data, including logs, schedule, and settings.
             </div>
-            
+
             <button
               onClick={resetAllData}
-              className={`w-full p-4 rounded-xl font-bold transition-all border flex items-center justify-center gap-2 ${
-                confirmReset
+              className={`w-full p-4 rounded-xl font-bold transition-all border flex items-center justify-center gap-2 ${confirmReset
                   ? 'bg-red-500 text-white border-red-500 animate-pulse'
                   : 'bg-transparent text-red-400 border-red-900/30 hover:bg-red-950'
-              }`}
+                }`}
             >
               <Trash2 size={18} />
               {confirmReset ? 'CONFIRM FACTORY RESET' : 'Factory Reset'}
@@ -374,7 +372,7 @@ export const SettingsView = () => {
         </div>
 
       </div>
-      
+
       {/* Footer Info */}
       <div className="text-center pt-8 pb-4">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/5 text-[10px] text-zinc-500 font-mono">

@@ -16,6 +16,10 @@ import { updateAssignmentProgress } from "./brain";
 // TODO: Make sure you have access to your DB instance for assignments
 import { db } from "./db"; // <-- Adjust if db import path differs
 
+// You will need these functions for topic review tracking
+import { recordTopicReview, getISTEffectiveDate } from "./tracking";
+import { ComprehensionRatingModal } from "./SpacedRepetition";
+
 const BREAK_TOTAL = 5 * 60; // seconds
 const RADIUS = 120;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -44,6 +48,12 @@ export const FocusSession = ({
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
   const [confirmFinish, setConfirmFinish] = useState(false);
+
+  // NEW state for comprehension modal
+  const [showComprehensionRating, setShowComprehensionRating] = useState(false);
+  const [topicName, setTopicName] = useState(
+    block.topicId?.replace(/-/g, ' ') || block.notes || ""
+  );
 
   // v2: Call this instead of onComplete directly (when session ends or finish early)
   const handleFocusComplete = useCallback(
@@ -76,11 +86,24 @@ export const FocusSession = ({
         }
       }
 
-      // ... rest of completion code ...
-      if (onComplete) onComplete(durationToLog, sessionNotes);
+      // If it's a review block, ask for comprehension rating, else complete
+      if (block.type === 'review') {
+        setShowComprehensionRating(true);
+      } else {
+        if (onComplete) onComplete(durationToLog, sessionNotes);
+      }
     },
     [block, onComplete]
   );
+
+  // Sync topic name with block changes
+  useEffect(() => {
+    if (block.topicId) {
+      setTopicName(block.topicId.replace(/-/g, ' '));
+    } else if (block.notes && block.type === 'review') {
+      setTopicName(block.notes);
+    }
+  }, [block.topicId, block.notes, block.type]);
 
   /* ---------------- FIXED TIMER LOOP (no drift) ---------------- */
   useEffect(() => {
@@ -554,6 +577,32 @@ export const FocusSession = ({
           </div>
         </div>
       )}
+
+      {/* Comprehension rating modal */}
+      <ComprehensionRatingModal
+        isOpen={showComprehensionRating}
+        topicName={topicName}
+        onRate={async (rating, selectedTopic) => {
+          const finalTopic = selectedTopic || topicName;
+          if (finalTopic.trim()) {
+            await recordTopicReview(
+              block.subjectId,
+              finalTopic.trim(),
+              rating,
+              block.duration,
+              getISTEffectiveDate()
+            );
+          }
+          setShowComprehensionRating(false);
+          setTopicName("");
+          onComplete(block.duration, notes);
+        }}
+        onSkip={() => {
+          setShowComprehensionRating(false);
+          setTopicName("");
+          onComplete(block.duration, notes);
+        }}
+      />
     </div>
   );
 };

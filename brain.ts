@@ -8,6 +8,7 @@ import {
   StudyLog,
   DayPreview,
   WeekPreview,
+  StudyTopic,
 } from "./types";
 import { getISTEffectiveDate } from "./utils/time";
 
@@ -28,6 +29,7 @@ type LoadAnalysis = {
   loadLevel: 'light' | 'normal' | 'heavy' | 'extreme';
   loadScore: number; // 0-100
   readinessImpact: number; // How much readiness will improve
+  subjectImpacts?: Record<number, number>; // Per-subject readiness impact
 };
 
 export type SubjectReadiness = {
@@ -180,10 +182,10 @@ export function calculateReadiness(
   const totalStudiedMinutes = logs.filter(l => l.subjectId === subject.id)
     .reduce((sum, l) => sum + (l.duration ?? 0), 0);
   const totalStudiedHours = totalStudiedMinutes / 60;
-  const credits = subject.credits || 3;
+  const credits = subject.credits || 3; // ✅ Good default
 
-  // Factor 1: Volume Score (how much you've studied vs. goal)
-  const goal = READINESS_GOAL_HOURS_PER_CREDIT * credits;
+  // ✅ ADD: Guard against zero credits
+  const goal = READINESS_GOAL_HOURS_PER_CREDIT * Math.max(credits, 1);
   let volume = Math.min(totalStudiedHours / goal, 1);
 
   // Factor 2: Recency (decay based on last study)
@@ -220,6 +222,229 @@ export function calculateReadiness(
     status,
     lastStudiedDays
   };
+}
+
+/* ======================================================
+  📈 PREDICT READINESS CALCULATOR
+====================================================== */
+/**
+ * Predict readiness score after N days of studying X hours/day
+ */
+export function predictReadiness(
+  currentReadiness: SubjectReadiness,
+  subject: Subject,
+  daysFromNow: number,
+  hoursPerDay: number
+): { projectedScore: number; breakdown: string } {
+  const credits = subject.credits || 3;
+  const goalHours = credits * READINESS_GOAL_HOURS_PER_CREDIT;
+
+  // Current state
+  let currentVolume = currentReadiness.score / 100 / currentReadiness.decay;
+  let currentHours = currentVolume * goalHours;
+
+  // Simulate day-by-day
+  let projectedScore = currentReadiness.score;
+
+  for (let day = 1; day <= daysFromNow; day++) {
+    // Add study hours
+    currentHours += hoursPerDay;
+    currentVolume = Math.min(currentHours / goalHours, 1);
+
+    // Apply decay (assumes you don't study this topic every day)
+    const decayRate = subject.difficulty >= 4 ? 0.7 : 0.9;
+    const decay = Math.pow(decayRate, 1); // 1 day of decay
+
+    projectedScore = currentVolume * 100 * decay;
+  }
+
+  projectedScore = Math.min(Math.round(projectedScore), 100);
+
+  const breakdown = `
+Study ${hoursPerDay}h/day for ${daysFromNow} days:
+  • Add ${hoursPerDay * daysFromNow}h total
+  • Reach ${Math.round(currentHours)}/${goalHours}h goal
+  • Final readiness: ${projectedScore}%
+  `.trim();
+
+  return { projectedScore, breakdown };
+}
+
+/* ======================================================
+  📖 SPACED REPETITION ENGINE (SM-2 Algorithm)
+====================================================== */
+
+/**
+ * Calculate next review date based on comprehension
+ */
+function calculateNextReview(
+  lastReviewDate: string,
+  easeFactor: number,
+  reviewNumber: number,
+  comprehensionRating: 1 | 2 | 3
+): { nextReviewDate: string; newEaseFactor: number } {
+
+  // Update ease factor based on performance
+  let newEaseFactor = easeFactor;
+
+  if (comprehensionRating === 3) {      // Easy
+    newEaseFactor = Math.min(2.5, easeFactor + 0.15);
+  } else if (comprehensionRating === 1) { // Hard
+    newEaseFactor = Math.max(1.3, easeFactor - 0.15);
+  }
+  // Good (2) keeps same ease factor
+
+  // Calculate interval in days
+  let intervalDays: number;
+
+  if (reviewNumber === 0) {
+    // First review after initial study
+    intervalDays = comprehensionRating === 1 ? 1 :
+      comprehensionRating === 2 ? 3 : 7;
+  } else {
+    // Subsequent reviews: multiply previous interval by ease factor
+    const previousInterval = reviewNumber === 1 ? 3 : 7 * Math.pow(newEaseFactor, reviewNumber - 1);
+    intervalDays = Math.round(previousInterval * newEaseFactor);
+  }
+
+  // Max 30 days between reviews (prevent forgetting)
+  intervalDays = Math.min(intervalDays, 30);
+
+  // Calculate next review date
+  const lastDate = new Date(lastReviewDate);
+  lastDate.setDate(lastDate.getDate() + intervalDays);
+  const nextReviewDate = lastDate.toISOString().split('T')[0];
+
+  return { nextReviewDate, newEaseFactor };
+}
+
+/**
+ * Get topics that are due for review today
+ */
+export async function getTopicsDueForReview(dateStr: string): Promise<StudyTopic[]> {
+  const topics = await db.topics
+    .where('nextReview')
+    .belowOrEqual(dateStr)
+    .toArray();
+
+  return topics.sort((a, b) => {
+    // Prioritize: older reviews first, harder topics first
+    const dateCompare = a.nextReview.localeCompare(b.nextReview);
+    if (dateCompare !== 0) return dateCompare;
+
+    return a.easeFactor - b.easeFactor; // Lower ease = harder = higher priority
+  });
+}
+
+/**
+ * Create review blocks for due topics
+ */
+async function addSpacedRepetitionReviews(
+  blocks: StudyBlock[],
+  subjects: Subject[],
+  constraints: DayConstraints,
+  usedMinutes: { value: number },
+  effectiveDate: string
+): Promise<void> {
+  const dueTopics = await getTopicsDueForReview(effectiveDate);
+
+  for (const topic of dueTopics) {
+    const subject = subjects.find(s => s.id === topic.subjectId);
+    if (!subject) continue;
+
+    // Calculate duration based on comprehension history
+    const avgComprehension = topic.comprehensionHistory.length > 0
+      ? topic.comprehensionHistory.reduce((a, b) => a + b, 0) / topic.comprehensionHistory.length
+      : 2;
+
+    const duration = avgComprehension < 1.5 ? 45 :  // Hard topic = longer
+      avgComprehension < 2.5 ? 30 :  // Medium topic
+        20;                             // Easy topic = quick refresh
+
+    const block: StudyBlock = {
+      id: makeId(),
+      subjectId: subject.id!,
+      subjectName: subject.name,
+      type: "review",
+      duration: Math.min(duration, constraints.maxBlockDuration),
+      completed: false,
+      priority: DOMINANCE.REVIEW,
+      notes: `📖 ${topic.name}`,
+      reason: `Spaced repetition review (${topic.reviewCount} previous reviews)`,
+      topicId: topic.name.toLowerCase().replace(/\s+/g, '-'),
+    };
+
+    tryInsertWithDisplacement(blocks, block, constraints, usedMinutes);
+  }
+}
+
+/**
+ * After completing a review block, record comprehension and update schedule
+ */
+export async function recordTopicReview(
+  subjectId: number,
+  topicName: string,
+  comprehensionRating: 1 | 2 | 3,
+  duration: number,
+  dateStr: string
+): Promise<void> {
+  try {
+    // Find or create topic
+    let topic = await db.topics
+      .where({ subjectId, name: topicName })
+      .first();
+
+    if (!topic) {
+      // New topic - create it
+      const { nextReviewDate, newEaseFactor } = calculateNextReview(
+        dateStr,
+        1.8,  // Default ease factor
+        0,    // First review
+        comprehensionRating
+      );
+
+      await db.topics.add({
+        subjectId,
+        name: topicName,
+        lastStudied: dateStr,
+        nextReview: nextReviewDate,
+        easeFactor: newEaseFactor,
+        reviewCount: 1,
+        comprehensionHistory: [comprehensionRating]
+      });
+    } else {
+      // Update existing topic
+      const { nextReviewDate, newEaseFactor } = calculateNextReview(
+        topic.lastStudied,
+        topic.easeFactor,
+        topic.reviewCount,
+        comprehensionRating
+      );
+
+      await db.topics.update(topic.id!, {
+        lastStudied: dateStr,
+        nextReview: nextReviewDate,
+        easeFactor: newEaseFactor,
+        reviewCount: topic.reviewCount + 1,
+        comprehensionHistory: [...topic.comprehensionHistory, comprehensionRating]
+      });
+    }
+
+    // Also update the study log
+    await db.logs.add({
+      subjectId,
+      duration,
+      date: dateStr,
+      timestamp: Date.now(),
+      type: "review",
+      topicId: topicName.toLowerCase().replace(/\s+/g, '-'),
+      comprehensionRating,
+      reviewNumber: topic ? topic.reviewCount + 1 : 1,
+    } as StudyLog);
+
+  } catch (err) {
+    console.error('Failed to record topic review:', err);
+  }
 }
 
 /**
@@ -392,23 +617,23 @@ export const generateDailyPlan = async (
         ? 6
         : new Date(y, m - 1, d).getDay() - 1;
 
+    // Inside generateDailyPlan in brain.ts
     const createBlock = (
       sub: Subject,
       type: StudyBlock["type"],
       duration: number,
       priority: number,
-      meta?: Partial<StudyBlock>
+      meta?: Partial<StudyBlock> // This meta now allows topicId
     ): StudyBlock => ({
       id: makeId(),
       subjectId: Number(sub.id),
       subjectName: sub.name,
       type,
-      duration: getOptimalDuration(sub, duration, constraints.maxBlockDuration),
+      duration,
       completed: false,
       priority,
-      ...meta,
+      ...meta, // topicId, reviewNumber, etc., are passed here
     });
-
     /* ============================
       1. ESA / ISA FOCUS
     ============================ */
@@ -487,6 +712,17 @@ export const generateDailyPlan = async (
         }
       }
     }
+
+    /* ============================
+      2.5 📖 SPACED REPETITION REVIEWS (NEW)
+    ============================ */
+    await addSpacedRepetitionReviews(
+      blocks,
+      subjects,
+      constraints,
+      usedMinutes,
+      effectiveDate
+    );
 
     /* ============================
       3. 🆕 SMART ASSIGNMENT PLANNING (Backward Planning)
@@ -968,6 +1204,8 @@ export async function analyzeLoad(
 
   // 🆕 Calculate readiness impact
   let readinessImpact = 0;
+  const subjectImpacts: Record<number, number> = {};
+
   for (const block of blocks) {
     const subjectId = block.subjectId;
     const subjectReadiness = readinessMap[subjectId];
@@ -983,12 +1221,16 @@ export async function analyzeLoad(
       // Gain formula: hours × 5 points, scaled by how far from 100%
       const gainRaw = (block.duration / 60) * 5;
       const scaledGain = gainRaw * ((100 - currentScore) / 100);
+
+      // Add to subject-specific impact
+      subjectImpacts[subjectId] = (subjectImpacts[subjectId] || 0) + scaledGain;
+
       readinessImpact += scaledGain;
     }
   }
   readinessImpact = Math.max(0, Math.round(readinessImpact * 10) / 10);
 
-  return { loadScore, loadLevel, warning, readinessImpact };
+  return { loadScore, loadLevel, warning, readinessImpact, subjectImpacts };
 }
 
 /* ======================================================

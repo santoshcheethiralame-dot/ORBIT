@@ -7,26 +7,51 @@ import {
 } from "lucide-react";
 import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
-import { EmptyStats, StatsSkeleton } from './EmptyStates';
+import { EmptyStats } from './EmptyStates';
 
-export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subject[] }) => {
+// --- ADD TOAST IMPORT HERE ---
+import { useToast } from "./Toast";
+// ---
+
+export const StatsView = ({
+  logs,
+  subjects,
+}: { logs: StudyLog[]; subjects: Subject[] }) => {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | '10days'>('week');
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [selectedSubjectNotes, setSelectedSubjectNotes] = useState<StudyLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+
+  // --- Add toast hook here ---
+  const toast = useToast();
+  // ---
+
   const projects = useLiveQuery(() => db.projects.toArray()) || [];
 
-  // Simulate initial load
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 300);
-    return () => clearTimeout(timer);
-  }, []);
+  // --- Upcoming Reviews Query ---
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split("T")[0];
 
-  // Early return for loading state
-  if (isLoading) {
-    return <StatsSkeleton />;
-  }
+  const sevenDaysLater = new Date(today);
+  sevenDaysLater.setDate(today.getDate() + 7);
+  const sevenDaysLaterStr = sevenDaysLater.toISOString().split("T")[0];
+
+  // ADD SUBJECT NAME JOIN TO UPCOMING REVIEWS
+  const upcomingReviews = useLiveQuery(async () => {
+    const topics = await db.topics
+      .where('nextReview')
+      .between(todayStr, sevenDaysLaterStr)
+      .toArray();
+    // Join with subjects for subject name
+    const withSubjects = await Promise.all(
+      topics.map(async topic => {
+        const subject = await db.subjects.get(topic.subjectId);
+        return { ...topic, subjectName: subject?.name || 'Unknown' };
+      })
+    );
+    return withSubjects;
+  }) || [];
 
   // Calculate date range
   const now = new Date();
@@ -38,7 +63,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   rangeStart.setHours(0, 0, 0, 0);
   const rangeStartStr = rangeStart.toISOString().split('T')[0];
 
-  const filteredLogs = logs.filter(l => {
+  const filteredLogs = logs.filter((l) => {
     const isInRange = l.date >= rangeStartStr;
     return isInRange;
   });
@@ -66,15 +91,40 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-                timeRange === range
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-                  : 'bg-zinc-900 text-zinc-500 hover:text-white hover:bg-zinc-800 border border-zinc-800'
-              }`}
+              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${timeRange === range
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                : 'bg-zinc-900 text-zinc-500 hover:text-white hover:bg-zinc-800 border border-zinc-800'
+                }`}
             >
               {range === '10days' ? '10 Days' : range}
             </button>
           ))}
+        </div>
+
+        {/* Improved Upcoming Reviews */}
+        <div className="space-y-2 mb-8">
+          <h3 className="font-bold flex items-center gap-2">
+            <Brain size={18} className="text-purple-400" />
+            Upcoming Reviews
+          </h3>
+          {upcomingReviews.length === 0 ? (
+            <div className="text-xs text-zinc-500">No upcoming reviews in next 7 days.</div>
+          ) : (
+            upcomingReviews.map(topic => (
+              <div key={topic.id} className="flex justify-between p-3 bg-zinc-900 rounded-xl hover:bg-zinc-800 transition-all">
+                <div>
+                  <span className="font-bold text-white">{topic.subjectName}</span>
+                  <span className="text-zinc-500 text-xs ml-2">{topic.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-500">{topic.nextReview}</span>
+                  <span className="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-400">
+                    Review #{topic.reviewCount}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         <EmptyStats onStartStudying={() => {
@@ -178,6 +228,9 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     recovery: filteredLogs.filter(l => l.type === 'recovery').reduce((a, b) => a + b.duration, 0),
   };
 
+  // --- Example to show toasts on actions ---
+  // e.g., when a user exports CSV, show success toast, or error on fail
+
   const viewSubjectNotes = (subjectId: number) => {
     const subjectLogs = logs
       .filter(l => l.subjectId === subjectId && l.notes && l.notes.trim().length > 0)
@@ -185,30 +238,41 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
 
     setSelectedSubjectNotes(subjectLogs);
     setShowNotesModal(true);
+    // Show info toast
+    const subject = subjects.find(s => s.id === subjectId);
+    toast.info(`Viewing notes for ${subject?.name || 'subject'}`);
   };
 
   const exportDetailedStats = () => {
-    const csv = [
-      ['Subject', 'Code', 'Total Hours', 'Sessions', 'Focus Score', 'Trend %', 'Avg Session', 'Notes Count'],
-      ...subjectStats.map(s => [
-        s.name,
-        s.code,
-        (s.mins / 60).toFixed(1),
-        s.sessions,
-        s.focusScore,
-        s.trend,
-        Math.round(s.mins / s.sessions),
-        s.notesCount
-      ])
-    ].map(row => row.join(',')).join('\n');
+    try {
+      const csv = [
+        ['Subject', 'Code', 'Total Hours', 'Sessions', 'Focus Score', 'Trend %', 'Avg Session', 'Notes Count'],
+        ...subjectStats.map(s => [
+          s.name,
+          s.code,
+          (s.mins / 60).toFixed(1),
+          s.sessions,
+          s.focusScore,
+          s.trend,
+          Math.round(s.mins / s.sessions),
+          s.notesCount,
+        ])
+      ].map(row => row.join(',')).join('\n');
 
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `orbit-stats-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `orbit-stats-${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      // ✨ Show success toast on export
+      toast.success('Exported as CSV');
+    } catch (err) {
+      // ✨ Error toast
+      toast.error('Export failed. Please try again.');
+    }
   };
 
   const getFocusScoreColor = (score: number) => {
@@ -245,6 +309,32 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
           <Download size={16} />
           Export CSV
         </button>
+      </div>
+
+      {/* Improved Upcoming Reviews */}
+      <div className="space-y-2">
+        <h3 className="font-bold flex items-center gap-2">
+          <Brain size={18} className="text-purple-400" />
+          Upcoming Reviews
+        </h3>
+        {upcomingReviews.length === 0 ? (
+          <div className="text-xs text-zinc-500">No upcoming reviews in next 7 days.</div>
+        ) : (
+          upcomingReviews.map(topic => (
+            <div key={topic.id} className="flex justify-between p-3 bg-zinc-900 rounded-xl hover:bg-zinc-800 transition-all">
+              <div>
+                <span className="font-bold text-white">{topic.subjectName}</span>
+                <span className="text-zinc-500 text-xs ml-2">{topic.name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-500">{topic.nextReview}</span>
+                <span className="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-400">
+                  Review #{topic.reviewCount}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <div className="flex gap-2">

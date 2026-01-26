@@ -4,6 +4,7 @@ import { db } from "./db";
 import { Button, Input, Slider, GlassCard } from "./components";
 import { X } from "lucide-react";
 import { SpaceBackground } from "./SpaceBackground";
+import { useToast } from "./Toast";
 
 export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   const [step, setStep] = useState(1);
@@ -20,8 +21,42 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
 
   // Timetable Selection Modal State
   const [selectingSlot, setSelectingSlot] = useState<{ d: number, s: number } | null>(null);
+  const [timetableError, setTimetableError] = useState('');
 
-  const handleNext = () => setStep(s => s + 1);
+  const validateTimetable = (): { isValid: boolean; message: string } => {
+    const placedSubjects = new Set<number>();
+    
+    timetable.forEach(daySlots => {
+      daySlots.forEach(subId => {
+        if (subId !== 0) placedSubjects.add(subId);
+      });
+    });
+
+    const unplacedSubjects = subjects.filter(
+      s => !placedSubjects.has(s.id!)
+    );
+
+    if (unplacedSubjects.length > 0) {
+      return {
+        isValid: false,
+        message: `Not all subjects scheduled: ${unplacedSubjects.map(s => s.code).join(', ')}`
+      };
+    }
+
+    return { isValid: true, message: '' };
+  };
+
+  const handleNext = () => {
+    if (step === 3) {
+      const validation = validateTimetable();
+      if (!validation.isValid) {
+        setTimetableError(validation.message);
+        setTimeout(() => setTimetableError(''), 5000);
+        return;
+      }
+    }
+    setStep(s => s + 1);
+  };
   const handleBack = () => setStep(s => Math.max(1, s - 1));
 
   const days = showWeekend ? ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] : ['MON', 'TUE', 'WED', 'THU', 'FRI'];
@@ -80,6 +115,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
       });
       await db.schedule.bulkAdd(scheduleSlots);
     });
+    toast.success('🚀 Orbit initialized successfully!');
     onComplete();
   };
 
@@ -254,6 +290,11 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
               <Button onClick={handleBack} variant="secondary" className="flex-1 bg-transparent border border-white/10 hover:bg-white/5 transition-all duration-300 hover:scale-[1.02]">← Go Back</Button>
               <Button onClick={handleNext} className="flex-[2] py-4 text-lg bg-indigo-600 hover:bg-white hover:text-black border-none text-white shadow-lg shadow-indigo-500/20 btn-lift animate-pulse-glow transition-all duration-300 hover:scale-[1.02] hover:shadow-indigo-500/40">Next Phase →</Button>
             </div>
+            {timetableError && (
+              <div className="text-red-400 text-sm text-center mt-2 animate-fade-in">
+                ⚠️ {timetableError}
+              </div>
+            )}
 
             {/* Subject Selector Modal */}
             {selectingSlot && (

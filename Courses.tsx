@@ -2,15 +2,73 @@ import React, { useEffect, useState } from "react";
 import {
   BookOpen, Award, FileText, Upload, Trash2, X, Search, Target,
   Clock, Download, CheckSquare, Square, Calculator, TrendingUp,
-  LinkIcon, ExternalLink, Plus, Edit2, StickyNote, FileTextIcon
+  Link, ExternalLink, Plus, Edit2, StickyNote
 } from "lucide-react";
 import { db } from "./db";
 import { ResourceType } from "./types";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   EmptyCourses, EmptyResources, EmptyGrades,
-  EmptyNotes, EmptySyllabus, CoursesSkeleton
+  EmptyNotes, EmptySyllabus
 } from './EmptyStates';
+import { getAllReadinessScores, SubjectReadiness } from './brain';
+
+import { useToast } from './Toast';
+
+// ✅ IMPROVED: Better prediction modal with more detail
+const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div className="bg-zinc-900 rounded-2xl p-8 max-w-md w-full relative animate-in fade-in slide-in-from-bottom-4 duration-300 border border-white/10 shadow-2xl">
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 text-zinc-400 hover:text-white transition-all p-2 hover:bg-white/10 rounded-lg"
+      >
+        <X size={18} />
+      </button>
+
+      <h2 className="text-2xl font-bold mb-4 text-white">📈 Readiness Predictor</h2>
+
+      <div className="mb-6">
+        <div className="text-zinc-400 mb-2">Subject</div>
+        <div className="text-xl font-bold text-white">{subject?.name || 'Unknown'}</div>
+      </div>
+
+      <div className="p-4 bg-zinc-800/50 rounded-xl border border-white/5 mb-6">
+        <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Current Readiness</div>
+        <div className="flex items-end gap-3">
+          <div className={`text-4xl font-bold ${currentReadiness?.status === 'critical' ? 'text-red-400' :
+            currentReadiness?.status === 'maintaining' ? 'text-yellow-400' :
+              'text-emerald-400'
+            }`}>
+            {currentReadiness?.score || 0}%
+          </div>
+          <div className="text-sm text-zinc-400 mb-1">
+            ({currentReadiness?.status || 'unknown'})
+          </div>
+        </div>
+        {currentReadiness?.lastStudiedDays !== undefined && (
+          <div className="text-xs text-zinc-500 mt-2">
+            Last studied: {currentReadiness.lastStudiedDays === 0 ? 'Today' : `${currentReadiness.lastStudiedDays} days ago`}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3 mb-6">
+        <div className="text-sm font-bold text-zinc-300">Study for 1h/day for 7 days:</div>
+        <div className="flex items-center justify-between p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+          <span className="text-sm text-emerald-300">Projected Readiness</span>
+          <span className="text-2xl font-bold text-emerald-400">
+            {Math.min(100, (currentReadiness?.score || 0) + 25)}%
+          </span>
+        </div>
+      </div>
+
+      <div className="text-xs text-zinc-500 italic">
+        💡 This is a simplified prediction. Actual results depend on comprehension, retention, and review quality.
+      </div>
+    </div>
+  </div>
+);
 
 const base64ToBlobUrl = (dataUrl: string, mime: string) => {
   try {
@@ -31,6 +89,7 @@ const isOfficeDoc = (type: string) =>
 export default function EnhancedCoursesView() {
   const subjects = useLiveQuery(() => db.subjects.toArray()) || [];
   const logs = useLiveQuery(() => db.logs.toArray()) || [];
+  const toast = useToast(); // ✨ Inject toast
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "difficulty" | "progress">("name");
@@ -43,6 +102,16 @@ export default function EnhancedCoursesView() {
   const [newGrade, setNewGrade] = useState({ type: "", score: "", maxScore: "100", date: "" });
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [newLink, setNewLink] = useState({ title: "", url: "" });
+  const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness>>({});
+  const [showPrediction, setShowPrediction] = useState<number | null>(null);
+
+  useEffect(() => {
+    const loadReadiness = async () => {
+      const scores = await getAllReadinessScores();
+      setReadinessScores(scores);
+    };
+    loadReadiness();
+  }, []);
 
   const selectedSubject = selectedSubjectId != null
     ? subjects.find((s) => Number(s.id) === Number(selectedSubjectId))
@@ -57,12 +126,13 @@ export default function EnhancedCoursesView() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (selectedResource) setSelectedResource(null);
-        else setSelectedSubjectId(null);
+        else if (selectedSubjectId) setSelectedSubjectId(null);
+        else if (showPrediction !== null) setShowPrediction(null);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedResource]);
+  }, [selectedResource, selectedSubjectId, showPrediction]);
 
   useEffect(() => {
     if (!selectedResource) {
@@ -107,6 +177,7 @@ export default function EnhancedCoursesView() {
     return (total / grades.length).toFixed(1);
   };
 
+  // ✨ Enhanced: With toast on file or link add, delete, syllabus toggle, grade add
   const processAndSaveFile = async (file: File) => {
     if (!selectedSubject) return;
     try {
@@ -134,9 +205,10 @@ export default function EnhancedCoursesView() {
           },
         ],
       });
+      toast.success("File added.");
     } catch (err) {
       console.error("Failed to save file", err);
-      alert("Failed to upload file.");
+      toast.error("Failed to upload file.");
     }
   };
 
@@ -156,6 +228,7 @@ export default function EnhancedCoursesView() {
       ],
     });
 
+    toast.success("Link added.");
     setNewLink({ title: "", url: "" });
     setShowLinkForm(false);
   };
@@ -176,8 +249,22 @@ export default function EnhancedCoursesView() {
       ],
     });
 
+    toast.success("Grade added.");
     setNewGrade({ type: "", score: "", maxScore: "100", date: "" });
     setShowGradeForm(false);
+  };
+
+  const removeResource = async (resourceId: any) => {
+    if (!selectedSubject) return;
+    await db.subjects.update(selectedSubject.id, {
+      resources: (selectedSubject.resources || []).filter((x: any) => x.id !== resourceId),
+    });
+    // FIX: Only pass one argument to toast.success
+    toast.success("Resource deleted!");
+    // You could add an UNDO button, but note: restore not supported
+    // If you want to show an info toast, show it without second argument
+    // Example:
+    // toast.info("Restore is not supported for file delete. Please re-upload.");
   };
 
   const openExternally = (r: any) => {
@@ -188,7 +275,7 @@ export default function EnhancedCoursesView() {
 
     const url = base64ToBlobUrl(r.fileData, r.fileType);
     if (!url) {
-      alert("Unable to preview file.");
+      toast.error("Unable to preview file.");
       return;
     }
 
@@ -199,13 +286,40 @@ export default function EnhancedCoursesView() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      alert(`Office documents will be downloaded. Open with your local Office suite.`);
+      toast.info("Office documents will be downloaded. Open with your local Office suite.");
     } else {
       window.open(url, "_blank");
     }
   };
 
-  // Resource Viewer
+  // ✨ Enhanced syllabus toggle with toast
+  const toggleSyllabus = async (u: any) => {
+    if (!selectedSubject) return;
+    await db.subjects.update(selectedSubject.id, {
+      syllabus: (selectedSubject.syllabus || []).map((x: any) =>
+        x.id === u.id ? { ...x, completed: !x.completed } : x
+      ),
+    });
+    toast.success(u.completed ? "Marked as incomplete." : "Unit marked complete!");
+  };
+
+  const addUnit = async () => {
+    if (!selectedSubject || !newUnit.trim()) return;
+    await db.subjects.update(selectedSubject.id, {
+      syllabus: [
+        ...(selectedSubject.syllabus || []),
+        {
+          id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+          title: newUnit,
+          completed: false,
+        },
+      ],
+    });
+    toast.success("Unit added.");
+    setNewUnit("");
+  };
+
+  // Resource Viewer (unchanged, omitted for brevity)
   if (selectedResource && selectedResource.type !== 'link') {
     const canPreview = selectedResource.fileType?.includes("pdf") ||
       selectedResource.fileType?.startsWith("image") ||
@@ -307,13 +421,7 @@ export default function EnhancedCoursesView() {
                     <div
                       key={u.id}
                       className="flex items-center gap-3 cursor-pointer hover:bg-zinc-900/40 p-2 rounded-lg transition-all"
-                      onClick={() =>
-                        db.subjects.update(selectedSubject.id, {
-                          syllabus: (selectedSubject.syllabus || []).map((x: any) =>
-                            x.id === u.id ? { ...x, completed: !x.completed } : x
-                          ),
-                        })
-                      }
+                      onClick={() => toggleSyllabus(u)}
                     >
                       {u.completed ? <CheckSquare className="text-emerald-400" size={20} /> : <Square size={20} className="text-zinc-600" />}
                       <span className={u.completed ? "line-through text-zinc-500" : "text-zinc-300"}>{u.title}</span>
@@ -331,35 +439,12 @@ export default function EnhancedCoursesView() {
                   className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && newUnit.trim()) {
-                      db.subjects.update(selectedSubject.id, {
-                        syllabus: [
-                          ...(selectedSubject.syllabus || []),
-                          {
-                            id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
-                            title: newUnit,
-                            completed: false,
-                          },
-                        ],
-                      });
-                      setNewUnit("");
+                      addUnit();
                     }
                   }}
                 />
                 <button
-                  onClick={async () => {
-                    if (!newUnit.trim()) return;
-                    await db.subjects.update(selectedSubject.id, {
-                      syllabus: [
-                        ...(selectedSubject.syllabus || []),
-                        {
-                          id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
-                          title: newUnit,
-                          completed: false,
-                        },
-                      ],
-                    });
-                    setNewUnit("");
-                  }}
+                  onClick={addUnit}
                   className="px-4 py-2 bg-indigo-500/20 rounded-lg hover:bg-indigo-500/30 transition-all text-sm font-bold"
                 >
                   Add
@@ -460,7 +545,7 @@ export default function EnhancedCoursesView() {
                         className="flex items-center gap-3 flex-1 cursor-pointer"
                         onClick={() => r.type === 'link' ? openExternally(r) : setSelectedResource(r)}
                       >
-                        {r.type === 'link' ? <LinkIcon size={16} className="text-cyan-400" /> : <FileText size={16} className="text-purple-400" />}
+                        {r.type === 'link' ? <Link size={16} className="text-cyan-400" /> : <FileText size={16} className="text-purple-400" />}
                         <span className="truncate text-sm font-medium">{r.title}</span>
                       </div>
                       <div className="flex items-center gap-3">
@@ -468,11 +553,7 @@ export default function EnhancedCoursesView() {
                           <ExternalLink size={14} className="text-zinc-500 opacity-0 group-hover/proj:opacity-100 transition-opacity" />
                         )}
                         <button
-                          onClick={() =>
-                            db.subjects.update(selectedSubject.id, {
-                              resources: (selectedSubject.resources || []).filter((x: any) => x.id !== r.id),
-                            })
-                          }
+                          onClick={() => removeResource(r.id)}
                           className="p-1 hover:bg-red-500/10 rounded transition-all opacity-0 group-hover/proj:opacity-100"
                         >
                           <Trash2 size={14} className="text-red-400" />
@@ -499,7 +580,7 @@ export default function EnhancedCoursesView() {
                   onClick={() => setShowLinkForm(!showLinkForm)}
                   className="px-4 py-3 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-lg text-sm font-bold transition-all"
                 >
-                  <LinkIcon size={16} className="inline mr-2" />
+                  <Link size={16} className="inline mr-2" />
                   Add Link
                 </button>
               </div>
@@ -582,7 +663,7 @@ export default function EnhancedCoursesView() {
     );
   }
 
-  // Main List
+  // ✅ MAIN FIX: Courses Grid
   const filtered = subjects
     .filter((s) =>
       (s.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -596,6 +677,15 @@ export default function EnhancedCoursesView() {
 
   return (
     <div className="max-w-[1400px] mx-auto p-6 space-y-6 pb-24 animate-fade-in">
+      {/* Prediction Modal - Rendered at root level */}
+      {showPrediction !== null && (
+        <PredictionModal
+          subject={subjects.find(s => s.id === showPrediction)}
+          currentReadiness={readinessScores[showPrediction]}
+          onClose={() => setShowPrediction(null)}
+        />
+      )}
+
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-3 text-zinc-500" size={16} />
@@ -640,45 +730,56 @@ export default function EnhancedCoursesView() {
       ) : (
         <div className="grid md:grid-cols-2 gap-5">
           {filtered.map((s, i) => {
+
             const t = themes[i % themes.length];
             const progress = computeProgress(s);
             const gpa = calculateGPA(s.grades || []);
+            const readiness = readinessScores[s.id!];
 
             return (
               <div
                 key={s.id}
                 onClick={() => setSelectedSubjectId(Number(s.id))}
-                className="cursor-pointer border border-white/10 rounded-2xl p-6 bg-white/[0.02] hover:border-indigo-500/30 hover:bg-white/[0.04] transition-all group relative overflow-hidden shadow-sm hover:shadow-indigo-500/5"
+                className="border border-white/10 rounded-2xl p-6 bg-white/[0.02] hover:border-indigo-500/30 hover:bg-white/[0.04] transition-all group relative overflow-hidden shadow-sm hover:shadow-indigo-500/5 cursor-pointer"
               >
-                <div className="flex justify-between items-start mb-5 relative z-10">
-                  <div className="flex gap-4">
-                    <div className={`w-14 h-14 ${t.bg} rounded-2xl flex items-center justify-center font-bold text-black text-xl shadow-lg`}>
+                {/* ✅ FIXED: Single row layout with inline button */}
+                <div className="flex justify-between items-start mb-5">
+                  <div className="flex gap-4 flex-1 min-w-0">
+                    <div className={`w-14 h-14 ${t.bg} rounded-2xl flex items-center justify-center font-bold text-black text-xl shadow-lg shrink-0`}>
                       {getInitials(s.name)}
                     </div>
-                    <div>
-                      <div className="font-bold text-lg group-hover:text-indigo-100 transition-colors leading-tight mb-1">{s.name}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-lg group-hover:text-indigo-100 transition-colors leading-tight mb-1 truncate">{s.name}</div>
                       <div className="text-xs text-zinc-500 font-mono tracking-wider">{s.code || "NO CODE"} • {s.credits ?? 0} CREDITS</div>
                     </div>
                   </div>
-                  <div className="text-right">
+                  {/* Right column: stats + button in one vertical stack */}
+                  <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
                     <div className={`text-3xl font-bold font-mono ${t.text}`}>{progress}%</div>
-                    {gpa && <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter mt-1">{gpa}% AVG SCORE</div>}
+                    {gpa && <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">{gpa}% AVG</div>}
+                    {/* Single "Predict" button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowPrediction(s.id);
+                      }}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 transition-all font-semibold border border-indigo-500/20 whitespace-nowrap"
+                    >
+                      📈 Predict
+                    </button>
                   </div>
                 </div>
-
-                <div className="h-1.5 bg-white/5 rounded-full mb-5 overflow-hidden relative z-10">
-                  <div
-                    className={`${t.bg} h-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(0,0,0,0.5)]`}
-                    style={{ width: `${progress}%` }}
-                  />
+                {/* Progress bar */}
+                <div className="h-1.5 bg-white/5 rounded-full mb-5 overflow-hidden">
+                  <div className={`${t.bg} h-full transition-all duration-1000 ease-out`} style={{ width: `${progress}%` }} />
                 </div>
-
-                <div className="flex gap-6 text-[11px] text-zinc-500 font-bold uppercase tracking-wider relative z-10">
+                {/* Footer stats */}
+                <div className="flex gap-6 text-[11px] text-zinc-500 font-bold uppercase tracking-wider">
                   <div className="flex items-center gap-1.5 group-hover:text-zinc-300 transition-colors">
-                    <Clock size={14} className="text-zinc-600" /> {getTotalHours(s.id)}H spent
+                    <Clock size={14} className="text-zinc-600" /> {getTotalHours(s.id)}H
                   </div>
                   <div className="flex items-center gap-1.5 group-hover:text-zinc-300 transition-colors">
-                    <Target size={14} className="text-zinc-600" /> {(s.syllabus || []).filter((u: any) => !u.completed).length} units left
+                    <Target size={14} className="text-zinc-600" /> {(s.syllabus || []).filter((u: any) => !u.completed).length} units
                   </div>
                   <div className="flex items-center gap-1.5 group-hover:text-zinc-300 transition-colors">
                     <FileText size={14} className="text-zinc-600" /> {(s.resources || []).length} files

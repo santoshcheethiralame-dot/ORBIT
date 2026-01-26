@@ -4,7 +4,9 @@ import { WeekPreviewModal } from "./WeekPreviewModal";
 import { BlockReason } from "./components";
 import { getISTTime, getISTEffectiveDate } from "./utils/time";
 import { EmptyBacklog, EmptyTodayPlan } from './EmptyStates';
-
+import { getAllReadinessScores, SubjectReadiness, updateAssignmentProgress } from './brain';
+import { useToast } from './Toast';
+// Removed: import { UpcomingReviewsWidget } from './SpacedRepetition';
 import {
   Play,
   Check,
@@ -25,9 +27,34 @@ import {
   Cloud,
   Sparkles,
   AlertCircle,
+  AlertTriangle,
   RefreshCw,
+  Brain,  // Added Brain for the new widget
 } from "lucide-react";
 import { db } from "./db";
+import { useLiveQuery } from "dexie-react-hooks";
+
+// --- AssignmentProgressBar Demo Implementation ---
+const AssignmentProgressBar = ({ assignmentId, assignments }: { assignmentId: string, assignments: any[] }) => {
+  const a = assignments.find(a => a.id === assignmentId);
+  if (!a) return null;
+  const percent = Math.round(((a.progressMinutes || 0) / (a.estimatedEffort || 120)) * 100);
+  return (
+    <div className="w-full mt-1">
+      <div className="flex justify-between items-center mb-0.5">
+        <span className="text-xs font-mono text-zinc-400 truncate">{a.title}</span>
+        <span className="text-xs font-mono text-indigo-300">{percent}%</span>
+      </div>
+      <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-indigo-500 rounded-full transition-all"
+          style={{ width: `${Math.min(percent, 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+};
+// ---
 
 const BacklogItem = ({ block, onAdd, onDelete }: any) => {
   const [touchStart, setTouchStart] = useState(0);
@@ -120,6 +147,54 @@ export const Dashboard = ({
   const [animatedStreak, setAnimatedStreak] = useState(0);
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
 
+  // Add readiness scores state
+  const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness>>({});
+
+  // Toast notifications
+  const toast = useToast();
+
+  // ---- Assignment Progress Query and In-Progress ----
+  const assignments = useLiveQuery(() =>
+    db.assignments.filter(a => !a.completed).toArray()
+  ) || [];
+
+  const inProgressAssignments = assignments.filter(a => a.progressMinutes > 0);
+
+  // --- BEGIN: Upcoming Reviews Query for Reviews Due Widget ---
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split("T")[0];
+  const sevenDaysLater = new Date(today);
+  sevenDaysLater.setDate(today.getDate() + 7);
+  const sevenDaysLaterStr = sevenDaysLater.toISOString().split('T')[0];
+
+  const upcomingReviews = useLiveQuery(async () => {
+    const topics = await db.topics
+      .where('nextReview')
+      .between(todayStr, sevenDaysLaterStr)
+      .toArray();
+    // Join with subjects for subject name
+    const withSubjects = await Promise.all(
+      topics.map(async topic => {
+        const subject = await db.subjects.get(topic.subjectId);
+        return { ...topic, subjectName: subject?.name || 'Unknown' };
+      })
+    );
+    return withSubjects;
+  }) || [];
+  // Reviews due today (nextReview <= todayStr)
+  const dueToday = upcomingReviews.filter(t => t.nextReview <= todayStr);
+  // --- END: Upcoming Reviews Query for Reviews Due Widget ---
+
+  // Fetch readiness scores whenever plan changes
+  useEffect(() => {
+    const loadReadiness = async () => {
+      const scores = await getAllReadinessScores();
+      setReadinessScores(scores);
+    };
+    loadReadiness();
+  }, [plan]);
+
   // Pull to Refresh State
   const [refreshing, setRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
@@ -196,8 +271,10 @@ export const Dashboard = ({
         await db.plans.put({ ...originalPlan, blocks: updatedBlocks });
       }
       setBacklog(prev => prev.filter(b => b.id !== blockId));
+      toast.success('Backlog item removed');
     } catch (err) {
       console.error("Failed to delete backlog item", err);
+      toast.error('Failed to remove item');
     }
   };
 
@@ -207,14 +284,25 @@ export const Dashboard = ({
       const currentPlan = await db.plans.get(todayStr);
       if (!currentPlan) return;
 
+      // ✅ ADD: Find the block
+      const block = currentPlan.blocks.find(b => b.id === blockId);
+
       const updatedBlocks = currentPlan.blocks.map((b: StudyBlock) =>
         b.id === blockId ? { ...b, completed: true } : b
       );
 
       await db.plans.put({ ...currentPlan, blocks: updatedBlocks });
+
+      // ✅ ADD: Update assignment progress if it's an assignment block
+      if (block?.type === 'assignment' && block.assignmentId) {
+        await updateAssignmentProgress(block.assignmentId, block.duration);
+      }
+
+      toast.success('Block marked complete!');
       onRefresh();
     } catch (err) {
       console.error("Failed to mark complete", err);
+      toast.error('Failed to mark complete');
     }
   };
 
@@ -247,9 +335,34 @@ export const Dashboard = ({
       };
       await db.plans.put({ ...tomorrowPlan, blocks: [...tomorrowPlan.blocks, moved] });
 
+      toast.success('Block moved to tomorrow', {
+        label: 'UNDO',
+        onClick: async () => {
+          // Restore block logic - move it back
+          try {
+            const todayStr = getISTEffectiveDate();
+            const currentPlan = await db.plans.get(todayStr);
+            if (currentPlan) {
+              const movedBlock = {
+                ...moved,
+                id: blockId,
+              };
+              await db.plans.put({
+                ...currentPlan,
+                blocks: [...currentPlan.blocks, movedBlock]
+              });
+              onRefresh();
+              toast.info('Block restored');
+            }
+          } catch (err) {
+            toast.error('Failed to restore block');
+          }
+        }
+      });
       onRefresh();
     } catch (err) {
       console.error("Failed to snooze block", err);
+      toast.error('Failed to snooze block');
     }
   };
 
@@ -389,6 +502,12 @@ export const Dashboard = ({
       return next;
     });
   };
+
+  // ---- Readiness Impact and Critical Subjects detection ----
+  const criticalSubjects = Object.entries(readinessScores)
+    .filter(([_, r]) => r.status === 'critical')
+    .map(([id, _]) => subjects.find(s => s.id === Number(id))?.name)
+    .filter(Boolean);
 
   return (
     <div
@@ -534,6 +653,16 @@ export const Dashboard = ({
                   )}
                 </div>
 
+                {/* Assignment Progress Bar */}
+                {nextBlock.type === "assignment" && nextBlock.assignmentId && (
+                  <div className="mt-4">
+                    <AssignmentProgressBar
+                      assignmentId={String(nextBlock.assignmentId)}
+                      assignments={assignments}
+                    />
+                  </div>
+                )}
+
                 <button
                   onClick={() => onStartFocus(nextBlock)}
                   className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-white text-black rounded-xl font-bold text-base hover:bg-indigo-500 hover:text-white hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/20 active:scale-[0.98] transition-all duration-300 mt-auto group/btn"
@@ -559,6 +688,60 @@ export const Dashboard = ({
         </div>
 
         <div className="lg:col-span-4 flex flex-col gap-5">
+          {/* Reviews Due Widget */}
+          {dueToday.length > 0 && (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Brain size={16} className="text-purple-400" />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-400">
+                    Reviews Due
+                  </span>
+                </div>
+                <span className="text-3xl font-mono font-bold text-purple-200">
+                  {dueToday.length}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {dueToday.slice(0, 3).map(topic => {
+                  const subject = subjects.find(s => s.id === topic.subjectId);
+                  return (
+                    <div
+                      key={topic.id}
+                      onClick={() => {
+                        // Create a review block for this topic
+                        if (!subject) return;
+
+                        const reviewBlock: StudyBlock = {
+                          id: `review-${Date.now()}`,
+                          subjectId: topic.subjectId,
+                          subjectName: subject.name,
+                          type: 'review',
+                          duration: 30, // 30 min review
+                          completed: false,
+                          priority: 0,
+                          notes: `📖 ${topic.name}`,
+                          topicId: topic.name.toLowerCase().replace(/\s+/g, '-'),
+                          reviewNumber: topic.reviewCount,
+                        };
+
+                        onStartFocus(reviewBlock);
+                      }}
+                      className="p-2 bg-purple-500/10 rounded-lg border border-purple-500/20 cursor-pointer hover:bg-purple-500/20 transition-all active:scale-95"
+                    >
+                      <div className="text-xs text-purple-300 font-bold">{topic.subjectName}</div>
+                      <div className="text-sm text-white">{topic.name}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {/* End Reviews Due Widget */}
+
+          {/* Upcoming Reviews Widget - Removed in favor of new widget */}
+          {/* <UpcomingReviewsWidget /> */}
+
           <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
@@ -591,6 +774,84 @@ export const Dashboard = ({
             </div>
           </div>
 
+          {/* In Progress Assignments Widget */}
+          {inProgressAssignments.length > 0 && (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Clock size={16} className="text-amber-400" />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-amber-400">
+                    In Progress
+                  </span>
+                </div>
+                <span className="text-3xl font-mono font-bold text-amber-200">
+                  {inProgressAssignments.length}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {inProgressAssignments.slice(0, 3).map(a => {
+                  const percent = Math.round(
+                    ((a.progressMinutes || 0) / (a.estimatedEffort || 120)) * 100
+                  );
+                  return (
+                    <div key={a.id} className="text-xs">
+                      <div className="flex justify-between mb-1">
+                        <span className="text-zinc-400 truncate">{a.title}</span>
+                        <span className="text-amber-400 font-mono ml-2">{percent}%</span>
+                      </div>
+                      <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-amber-500 rounded-full transition-all"
+                          style={{ width: `${Math.min(percent, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Readiness Impact Card */}
+          {plan.loadAnalysis?.readinessImpact > 0 && (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-emerald-500/30 transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <TrendingUp size={16} className="text-emerald-400" />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-400">
+                    Readiness Boost
+                  </span>
+                </div>
+                <span className="text-3xl font-mono font-bold text-emerald-200">
+                  +{plan.loadAnalysis.readinessImpact.toFixed(1)}%
+                </span>
+              </div>
+
+              {/* Show top 3 subjects being boosted */}
+              {plan.loadAnalysis.subjectImpacts && (
+                <div className="space-y-1 mt-3 pt-3 border-t border-white/5">
+                  {Object.entries(plan.loadAnalysis.subjectImpacts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 3)
+                    .map(([subId, impact]) => {
+                      const subject = subjects.find(s => s.id === Number(subId));
+                      return (
+                        <div key={subId} className="flex justify-between text-xs">
+                          <span className="text-zinc-400">{subject?.code || 'Unknown'}</span>
+                          <span className="text-emerald-400 font-mono">+{impact.toFixed(1)}%</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+
+              <div className="text-[11px] text-emerald-500/60 uppercase mt-2">
+                Today's plan impact
+              </div>
+            </div>
+          )}
+
+          {/* Backlog card */}
           {backlog.length > 0 && (
             <div
               onClick={() => setShowBacklog(!showBacklog)}
@@ -610,6 +871,21 @@ export const Dashboard = ({
           )}
         </div>
       </div>
+
+      {/* Critical Readiness Subjects warning banner */}
+      {criticalSubjects.length > 0 && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 flex items-start gap-3 animate-fade-in">
+          <AlertTriangle size={20} className="text-red-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="font-bold text-sm mb-1 text-red-300">
+              ⚠️ Critical Subjects Detected
+            </div>
+            <div className="text-sm text-red-200/80">
+              {criticalSubjects.join(', ')} need urgent review (readiness {"<"}35%)
+            </div>
+          </div>
+        </div>
+      )}
 
       {showBacklog && (
         <div className="animate-fade-in">
@@ -704,12 +980,24 @@ export const Dashboard = ({
                         </>
                       )}
                     </div>
+
+                    {/* Assignment progress bar inside block rendering */}
+                    {b.type === 'assignment' && typeof b.assignmentId === "number" && (
+                      <div className="mt-2">
+                        {/* Progress bar will go here */}
+                        {/* Use the AssignmentProgressBar component from the demo */}
+                        <AssignmentProgressBar assignmentId={b.assignmentId} assignments={assignments} />
+                      </div>
+                    )}
                   </div>
 
                   {hasExplanation && !isCompleted && (
                     <button
                       onClick={() => toggleBlockExplanation(b.id)}
-                      className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${isExpanded ? "bg-indigo-500/20 text-indigo-300" : "bg-zinc-900 text-zinc-500 border border-zinc-800"}`}
+                      className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${isExpanded
+                        ? "bg-indigo-500/20 text-indigo-300"
+                        : "bg-zinc-900 text-zinc-500 border border-zinc-800"
+                        }`}
                     >
                       {isExpanded ? "Hide" : "Why?"}
                     </button>

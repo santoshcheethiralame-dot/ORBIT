@@ -88,9 +88,14 @@ export interface StudyBlock {
   assignmentId?: string;
   projectId?: number;
 
+  // ✨ NEW: Spaced Repetition & Topic Support
+  topicId?: string;            // The specific topic being reviewed
+  comprehensionRating?: 1 | 2 | 3;
+  reviewNumber?: number;       // Which iteration of the forgetting curve is this?
+
   // Backward planning metadata
-  isBacklogChunk?: boolean; // true for auto-scheduled assignment portions
-  totalEffortRemaining?: number; // used for progress tracking
+  isBacklogChunk?: boolean;
+  totalEffortRemaining?: number;
 
   // Explainability
   reason?: string;
@@ -124,23 +129,49 @@ export interface DailyPlan {
   date: string;
   blocks: StudyBlock[];
   context: DailyContext;
-
-  // Overload detection
   warning?: string;
   loadLevel?: 'light' | 'normal' | 'heavy' | 'extreme';
-  loadScore?: number; // 0-100
+  loadScore?: number;
+  loadAnalysis?: {
+    loadScore: number;
+    loadLevel: 'light' | 'normal' | 'heavy' | 'extreme';
+    warning?: string;
+    readinessImpact: number;
+    subjectImpacts?: Record<number, number>; // Per-subject readiness impact
+  };
+}
+
+// Spaced Repetition Topic Tracking
+export interface StudyTopic {
+  id?: number;
+  subjectId: number;
+  name: string;
+  lastStudied: string;
+  nextReview: string;
+  easeFactor: number;
+  reviewCount: number;
+  comprehensionHistory: number[];
 }
 
 export interface StudyLog {
   id?: number;
-  date: string;          // YYYY-MM-DD (IST effective)
   subjectId: number;
-  duration: number;      // minutes
-  type: StudyBlock['type'];
+  duration: number;
+  date: string;
   timestamp: number;
+  type: "review" | "assignment" | "project" | "prep" | "recovery";
   projectId?: number;
+  assignmentId?: string;
   notes?: string;
+
+  // ✨ NEW: Spaced Repetition Fields
+  topicId?: string;           // e.g., "pointers", "linked-lists"
+  comprehensionRating?: 1 | 2 | 3;  // 1=Hard, 2=Good, 3=Easy
+  nextReviewDate?: string;    // Calculated optimal review date
+  easeFactor?: number;        // 1.3 to 2.5
+  reviewNumber?: number;      // 0=first time, 1=1st review, etc.
 }
+
 
 /* ======================================================
    WEEK SIMULATION

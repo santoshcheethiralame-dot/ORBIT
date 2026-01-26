@@ -160,46 +160,4 @@ export const EmptySyllabus = () => (
         description="Add syllabus units to track your course progress and completion."
         variant="subtle"
     />
-);
-
-// ========================================
-// Loading Skeletons
-// ========================================
-
-export const DashboardSkeleton = () => (
-    <div className="pb-24 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-6 animate-pulse">
-        <div className="h-8 bg-zinc-900 rounded-lg w-48 mb-4"></div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            <div className="lg:col-span-8 h-64 bg-zinc-900 rounded-2xl"></div>
-            <div className="lg:col-span-4 flex flex-col gap-5">
-                <div className="h-32 bg-zinc-900 rounded-2xl"></div>
-                <div className="h-32 bg-zinc-900 rounded-2xl"></div>
-            </div>
-        </div>
-
-        <div className="h-96 bg-zinc-900 rounded-2xl"></div>
-    </div>
-);
-
-export const StatsSkeleton = () => (
-    <div className="pb-24 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-6 animate-pulse">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-32 bg-zinc-900 rounded-2xl"></div>
-            ))}
-        </div>
-        <div className="h-64 bg-zinc-900 rounded-2xl"></div>
-        <div className="h-48 bg-zinc-900 rounded-2xl"></div>
-    </div>
-);
-
-export const CoursesSkeleton = () => (
-    <div className="pb-24 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-6 animate-pulse">
-        <div className="grid md:grid-cols-2 gap-5">
-            {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-40 bg-zinc-900 rounded-2xl"></div>
-            ))}
-        </div>
-    </div>
 );  

@@ -1,9 +1,10 @@
-import React, { useState } from "react";
-import { CloudRain, Activity, ThermometerSun, X, Zap, Coffee, Flame, BookOpen, Sparkles } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { CloudRain, Activity, ThermometerSun, X, Zap, Coffee, Flame, BookOpen, Sparkles, AlertCircle } from "lucide-react";
 import { Subject, DailyContext } from "./types";
 import { Input, Button } from "./components";
 import { SpaceBackground } from "./SpaceBackground";
 import { db } from "./db";
+import { getAllReadinessScores, SubjectReadiness } from './brain';
 
 interface DailyContextModalProps {
   subjects: Subject[];
@@ -138,14 +139,52 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
   // State for manual configuration
   const [mood, setMood] = useState<'low' | 'normal' | 'high'>('normal');
   const [dayType, setDayType] = useState<'normal' | 'isa' | 'esa'>('normal');
-  const [focusSubjectId, setFocusSubjectId] = useState<number>(subjects[0]?.id || 0);
+  // Load readiness scores
+  const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness>>({});
+
+  useEffect(() => {
+    const loadReadiness = async () => {
+      const scores = await getAllReadinessScores();
+      setReadinessScores(scores);
+    };
+    if (subjects.length > 0) {
+      loadReadiness();
+    }
+  }, [subjects]);
+
+  // Auto-select most critical subject if any exist
+  const [focusSubjectId, setFocusSubjectId] = useState<number>(() => {
+    // This will be updated by the effect below
+    return subjects[0]?.id || 0;
+  });
+
+  // Update focus subject when readiness scores load
+  useEffect(() => {
+    if (Object.keys(readinessScores).length > 0 && subjects.length > 0) {
+      const criticalSubjects = Object.entries(readinessScores)
+        .filter(([_, r]) => r.status === 'critical')
+        .sort((a, b) => a[1].score - b[1].score);
+
+      if (criticalSubjects.length > 0) {
+        setFocusSubjectId(Number(criticalSubjects[0][0]));
+      } else if (focusSubjectId === 0 || !subjects.find(s => s.id === focusSubjectId)) {
+        setFocusSubjectId(subjects[0].id || 0);
+      }
+    }
+  }, [readinessScores, subjects]);
+
   const [isHoliday, setIsHoliday] = useState(false);
   const [isSick, setIsSick] = useState(false);
   const [bunked, setBunked] = useState(false);
   const [bunkedSubjectId, setBunkedSubjectId] = useState<number>(subjects[0]?.id || 0);
   const [examDays, setExamDays] = useState<number | ''>('');
   const [hasAssignment, setHasAssignment] = useState(false);
-  const [newAssignment, setNewAssignment] = useState({ subjectId: subjects[0]?.id, title: "", dueDate: "" });
+  const [newAssignment, setNewAssignment] = useState({
+    subjectId: subjects[0]?.id,
+    title: "",
+    dueDate: "",
+    estimatedEffort: 120 // 🆕 Default 2 hours (in minutes)
+  });
 
   const handlePresetSelect = (presetKey: string) => {
     const preset = PRESETS[presetKey as keyof typeof PRESETS];
@@ -161,8 +200,20 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
     setBunked(false);
     setHasAssignment(false);
     setExamDays('');
-    
+
     // ✅ FIX: Don't reset focusSubjectId - let user select it
+
+    // 🆕 ADD THIS: Auto-scroll to subject selector if ISA/ESA
+    if (preset.config.dayType === 'isa' || preset.config.dayType === 'esa') {
+      setTimeout(() => {
+        const subjectSelector = document.getElementById('focus-subject-selector');
+        if (subjectSelector) {
+          subjectSelector.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Flash the selector to draw attention
+          subjectSelector.style.animation = 'pulse 1s ease-in-out 2';
+        }
+      }, 300);
+    }
   };
 
   const handleSubmit = async () => {
@@ -174,11 +225,15 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
 
     if (hasAssignment && newAssignment.title && newAssignment.subjectId) {
       await db.assignments.add({
-        id: Math.random().toString(36).substr(2, 9),
+        id: (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`,
         subjectId: newAssignment.subjectId,
         title: newAssignment.title,
         dueDate: newAssignment.dueDate,
-        completed: false
+        completed: false,
+        estimatedEffort: newAssignment.estimatedEffort, // 🆕 estimated effort in minutes
+        progressMinutes: 0 // 🆕
       });
     }
 
@@ -195,9 +250,11 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
 
   // ✅ Check if we can submit (all required fields filled)
   const canSubmit = () => {
+    // For ISA/ESA, focus subject is REQUIRED
     if (dayType === 'isa' || dayType === 'esa') {
       return focusSubjectId && focusSubjectId > 0;
     }
+    // For normal days, always allowed
     return true;
   };
 
@@ -210,6 +267,35 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
 
           <h2 className="text-3xl font-display font-bold mb-2 relative z-10">Morning Protocol</h2>
           <p className="text-zinc-400 text-sm mb-8 relative z-10">Quick-start your day with a preset or customize.</p>
+
+          {/* Critical Subjects Alert */}
+          {Object.entries(readinessScores)
+            .filter(([_, r]) => r.status === 'critical')
+            .length > 0 && (
+              <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 animate-fade-in relative z-10">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle size={18} className="text-red-400" />
+                  <span className="text-sm font-bold text-red-300">
+                    Critical Subjects Detected
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {Object.entries(readinessScores)
+                    .filter(([_, r]) => r.status === 'critical')
+                    .map(([id, readiness]) => {
+                      const subject = subjects.find(s => s.id === Number(id));
+                      return (
+                        <div key={id} className="flex justify-between text-sm">
+                          <span className="text-red-200">{subject?.name}</span>
+                          <span className="text-red-400 font-mono">
+                            {readiness.score}% ({readiness.lastStudiedDays}d ago)
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
 
           {/* PRESETS GRID */}
           <div className="mb-8 relative z-10">
@@ -246,7 +332,7 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
 
           {/* ✅ EXAM FOCUS SUBJECT - Show ALWAYS when ISA/ESA selected */}
           {(dayType === 'isa' || dayType === 'esa') && (
-            <div className="mb-6 relative z-10 animate-fade-in">
+            <div id="focus-subject-selector" className="mb-6 relative z-10 animate-fade-in">
               <div className={`p-5 rounded-xl border ${dayType === 'esa' ? 'bg-red-500/10 border-red-500/30' : 'bg-orange-500/10 border-orange-500/30'
                 }`}>
                 <label className="text-xs font-bold uppercase tracking-wider block mb-3 flex items-center gap-2">
@@ -340,27 +426,53 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
                 ) : (
                   <div className="bg-indigo-500/10 border border-indigo-500/30 p-4 rounded-xl space-y-3 animate-fade-in relative">
                     <button onClick={() => setHasAssignment(false)} className="absolute top-2 right-2 text-zinc-500 hover:text-white"><X size={14} /></button>
-                    <select className="w-full bg-black/40 border border-white/10 p-2 rounded-lg outline-none text-sm text-white" value={newAssignment.subjectId} onChange={e => setNewAssignment({ ...newAssignment, subjectId: Number(e.target.value) })}>
-                      {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                    <Input placeholder="Assignment Title" className="p-2 text-sm bg-black/40 border-white/10" value={newAssignment.title} onChange={(e: any) => setNewAssignment({ ...newAssignment, title: e.target.value })} />
+                    <div className="space-y-3">
+                      <select className="w-full bg-black/40 border border-white/10 p-2 rounded-lg outline-none text-sm text-white" value={newAssignment.subjectId} onChange={e => setNewAssignment({ ...newAssignment, subjectId: Number(e.target.value) })}>
+                        {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                      <Input placeholder="Assignment Title" className="p-2 text-sm bg-black/40 border-white/10" value={newAssignment.title} onChange={(e: any) => setNewAssignment({ ...newAssignment, title: e.target.value })} />
+                      <Input placeholder="Due Date (YYYY-MM-DD)" className="p-2 text-sm bg-black/40 border-white/10" type="date" value={newAssignment.dueDate || ""} onChange={(e: any) => setNewAssignment({ ...newAssignment, dueDate: e.target.value })} />
+                      {/* 🆕 Effort estimation field */}
+                      <div>
+                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider block mb-2">
+                          Estimated Effort (hours)
+                        </label>
+                        <input
+                          type="number"
+                          min="0.5"
+                          max="20"
+                          step="0.5"
+                          value={newAssignment.estimatedEffort / 60}
+                          onChange={e =>
+                            setNewAssignment({
+                              ...newAssignment,
+                              estimatedEffort: Math.round(parseFloat(e.target.value || "0") * 60)
+                            })
+                          }
+                          className="w-full bg-black/40 border border-white/10 p-2 rounded-lg text-sm"
+                          placeholder="2"
+                        />
+                        <p className="text-xs text-zinc-600 mt-1">
+                          How long will this take? (Be realistic)
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          <Button 
-            onClick={handleSubmit} 
+          <Button
+            onClick={handleSubmit}
             disabled={!canSubmit()}
-            className={`w-full py-4 text-lg border-none relative z-10 font-bold mt-6 ${
-              canSubmit() 
-                ? 'bg-white text-black hover:bg-zinc-200' 
+            className={`w-full py-4 text-lg border-none relative z-10 font-bold mt-6 ${canSubmit()
+                ? 'bg-white text-black hover:bg-zinc-200'
                 : 'bg-zinc-700 text-zinc-500 cursor-not-allowed opacity-50'
-            }`}
+              }`}
           >
-            {(dayType === 'isa' || dayType === 'esa') && !focusSubjectId 
-              ? '⚠️ Select Focus Subject First' 
+            {(dayType === 'isa' || dayType === 'esa') && !focusSubjectId
+              ? '⚠️ Select Focus Subject First'
               : 'Initialize Systems'}
           </Button>
         </div>

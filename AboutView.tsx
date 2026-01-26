@@ -37,7 +37,7 @@ export const AboutView = () => {
             About Orbit
           </h1>
           <span className="px-3 py-1 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20 text-xs font-bold uppercase tracking-wide">
-            v3.1.1 Alpha
+            v3.2.0 Alpha
           </span>
         </div>
       </div>
