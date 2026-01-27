@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Settings, Download, Upload, Trash2, Moon, Sun,
   Bell, Database, Shield, Volume2, VolumeX,
-  Monitor, Smartphone, Save, Clock, Sunrise
+  Monitor, Smartphone, Save, Clock, Sunrise, Zap, Info
 } from 'lucide-react';
 import { db } from './db';
 import { NotificationManager } from './utils/notifications';
@@ -21,11 +21,10 @@ type AppPreferences = {
   };
 };
 
-// ⚠️ CHANGED: Notifications disabled by default
 const DEFAULT_PREFS: AppPreferences = {
   theme: 'dark',
-  soundEnabled: false, // Default off until user decides
-  dayStartHour: 4,     // 4 AM start for night owls
+  soundEnabled: false,
+  dayStartHour: 4,
   notifications: {
     sessionReminders: false,
     dailyPlanReady: false,
@@ -188,13 +187,13 @@ export const SettingsView = () => {
   // --- Components ---
 
   const SectionHeader = ({ icon: Icon, title, subtitle }: any) => (
-    <div className="flex items-center gap-3 mb-6">
-      <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-        <Icon size={20} className="text-indigo-400" />
+    <div className="flex items-center gap-4 mb-8">
+      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center border border-white/10 shadow-lg">
+        <Icon size={22} className="text-indigo-400" />
       </div>
-      <div>
-        <h3 className="text-lg font-bold text-white">{title}</h3>
-        {subtitle && <p className="text-xs text-zinc-500">{subtitle}</p>}
+      <div className="flex-1">
+        <h3 className="text-xl font-bold text-white">{title}</h3>
+        {subtitle && <p className="text-sm text-zinc-400 mt-0.5">{subtitle}</p>}
       </div>
     </div>
   );
@@ -202,182 +201,298 @@ export const SettingsView = () => {
   const Toggle = ({ label, checked, onChange, icon: Icon }: any) => (
     <button
       onClick={onChange}
-      className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-all group"
+      className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-white/5 transition-all duration-300 group min-h-[56px]"
     >
       <div className="flex items-center gap-3">
-        {Icon && <Icon size={16} className={`text-zinc-500 group-hover:text-indigo-400 transition-colors ${checked ? 'text-indigo-400' : ''}`} />}
-        <span className="text-sm text-zinc-300 font-medium">{label}</span>
+        {Icon && <Icon size={18} className={`transition-all duration-300 ${checked ? 'text-indigo-400 scale-110' : 'text-zinc-500 group-hover:text-indigo-400'}`} />}
+        <span className="text-sm font-semibold text-zinc-200 group-hover:text-white transition-colors">{label}</span>
       </div>
-      <div className={`w-11 h-6 rounded-full transition-colors relative ${checked ? 'bg-indigo-500' : 'bg-zinc-700'}`}>
-        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${checked ? 'left-6' : 'left-1'}`} />
+      <div className={`w-12 h-7 rounded-full transition-all duration-300 relative shadow-inner ${checked ? 'bg-indigo-500 shadow-indigo-500/20' : 'bg-zinc-700'}`}>
+        <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all duration-300 shadow-lg ${checked ? 'left-6' : 'left-1'}`} />
       </div>
     </button>
   );
 
   return (
-    <div className="pb-32 pt-8 px-4 max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="pb-32 pt-8 px-4 lg:px-8 max-w-6xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-      {/* Header */}
-      <div className="flex items-end justify-between border-b border-white/10 pb-6">
-        <div>
-          <div className="text-xs font-mono text-indigo-400 mb-2 uppercase tracking-widest">System Control</div>
-          <h1 className="text-4xl font-display font-bold text-white">Settings</h1>
+      {/* Header with enhanced spacing and hierarchy */}
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 border-b border-white/10 pb-8">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="text-xs font-mono text-indigo-400 uppercase tracking-[0.2em] flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
+              System Control
+            </div>
+          </div>
+          <h1 className="text-5xl md:text-6xl font-display font-bold text-white tracking-tight">
+            Settings
+          </h1>
+          <p className="text-zinc-400 text-sm max-w-md">
+            Configure your study environment, data management, and system preferences
+          </p>
         </div>
+        
         {statusMsg && (
-          <div className={`px-4 py-2 rounded-full text-xs font-bold animate-in fade-in slide-in-from-right-4 ${statusMsg.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
-            }`}>
+          <div className={`px-5 py-3 rounded-2xl text-sm font-bold animate-in fade-in slide-in-from-right-4 duration-300 shadow-lg border ${
+            statusMsg.type === 'success' 
+              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
+              : 'bg-red-500/20 text-red-300 border-red-500/30'
+          }`}>
             {statusMsg.txt}
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-        {/* 1. PROTOCOLS (New Feature: Day Start) */}
-        <div className="p-6 rounded-3xl bg-zinc-900/50 border border-white/5 backdrop-blur-xl">
-          <SectionHeader icon={Clock} title="Protocols" subtitle="Operational constraints & timing" />
+        {/* 1. PROTOCOLS - Enhanced visual design */}
+        <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 backdrop-blur-xl p-8 hover:border-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-500 hover:-translate-y-1">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          
+          <div className="relative z-10">
+            <SectionHeader icon={Clock} title="Protocols" subtitle="Timing & interface preferences" />
 
-          <div className="space-y-6">
-            <div className="bg-black/20 p-4 rounded-xl border border-white/5">
-              <div className="flex justify-between items-center mb-3">
-                <div className="flex items-center gap-2 text-zinc-300">
-                  <Sunrise size={16} className="text-amber-400" />
-                  <span className="text-sm font-bold">New Day Start</span>
+            <div className="space-y-6">
+              {/* Day Start Hour Control - Enhanced */}
+              <div className="bg-black/30 p-6 rounded-2xl border border-white/10 backdrop-blur-sm">
+                <div className="flex justify-between items-center mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
+                      <Sunrise size={20} className="text-amber-400" />
+                    </div>
+                    <div>
+                      <span className="text-base font-bold text-white block">New Day Start</span>
+                      <span className="text-xs text-zinc-500">When your study day begins</span>
+                    </div>
+                  </div>
+                  <span className="font-mono text-2xl font-bold text-indigo-300 tabular-nums">
+                    {prefs.dayStartHour.toString().padStart(2, '0')}:00
+                  </span>
                 </div>
-                <span className="font-mono text-indigo-300 text-sm">
-                  {prefs.dayStartHour.toString().padStart(2, '0')}:00
-                </span>
+
+                <input
+                  type="range" 
+                  min="0" 
+                  max="6" 
+                  step="1"
+                  value={prefs.dayStartHour}
+                  onChange={(e) => {
+                    SoundManager.playClick();
+                    setPrefs({ ...prefs, dayStartHour: parseInt(e.target.value) })
+                  }}
+                  className="w-full h-3 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500 shadow-inner"
+                />
+                
+                <div className="flex justify-between mt-3 text-xs font-mono text-zinc-600">
+                  <span>00:00</span>
+                  <span>06:00</span>
+                </div>
+                
+                <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                  <p className="text-xs text-amber-300/80 leading-relaxed flex items-start gap-2">
+                    <Info size={14} className="shrink-0 mt-0.5" />
+                    Dashboard resets at {prefs.dayStartHour}:00 instead of midnight. Perfect for night owls.
+                  </p>
+                </div>
               </div>
 
-              <input
-                type="range" min="0" max="6" step="1"
-                value={prefs.dayStartHour}
-                onChange={(e) => {
-                  SoundManager.playClick();
-                  setPrefs({ ...prefs, dayStartHour: parseInt(e.target.value) })
-                }}
-                className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
-              />
-              <p className="text-[10px] text-zinc-500 mt-2">
-                Dashboard resets at {prefs.dayStartHour}:00 instead of midnight.
-              </p>
-            </div>
+              {/* Sound Toggle - Enhanced */}
+              <div className="pt-6 border-t border-white/10">
+                <Toggle
+                  label="Interface Sounds"
+                  checked={prefs.soundEnabled}
+                  onChange={() => {
+                    setPrefs({ ...prefs, soundEnabled: !prefs.soundEnabled });
+                    if (!prefs.soundEnabled) setTimeout(() => SoundManager.playSuccess(), 100);
+                  }}
+                  icon={prefs.soundEnabled ? Volume2 : VolumeX}
+                />
+              </div>
 
-            <div className="pt-4 border-t border-white/5">
+              {/* Theme Toggle - NEW */}
+              <div className="border-t border-white/10 pt-6">
+                <Toggle
+                  label="Light Mode"
+                  checked={prefs.theme === 'light'}
+                  onChange={() => {
+                    SoundManager.playClick();
+                    setPrefs({ ...prefs, theme: prefs.theme === 'dark' ? 'light' : 'dark' });
+                  }}
+                  icon={prefs.theme === 'light' ? Sun : Moon}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. NOTIFICATIONS - Enhanced */}
+        <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 backdrop-blur-xl p-8 hover:border-purple-500/30 hover:shadow-xl hover:shadow-purple-500/5 transition-all duration-500 hover:-translate-y-1">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          
+          <div className="relative z-10">
+            <SectionHeader icon={Bell} title="Notifications" subtitle="Alert preferences (default: off)" />
+
+            <div className="space-y-2 mb-6">
               <Toggle
-                label="Interface Sounds"
-                checked={prefs.soundEnabled}
-                onChange={() => {
-                  setPrefs({ ...prefs, soundEnabled: !prefs.soundEnabled });
-                  // Play a sound immediately if enabling
-                  if (!prefs.soundEnabled) setTimeout(() => SoundManager.playSuccess(), 100);
-                }}
-                icon={prefs.soundEnabled ? Volume2 : VolumeX}
+                label="Session Reminders"
+                checked={prefs.notifications.sessionReminders}
+                onChange={() => updateNotify('sessionReminders')}
               />
+              <Toggle
+                label="Daily Plan Ready"
+                checked={prefs.notifications.dailyPlanReady}
+                onChange={() => updateNotify('dailyPlanReady')}
+              />
+              <Toggle
+                label="Assignment Alerts"
+                checked={prefs.notifications.assignmentDue}
+                onChange={() => updateNotify('assignmentDue')}
+              />
+              <Toggle
+                label="Streak Milestones"
+                checked={prefs.notifications.streakMilestones}
+                onChange={() => updateNotify('streakMilestones')}
+              />
+            </div>
+
+            <div className="p-4 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-2xl backdrop-blur-sm">
+              <div className="flex gap-3">
+                <Smartphone size={18} className="text-indigo-400 shrink-0 mt-0.5" />
+                <div className="space-y-2">
+                  <p className="text-sm text-indigo-200 font-semibold">
+                    Browser Permission Required
+                  </p>
+                  <p className="text-xs text-indigo-300/70 leading-relaxed">
+                    Enable specific alerts to receive notifications. Each toggle will request permission.
+                  </p>
+                  {Notification.permission === 'denied' && (
+                    <div className="mt-3 p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
+                      <span className="text-xs text-red-300 font-bold flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                        Blocked by browser settings
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* 2. NOTIFICATIONS */}
-        <div className="p-6 rounded-3xl bg-zinc-900/50 border border-white/5 backdrop-blur-xl">
-          <SectionHeader icon={Bell} title="Notifications" subtitle="Interrupt protocols (Default: Off)" />
+        {/* 3. DATA GOVERNANCE - Enhanced */}
+        <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 backdrop-blur-xl p-8 hover:border-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/5 transition-all duration-500 hover:-translate-y-1">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          
+          <div className="relative z-10">
+            <SectionHeader icon={Database} title="Data Governance" subtitle="Backup & storage management" />
 
-          <div className="space-y-1">
-            <Toggle
-              label="Session Reminders"
-              checked={prefs.notifications.sessionReminders}
-              onChange={() => updateNotify('sessionReminders')}
-            />
-            <Toggle
-              label="Daily Plan Ready"
-              checked={prefs.notifications.dailyPlanReady}
-              onChange={() => updateNotify('dailyPlanReady')}
-            />
-            <Toggle
-              label="Assignment Alerts"
-              checked={prefs.notifications.assignmentDue}
-              onChange={() => updateNotify('assignmentDue')}
-            />
-            <Toggle
-              label="Streak Milestones"
-              checked={prefs.notifications.streakMilestones}
-              onChange={() => updateNotify('streakMilestones')}
-            />
-          </div>
+            <div className="space-y-6">
+              {/* Storage Usage - Enhanced */}
+              {storageUsage && (
+                <div className="bg-black/30 p-6 rounded-2xl border border-white/10">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-sm font-semibold text-zinc-300">Database Size</span>
+                    <span className="font-mono text-sm text-zinc-400 font-bold tabular-nums">
+                      {formatBytes(storageUsage.used)} / {formatBytes(storageUsage.quota)}
+                    </span>
+                  </div>
+                  <div className="w-full h-3 bg-zinc-800 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full transition-all duration-1000 shadow-lg"
+                      style={{ width: `${Math.min((storageUsage.used / storageUsage.quota) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <div className="mt-3 flex justify-between text-xs text-zinc-600">
+                    <span>0%</span>
+                    <span>{Math.round((storageUsage.used / storageUsage.quota) * 100)}% used</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+              )}
 
-          <div className="mt-6 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex gap-3">
-            <Smartphone size={16} className="text-indigo-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-indigo-300/80 leading-relaxed">
-              Enable specifically to receive alerts.
-              {Notification.permission === 'denied' && <span className="text-red-400 block mt-1 font-bold">⚠️ Blocked by browser settings.</span>}
-            </p>
+              {/* Action Buttons - Enhanced */}
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={exportData} 
+                  className="group/btn flex flex-col items-center justify-center p-6 bg-gradient-to-br from-indigo-500/20 to-indigo-500/10 hover:from-indigo-500/30 hover:to-indigo-500/20 border border-indigo-500/30 hover:border-indigo-500/50 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-500/20 active:scale-95 min-h-[120px]"
+                >
+                  <Download size={28} className="text-indigo-400 mb-3 group-hover/btn:scale-110 transition-transform duration-300" />
+                  <span className="text-sm font-bold text-white">Backup</span>
+                  <span className="text-xs text-zinc-400 mt-1">Export all data</span>
+                </button>
+
+                <label className="group/btn flex flex-col items-center justify-center p-6 bg-gradient-to-br from-emerald-500/20 to-emerald-500/10 hover:from-emerald-500/30 hover:to-emerald-500/20 border border-emerald-500/30 hover:border-emerald-500/50 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-emerald-500/20 cursor-pointer active:scale-95 min-h-[120px]">
+                  <Upload size={28} className="text-emerald-400 mb-3 group-hover/btn:scale-110 transition-transform duration-300" />
+                  <span className="text-sm font-bold text-white">Restore</span>
+                  <span className="text-xs text-zinc-400 mt-1">Import backup</span>
+                  <input type="file" accept=".json" onChange={importData} className="hidden" />
+                </label>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* 3. DATA GOVERNANCE */}
-        <div className="p-6 rounded-3xl bg-zinc-900/50 border border-white/5 backdrop-blur-xl">
-          <SectionHeader icon={Database} title="Data Governance" subtitle="Local storage management" />
+        {/* 4. DANGER ZONE - Enhanced */}
+        <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-500/10 to-red-500/5 border border-red-500/30 backdrop-blur-xl p-8 hover:border-red-500/50 hover:shadow-xl hover:shadow-red-500/10 transition-all duration-500 hover:-translate-y-1">
+          <div className="absolute inset-0 bg-gradient-to-br from-red-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          
+          <div className="relative z-10">
+            <SectionHeader icon={Shield} title="Danger Zone" subtitle="Irreversible actions" />
 
-          <div className="space-y-4">
-            {storageUsage && (
-              <div className="bg-black/20 p-4 rounded-xl border border-white/5">
-                <div className="flex justify-between text-xs mb-2">
-                  <span className="text-zinc-400">Database Size</span>
-                  <span className="font-mono text-zinc-300">{formatBytes(storageUsage.used)} / {formatBytes(storageUsage.quota)}</span>
-                </div>
-                <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-500 rounded-full"
-                    style={{ width: `${Math.min((storageUsage.used / storageUsage.quota) * 100, 100)}%` }}
-                  />
-                </div>
+            <div className="space-y-6">
+              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                <p className="text-sm text-red-200 leading-relaxed font-semibold mb-2">
+                  ⚠️ Warning: Permanent Action
+                </p>
+                <p className="text-xs text-red-300/70 leading-relaxed">
+                  Resetting will permanently erase all local data, including study logs, schedules, subjects, and settings. This action cannot be undone.
+                </p>
               </div>
-            )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <button onClick={exportData} className="flex flex-col items-center justify-center p-4 bg-zinc-800/50 hover:bg-zinc-800 border border-white/5 hover:border-white/10 rounded-xl transition-all">
-                <Download size={20} className="text-indigo-400 mb-2" />
-                <span className="text-xs font-bold text-zinc-300">Backup</span>
+              <button
+                onClick={resetAllData}
+                className={`w-full p-5 rounded-2xl font-bold transition-all duration-300 border-2 flex items-center justify-center gap-3 min-h-[64px] ${
+                  confirmReset
+                    ? 'bg-red-500 text-white border-red-500 animate-pulse shadow-xl shadow-red-500/30 scale-105'
+                    : 'bg-transparent text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50 hover:scale-[1.02] active:scale-95'
+                }`}
+              >
+                <Trash2 size={20} className={confirmReset ? 'animate-bounce' : ''} />
+                <span className="text-base">
+                  {confirmReset ? 'CONFIRM FACTORY RESET' : 'Factory Reset'}
+                </span>
               </button>
 
-              <label className="flex flex-col items-center justify-center p-4 bg-zinc-800/50 hover:bg-zinc-800 border border-white/5 hover:border-white/10 rounded-xl transition-all cursor-pointer">
-                <Upload size={20} className="text-emerald-400 mb-2" />
-                <span className="text-xs font-bold text-zinc-300">Restore</span>
-                <input type="file" accept=".json" onChange={importData} className="hidden" />
-              </label>
+              {confirmReset && (
+                <p className="text-xs text-red-300 text-center animate-in fade-in slide-in-from-bottom-2">
+                  Click again within 5 seconds to confirm
+                </p>
+              )}
             </div>
-          </div>
-        </div>
-
-        {/* 4. DANGER ZONE */}
-        <div className="p-6 rounded-3xl bg-red-900/5 border border-red-500/10 backdrop-blur-xl">
-          <SectionHeader icon={Shield} title="Danger Zone" subtitle="Irreversible actions" />
-
-          <div className="space-y-4">
-            <div className="text-sm text-zinc-500">
-              Resetting will wipe all local data, including logs, schedule, and settings.
-            </div>
-
-            <button
-              onClick={resetAllData}
-              className={`w-full p-4 rounded-xl font-bold transition-all border flex items-center justify-center gap-2 ${confirmReset
-                  ? 'bg-red-500 text-white border-red-500 animate-pulse'
-                  : 'bg-transparent text-red-400 border-red-900/30 hover:bg-red-950'
-                }`}
-            >
-              <Trash2 size={18} />
-              {confirmReset ? 'CONFIRM FACTORY RESET' : 'Factory Reset'}
-            </button>
           </div>
         </div>
 
       </div>
 
-      {/* Footer Info */}
-      <div className="text-center pt-8 pb-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/5 text-[10px] text-zinc-500 font-mono">
-          <Monitor size={12} />
-          <span>ORBIT v3.1.1 // LOCAL_FIRST_ARCH</span>
+      {/* Footer - Enhanced */}
+      <div className="pt-12 pb-8">
+        <div className="flex flex-col md:flex-row items-center justify-center gap-6">
+          <div className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+            <Monitor size={16} className="text-zinc-500" />
+            <span className="text-xs text-zinc-400 font-mono tracking-wider">
+              ORBIT v3.2.0
+            </span>
+            <div className="w-px h-4 bg-white/10"></div>
+            <span className="text-xs text-zinc-500 font-mono">
+              LOCAL_FIRST_ARCH
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-zinc-500">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+            <span>All data stored locally on your device</span>
+          </div>
         </div>
       </div>
     </div>

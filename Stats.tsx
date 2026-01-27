@@ -8,10 +8,7 @@ import {
 import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
 import { EmptyStats } from './EmptyStates';
-
-// --- ADD TOAST IMPORT HERE ---
 import { useToast } from "./Toast";
-// ---
 
 export const StatsView = ({
   logs,
@@ -22,10 +19,7 @@ export const StatsView = ({
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [selectedSubjectNotes, setSelectedSubjectNotes] = useState<StudyLog[]>([]);
 
-  // --- Add toast hook here ---
   const toast = useToast();
-  // ---
-
   const projects = useLiveQuery(() => db.projects.toArray()) || [];
 
   // --- Upcoming Reviews Query ---
@@ -37,13 +31,11 @@ export const StatsView = ({
   sevenDaysLater.setDate(today.getDate() + 7);
   const sevenDaysLaterStr = sevenDaysLater.toISOString().split("T")[0];
 
-  // ADD SUBJECT NAME JOIN TO UPCOMING REVIEWS
   const upcomingReviews = useLiveQuery(async () => {
     const topics = await db.topics
       .where('nextReview')
       .between(todayStr, sevenDaysLaterStr)
       .toArray();
-    // Join with subjects for subject name
     const withSubjects = await Promise.all(
       topics.map(async topic => {
         const subject = await db.subjects.get(topic.subjectId);
@@ -71,64 +63,70 @@ export const StatsView = ({
   // Early return for no data
   if (filteredLogs.length === 0) {
     return (
-      <div className="pb-24 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto">
-        <div className="flex justify-between items-end mb-6">
-          <div className="flex flex-col gap-2">
-            <div className="text-sm text-zinc-500 font-mono uppercase tracking-wider">
+      <div className="pb-32 pt-8 px-4 lg:px-10 w-full max-w-[1400px] mx-auto">
+        <div className="flex justify-between items-end mb-10">
+          <div className="flex flex-col gap-3">
+            <div className="text-sm text-indigo-400/60 font-mono uppercase tracking-[0.2em]">
               {new Date().toLocaleDateString("en-US", {
                 weekday: "long",
                 month: "short",
                 day: "numeric",
               })}
             </div>
-            <h1 className="text-3xl md:text-4xl font-display font-bold">Performance Analytics</h1>
+            <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight">Performance Analytics</h1>
           </div>
         </div>
 
-        {/* Time Range Selector (still visible) */}
-        <div className="flex gap-2 mb-8">
+        {/* Time Range Selector */}
+        <div className="flex gap-3 mb-10">
           {(['week', '10days', 'month'] as const).map(range => (
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${timeRange === range
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-                : 'bg-zinc-900 text-zinc-500 hover:text-white hover:bg-zinc-800 border border-zinc-800'
-                }`}
+              className={`px-6 py-4 rounded-2xl text-sm font-bold uppercase tracking-wider transition-all duration-300 min-h-[64px] ${
+                timeRange === range
+                  ? 'bg-indigo-600 text-white shadow-2xl shadow-indigo-500/30 scale-105'
+                  : 'bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 hover:scale-105'
+              }`}
             >
               {range === '10days' ? '10 Days' : range}
             </button>
           ))}
         </div>
 
-        {/* Improved Upcoming Reviews */}
-        <div className="space-y-2 mb-8">
-          <h3 className="font-bold flex items-center gap-2">
-            <Brain size={18} className="text-purple-400" />
-            Upcoming Reviews
+        {/* Upcoming Reviews */}
+        <div className="space-y-4 mb-10">
+          <h3 className="text-xl font-bold flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
+              <Brain size={24} className="text-purple-400" />
+            </div>
+            <span>Upcoming Reviews</span>
           </h3>
           {upcomingReviews.length === 0 ? (
-            <div className="text-xs text-zinc-500">No upcoming reviews in next 7 days.</div>
+            <div className="text-sm text-zinc-500 p-8 bg-zinc-900/30 rounded-3xl border border-zinc-800 text-center">
+              No upcoming reviews in next 7 days.
+            </div>
           ) : (
-            upcomingReviews.map(topic => (
-              <div key={topic.id} className="flex justify-between p-3 bg-zinc-900 rounded-xl hover:bg-zinc-800 transition-all">
-                <div>
-                  <span className="font-bold text-white">{topic.subjectName}</span>
-                  <span className="text-zinc-500 text-xs ml-2">{topic.name}</span>
+            <div className="space-y-3">
+              {upcomingReviews.map(topic => (
+                <div key={topic.id} className="flex justify-between items-center p-6 bg-zinc-900/50 rounded-3xl border border-zinc-800 hover:bg-zinc-800/50 hover:border-zinc-700 transition-all duration-300 hover:-translate-y-1 min-h-[80px]">
+                  <div className="flex-1">
+                    <div className="font-bold text-white text-lg mb-1">{topic.subjectName}</div>
+                    <div className="text-sm text-zinc-400">{topic.name}</div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-zinc-500 font-mono">{topic.nextReview}</span>
+                    <span className="text-sm px-4 py-2 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
+                      Review #{topic.reviewCount}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-zinc-500">{topic.nextReview}</span>
-                  <span className="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-400">
-                    Review #{topic.reviewCount}
-                  </span>
-                </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
 
         <EmptyStats onStartStudying={() => {
-          // Navigate to dashboard via custom event
           window.dispatchEvent(new CustomEvent('navigate-to-dashboard'));
         }} />
       </div>
@@ -228,9 +226,6 @@ export const StatsView = ({
     recovery: filteredLogs.filter(l => l.type === 'recovery').reduce((a, b) => a + b.duration, 0),
   };
 
-  // --- Example to show toasts on actions ---
-  // e.g., when a user exports CSV, show success toast, or error on fail
-
   const viewSubjectNotes = (subjectId: number) => {
     const subjectLogs = logs
       .filter(l => l.subjectId === subjectId && l.notes && l.notes.trim().length > 0)
@@ -238,7 +233,6 @@ export const StatsView = ({
 
     setSelectedSubjectNotes(subjectLogs);
     setShowNotesModal(true);
-    // Show info toast
     const subject = subjects.find(s => s.id === subjectId);
     toast.info(`Viewing notes for ${subject?.name || 'subject'}`);
   };
@@ -267,10 +261,8 @@ export const StatsView = ({
       link.click();
       URL.revokeObjectURL(url);
 
-      // ✨ Show success toast on export
       toast.success('Exported as CSV');
     } catch (err) {
-      // ✨ Error toast
       toast.error('Export failed. Please try again.');
     }
   };
@@ -290,130 +282,144 @@ export const StatsView = ({
   };
 
   return (
-    <div className="pb-24 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-6 animate-fade-in">
-      <div className="flex justify-between items-end">
-        <div className="flex flex-col gap-2">
-          <div className="text-sm text-zinc-500 font-mono uppercase tracking-wider">
+    <div className="pb-32 pt-8 px-4 lg:px-10 w-full max-w-[1400px] mx-auto space-y-10 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6">
+        <div className="flex flex-col gap-3">
+          <div className="text-sm text-indigo-400/60 font-mono uppercase tracking-[0.2em]">
             {new Date().toLocaleDateString("en-US", {
               weekday: "long",
               month: "short",
               day: "numeric",
             })}
           </div>
-          <h1 className="text-3xl md:text-4xl font-display font-bold">Performance Analytics</h1>
+          <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight">Performance Analytics</h1>
         </div>
         <button
           onClick={exportDetailedStats}
-          className="hidden md:flex items-center gap-2 px-4 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-xl transition-all text-sm font-bold"
+          className="hidden md:flex items-center gap-3 px-6 py-4 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-2xl transition-all duration-300 text-sm font-bold border border-indigo-500/20 hover:border-indigo-500/40 hover:scale-105 active:scale-95 min-h-[64px]"
         >
-          <Download size={16} />
-          Export CSV
+          <Download size={20} />
+          <span>Export CSV</span>
         </button>
       </div>
 
-      {/* Improved Upcoming Reviews */}
-      <div className="space-y-2">
-        <h3 className="font-bold flex items-center gap-2">
-          <Brain size={18} className="text-purple-400" />
-          Upcoming Reviews
+      {/* Upcoming Reviews */}
+      <div className="space-y-4">
+        <h3 className="text-xl font-bold flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
+            <Brain size={24} className="text-purple-400" />
+          </div>
+          <span>Upcoming Reviews</span>
         </h3>
         {upcomingReviews.length === 0 ? (
-          <div className="text-xs text-zinc-500">No upcoming reviews in next 7 days.</div>
+          <div className="text-sm text-zinc-500 p-8 bg-zinc-900/30 rounded-3xl border border-zinc-800 text-center">
+            No upcoming reviews in next 7 days.
+          </div>
         ) : (
-          upcomingReviews.map(topic => (
-            <div key={topic.id} className="flex justify-between p-3 bg-zinc-900 rounded-xl hover:bg-zinc-800 transition-all">
-              <div>
-                <span className="font-bold text-white">{topic.subjectName}</span>
-                <span className="text-zinc-500 text-xs ml-2">{topic.name}</span>
+          <div className="space-y-3">
+            {upcomingReviews.map(topic => (
+              <div key={topic.id} className="flex justify-between items-center p-6 bg-zinc-900/50 rounded-3xl border border-zinc-800 hover:bg-zinc-800/50 hover:border-zinc-700 transition-all duration-300 hover:-translate-y-1 min-h-[80px]">
+                <div className="flex-1">
+                  <div className="font-bold text-white text-lg mb-1">{topic.subjectName}</div>
+                  <div className="text-sm text-zinc-400">{topic.name}</div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-zinc-500 font-mono">{topic.nextReview}</span>
+                  <span className="text-sm px-4 py-2 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
+                    Review #{topic.reviewCount}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500">{topic.nextReview}</span>
-                <span className="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-400">
-                  Review #{topic.reviewCount}
-                </span>
-              </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
 
-      <div className="flex gap-2">
+      {/* Time Range Selector */}
+      <div className="flex gap-3">
         {(['week', '10days', 'month'] as const).map(range => (
           <button
             key={range}
             onClick={() => setTimeRange(range)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${timeRange === range
-              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-              : 'bg-zinc-900 text-zinc-500 hover:text-white hover:bg-zinc-800 border border-zinc-800'
-              }`}
+            className={`px-6 py-4 rounded-2xl text-sm font-bold uppercase tracking-wider transition-all duration-300 min-h-[64px] ${
+              timeRange === range
+                ? 'bg-indigo-600 text-white shadow-2xl shadow-indigo-500/30 scale-105'
+                : 'bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 hover:scale-105'
+            }`}
           >
             {range === '10days' ? '10 Days' : range}
           </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] to-transparent"></div>
-          <div className="relative z-10">
-            <Clock className="text-indigo-400 mb-3 group-hover:scale-110 transition-transform" size={20} />
-            <div className="text-3xl font-mono font-bold mb-1 group-hover:text-indigo-100 transition-colors">{totalHours}h</div>
-            <div className="text-xs text-zinc-500 uppercase tracking-wider">Total Study Time</div>
+      {/* Core Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 hover:border-indigo-500/40 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.08] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <div className="relative z-10 flex-1 flex flex-col">
+            <Clock className="text-indigo-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
+            <div className="text-5xl font-mono font-bold mb-2 tabular-nums group-hover:text-indigo-100 transition-colors">{totalHours}h</div>
+            <div className="text-sm text-zinc-500 uppercase tracking-[0.15em] font-semibold">Total Study Time</div>
             {trend !== 0 && (
-              <div className={`flex items-center gap-1 mt-2 text-xs font-bold ${trend > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {trend > 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+              <div className={`flex items-center gap-2 mt-4 text-sm font-bold ${trend > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {trend > 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                 <span>{Math.abs(trend)}%</span>
               </div>
             )}
           </div>
         </div>
 
-        <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.05] to-transparent"></div>
-          <div className="relative z-10">
-            <Check className="text-emerald-400 mb-3 group-hover:scale-110 transition-transform" size={20} />
-            <div className="text-3xl font-mono font-bold mb-1 group-hover:text-emerald-100 transition-colors">{totalSessions}</div>
-            <div className="text-xs text-zinc-500 uppercase tracking-wider">Sessions</div>
+        <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 hover:border-emerald-500/40 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.08] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <div className="relative z-10 flex-1 flex flex-col">
+            <Check className="text-emerald-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
+            <div className="text-5xl font-mono font-bold mb-2 tabular-nums group-hover:text-emerald-100 transition-colors">{totalSessions}</div>
+            <div className="text-sm text-zinc-500 uppercase tracking-[0.15em] font-semibold">Sessions</div>
           </div>
         </div>
 
-        <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-cyan-500/30 hover:shadow-lg hover:shadow-cyan-500/5 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.05] to-transparent"></div>
-          <div className="relative z-10">
-            <Target className="text-cyan-400 mb-3 group-hover:scale-110 transition-transform" size={20} />
-            <div className="text-3xl font-mono font-bold mb-1 group-hover:text-cyan-100 transition-colors">{avgSessionMinutes}m</div>
-            <div className="text-xs text-zinc-500 uppercase tracking-wider">Avg Session</div>
+        <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 hover:border-cyan-500/40 hover:shadow-2xl hover:shadow-cyan-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col">
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.08] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <div className="relative z-10 flex-1 flex flex-col">
+            <Target className="text-cyan-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
+            <div className="text-5xl font-mono font-bold mb-2 tabular-nums group-hover:text-cyan-100 transition-colors">{avgSessionMinutes}m</div>
+            <div className="text-sm text-zinc-500 uppercase tracking-[0.15em] font-semibold">Avg Session</div>
           </div>
         </div>
 
-        <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-purple-500/30 hover:shadow-lg hover:shadow-purple-500/5 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.05] to-transparent"></div>
-          <div className="relative z-10">
-            <Calendar className="text-purple-400 mb-3 group-hover:scale-110 transition-transform" size={20} />
-            <div className="text-3xl font-mono font-bold mb-1 group-hover:text-purple-100 transition-colors">{avgDailyHours}h</div>
-            <div className="text-xs text-zinc-500 uppercase tracking-wider">Daily Average</div>
+        <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 hover:border-purple-500/40 hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.08] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <div className="relative z-10 flex-1 flex flex-col">
+            <Calendar className="text-purple-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
+            <div className="text-5xl font-mono font-bold mb-2 tabular-nums group-hover:text-purple-100 transition-colors">{avgDailyHours}h</div>
+            <div className="text-sm text-zinc-500 uppercase tracking-[0.15em] font-semibold">Daily Average</div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-6 hover:border-indigo-500/20 transition-all duration-300 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
+      {/* Focus Scores & Activity Mix */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Subject Focus Scores */}
+        <div className="lg:col-span-2 group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 hover:border-indigo-500/30 transition-all duration-500 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           <div className="relative z-10">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider group-hover:text-indigo-300 transition-colors flex items-center gap-2">
-                <Brain size={16} className="text-indigo-400" />
-                Subject Focus Scores
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-lg font-bold text-zinc-300 uppercase tracking-[0.15em] group-hover:text-indigo-200 transition-colors flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center">
+                  <Brain size={24} className="text-indigo-400" />
+                </div>
+                <span>Subject Focus Scores</span>
               </h3>
               {topSubject && (
-                <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                  <Trophy size={14} className="text-emerald-400" />
-                  <span className="text-xs font-bold text-emerald-300">{topSubject.code}</span>
+                <div className="flex items-center gap-3 px-5 py-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/30 min-h-[56px]">
+                  <Trophy size={20} className="text-emerald-400" />
+                  <span className="text-sm font-bold text-emerald-300">{topSubject.code}</span>
                 </div>
               )}
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-5">
               {subjectStats.map((stat, index) => {
                 const scoreColor = getFocusScoreColor(stat.focusScore);
                 const scoreLabel = getFocusScoreLabel(stat.focusScore);
@@ -422,22 +428,22 @@ export const StatsView = ({
                   <div
                     key={stat.id}
                     onClick={() => setSelectedSubject(selectedSubject === stat.id ? null : stat.id!)}
-                    className="group/item hover:translate-x-1 transition-all cursor-pointer"
-                    style={{ transitionDelay: `${index * 30}ms` }}
+                    className="group/item hover:translate-x-2 transition-all duration-300 cursor-pointer"
+                    style={{ animationDelay: `${index * 30}ms` }}
                   >
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-16 h-16 rounded-xl ${scoreColor.replace('text-', 'bg-')}/20 flex items-center justify-center border ${scoreColor.replace('text-', 'border-')}/30`}>
-                          <span className={`text-2xl font-bold font-mono ${scoreColor}`}>
+                    <div className="flex justify-between items-center mb-3 p-5 bg-zinc-900/40 rounded-2xl border border-zinc-800 hover:bg-zinc-800/60 hover:border-zinc-700 transition-all duration-300 min-h-[100px]">
+                      <div className="flex items-center gap-5">
+                        <div className={`w-20 h-20 rounded-2xl ${scoreColor.replace('text-', 'bg-')}/20 flex items-center justify-center border-2 ${scoreColor.replace('text-', 'border-')}/40 transition-all duration-300 group-hover/item:scale-110`}>
+                          <span className={`text-3xl font-bold font-mono tabular-nums ${scoreColor}`}>
                             {stat.focusScore}
                           </span>
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-zinc-300 group-hover/item:text-white transition-colors font-bold">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="text-zinc-200 group-hover/item:text-white transition-colors font-bold text-lg">
                               {stat.code}
                             </span>
-                            <span className={`text-xs px-2 py-0.5 rounded ${scoreColor.replace('text-', 'bg-')}/20 ${scoreColor} font-bold`}>
+                            <span className={`text-sm px-3 py-1.5 rounded-xl ${scoreColor.replace('text-', 'bg-')}/20 ${scoreColor} font-bold border ${scoreColor.replace('text-', 'border-')}/30`}>
                               {scoreLabel}
                             </span>
                             {stat.notesCount > 0 && (
@@ -446,21 +452,21 @@ export const StatsView = ({
                                   e.stopPropagation();
                                   viewSubjectNotes(stat.id!);
                                 }}
-                                className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all text-xs font-bold"
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all text-sm font-bold border border-amber-500/30 min-h-[44px] min-w-[44px]"
                               >
-                                <FileText size={12} />
-                                {stat.notesCount}
+                                <FileText size={16} />
+                                <span>{stat.notesCount}</span>
                               </button>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-zinc-500 mt-1">
-                            <span>{stat.sessions} sessions</span>
+                          <div className="flex items-center gap-4 text-sm text-zinc-500">
+                            <span className="font-medium">{stat.sessions} sessions</span>
                             <span>•</span>
-                            <span>{(stat.mins / 60).toFixed(1)}h total</span>
+                            <span className="font-medium">{(stat.mins / 60).toFixed(1)}h total</span>
                             {stat.trend !== 0 && (
                               <>
                                 <span>•</span>
-                                <span className={stat.trend > 0 ? 'text-emerald-400' : 'text-red-400'}>
+                                <span className={`font-bold ${stat.trend > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                   {stat.trend > 0 ? '+' : ''}{stat.trend}%
                                 </span>
                               </>
@@ -469,37 +475,38 @@ export const StatsView = ({
                         </div>
                       </div>
                       <ChevronRight
-                        size={16}
-                        className={`text-zinc-600 group-hover/item:text-indigo-400 transition-all ${selectedSubject === stat.id ? 'rotate-90' : ''
-                          }`}
+                        size={24}
+                        className={`text-zinc-600 group-hover/item:text-indigo-400 transition-all duration-300 ${
+                          selectedSubject === stat.id ? 'rotate-90' : ''
+                        }`}
                       />
                     </div>
 
                     {selectedSubject === stat.id && (
-                      <div className="mt-3 p-4 bg-zinc-900/60 rounded-xl border border-zinc-800 animate-fade-in">
-                        <div className="grid grid-cols-3 gap-4 text-center">
-                          <div>
-                            <div className="text-xs text-zinc-500 mb-1">Consistency</div>
-                            <div className="text-lg font-bold text-white">
+                      <div className="mt-4 p-8 bg-zinc-900/60 rounded-3xl border border-zinc-700 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="grid grid-cols-3 gap-6 text-center">
+                          <div className="p-5 bg-zinc-800/50 rounded-2xl border border-zinc-700">
+                            <div className="text-sm text-zinc-400 mb-2 uppercase tracking-wider font-semibold">Consistency</div>
+                            <div className="text-3xl font-bold text-white tabular-nums">
                               {Math.round((new Set(filteredLogs.filter(l => l.subjectId === stat.id).map(l => l.date)).size / daysInRange) * 100)}%
                             </div>
                           </div>
-                          <div>
-                            <div className="text-xs text-zinc-500 mb-1">Avg Session</div>
-                            <div className="text-lg font-bold text-white">
+                          <div className="p-5 bg-zinc-800/50 rounded-2xl border border-zinc-700">
+                            <div className="text-sm text-zinc-400 mb-2 uppercase tracking-wider font-semibold">Avg Session</div>
+                            <div className="text-3xl font-bold text-white tabular-nums">
                               {Math.round(stat.mins / stat.sessions)}m
                             </div>
                           </div>
-                          <div>
-                            <div className="text-xs text-zinc-500 mb-1">Last Studied</div>
-                            <div className="text-lg font-bold text-white">
+                          <div className="p-5 bg-zinc-800/50 rounded-2xl border border-zinc-700">
+                            <div className="text-sm text-zinc-400 mb-2 uppercase tracking-wider font-semibold">Last Studied</div>
+                            <div className="text-3xl font-bold text-white">
                               {(() => {
                                 const last = filteredLogs
                                   .filter(l => l.subjectId === stat.id)
                                   .sort((a, b) => b.timestamp - a.timestamp)[0];
                                 if (!last) return 'N/A';
                                 const days = Math.floor((Date.now() - last.timestamp) / 86400000);
-                                return days === 0 ? 'Today' : `${days}d ago`;
+                                return days === 0 ? 'Today' : `${days}d`;
                               })()}
                             </div>
                           </div>
@@ -513,15 +520,18 @@ export const StatsView = ({
           </div>
         </div>
 
-        <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-6 hover:border-purple-500/20 transition-all duration-300 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
+        {/* Activity Mix */}
+        <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 hover:border-purple-500/30 transition-all duration-500 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           <div className="relative z-10">
-            <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider group-hover:text-purple-300 transition-colors mb-6 flex items-center gap-2">
-              <Zap size={16} className="text-purple-400" />
-              Activity Mix
+            <h3 className="text-lg font-bold text-zinc-300 uppercase tracking-[0.15em] group-hover:text-purple-200 transition-colors mb-8 flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
+                <Zap size={24} className="text-purple-400" />
+              </div>
+              <span>Activity Mix</span>
             </h3>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               {Object.entries(typeBreakdown)
                 .filter(([_, mins]) => mins > 0)
                 .sort(([_, a], [__, b]) => b - a)
@@ -536,18 +546,18 @@ export const StatsView = ({
                   };
 
                   return (
-                    <div key={type} className="group/item hover:translate-x-1 transition-all">
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-zinc-300 group-hover/item:text-white transition-colors font-medium capitalize">
+                    <div key={type} className="group/item hover:translate-x-1 transition-all duration-300">
+                      <div className="flex justify-between text-base mb-3">
+                        <span className="text-zinc-300 group-hover/item:text-white transition-colors font-semibold capitalize">
                           {type}
                         </span>
-                        <span className="font-mono text-zinc-400 group-hover/item:text-purple-300 transition-colors">
+                        <span className="font-mono text-zinc-400 group-hover/item:text-purple-300 transition-colors font-bold tabular-nums">
                           {(mins / 60).toFixed(1)}h
                         </span>
                       </div>
-                      <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden">
+                      <div className="w-full bg-zinc-800 h-4 rounded-full overflow-hidden shadow-inner">
                         <div
-                          className={`bg-gradient-to-r ${colors[type as keyof typeof colors]} h-full rounded-full transition-all duration-500`}
+                          className={`bg-gradient-to-r ${colors[type as keyof typeof colors]} h-full rounded-full transition-all duration-700 shadow-lg`}
                           style={{
                             width: `${percent}%`,
                             transitionDelay: `${index * 50}ms`
@@ -560,104 +570,114 @@ export const StatsView = ({
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="lg:col-span-3 group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-6 hover:border-indigo-500/20 transition-all duration-300 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent"></div>
-          <div className="relative z-10">
-            <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider group-hover:text-indigo-300 transition-colors mb-6 flex items-center gap-2">
-              <Calendar size={16} className="text-indigo-400" />
-              30-Day Activity Heatmap
-            </h3>
+      {/* Heatmap */}
+      <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 hover:border-indigo-500/30 transition-all duration-500 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <div className="relative z-10">
+          <h3 className="text-lg font-bold text-zinc-300 uppercase tracking-[0.15em] group-hover:text-indigo-200 transition-colors mb-8 flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center">
+              <Calendar size={24} className="text-indigo-400" />
+            </div>
+            <span>30-Day Activity Heatmap</span>
+          </h3>
 
-            <div className="flex flex-wrap gap-1.5">
-              {heatmapData.map((intensity, i) => {
-                const date = new Date();
-                date.setDate(date.getDate() - (29 - i));
-                const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          <div className="flex flex-wrap gap-2">
+            {heatmapData.map((intensity, i) => {
+              const date = new Date();
+              date.setDate(date.getDate() - (29 - i));
+              const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-                return (
-                  <div
-                    key={i}
-                    className={`w-8 h-8 rounded-md transition-all duration-200 hover:scale-125 hover:z-10 cursor-pointer ${intensity === 0
-                      ? "bg-zinc-900 border border-zinc-800 hover:border-zinc-700"
+              return (
+                <div
+                  key={i}
+                  className={`w-10 h-10 rounded-xl transition-all duration-300 hover:scale-125 hover:z-10 cursor-pointer ${
+                    intensity === 0
+                      ? "bg-zinc-900 border-2 border-zinc-800 hover:border-zinc-700"
                       : intensity === 1
-                        ? "bg-indigo-900/60 border border-indigo-900 hover:border-indigo-700"
+                        ? "bg-indigo-900/60 border-2 border-indigo-800 hover:border-indigo-600 shadow-lg shadow-indigo-900/20"
                         : intensity === 2
-                          ? "bg-indigo-600 border border-indigo-500 hover:border-indigo-400"
-                          : "bg-indigo-400 border border-indigo-300 shadow-[0_0_10px_rgba(129,140,248,0.4)] hover:shadow-[0_0_15px_rgba(129,140,248,0.6)]"
-                      }`}
-                    title={dateStr}
-                  />
-                );
-              })}
-            </div>
+                          ? "bg-indigo-600 border-2 border-indigo-500 hover:border-indigo-400 shadow-lg shadow-indigo-600/30"
+                          : "bg-indigo-400 border-2 border-indigo-300 shadow-[0_0_15px_rgba(129,140,248,0.5)] hover:shadow-[0_0_25px_rgba(129,140,248,0.7)]"
+                  }`}
+                  title={dateStr}
+                />
+              );
+            })}
+          </div>
 
-            <div className="flex items-center justify-between mt-4 text-xs text-zinc-500">
-              <span>Less</span>
-              <div className="flex gap-1">
-                <div className="w-4 h-4 bg-zinc-900 border border-zinc-800 rounded"></div>
-                <div className="w-4 h-4 bg-indigo-900/60 border border-indigo-900 rounded"></div>
-                <div className="w-4 h-4 bg-indigo-600 border border-indigo-500 rounded"></div>
-                <div className="w-4 h-4 bg-indigo-400 border border-indigo-300 rounded"></div>
-              </div>
-              <span>More</span>
+          <div className="flex items-center justify-between mt-6 text-sm text-zinc-500">
+            <span className="font-semibold">Less</span>
+            <div className="flex gap-2">
+              <div className="w-6 h-6 bg-zinc-900 border-2 border-zinc-800 rounded-lg"></div>
+              <div className="w-6 h-6 bg-indigo-900/60 border-2 border-indigo-800 rounded-lg"></div>
+              <div className="w-6 h-6 bg-indigo-600 border-2 border-indigo-500 rounded-lg"></div>
+              <div className="w-6 h-6 bg-indigo-400 border-2 border-indigo-300 rounded-lg"></div>
             </div>
+            <span className="font-semibold">More</span>
           </div>
         </div>
       </div>
 
+      {/* Notes Modal */}
       {showNotesModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="w-full max-w-4xl max-h-[80vh] bg-zinc-900 border border-white/10 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
-            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-zinc-900/50">
-              <div className="flex items-center gap-3">
-                <StickyNote size={20} className="text-amber-400" />
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="w-full max-w-5xl max-h-[85vh] bg-zinc-900 border border-white/10 rounded-[3rem] overflow-hidden flex flex-col shadow-2xl">
+            {/* Header */}
+            <div className="px-10 py-8 border-b border-white/10 flex items-center justify-between bg-zinc-900/80 backdrop-blur-xl">
+              <div className="flex items-center gap-5">
+                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+                  <StickyNote size={28} className="text-amber-400" />
+                </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Session Notes</h3>
-                  <p className="text-xs text-zinc-500">
+                  <h3 className="text-2xl font-bold text-white mb-1">Session Notes</h3>
+                  <p className="text-sm text-zinc-400">
                     {subjects.find(s => s.id === selectedSubjectNotes[0]?.subjectId)?.name || 'Unknown'}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowNotesModal(false)}
-                className="p-2 hover:bg-white/10 rounded-xl transition-all"
+                className="p-4 hover:bg-white/10 rounded-2xl transition-all duration-300 hover:scale-110 active:scale-95 min-h-[64px] min-w-[64px] flex items-center justify-center"
               >
-                <X size={20} className="text-zinc-400 hover:text-white" />
+                <X size={24} className="text-zinc-400 hover:text-white" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-10 space-y-5">
               {selectedSubjectNotes.map((log) => (
                 <div
                   key={log.id}
-                  className="p-4 bg-zinc-800/50 rounded-xl border border-zinc-700 hover:border-zinc-600 transition-all"
+                  className="p-8 bg-zinc-800/50 rounded-3xl border border-zinc-700 hover:border-zinc-600 transition-all duration-300 hover:-translate-y-1"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3 text-xs text-zinc-400">
-                      <span className="font-mono">{log.date}</span>
-                      <span>•</span>
-                      <span className="capitalize">{log.type}</span>
-                      <span>•</span>
-                      <span>{log.duration} min</span>
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-4 text-sm text-zinc-400">
+                      <span className="font-mono font-semibold">{log.date}</span>
+                      <div className="w-1.5 h-1.5 rounded-full bg-zinc-700"></div>
+                      <span className="capitalize font-medium">{log.type}</span>
+                      <div className="w-1.5 h-1.5 rounded-full bg-zinc-700"></div>
+                      <span className="font-medium">{log.duration} min</span>
                     </div>
-                    <div className="text-xs font-mono text-zinc-600">
+                    <div className="text-sm font-mono text-zinc-600">
                       {new Date(log.timestamp).toLocaleTimeString('en-US', {
                         hour: '2-digit',
                         minute: '2-digit'
                       })}
                     </div>
                   </div>
-                  <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                  <p className="text-base text-zinc-300 leading-relaxed whitespace-pre-wrap">
                     {log.notes}
                   </p>
                 </div>
               ))}
             </div>
 
-            <div className="px-6 py-4 border-t border-white/10 bg-zinc-950 flex items-center justify-between text-xs text-zinc-500">
-              <span>{selectedSubjectNotes.length} note{selectedSubjectNotes.length !== 1 ? 's' : ''} found</span>
-              <span>Sorted by most recent</span>
+            {/* Footer */}
+            <div className="px-10 py-6 border-t border-white/10 bg-zinc-950 flex items-center justify-between text-sm text-zinc-500">
+              <span className="font-medium">{selectedSubjectNotes.length} note{selectedSubjectNotes.length !== 1 ? 's' : ''} found</span>
+              <span className="font-medium">Sorted by most recent</span>
             </div>
           </div>
         </div>
