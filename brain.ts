@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, OrbitDB } from "./db";
 import {
   DailyContext,
   StudyBlock,
@@ -109,22 +109,23 @@ function daysBetweenDates(a: string, b: string) {
  */
 export async function updateAssignmentProgress(
   assignmentId: string,
-  minutesCompleted: number
+  minutesCompleted: number,
+  dbInstance: OrbitDB = db
 ): Promise<void> {
   try {
-    const assignment = await db.assignments.get(assignmentId);
+    const assignment = await dbInstance.assignments.get(assignmentId);
     if (!assignment) return;
 
     const currentProgress = assignment.progressMinutes ?? 0;
     const newProgress = currentProgress + minutesCompleted;
 
-    await db.assignments.update(assignmentId, {
+    await dbInstance.assignments.update(assignmentId, {
       progressMinutes: newProgress
     });
 
     const estimatedEffort = assignment.estimatedEffort ?? DEFAULT_ASSIGNMENT_EFFORT_MIN;
     if (newProgress >= estimatedEffort) {
-      await db.assignments.update(assignmentId, {
+      await dbInstance.assignments.update(assignmentId, {
         completed: true
       });
     }
@@ -321,8 +322,8 @@ function calculateNextReview(
 /**
  * Get topics that are due for review today
  */
-export async function getTopicsDueForReview(dateStr: string): Promise<StudyTopic[]> {
-  const topics = await db.topics
+export async function getTopicsDueForReview(dateStr: string, dbInstance: OrbitDB = db): Promise<StudyTopic[]> {
+  const topics = await dbInstance.topics
     .where('nextReview')
     .belowOrEqual(dateStr)
     .toArray();
@@ -344,9 +345,10 @@ async function addSpacedRepetitionReviews(
   subjects: Subject[],
   constraints: DayConstraints,
   usedMinutes: { value: number },
-  effectiveDate: string
+  effectiveDate: string,
+  dbInstance: OrbitDB
 ): Promise<void> {
-  const dueTopics = await getTopicsDueForReview(effectiveDate);
+  const dueTopics = await getTopicsDueForReview(effectiveDate, dbInstance);
 
   for (const topic of dueTopics) {
     const subject = subjects.find(s => s.id === topic.subjectId);
@@ -386,11 +388,12 @@ export async function recordTopicReview(
   topicName: string,
   comprehensionRating: 1 | 2 | 3,
   duration: number,
-  dateStr: string
+  dateStr: string,
+  dbInstance: OrbitDB = db
 ): Promise<void> {
   try {
     // Find or create topic
-    let topic = await db.topics
+    let topic = await dbInstance.topics
       .where({ subjectId, name: topicName })
       .first();
 
@@ -403,7 +406,7 @@ export async function recordTopicReview(
         comprehensionRating
       );
 
-      await db.topics.add({
+      await dbInstance.topics.add({
         subjectId,
         name: topicName,
         lastStudied: dateStr,
@@ -421,7 +424,7 @@ export async function recordTopicReview(
         comprehensionRating
       );
 
-      await db.topics.update(topic.id!, {
+      await dbInstance.topics.update(topic.id!, {
         lastStudied: dateStr,
         nextReview: nextReviewDate,
         easeFactor: newEaseFactor,
@@ -431,7 +434,7 @@ export async function recordTopicReview(
     }
 
     // Also update the study log
-    await db.logs.add({
+    await dbInstance.logs.add({
       subjectId,
       duration,
       date: dateStr,
@@ -450,9 +453,9 @@ export async function recordTopicReview(
 /**
  * 🆕 Get readiness for all subjects (for dashboard display)
  */
-export async function getAllReadinessScores(): Promise<Record<number, SubjectReadiness>> {
-  const subjects = await db.subjects.toArray();
-  const logs = await db.logs.toArray();
+export async function getAllReadinessScores(dbInstance: OrbitDB = db): Promise<Record<number, SubjectReadiness>> {
+  const subjects = await dbInstance.subjects.toArray();
+  const logs = await dbInstance.logs.toArray();
   const effectiveDate = getISTEffectiveDate();
 
   const readinessMap: Record<number, SubjectReadiness> = {};
@@ -588,7 +591,8 @@ function tryInsertWithDisplacement(
 ====================================================== */
 
 export const generateDailyPlan = async (
-  context: DailyContext
+  context: DailyContext,
+  dbInstance: OrbitDB = db
 ): Promise<PlanResult> => {
   try {
     const constraints = resolveConstraints(context);
@@ -597,13 +601,13 @@ export const generateDailyPlan = async (
     const blocks: StudyBlock[] = [];
     const usedMinutes = { value: 0 };
 
-    const subjects = await db.subjects.toArray();
-    const assignments = await db.assignments
+    const subjects = await dbInstance.subjects.toArray();
+    const assignments = await dbInstance.assignments
       .filter((a) => !a.completed)
       .toArray();
-    const projects = await db.projects.toArray();
-    const logs = await db.logs.toArray();
-    const schedule = await db.schedule.toArray();
+    const projects = await dbInstance.projects.toArray();
+    const logs = await dbInstance.logs.toArray();
+    const schedule = await dbInstance.schedule.toArray();
 
     // 🆕 Calculate readiness for all subjects upfront
     const readinessMap: Record<number, SubjectReadiness> = {};
@@ -721,7 +725,8 @@ export const generateDailyPlan = async (
       subjects,
       constraints,
       usedMinutes,
-      effectiveDate
+      effectiveDate,
+      dbInstance
     );
 
     /* ============================

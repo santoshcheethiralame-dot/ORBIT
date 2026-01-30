@@ -1,4 +1,5 @@
 // ./types.ts
+
 export type ID = number | string;
 
 export interface Semester {
@@ -18,37 +19,35 @@ export interface SyllabusUnit {
 export type ResourceType = 'link' | 'pdf' | 'video' | 'slide' | 'file' | string;
 export type ResourcePriority = 'required' | 'recommended' | 'optional' | string;
 
-// Enhanced Resource interface to support both files and links
 export interface Resource {
   id: string;
   title: string;
-  url?: string;           // For web links
+  url?: string;
   type: ResourceType;
   priority?: ResourcePriority;
   notes?: string;
   createdAt?: string;
-  // File-specific fields
-  fileData?: string;      // Base64 encoded file data
-  fileType?: string;      // MIME type
-  fileSize?: number;      // Size in bytes
-  dateAdded?: string;     // YYYY-MM-DD
+  fileData?: string;
+  fileType?: string;
+  fileSize?: number;
+  dateAdded?: string;
 }
 
 export interface Grade {
   id: string;
-  type: string;        // e.g. "ISA-1", "Quiz 3"
+  type: string;
   score: number;
   maxScore: number;
-  date: string;        // YYYY-MM-DD
+  date: string;
   notes?: string;
 }
 
 export interface Subject {
-  id?: number;             // Dexie ++id (numeric)
+  id?: number;
   name: string;
   code: string;
   credits: number;
-  difficulty: number;      // 1-5
+  difficulty: number;
   syllabus?: SyllabusUnit[];
   resources?: Resource[];
   grades?: Grade[];
@@ -61,15 +60,15 @@ export interface Project {
   id?: number;
   name: string;
   subjectId?: number;
-  progression: number;     // 0-100
+  progression: number;
   effort: 'low' | 'med' | 'high';
   deadline?: string;
 }
 
 export interface ScheduleSlot {
   id?: number;
-  day: number;    // 0=Mon...
-  slot: number;   // 0=8-10...
+  day: number;
+  slot: number;
   subjectId: number;
 }
 
@@ -78,26 +77,23 @@ export interface StudyBlock {
   subjectId: number;
   subjectName: string;
   type: 'review' | 'project' | 'prep' | 'recovery' | 'assignment';
-  duration: number; // minutes
+  duration: number;
   completed: boolean;
 
   migrated?: boolean;
-  priority: number; // lower = stronger
+  priority: number;
 
   notes?: string;
   assignmentId?: string;
   projectId?: number;
 
-  // ✨ NEW: Spaced Repetition & Topic Support
-  topicId?: string;            // The specific topic being reviewed
+  topicId?: string;
   comprehensionRating?: 1 | 2 | 3;
-  reviewNumber?: number;       // Which iteration of the forgetting curve is this?
+  reviewNumber?: number;
 
-  // Backward planning metadata
   isBacklogChunk?: boolean;
   totalEffortRemaining?: number;
 
-  // Explainability
   reason?: string;
   displaced?: {
     type: StudyBlock['type'];
@@ -111,8 +107,8 @@ export interface Assignment {
   title: string;
   dueDate: string;
   completed: boolean;
-  estimatedEffort?: number; // in minutes - user can estimate or default to 120
-  progressMinutes?: number; // track actual time spent
+  estimatedEffort?: number;
+  progressMinutes?: number;
 }
 
 export interface DailyContext {
@@ -137,11 +133,16 @@ export interface DailyPlan {
     loadLevel: 'light' | 'normal' | 'heavy' | 'extreme';
     warning?: string;
     readinessImpact: number;
-    subjectImpacts?: Record<number, number>; // Per-subject readiness impact
+    subjectImpacts?: Record<number, number>;
   };
+  performanceAdjustments?: {
+    subjectId: number;
+    reason: string;
+    oldDuration: number;
+    newDuration: number;
+  }[];
 }
 
-// Spaced Repetition Topic Tracking
 export interface StudyTopic {
   id?: number;
   subjectId: number;
@@ -163,15 +164,12 @@ export interface StudyLog {
   projectId?: number;
   assignmentId?: string;
   notes?: string;
-
-  // ✨ NEW: Spaced Repetition Fields
-  topicId?: string;           // e.g., "pointers", "linked-lists"
-  comprehensionRating?: 1 | 2 | 3;  // 1=Hard, 2=Good, 3=Easy
-  nextReviewDate?: string;    // Calculated optimal review date
-  easeFactor?: number;        // 1.3 to 2.5
-  reviewNumber?: number;      // 0=first time, 1=1st review, etc.
+  topicId?: string;
+  comprehensionRating?: 1 | 2 | 3;
+  nextReviewDate?: string;
+  easeFactor?: number;
+  reviewNumber?: number;
 }
-
 
 /* ======================================================
    WEEK SIMULATION
@@ -179,14 +177,14 @@ export interface StudyLog {
 
 export interface DayPreview {
   date: string;
-  dayName: string; // "Mon", "Tue", etc.
+  dayName: string;
   blockCount: number;
   totalMinutes: number;
   loadLevel: 'light' | 'normal' | 'heavy' | 'extreme';
   hasESA: boolean;
   hasISA: boolean;
   urgentAssignments: number;
-  projects: string[]; // project names
+  projects: string[];
 }
 
 export interface WeekPreview {
@@ -194,5 +192,112 @@ export interface WeekPreview {
   warnings: string[];
   neglectedProjects: string[];
   overloadDays: string[];
-  peakDay: string; // heaviest day
+  peakDay: string;
 }
+
+/* ======================================================
+
+  🆕 ENHANCED BRAIN TYPES - Quick Wins Implementation
+
+====================================================== */
+
+export type BlockOutcome = {
+  blockId: string;
+  subjectId: number;
+  type: StudyBlock["type"];
+  plannedDuration: number;
+  actualDuration: number;
+  completionQuality: 1 | 2 | 3 | 4 | 5;
+  timeOfDay: number;
+  mood: string;
+  completed: boolean;
+  skipped: boolean;
+  date: string;
+  timestamp: number;
+};
+
+export type SubjectPerformance = {
+  subjectId: number;
+  avgCompletionRate: number;
+  avgQuality: number;
+  avgActualDuration: number;
+  targetDuration: number;
+  durationRatio: number;
+  skipRate: number;
+  bestTimeOfDay: number | null;
+  recommendedDuration: number;
+};
+
+export type EnergyProfile = {
+  morning: number;
+  afternoon: number;
+  evening: number;
+  night: number;
+};
+
+export type EnergyBudget = {
+  allocated: number;
+  used: number;
+  remaining: number;
+  budget: number;
+  valid: boolean;
+};
+
+export type BurnoutSignals = {
+  skipRate: number;
+  avgSessionRatio: number;
+  lowMoodDays: number;
+  streakBreaks: number;
+  score: number;
+  atRisk: boolean;
+  recommendation?: string;
+};
+
+export type InterleavingAnalysis = {
+  consecutiveSameSubject: number;
+  consecutiveSameType: number;
+  varietyScore: number;
+  needsInterleaving: boolean;
+  suggestions?: string[];
+};
+
+export type EnhancedLoadAnalysis = {
+  warning?: string;
+  loadLevel: 'light' | 'normal' | 'heavy' | 'extreme';
+  loadScore: number;
+  readinessImpact: number;
+  subjectImpacts?: Record<number, number>;
+  energyBudget?: EnergyBudget;
+  burnoutRisk?: BurnoutSignals;
+  interleaving?: InterleavingAnalysis;
+};
+
+export type EnhancedPlanResult = {
+  blocks: StudyBlock[];
+  loadAnalysis: EnhancedLoadAnalysis;
+  performanceAdjustments?: {
+    subjectId: number;
+    reason: string;
+    oldDuration: number;
+    newDuration: number;
+  }[];
+};
+
+export type UserEnergySettings = {
+  peakHours: number[];
+  lowEnergyHours: number[];
+  customProfile?: EnergyProfile;
+};
+
+export type QualityRatingPrompt = {
+  blockId: string;
+  subjectName: string;
+  duration: number;
+  type: string;
+  question: string;
+  options: {
+    rating: 1 | 2 | 3 | 4 | 5;
+    label: string;
+    emoji: string;
+  }[];
+};

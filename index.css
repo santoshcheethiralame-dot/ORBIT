@@ -1,4 +1,11 @@
-/* Light Mode Theme Variables */
+
+
+/* ============================================
+   ORBIT LIGHT MODE ENHANCEMENT v2.0
+   Comprehensive light mode styling improvements
+============================================ */
+
+/* Base Theme Variables */
 :root {
     --bg-primary: #09090b;
     --bg-secondary: #18181b;
@@ -10,27 +17,37 @@
 
 .light-mode {
     --bg-primary: #ffffff;
-    --bg-secondary: #f4f4f5;
+    --bg-secondary: #f9fafb;
     --text-primary: #18181b;
     --text-secondary: #52525b;
-    --border-color: rgba(0, 0, 0, 0.1);
+    --border-color: rgba(0, 0, 0, 0.08);
     --glass-bg: rgba(0, 0, 0, 0.02);
 }
 
-/* Light Mode Overrides */
+/* ============================================
+   GLOBAL LIGHT MODE BASE
+============================================ */
+
 .light-mode {
-    background-color: #ffffff;
+    background-color: #f9fafb;
     color: #18181b;
 }
 
 .light-mode body {
-    background-color: #ffffff;
+    background-color: #f9fafb;
     color: #18181b;
 }
 
-/* Text colors */
+/* ============================================
+   TEXT COLORS - IMPROVED CONTRAST
+============================================ */
+
 .light-mode .text-white {
     color: #18181b !important;
+}
+
+.light-mode .text-zinc-100 {
+    color: #27272a !important;
 }
 
 .light-mode .text-zinc-200 {
@@ -53,9 +70,16 @@
     color: #d4d4d8 !important;
 }
 
-/* Background colors */
+/* ============================================
+   BACKGROUND COLORS
+============================================ */
+
 .light-mode .bg-black {
     background-color: #ffffff !important;
+}
+
+.light-mode .bg-zinc-50 {
+    background-color: #fafafa !important;
 }
 
 .light-mode .bg-zinc-900 {
@@ -70,106 +94,198 @@
     background-color: #fafafa !important;
 }
 
-/* Borders */
+/* Semi-transparent backgrounds */
+.light-mode .bg-zinc-900\/60 {
+    background-color: rgba(244, 244, 245, 0.95) !important;
+}
+
+.light-mode .bg-zinc-900\/40 {
+    background-color: rgba(244, 244, 245, 0.85) !important;
+}
+
+.light-mode .bg-zinc-900\/30 {
+    background-color: rgba(244, 244, 245, 0.75) !important;
+}
+
+.light-mode .bg-zinc-900\/50 {
+    background-color: rgba(244, 244, 245, 0.9) !important;
+}
+
+/* ============================================
+   BORDERS - SOFTER IN LIGHT MODE
+============================================ */
+
 .light-mode .border-white\/10,
 .light-mode .border-white\/5,
 .light-mode [class*="border-white/"] {
-    border-color: rgba(0, 0, 0, 0.1) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
 .light-mode .border-zinc-800 {
-    border-color: #d4d4d8 !important;
-}
-
-.light-mode .border-zinc-700 {
     border-color: #e4e4e7 !important;
 }
 
-/* Glass panels */
+.light-mode .border-zinc-700 {
+    border-color: #d4d4d8 !important;
+}
+
+.light-mode .border-zinc-900 {
+    border-color: #e4e4e7 !important;
+}
+
+/* ============================================
+   GLASS PANELS & CARDS
+============================================ */
+
 .light-mode .glass-panel,
 .light-mode .backdrop-blur-2xl,
 .light-mode .backdrop-blur-xl {
-    background: rgba(255, 255, 255, 0.8) !important;
-    border-color: rgba(0, 0, 0, 0.1) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
-/* Preserve accent colors in light mode */
+/* Card backgrounds */
+.light-mode [class*="bg-white/[0.02]"] {
+    background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+.light-mode [class*="bg-white/5"] {
+    background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+/* ============================================
+   ACCENT COLORS - PRESERVED & ENHANCED
+============================================ */
+
+/* Indigo/Purple (Primary) */
 .light-mode .text-indigo-400,
 .light-mode .text-indigo-300 {
     color: #6366f1 !important;
 }
 
-.light-mode .text-emerald-400,
-.light-mode .text-emerald-300 {
-    color: #10b981 !important;
+.light-mode .text-indigo-500 {
+    color: #6366f1 !important;
 }
 
-.light-mode .text-amber-400,
-.light-mode .text-amber-300 {
-    color: #f59e0b !important;
-}
-
-.light-mode .text-red-400,
-.light-mode .text-red-300 {
-    color: #ef4444 !important;
-}
-
-.light-mode .text-cyan-400,
-.light-mode .text-cyan-300 {
-    color: #06b6d4 !important;
-}
-
-.light-mode .text-purple-400,
-.light-mode .text-purple-300 {
-    color: #a855f7 !important;
-}
-
-.light-mode .text-orange-400,
-.light-mode .text-orange-300 {
-    color: #f97316 !important;
-}
-
-.light-mode .text-yellow-400,
-.light-mode .text-yellow-300 {
-    color: #eab308 !important;
-}
-
-/* Accent backgrounds */
 .light-mode .bg-indigo-500 {
     background-color: #6366f1 !important;
+}
+
+.light-mode .bg-indigo-500\/10 {
+    background-color: rgba(99, 102, 241, 0.1) !important;
+}
+
+.light-mode .border-indigo-500 {
+    border-color: #6366f1 !important;
+}
+
+/* Emerald/Green */
+.light-mode .text-emerald-400,
+.light-mode .text-emerald-300,
+.light-mode .text-emerald-500 {
+    color: #10b981 !important;
 }
 
 .light-mode .bg-emerald-500 {
     background-color: #10b981 !important;
 }
 
+.light-mode .bg-emerald-500\/10 {
+    background-color: rgba(16, 185, 129, 0.1) !important;
+}
+
+/* Amber/Yellow */
+.light-mode .text-amber-400,
+.light-mode .text-amber-300,
+.light-mode .text-amber-500 {
+    color: #f59e0b !important;
+}
+
 .light-mode .bg-amber-500 {
     background-color: #f59e0b !important;
+}
+
+.light-mode .bg-amber-500\/10 {
+    background-color: rgba(245, 158, 11, 0.1) !important;
+}
+
+/* Red/Rose */
+.light-mode .text-red-400,
+.light-mode .text-red-300,
+.light-mode .text-red-500 {
+    color: #ef4444 !important;
 }
 
 .light-mode .bg-red-500 {
     background-color: #ef4444 !important;
 }
 
-.light-mode .bg-cyan-500 {
-    background-color: #06b6d4 !important;
-}
-
-.light-mode .bg-purple-500 {
-    background-color: #a855f7 !important;
+.light-mode .bg-red-500\/10 {
+    background-color: rgba(239, 68, 68, 0.1) !important;
 }
 
 .light-mode .bg-rose-500 {
     background-color: #f43f5e !important;
 }
 
-/* Input fields */
+/* Cyan */
+.light-mode .text-cyan-400,
+.light-mode .text-cyan-300,
+.light-mode .text-cyan-500 {
+    color: #06b6d4 !important;
+}
+
+.light-mode .bg-cyan-500 {
+    background-color: #06b6d4 !important;
+}
+
+.light-mode .bg-cyan-500\/10 {
+    background-color: rgba(6, 182, 212, 0.1) !important;
+}
+
+/* Purple */
+.light-mode .text-purple-400,
+.light-mode .text-purple-300,
+.light-mode .text-purple-500 {
+    color: #a855f7 !important;
+}
+
+.light-mode .bg-purple-500 {
+    background-color: #a855f7 !important;
+}
+
+.light-mode .bg-purple-500\/10 {
+    background-color: rgba(168, 85, 247, 0.1) !important;
+}
+
+/* Orange */
+.light-mode .text-orange-400,
+.light-mode .text-orange-300,
+.light-mode .text-orange-500 {
+    color: #f97316 !important;
+}
+
+.light-mode .bg-orange-500\/10 {
+    background-color: rgba(249, 115, 22, 0.1) !important;
+}
+
+/* ============================================
+   FORM INPUTS - CLEAN LIGHT MODE
+============================================ */
+
 .light-mode input,
 .light-mode textarea,
 .light-mode select {
     background-color: #ffffff !important;
     color: #18181b !important;
-    border-color: #d4d4d8 !important;
+    border-color: #e4e4e7 !important;
+}
+
+.light-mode input:focus,
+.light-mode textarea:focus,
+.light-mode select:focus {
+    border-color: #a855f7 !important;
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1) !important;
 }
 
 .light-mode input::placeholder,
@@ -177,7 +293,10 @@
     color: #a1a1aa !important;
 }
 
-/* Buttons */
+/* ============================================
+   BUTTONS - IMPROVED CONTRAST
+============================================ */
+
 .light-mode button {
     color: inherit;
 }
@@ -187,7 +306,14 @@
     color: #ffffff !important;
 }
 
-/* Hover states in light mode */
+.light-mode button:disabled {
+    opacity: 0.5 !important;
+}
+
+/* ============================================
+   HOVER STATES
+============================================ */
+
 .light-mode .hover\:bg-zinc-800:hover {
     background-color: #e4e4e7 !important;
 }
@@ -200,54 +326,192 @@
     color: #18181b !important;
 }
 
-/* Cards and panels */
-.light-mode [class*="bg-white/[0.02]"] {
-    background-color: rgba(0, 0, 0, 0.03) !important;
+.light-mode .hover\:bg-indigo-500\/20:hover {
+    background-color: rgba(99, 102, 241, 0.2) !important;
 }
 
-.light-mode [class*="bg-white/5"] {
-    background-color: rgba(0, 0, 0, 0.05) !important;
-}
+/* ============================================
+   SHADOWS - SOFTER IN LIGHT MODE
+============================================ */
 
-/* Shadows */
 .light-mode .shadow-2xl {
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.12) !important;
 }
 
 .light-mode .shadow-xl {
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08) !important;
 }
 
 .light-mode .shadow-lg {
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08) !important;
 }
 
-/* Space background - hide in light mode */
+.light-mode .shadow-md {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.light-mode .shadow-sm {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+/* ============================================
+   BACKGROUND GRADIENT - LIGHT MODE
+============================================ */
+
 .light-mode .fixed.inset-0.z-\[-1\] {
     background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #fef3c7 100%) !important;
 }
 
-/* Make sure stars are hidden in light mode */
+/* Hide stars/space elements in light mode */
 .light-mode .fixed.inset-0.z-\[-1\]>div:not(:first-child) {
     display: none !important;
 }
 
-/* Scrollbar in light mode */
-.light-mode ::-webkit-scrollbar-thumb {
-    background: #d4d4d8 !important;
+/* ============================================
+   SCROLLBAR - CLEAN IN LIGHT MODE
+============================================ */
+
+.light-mode ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
 }
 
 .light-mode ::-webkit-scrollbar-track {
     background: transparent !important;
 }
 
-/* Preserve gradient texts */
+.light-mode ::-webkit-scrollbar-thumb {
+    background: #d4d4d8 !important;
+    border-radius: 4px;
+}
+
+.light-mode ::-webkit-scrollbar-thumb:hover {
+    background: #a1a1aa !important;
+}
+
+/* ============================================
+   MODAL OVERLAYS
+============================================ */
+
+.light-mode .bg-black\/95,
+.light-mode .bg-black\/90,
+.light-mode .bg-black\/80,
+.light-mode .bg-black\/70,
+.light-mode .bg-black\/60 {
+    background-color: rgba(255, 255, 255, 0.98) !important;
+    backdrop-filter: blur(20px);
+}
+
+/* ============================================
+   SPECIFIC COMPONENT FIXES
+============================================ */
+
+/* Settings cards */
+.light-mode .glass-panel {
+    background: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Focus session timer */
+.light-mode .text-8xl,
+.light-mode .text-7xl,
+.light-mode .text-6xl {
+    color: #18181b !important;
+}
+
+/* Progress bars */
+.light-mode .bg-zinc-200 {
+    background-color: #e4e4e7 !important;
+}
+
+/* Badges & Tags */
+.light-mode .badge,
+.light-mode .tag {
+    border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ============================================
+   ANALYTICS & CHARTS
+============================================ */
+
+/* Chart backgrounds */
+.light-mode .recharts-surface {
+    background: transparent !important;
+}
+
+/* Keep chart colors vibrant */
+.light-mode .recharts-line-curve,
+.light-mode .recharts-bar-rectangle {
+    opacity: 1 !important;
+}
+
+/* ============================================
+   NOTIFICATION BANNERS
+============================================ */
+
+/* Info banner (blue) */
+.light-mode .bg-blue-50 {
+    background-color: #eff6ff !important;
+}
+
+.light-mode .text-blue-800 {
+    color: #1e40af !important;
+}
+
+/* Warning banner (amber) */
+.light-mode .bg-amber-50 {
+    background-color: #fffbeb !important;
+}
+
+.light-mode .text-amber-800 {
+    color: #92400e !important;
+}
+
+/* Error banner (red) */
+.light-mode .bg-red-50 {
+    background-color: #fef2f2 !important;
+}
+
+.light-mode .text-red-800 {
+    color: #991b1b !important;
+}
+
+/* Success banner (green) */
+.light-mode .bg-green-50 {
+    background-color: #f0fdf4 !important;
+}
+
+.light-mode .text-green-800 {
+    color: #166534 !important;
+}
+
+/* ============================================
+   GRADIENT TEXT PRESERVATION
+============================================ */
+
 .light-mode .text-transparent {
     -webkit-background-clip: text !important;
     background-clip: text !important;
 }
 
-/* Animation adjustments */
+
+
+/* ============================================
+   TRANSITIONS - SMOOTH THEME SWITCHING
+============================================ */
+
+.light-mode {
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.light-mode * {
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* ============================================
+   ANIMATIONS
+============================================ */
+
 @keyframes fade-in {
     from {
         opacity: 0;
@@ -264,76 +528,6 @@
     animation: fade-in 0.3s ease-out;
 }
 
-/* Ensure proper contrast for badges in light mode */
-.light-mode .bg-indigo-500\/10 {
-    background-color: rgba(99, 102, 241, 0.15) !important;
-}
-
-.light-mode .bg-emerald-500\/10 {
-    background-color: rgba(16, 185, 129, 0.15) !important;
-}
-
-.light-mode .bg-red-500\/10 {
-    background-color: rgba(239, 68, 68, 0.15) !important;
-}
-
-.light-mode .bg-orange-500\/10 {
-    background-color: rgba(249, 115, 22, 0.15) !important;
-}
-
-.light-mode .bg-cyan-500\/10 {
-    background-color: rgba(6, 182, 212, 0.15) !important;
-}
-
-.light-mode .bg-purple-500\/10 {
-    background-color: rgba(168, 85, 247, 0.15) !important;
-}
-
-.light-mode .bg-amber-500\/10 {
-    background-color: rgba(245, 158, 11, 0.15) !important;
-}
-
-/* Modal overlays in light mode */
-.light-mode .bg-black\/95,
-.light-mode .bg-black\/90,
-.light-mode .bg-black\/80,
-.light-mode .bg-black\/70,
-.light-mode .bg-black\/60 {
-    background-color: rgba(255, 255, 255, 0.95) !important;
-    backdrop-filter: blur(20px);
-}
-
-/* Ensure proper readability in light mode cards */
-.light-mode .bg-zinc-900\/60,
-.light-mode .bg-zinc-900\/40,
-.light-mode .bg-zinc-900\/30 {
-    background-color: rgba(244, 244, 245, 0.8) !important;
-}
-
-/* Light mode specific adjustments for better UX */
-.light-mode {
-    transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-.light-mode * {
-    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-
-/* Add safe area padding */
-.safe-area-pb {
-    padding-bottom: env(safe-area-inset-bottom);
-}
-
-.safe-area-pt {
-    padding-top: env(safe-area-inset-top);
-}
-
-.safe-area-px {
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-}
-
-/* Add to your existing index.css */
 @keyframes slide-in-from-bottom {
     from {
         opacity: 0;
@@ -383,3 +577,117 @@
         opacity: 1;
     }
 }
+
+/* ============================================
+   SAFE AREA PADDING (Mobile)
+============================================ */
+
+.safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-pt {
+    padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-px {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+}
+
+/* ============================================
+   SPECIFIC PAGE IMPROVEMENTS
+============================================ */
+
+/* Dashboard/Morning Command */
+.light-mode .morning-command-card {
+    background: #ffffff !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Focus Mode */
+.light-mode .focus-timer {
+    background: #ffffff !important;
+}
+
+/* Analytics Charts */
+.light-mode .analytics-card {
+    background: #ffffff !important;
+}
+
+/* About Page Cards */
+.light-mode .about-card {
+    background: #ffffff !important;
+    border: 1px solid #e4e4e7 !important;
+}
+
+/* Settings Page */
+.light-mode .settings-section {
+    background: #ffffff !important;
+    border: 1px solid #e4e4e7 !important;
+}
+
+/* ============================================
+   MISC IMPROVEMENTS
+============================================ */
+
+/* Code blocks */
+.light-mode code,
+.light-mode pre {
+    background-color: #f4f4f5 !important;
+    color: #18181b !important;
+}
+
+/* Links */
+.light-mode a {
+    color: #6366f1 !important;
+}
+
+.light-mode a:hover {
+    color: #4f46e5 !important;
+}
+
+/* Dividers */
+.light-mode hr {
+    border-color: #e4e4e7 !important;
+}
+
+/* Selection */
+.light-mode ::selection {
+    background-color: rgba(168, 85, 247, 0.2) !important;
+    color: #18181b !important;
+}
+
+/* Focus rings */
+.light-mode *:focus-visible {
+    outline: 2px solid #a855f7 !important;
+    outline-offset: 2px !important;
+}
+
+/* ============================================
+   PRINT STYLES
+============================================ */
+
+@media print {
+    .light-mode {
+        background: white !important;
+        color: black !important;
+    }
+}
+
+/* ============================================
+   DARK MODE UTILITIES (Failsafe)
+============================================ */
+
+/* Ensure dark mode classes still work when light mode is off */
+html:not(.light-mode) .dark\:bg-zinc-900 {
+    background-color: #18181b !important;
+}
+
+html:not(.light-mode) .dark\:text-zinc-200 {
+    color: #e4e4e7 !important;
+}
+
+/* ============================================
+   END OF LIGHT MODE ENHANCEMENTS
+============================================ */

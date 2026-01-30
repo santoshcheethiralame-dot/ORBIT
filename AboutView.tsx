@@ -9,6 +9,43 @@ import { getAllReadinessScores, SubjectReadiness } from './brain';
 import { db } from './db';
 import { useLiveQuery } from 'dexie-react-hooks';
 
+// Extracted Frosted Tile wrapper for consistent frosted glass styling
+const FrostedTile: React.FC<
+  React.PropsWithChildren & {
+    className?: string;
+    hoverClassName?: string;
+  }
+> = ({ children, className = '', hoverClassName = '' }) => (
+  <div
+    className={
+      [
+        // BASE FROSTED GLASS STYLING:
+        "group relative overflow-hidden rounded-3xl border border-white/10",
+        "bg-gradient-to-br from-zinc-900 via-zinc-900 to-black",
+        "[background:linear-gradient(to_bottom_right,rgba(255,255,255,0.03),transparent)]",
+        "backdrop-blur-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
+        "transition-all duration-500",
+        className,
+        hoverClassName,
+      ].join(' ')
+    }
+  >
+    {children}
+  </div>
+);
+
+// Mini frosted style for secondary "cards" inside main tiles (small cards inside large frosted tile)
+const FrostedMini: React.FC<React.PropsWithChildren & { className?: string }> = ({ children, className = '' }) => (
+  <div
+    className={[
+      "p-4 bg-zinc-900/30 rounded-2xl border border-zinc-800/50 transition-all",
+      className,
+    ].join(' ')}
+  >
+    {children}
+  </div>
+);
+
 // Helper function for mailto encoding
 function encodeMailto(subject: string, body: string) {
   return `mailto:santoshcheethirala.me@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -38,6 +75,23 @@ interface BugReportModalProps {
   };
 }
 
+// AboutHeader component as specified
+export const AboutHeader = () => (
+  <div className="flex justify-between items-end mb-10">
+    <div className="flex flex-col gap-3">
+      <div className="text-xs font-mono text-indigo-400/60 uppercase tracking-[0.2em]">
+        SYSTEM INFORMATION
+      </div>
+      <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight">
+        About Orbit
+      </h1>
+    </div>
+    <span className="hidden md:inline-flex text-xs px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
+      v3.2.0 ALPHA
+    </span>
+  </div>
+);
+
 // --- Extracted Component (Fixes the re-render/focus issue) ---
 const BugReportModal = ({
   isOpen,
@@ -60,7 +114,7 @@ const BugReportModal = ({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900 via-zinc-900 to-black backdrop-blur-2xl shadow-2xl">
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900 via-zinc-900 to-black [background:linear-gradient(to_bottom_right,rgba(255,255,255,0.03),transparent)] backdrop-blur-2xl shadow-2xl">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b border-white/10 bg-zinc-900/95 backdrop-blur-xl">
           <div className="flex items-center gap-3">
@@ -413,30 +467,27 @@ export const AboutView = () => {
         }}
       />
 
-      {/* Enhanced Header */}
-      <div className="flex flex-col gap-4">
-        <div className="text-sm text-indigo-400/60 font-mono uppercase tracking-[0.2em] flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
-          System Information
+      {/* Fixed Header - properly aligned buttons */}
+      <div className="flex justify-between items-end mb-10">
+        <div className="flex flex-col gap-3">
+          <div className="text-xs font-mono text-indigo-400/60 uppercase tracking-[0.2em]">
+            SYSTEM INFORMATION
+          </div>
+          <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight text-white">
+            About Orbit
+          </h1>
         </div>
 
-        <div className="flex items-center gap-4 flex-wrap justify-between">
-          <div className="flex items-center gap-4 flex-wrap">
-            <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight text-white">
-              About Orbit
-            </h1>
-            <span className="px-4 py-2 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20 text-sm font-bold uppercase tracking-wide shadow-lg shadow-orange-500/10">
-              v3.2.0 Alpha
-            </span>
-          </div>
-
+        <div className="flex items-center gap-3">
+          <span className="text-xs px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
+            v3.2.0 ALPHA
+          </span>
           <button
             onClick={() => setShowBugReport(true)}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition-all font-semibold text-sm hover:scale-105 active:scale-95 shadow-lg shadow-red-500/10"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-500/30 text-xs font-semibold text-zinc-400 hover:text-red-300 transition-all"
           >
-            <Bug size={18} />
-            <span className="hidden sm:inline">Report Issue</span>
-            <span className="sm:hidden">Report</span>
+            <Bug size={14} />
+            Report Issue
           </button>
         </div>
       </div>
@@ -444,30 +495,36 @@ export const AboutView = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
         {/* HERO SECTION */}
+        {/* Main Card – Next Mission equivalent, stylized! */}
         <div className="lg:col-span-8 flex flex-col gap-6">
-          <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl shadow-2xl hover:border-indigo-500/30 transition-all duration-500 hover:-translate-y-1">
+          <FrostedTile
+            className="hover:border-indigo-500/30 hover:-translate-y-1"
+          >
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
             <div className="relative z-10 p-8">
               <h2 className="text-2xl md:text-3xl font-display font-bold text-white mb-6 leading-tight">
-                Order from <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-cyan-300 animate-gradient">Entropy</span>
+                Order from{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-cyan-300 animate-gradient">Entropy</span>
               </h2>
 
               <div className="prose prose-invert prose-lg max-w-none">
                 <p className="text-zinc-300 leading-relaxed text-lg mb-4">
-                  A space-themed intelligent study planner that adapts to your reality. Unlike traditional planners, Orbit generates <strong className="text-white">context-aware daily missions</strong> that respect your energy levels, exam schedules, and academic chaos.
+                  A space-themed intelligent study planner that adapts to your reality. Unlike traditional planners, Orbit generates{" "}
+                  <strong className="text-white">context-aware daily missions</strong> that respect your energy levels, exam schedules, and academic chaos.
                 </p>
                 <p className="text-zinc-400 leading-relaxed">
-                  Erratic schedules, group projects, and surprise deadlines are no longer obstacles. Orbit prioritizes <strong className="text-indigo-300">adaptive intelligence</strong> over rigid calendars, delivering short, achievable study blocks that fit your life.
+                  Erratic schedules, group projects, and surprise deadlines are no longer obstacles. Orbit prioritizes{" "}
+                  <strong className="text-indigo-300">adaptive intelligence</strong> over rigid calendars, delivering short, achievable study blocks that fit your life.
                 </p>
               </div>
             </div>
-          </div>
+          </FrostedTile>
 
-          {/* Brain Intelligence Section */}
-          <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 relative overflow-hidden hover:border-purple-500/30 transition-all duration-500 hover:-translate-y-1">
+          {/* Main "stats" or pillar style cards */}
+          <FrostedTile
+            className="p-8 hover:border-purple-500/30 hover:-translate-y-1"
+          >
             <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
@@ -482,44 +539,46 @@ export const AboutView = () => {
                 </p>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-purple-500/10 rounded-2xl border border-purple-500/20 hover:bg-purple-500/15 transition-all">
+                  <FrostedMini className="hover:bg-purple-500/15">
                     <div className="flex items-center gap-2 mb-2">
                       <Target size={16} className="text-purple-400" />
                       <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Volume Tracking</span>
                     </div>
                     <p className="text-sm text-zinc-400">10 hours per credit benchmark</p>
-                  </div>
+                  </FrostedMini>
 
-                  <div className="p-4 bg-purple-500/10 rounded-2xl border border-purple-500/20 hover:bg-purple-500/15 transition-all">
+                  <FrostedMini className="hover:bg-purple-500/15">
                     <div className="flex items-center gap-2 mb-2">
                       <Clock size={16} className="text-purple-400" />
                       <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Decay Curve</span>
                     </div>
                     <p className="text-sm text-zinc-400">Exponential forgetting model</p>
-                  </div>
+                  </FrostedMini>
 
-                  <div className="p-4 bg-purple-500/10 rounded-2xl border border-purple-500/20 hover:bg-purple-500/15 transition-all">
+                  <FrostedMini className="hover:bg-purple-500/15">
                     <div className="flex items-center gap-2 mb-2">
                       <TrendingUp size={16} className="text-purple-400" />
                       <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Smart Recovery</span>
                     </div>
                     <p className="text-sm text-zinc-400">Auto-schedules critical reviews</p>
-                  </div>
+                  </FrostedMini>
 
-                  <div className="p-4 bg-purple-500/10 rounded-2xl border border-purple-500/20 hover:bg-purple-500/15 transition-all">
+                  <FrostedMini className="hover:bg-purple-500/15">
                     <div className="flex items-center gap-2 mb-2">
                       <Sparkles size={16} className="text-purple-400" />
                       <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Predictive</span>
                     </div>
                     <p className="text-sm text-zinc-400">Forecast exam confidence</p>
-                  </div>
+                  </FrostedMini>
                 </div>
               </div>
             </div>
-          </div>
+          </FrostedTile>
 
-          {/* Origin Story */}
-          <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 relative overflow-hidden hover:border-cyan-500/30 transition-all duration-500 hover:-translate-y-1">
+          {/* Origin Story remains a main card */}
+          <FrostedTile
+            className="p-8 hover:border-cyan-500/30 hover:-translate-y-1"
+          >
             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
             <div className="relative z-10">
@@ -533,14 +592,16 @@ export const AboutView = () => {
                 Orbit began as a practical response to a familiar student problem: spending more time managing study logistics than actually studying. What started as a personal toolkit evolved into a focused system designed to reduce friction and preserve momentum—especially for night owls who study past midnight.
               </p>
             </div>
-          </div>
+          </FrostedTile>
         </div>
 
         {/* RIGHT COLUMN */}
         <div className="lg:col-span-4 space-y-6">
 
-          {/* Developer Card */}
-          <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-6 relative overflow-hidden hover:border-indigo-500/30 transition-all duration-500 hover:-translate-y-1">
+          {/* Developer Card as a main card */}
+          <FrostedTile
+            className="p-6 hover:border-indigo-500/30 hover:-translate-y-1"
+          >
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
             <div className="relative z-10">
@@ -563,7 +624,7 @@ export const AboutView = () => {
                   href="https://github.com/santoshcheethirala"
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:text-white text-zinc-400 transition-all font-semibold text-sm hover:scale-105 active:scale-95"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-zinc-900/30 border border-zinc-800/50 hover:bg-zinc-800/40 hover:text-white text-zinc-400 transition-all font-semibold text-sm hover:scale-105 active:scale-95"
                 >
                   <Github size={18} />
                   <span>GitHub</span>
@@ -579,10 +640,12 @@ export const AboutView = () => {
                 </a>
               </div>
             </div>
-          </div>
+          </FrostedTile>
 
-          {/* Roadmap */}
-          <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-6 relative overflow-hidden hover:border-orange-500/30 transition-all duration-500 hover:-translate-y-1">
+          {/* Roadmap, as main card */}
+          <FrostedTile
+            className="p-6 hover:border-orange-500/30 hover:-translate-y-1"
+          >
             <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
             <div className="relative z-10">
@@ -609,10 +672,12 @@ export const AboutView = () => {
                 ))}
               </div>
             </div>
-          </div>
+          </FrostedTile>
 
-          {/* Tech Stack */}
-          <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-6 relative overflow-hidden hover:border-cyan-500/30 transition-all duration-500 hover:-translate-y-1">
+          {/* Tech Stack, as main card */}
+          <FrostedTile
+            className="p-6 hover:border-cyan-500/30 hover:-translate-y-1"
+          >
             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
             <div className="relative z-10">
@@ -637,15 +702,14 @@ export const AboutView = () => {
                 ))}
               </div>
             </div>
-          </div>
+          </FrostedTile>
         </div>
       </div>
 
-      {/* Core Pillars */}
+      {/* Core Pillars, stats-like main cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-6 relative overflow-hidden hover:bg-emerald-500/5 hover:border-emerald-500/30 transition-all duration-500 hover:-translate-y-2">
+        <FrostedTile className="p-6 hover:bg-emerald-500/5 hover:border-emerald-500/30 hover:-translate-y-2">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
           <div className="relative z-10">
             <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center mb-5 text-emerald-400 group-hover:scale-110 transition-transform duration-500 border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
               <Shield size={28} />
@@ -655,9 +719,9 @@ export const AboutView = () => {
               Your data lives on your device via IndexedDB. Zero telemetry without consent. Your study habits are your business alone.
             </p>
           </div>
-        </div>
+        </FrostedTile>
 
-        <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-6 relative overflow-hidden hover:bg-amber-500/5 hover:border-amber-500/30 transition-all duration-500 hover:-translate-y-2">
+        <FrostedTile className="p-6 hover:bg-amber-500/5 hover:border-amber-500/30 hover:-translate-y-2">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
           <div className="relative z-10">
@@ -669,9 +733,9 @@ export const AboutView = () => {
               Plans that don't break when you miss a day. The brain intelligently reshuffles tasks based on urgency, energy, and readiness scores.
             </p>
           </div>
-        </div>
+        </FrostedTile>
 
-        <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-6 relative overflow-hidden hover:bg-cyan-500/5 hover:border-cyan-500/30 transition-all duration-500 hover:-translate-y-2">
+        <FrostedTile className="p-6 hover:bg-cyan-500/5 hover:border-cyan-500/30 hover:-translate-y-2">
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
           <div className="relative z-10">
@@ -683,11 +747,11 @@ export const AboutView = () => {
               Optimized for sub-100ms interactions. Focus sessions feature gentle nudges and smart circadian ordering to keep you on track.
             </p>
           </div>
-        </div>
+        </FrostedTile>
       </div>
 
-      {/* FAQ Section */}
-      <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 relative overflow-hidden hover:border-indigo-500/30 transition-all duration-500">
+      {/* FAQ Section - treat as main card for now */}
+      <FrostedTile className="p-8 hover:border-indigo-500/30">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
         <div className="relative z-10">
@@ -725,14 +789,14 @@ export const AboutView = () => {
                 a: "Your study day starts at 4 AM (configurable), not midnight. Studying at 3 AM still counts as 'today'—no broken streaks."
               },
             ].map((faq, i) => (
-              <div key={i} className="group/faq p-5 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-indigo-500/20 transition-all duration-300">
+              <FrostedMini key={i} className="group/faq p-5 bg-zinc-900/40 border-zinc-800/50 hover:bg-white/[0.05] hover:border-indigo-500/20 duration-300">
                 <h4 className="text-white font-bold mb-2 group-hover/faq:text-indigo-300 transition-colors text-base">{faq.q}</h4>
                 <p className="text-sm text-zinc-400 leading-relaxed">{faq.a}</p>
-              </div>
+              </FrostedMini>
             ))}
           </div>
         </div>
-      </div>
+      </FrostedTile>
 
       {/* Footer */}
       <div className="flex justify-center pt-6">
@@ -747,4 +811,4 @@ export const AboutView = () => {
       </div>
     </div>
   );
-};  
+};

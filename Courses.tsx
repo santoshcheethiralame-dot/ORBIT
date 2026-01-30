@@ -20,7 +20,7 @@ const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
     <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-950 rounded-3xl p-10 max-w-lg w-full relative border border-white/10 shadow-2xl animate-in slide-in-from-bottom-4 duration-500">
       {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 rounded-3xl pointer-events-none" />
-      
+
       <button
         onClick={onClose}
         className="absolute top-6 right-6 text-zinc-400 hover:text-white transition-all p-2.5 hover:bg-white/10 rounded-xl hover:scale-110 active:scale-95 duration-300"
@@ -40,18 +40,16 @@ const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
         <div className="p-6 bg-zinc-800/50 rounded-2xl border border-white/5 mb-8 hover:bg-zinc-800/70 transition-all duration-300">
           <div className="text-xs text-zinc-500 uppercase tracking-wider mb-3 font-bold">Current Readiness</div>
           <div className="flex items-end gap-4">
-            <div className={`text-5xl font-bold font-mono tabular-nums ${
-              currentReadiness?.status === 'critical' ? 'text-red-400' :
-              currentReadiness?.status === 'maintaining' ? 'text-yellow-400' :
-              'text-emerald-400'
-            }`}>
+            <div className={`text-5xl font-bold font-mono tabular-nums ${currentReadiness?.status === 'critical' ? 'text-red-400' :
+                currentReadiness?.status === 'maintaining' ? 'text-yellow-400' :
+                  'text-emerald-400'
+              }`}>
               {currentReadiness?.score || 0}%
             </div>
-            <div className={`text-sm mb-2 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider ${
-              currentReadiness?.status === 'critical' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
-              currentReadiness?.status === 'maintaining' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
-              'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-            }`}>
+            <div className={`text-sm mb-2 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider ${currentReadiness?.status === 'critical' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                currentReadiness?.status === 'maintaining' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
+                  'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+              }`}>
               {currentReadiness?.status || 'unknown'}
             </div>
           </div>
@@ -334,8 +332,8 @@ export default function CoursesView_v2() {
 
     return (
       <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center animate-in fade-in duration-300">
-        <button 
-          onClick={() => setSelectedResource(null)} 
+        <button
+          onClick={() => setSelectedResource(null)}
           className="fixed top-8 right-8 p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all hover:scale-110 active:scale-95 duration-300 min-h-[56px] min-w-[56px]"
         >
           <X size={24} />
@@ -344,8 +342,8 @@ export default function CoursesView_v2() {
         <div className="w-full max-w-6xl h-[90vh] bg-zinc-900 rounded-3xl border border-white/10 flex flex-col shadow-2xl">
           <div className="p-6 border-b border-white/10 flex justify-between items-center">
             <div className="font-bold truncate text-lg">{selectedResource.title}</div>
-            <button 
-              onClick={() => openExternally(selectedResource)} 
+            <button
+              onClick={() => openExternally(selectedResource)}
               className="px-6 py-3 bg-indigo-500/20 hover:bg-indigo-500/30 rounded-xl transition-all font-bold text-sm border border-indigo-500/30 hover:scale-105 active:scale-95 duration-300 min-h-[56px]"
             >
               Open in new tab
@@ -384,8 +382,8 @@ export default function CoursesView_v2() {
     return (
       <div className="fixed inset-0 z-40 bg-black overflow-y-auto pt-16 pb-24">
         <div className="max-w-[1400px] mx-auto p-8 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <button 
-            onClick={() => setSelectedSubjectId(null)} 
+          <button
+            onClick={() => setSelectedSubjectId(null)}
             className="fixed top-24 right-8 p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all hover:scale-110 active:scale-95 duration-300 z-50 min-h-[56px] min-w-[56px]"
           >
             <X size={24} />
@@ -444,8 +442,8 @@ export default function CoursesView_v2() {
                       className="flex items-center gap-4 cursor-pointer hover:bg-white/5 p-4 rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 min-h-[64px] group"
                       onClick={() => toggleSyllabus(u)}
                     >
-                      {u.completed ? 
-                        <CheckSquare className="text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" size={24} /> : 
+                      {u.completed ?
+                        <CheckSquare className="text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" size={24} /> :
                         <Square size={24} className="text-zinc-600 shrink-0 group-hover:scale-110 transition-transform" />
                       }
                       <span className={`text-base font-medium ${u.completed ? "line-through text-zinc-500" : "text-zinc-300"}`}>
@@ -574,8 +572,8 @@ export default function CoursesView_v2() {
                         className="flex items-center gap-4 flex-1 cursor-pointer"
                         onClick={() => r.type === 'link' ? openExternally(r) : setSelectedResource(r)}
                       >
-                        {r.type === 'link' ? 
-                          <Link size={20} className="text-cyan-400 shrink-0" /> : 
+                        {r.type === 'link' ?
+                          <Link size={20} className="text-cyan-400 shrink-0" /> :
                           <FileText size={20} className="text-purple-400 shrink-0" />
                         }
                         <span className="truncate text-base font-medium">{r.title}</span>
@@ -597,9 +595,8 @@ export default function CoursesView_v2() {
               )}
 
               <div className="flex flex-col sm:flex-row gap-4">
-                <label className={`flex-1 px-6 py-5 text-base text-center rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 font-semibold min-h-[64px] flex items-center justify-center gap-3 ${
-                  dragActive ? "border-cyan-400 bg-cyan-500/20" : "border-white/10 hover:border-indigo-500/40"
-                }`}>
+                <label className={`flex-1 px-6 py-5 text-base text-center rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 font-semibold min-h-[64px] flex items-center justify-center gap-3 ${dragActive ? "border-cyan-400 bg-cyan-500/20" : "border-white/10 hover:border-indigo-500/40"
+                  }`}>
                   <input type="file" multiple hidden onChange={async (e: any) => {
                     const files = Array.from((e.target?.files || [])) as File[];
                     for (const f of files) await processAndSaveFile(f);
@@ -778,7 +775,7 @@ export default function CoursesView_v2() {
               >
                 {/* Gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 via-transparent to-purple-500/0 group-hover:from-indigo-500/5 group-hover:to-purple-500/5 transition-all duration-500 pointer-events-none" />
-                
+
                 <div className="relative z-10">
                   <div className="flex justify-between items-start mb-6">
                     <div className="flex gap-5 flex-1 min-w-0">
@@ -794,7 +791,7 @@ export default function CoursesView_v2() {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex flex-col items-end gap-3 shrink-0 ml-5">
                       <div className={`text-4xl font-bold font-mono tabular-nums ${t.text} group-hover:scale-110 transition-transform duration-300`}>
                         {progress}%
@@ -815,25 +812,25 @@ export default function CoursesView_v2() {
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="h-2.5 bg-white/5 rounded-full mb-6 overflow-hidden shadow-inner">
-                    <div 
-                      className={`${t.bg} h-full transition-all duration-1000 ease-out shadow-lg`} 
-                      style={{ width: `${progress}%` }} 
+                    <div
+                      className={`${t.bg} h-full transition-all duration-1000 ease-out shadow-lg`}
+                      style={{ width: `${progress}%` }}
                     />
                   </div>
-                  
+
                   <div className="flex gap-8 text-sm text-zinc-500 font-bold uppercase tracking-wider">
                     <div className="flex items-center gap-2 group-hover:text-zinc-300 transition-colors">
-                      <Clock size={16} className="text-zinc-600" /> 
+                      <Clock size={16} className="text-zinc-600" />
                       <span className="tabular-nums">{getTotalHours(s.id)}H</span>
                     </div>
                     <div className="flex items-center gap-2 group-hover:text-zinc-300 transition-colors">
-                      <Target size={16} className="text-zinc-600" /> 
+                      <Target size={16} className="text-zinc-600" />
                       <span className="tabular-nums">{(s.syllabus || []).filter((u: any) => !u.completed).length} units</span>
                     </div>
                     <div className="flex items-center gap-2 group-hover:text-zinc-300 transition-colors">
-                      <FileText size={16} className="text-zinc-600" /> 
+                      <FileText size={16} className="text-zinc-600" />
                       <span className="tabular-nums">{(s.resources || []).length} files</span>
                     </div>
                   </div>

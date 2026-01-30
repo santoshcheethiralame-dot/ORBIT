@@ -1,4 +1,4 @@
-// index.tsx - UPDATED with new systems
+// index.tsx - FUTURISTIC GLASSMORPHIC FLOATING NAVBAR (Hybrid Enhancement: Active Gradient Border)
 
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
@@ -8,12 +8,14 @@ import {
   BarChart2,
   Settings,
   Info,
+  Play,
   Clock,
   ArrowRight,
 } from "lucide-react";
 import { db } from "./db";
 import { Subject, DailyPlan, StudyBlock, StudyLog, DailyContext } from "./types";
-import { generateDailyPlan, updateAssignmentProgress } from "./brain";
+import { updateAssignmentProgress } from "./brain";
+import { generateEnhancedPlan } from "./brain-enhanced-integration";
 import { Onboarding } from "./Onboarding";
 import { Dashboard } from "./Dashboard";
 import { FocusSession } from "./FocusSession";
@@ -33,6 +35,21 @@ import { ToastProvider, useToast } from "./Toast";
 import { TouchAuditTool } from "./utils/touchAudit";
 
 import { getISTEffectiveDate, isPlanCurrent } from "./utils/time";
+
+// --- Hybrid Enhancement: Define consistent tab structures for desktop/mobile ---
+
+const DESKTOP_TABS = [
+  { id: "dashboard", icon: LayoutGrid, label: "Dashboard", activeGradient: "from-blue-500 to-cyan-500" },
+  { id: "courses", icon: BookOpen, label: "Courses", activeGradient: "from-purple-500 to-pink-500" },
+  { id: "stats", icon: BarChart2, label: "Analytics", activeGradient: "from-orange-500 to-red-500" },
+];
+// MOBILE_TABS: no "about" included because we'll do a special info button in mobile nav
+const MOBILE_TABS = [
+  { id: "dashboard", icon: LayoutGrid, label: "Home", activeGradient: "from-blue-500 to-cyan-500" },
+  { id: "courses", icon: BookOpen, label: "Courses", activeGradient: "from-purple-500 to-pink-500" },
+  { id: "stats", icon: BarChart2, label: "Stats", activeGradient: "from-orange-500 to-red-500" },
+  { id: "settings", icon: Settings, label: "Settings", activeGradient: "from-green-500 to-emerald-500" },
+];
 
 const App = () => {
   const [view, setView] = useState<
@@ -167,7 +184,7 @@ const App = () => {
     SoundManager.playSuccess();
 
     try {
-      const result = await generateDailyPlan(ctx);
+      const result = await generateEnhancedPlan(ctx);
       const dateStr = getISTEffectiveDate();
 
       const plan: DailyPlan = {
@@ -177,6 +194,7 @@ const App = () => {
         warning: result.loadAnalysis?.warning,
         loadLevel: result.loadAnalysis?.loadLevel,
         loadScore: result.loadAnalysis?.loadScore,
+        performanceAdjustments: result.performanceAdjustments,
       };
 
       await db.plans.put(plan);
@@ -393,48 +411,172 @@ const App = () => {
         />
       )}
 
-      {/* DESKTOP NAV */}
-      <header className="hidden md:flex items-center justify-between px-8 py-4 border-b border-white/10 bg-white/[0.02] backdrop-blur-2xl sticky top-0 z-50 h-16">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center font-bold text-black shadow-lg shadow-white/10">
-            O
-          </div>
-          <h1 className="text-xl font-display font-bold tracking-tight text-white">
-            Orbit
-          </h1>
-        </div>
+      {/* DESKTOP NAV - FLOATING GLASSMORPHIC PILL */}
+      <header className="hidden md:block fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-5xl px-4 animate-float">
+        <div className="
+          relative overflow-hidden
+          px-6 py-3
+          rounded-[2rem]
+          bg-white/[0.03]
+          backdrop-blur-2xl
+          border border-white/10
+          shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]
+          transition-all duration-500
+          hover:shadow-[0_12px_48px_rgba(99,102,241,0.2)]
+          hover:border-white/20
+        ">
+          {/* Animated Gradient Background */}
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5 opacity-0 hover:opacity-100 transition-opacity duration-700" />
+          {/* Glow Effect */}
+          <div className="absolute -inset-[1px] bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20 rounded-[2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
-        {showNavigation ? (
-          <nav className="flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/5">
-            {[
-              { id: "dashboard", icon: LayoutGrid, label: "Command" },
-              { id: "courses", icon: BookOpen, label: "Subjects" },
-              { id: "stats", icon: BarChart2, label: "Data" },
-              { id: "about", icon: Info, label: "Brief" },
-              { id: "settings", icon: Settings, label: "Settings" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => switchTab(tab.id as any)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-full transition-all font-bold text-xs uppercase tracking-wide ${activeTab === tab.id
-                    ? "bg-white text-black shadow-xl shadow-white/5"
-                    : "text-zinc-400 hover:text-white hover:bg-white/5"
-                  }`}
-              >
-                <tab.icon size={16} />
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-        ) : (
-          <div className="flex-1 flex justify-center">
-            <div className="text-xs text-zinc-500 font-mono px-4 py-2 rounded-full bg-white/5 border border-white/5">
-              SYSTEM_LOCKED
+          <div className="relative z-10 flex items-center justify-between">
+            {/* LEFT: Brand + Nav */}
+            <div className="flex items-center gap-8">
+              {/* Animated Brand */}
+              <div className="flex items-center gap-3 group/brand">
+                <div className="
+                  relative w-10 h-10 rounded-full
+                  bg-gradient-to-br from-white via-indigo-100 to-purple-100
+                  flex items-center justify-center
+                  font-bold text-black
+                  shadow-lg shadow-indigo-500/20
+                  transition-all duration-500
+                  group-hover/brand:scale-110 group-hover/brand:rotate-12
+                  group-hover/brand:shadow-indigo-500/40
+                ">
+                  <span className="relative z-10">O</span>
+                  {/* Orbit Ring Animation */}
+                  <div className="absolute inset-0 rounded-full border-2 border-indigo-400/30 animate-ping" />
+                </div>
+                <span className="text-xl font-display font-bold bg-gradient-to-r from-white via-indigo-100 to-purple-100 bg-clip-text text-transparent">
+                  Orbit
+                </span>
+              </div>
+              {/* Glassmorphic Nav Pills */}
+              {showNavigation && (
+                <nav className="flex items-center gap-2">
+                  {DESKTOP_TABS.map((tab) => {
+                    const active = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => switchTab(tab.id as any)}
+                        className={`
+                          relative group/tab
+                          flex items-center gap-2 px-5 py-2.5 rounded-2xl
+                          text-sm font-semibold
+                          transition-all duration-300
+                          ${active
+                            ? 'bg-white/10 text-white shadow-lg backdrop-blur-xl'
+                            : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                          }
+                        `}
+                      >
+                        {/* Active Gradient Border */}
+                        {active && (
+                          <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${tab.activeGradient} opacity-10`} />
+                        )}
+                        <tab.icon
+                          size={18}
+                          className={`relative z-10 transition-transform duration-300 ${active ? 'scale-110' : 'group-hover/tab:scale-110'}`}
+                        />
+                        <span className="relative z-10">{tab.label}</span>
+                        {/* Hover Glow */}
+                        {!active && (
+                          <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${tab.activeGradient} opacity-0 group-hover/tab:opacity-10 transition-opacity duration-300`} />
+                        )}
+                      </button>
+                    );
+                  })}
+                </nav>
+              )}
             </div>
+            {/* RIGHT: CTA + Actions */}
+            {showNavigation ? (
+              <div className="flex items-center gap-3">
+                {/* FLOATING PRIMARY CTA */}
+                {todayPlan && todayPlan.blocks.find(b => !b.completed) && (
+                  <button
+                    onClick={() => {
+                      const nextBlock = todayPlan.blocks.find(b => !b.completed);
+                      if (nextBlock) {
+                        SoundManager.playClick();
+                        setActiveBlock(nextBlock);
+                        setView("focus");
+                      }
+                    }}
+                    className="
+                      relative group/cta overflow-hidden
+                      flex items-center gap-2 px-6 py-3 rounded-2xl
+                      bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600
+                      text-white font-bold text-sm
+                      shadow-lg shadow-indigo-500/30
+                      transition-all duration-300
+                      hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/50
+                      active:scale-95
+                    "
+                  >
+                    {/* Shimmer Effect */}
+                    <div className="absolute inset-0 -translate-x-full group-hover/cta:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                    <Play size={16} fill="currentColor" className="relative z-10 animate-pulse" />
+                    <span className="relative z-10">Start Focus</span>
+                    {/* Glow Rings */}
+                    <div className="absolute inset-0 rounded-2xl ring-2 ring-white/20 animate-ping opacity-75" />
+                  </button>
+                )}
+
+                {/* Glassmorphic Icon Buttons */}
+                <div className="flex items-center gap-2 p-1 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
+                  <button
+                    onClick={() => switchTab("about" as any)}
+                    className={`
+                      relative p-2.5 rounded-xl transition-all duration-300
+                      ${activeTab === "about"
+                        ? 'bg-white/10 text-white shadow-lg'
+                        : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      }
+                    `}
+                    title="About"
+                  >
+                    <Info size={18} />
+                    {activeTab === "about" && (
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-500/20 blur-sm" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => switchTab("settings" as any)}
+                    className={`
+                      relative p-2.5 rounded-xl transition-all duration-300
+                      ${activeTab === "settings"
+                        ? 'bg-white/10 text-white shadow-lg'
+                        : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      }
+                    `}
+                    title="Settings"
+                  >
+                    <Settings size={18} />
+                    {activeTab === "settings" && (
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 blur-sm" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="px-4 py-2 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
+                <span className="text-xs font-mono text-zinc-500 uppercase tracking-wider">
+                  System Locked
+                </span>
+              </div>
+            )}
           </div>
-        )}
-        <div className="text-xs text-zinc-600 font-mono">v3.2.0</div>
+          {/* Bottom Border Glow */}
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        </div>
       </header>
+
+      {/* Spacer for fixed navbar */}
+      <div className="hidden md:block h-24" />
 
       {/* MAIN CONTENT */}
       <main className="flex-1 min-h-screen pb-24 md:pb-0 overflow-x-hidden">
@@ -452,11 +594,9 @@ const App = () => {
               onRefresh={() => void loadData()}
             />
           )}
-
           {activeTab === "courses" && (
             <CoursesViewComponent subjects={subjects} logs={logs} />
           )}
-
           {activeTab === "stats" && (
             <StatsView logs={logs} subjects={subjects} />
           )}
@@ -465,31 +605,114 @@ const App = () => {
         </div>
       </main>
 
-      {/* MOBILE NAV */}
+      {/* MOBILE NAV - FLOATING GLASSMORPHIC */}
       {showNavigation && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-zinc-950/90 backdrop-blur-2xl border-t border-white/10 flex justify-around items-center px-4 z-40 pb-safe">
-          {[
-            { id: "dashboard", icon: LayoutGrid, label: "Home" },
-            { id: "courses", icon: BookOpen, label: "Subs" },
-            { id: "stats", icon: BarChart2, label: "Data" },
-            { id: "about", icon: Info, label: "Info" },
-            { id: "settings", icon: Settings, label: "Set" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => switchTab(tab.id as any)}
-              className={`${activeTab === tab.id ? "text-white" : "text-zinc-500"
-                } flex flex-col items-center gap-1.5 transition-all p-2 rounded-xl active:scale-95 min-h-[44px] min-w-[44px]`}
-            >
-              <tab.icon
-                size={22}
-                strokeWidth={activeTab === tab.id ? 2.5 : 2}
-              />
-              <span className="text-[10px] font-bold">{tab.label}</span>
-            </button>
-          ))}
+        <div className="md:hidden fixed bottom-4 left-4 right-4 z-50">
+          {/* Primary CTA - Floating Above */}
+          {todayPlan && todayPlan.blocks.find(b => !b.completed) && (
+            <div className="mb-3 animate-bounce-slow">
+            </div>
+          )}
+
+          {/* Glassmorphic Bottom Nav */}
+          <div className="
+            relative overflow-hidden
+            rounded-[2rem] p-2
+            bg-black/40 backdrop-blur-2xl
+            border border-white/10
+            shadow-[0_-8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]
+          ">
+            {/* Gradient Background */}
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5" />
+            <div className="relative z-10 flex justify-around items-center">
+              {MOBILE_TABS.map((tab) => {
+                const active = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => switchTab(tab.id as any)}
+                    className={`
+                      relative
+                      flex flex-col items-center justify-center gap-1.5
+                      py-3 px-4 rounded-2xl min-w-[70px]
+                      transition-all duration-300
+                      ${active ? "text-white scale-105" : "text-zinc-500"}
+                    `}
+                  >
+                    {/* Active Gradient Border */}
+                    {active && (
+                      <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${tab.activeGradient} opacity-10`} />
+                    )}
+                    <tab.icon
+                      size={24}
+                      strokeWidth={active ? 2.5 : 2}
+                      className="relative z-10"
+                    />
+                    <span className="relative z-10 text-[10px] font-bold">{tab.label}</span>
+                    {/* Active Dot Indicator */}
+                    {active && (
+                      <div className={`absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-gradient-to-r ${tab.activeGradient} animate-pulse`} />
+                    )}
+                  </button>
+                );
+              })}
+              {/* --- Info Button for About in MOV NAV --- */}
+              <button
+                onClick={() => switchTab("about" as any)}
+                className={`
+                  relative flex flex-col items-center justify-center gap-1.5
+                  py-3 px-4 rounded-2xl min-w-[70px]
+                  transition-all duration-300
+                  ${activeTab === "about" ? "text-white scale-105" : "text-zinc-500"}
+                `}
+                title="About"
+                aria-label="About"
+              >
+                {/* Active Gradient Border */}
+                {activeTab === "about" && (
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 opacity-10" />
+                )}
+                <Info
+                  size={24}
+                  strokeWidth={activeTab === "about" ? 2.5 : 2}
+                  className="relative z-10"
+                />
+                <span className="relative z-10 text-[10px] font-bold">About</span>
+                {/* Active Dot Indicator */}
+                {activeTab === "about" && (
+                  <div className="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 animate-pulse" />
+                )}
+              </button>
+            </div>
+            {/* Top Border Glow */}
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+          </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateX(-50%) translateY(0px); }
+          50% { transform: translateX(-50%) translateY(-4px); }
+        }
+        @keyframes bounce-slow {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-8px); }
+        }
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        .animate-float {
+          animation: float 3s ease-in-out infinite;
+        }
+        .animate-bounce-slow {
+          animation: bounce-slow 2s ease-in-out infinite;
+        }
+        .animate-shimmer {
+          animation: shimmer 2s infinite;
+        }
+      `}</style>
     </div>
   );
 };

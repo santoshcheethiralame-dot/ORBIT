@@ -19,6 +19,8 @@ import { db } from "./db"; // <-- Adjust if db import path differs
 // You will need these functions for topic review tracking
 import { recordTopicReview, getISTEffectiveDate } from "./tracking";
 import { ComprehensionRatingModal } from "./SpacedRepetition";
+import { QualityRatingModal } from "./QualityRatingModal";
+import { recordBlockOutcome } from "./brain-enhanced-integration";
 
 const BREAK_TOTAL = 5 * 60; // seconds
 const RADIUS = 120;
@@ -55,6 +57,12 @@ export const FocusSession = ({
     block.topicId?.replace(/-/g, ' ') || block.notes || ""
   );
 
+  // NEW state for quality rating modal
+  const [showQualityModal, setShowQualityModal] = useState(false);
+  const [completedDuration, setCompletedDuration] = useState(0);
+  const [sessionNotes, setSessionNotes] = useState("");
+  const [wasSkipped, setWasSkipped] = useState(false);
+
   // v2: Call this instead of onComplete directly (when session ends or finish early)
   const handleFocusComplete = useCallback(
     async (actualDuration?: number, sessionNotes?: string) => {
@@ -86,15 +94,33 @@ export const FocusSession = ({
         }
       }
 
-      // If it's a review block, ask for comprehension rating, else complete
+      // If it's a review block, ask for comprehension rating first
+      // THEN ask for quality rating for ALL blocks
       if (block.type === 'review') {
         setShowComprehensionRating(true);
+        // Store these for after comprehension is done
+        setCompletedDuration(durationToLog);
+        setSessionNotes(sessionNotes || "");
       } else {
-        if (onComplete) onComplete(durationToLog, sessionNotes);
+        // For non-review blocks, go straight to quality rating
+        setCompletedDuration(durationToLog);
+        setSessionNotes(sessionNotes || "");
+        setShowQualityModal(true);
       }
     },
     [block, onComplete]
   );
+
+  const handleQualityRating = async (rating: 1 | 2 | 3 | 4 | 5) => {
+    await recordBlockOutcome(block, {
+      actualDuration: completedDuration,
+      completionQuality: rating,
+      skipped: wasSkipped,
+    });
+
+    setShowQualityModal(false);
+    onComplete(completedDuration, sessionNotes);
+  };
 
   // Sync topic name with block changes
   useEffect(() => {
@@ -595,14 +621,25 @@ export const FocusSession = ({
           }
           setShowComprehensionRating(false);
           setTopicName("");
-          onComplete(block.duration, notes);
+          // After comprehension, show quality rating
+          setShowQualityModal(true);
         }}
         onSkip={() => {
           setShowComprehensionRating(false);
           setTopicName("");
-          onComplete(block.duration, notes);
+          // After skipping comprehension, still show quality rating
+          setShowQualityModal(true);
         }}
       />
+
+      {/* Quality Rating Modal */}
+      {showQualityModal && (
+        <QualityRatingModal
+          block={block}
+          onRate={handleQualityRating}
+          onClose={() => handleQualityRating(3)} // Default to OK if closed
+        />
+      )}
     </div>
   );
 };

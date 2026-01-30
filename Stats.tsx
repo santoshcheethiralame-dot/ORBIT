@@ -66,12 +66,12 @@ export const StatsView = ({
       <div className="pb-32 pt-8 px-4 lg:px-10 w-full max-w-[1400px] mx-auto">
         <div className="flex justify-between items-end mb-10">
           <div className="flex flex-col gap-3">
-            <div className="text-sm text-indigo-400/60 font-mono uppercase tracking-[0.2em]">
+            <div className="text-xs font-mono text-indigo-400/60 uppercase tracking-[0.2em]">
               {new Date().toLocaleDateString("en-US", {
                 weekday: "long",
                 month: "short",
                 day: "numeric",
-              })}
+              }).toUpperCase()}
             </div>
             <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight">Performance Analytics</h1>
           </div>
@@ -83,11 +83,10 @@ export const StatsView = ({
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-6 py-4 rounded-2xl text-sm font-bold uppercase tracking-wider transition-all duration-300 min-h-[64px] ${
-                timeRange === range
-                  ? 'bg-indigo-600 text-white shadow-2xl shadow-indigo-500/30 scale-105'
-                  : 'bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 hover:scale-105'
-              }`}
+              className={`px-6 py-4 rounded-2xl text-sm font-bold uppercase tracking-wider transition-all duration-300 min-h-[64px] ${timeRange === range
+                ? 'bg-indigo-600 text-white shadow-2xl shadow-indigo-500/30 scale-105'
+                : 'bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 hover:scale-105'
+                }`}
             >
               {range === '10days' ? '10 Days' : range}
             </button>
@@ -109,7 +108,7 @@ export const StatsView = ({
           ) : (
             <div className="space-y-3">
               {upcomingReviews.map(topic => (
-                <div key={topic.id} className="flex justify-between items-center p-6 bg-zinc-900/50 rounded-3xl border border-zinc-800 hover:bg-zinc-800/50 hover:border-zinc-700 transition-all duration-300 hover:-translate-y-1 min-h-[80px]">
+                <div key={topic.id} className="flex justify-between items-center p-6 bg-zinc-900/40 rounded-3xl border border-zinc-800/50 hover:bg-zinc-900/50 hover:border-zinc-700 transition-all duration-300 hover:-translate-y-1 min-h-[80px]">
                   <div className="flex-1">
                     <div className="font-bold text-white text-lg mb-1">{topic.subjectName}</div>
                     <div className="text-sm text-zinc-400">{topic.name}</div>
@@ -284,23 +283,24 @@ export const StatsView = ({
   return (
     <div className="pb-32 pt-8 px-4 lg:px-10 w-full max-w-[1400px] mx-auto space-y-10 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6">
+      <div className="flex justify-between items-end mb-10">
         <div className="flex flex-col gap-3">
-          <div className="text-sm text-indigo-400/60 font-mono uppercase tracking-[0.2em]">
+          <div className="text-xs font-mono text-indigo-400/60 uppercase tracking-[0.2em]">
             {new Date().toLocaleDateString("en-US", {
               weekday: "long",
               month: "short",
               day: "numeric",
-            })}
+            }).toUpperCase()}
           </div>
           <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight">Performance Analytics</h1>
         </div>
+
         <button
           onClick={exportDetailedStats}
-          className="hidden md:flex items-center gap-3 px-6 py-4 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-2xl transition-all duration-300 text-sm font-bold border border-indigo-500/20 hover:border-indigo-500/40 hover:scale-105 active:scale-95 min-h-[64px]"
+          className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-500/30 text-xs font-semibold text-zinc-400 hover:text-indigo-300 transition-all"
         >
-          <Download size={20} />
-          <span>Export CSV</span>
+          <Download size={14} />
+          Export CSV
         </button>
       </div>
 
@@ -313,13 +313,13 @@ export const StatsView = ({
           <span>Upcoming Reviews</span>
         </h3>
         {upcomingReviews.length === 0 ? (
-          <div className="text-sm text-zinc-500 p-8 bg-zinc-900/30 rounded-3xl border border-zinc-800 text-center">
+          <div className="text-sm text-zinc-500 p-8 bg-zinc-900/30 rounded-3xl border border-zinc-800/50 text-center">
             No upcoming reviews in next 7 days.
           </div>
         ) : (
           <div className="space-y-3">
             {upcomingReviews.map(topic => (
-              <div key={topic.id} className="flex justify-between items-center p-6 bg-zinc-900/50 rounded-3xl border border-zinc-800 hover:bg-zinc-800/50 hover:border-zinc-700 transition-all duration-300 hover:-translate-y-1 min-h-[80px]">
+              <div key={topic.id} className="flex justify-between items-center p-6 bg-zinc-900/40 rounded-3xl border border-zinc-800/50 hover:bg-zinc-900/50 hover:border-zinc-700 transition-all duration-300 hover:-translate-y-1 min-h-[80px]">
                 <div className="flex-1">
                   <div className="font-bold text-white text-lg mb-1">{topic.subjectName}</div>
                   <div className="text-sm text-zinc-400">{topic.name}</div>
@@ -342,11 +342,10 @@ export const StatsView = ({
           <button
             key={range}
             onClick={() => setTimeRange(range)}
-            className={`px-6 py-4 rounded-2xl text-sm font-bold uppercase tracking-wider transition-all duration-300 min-h-[64px] ${
-              timeRange === range
-                ? 'bg-indigo-600 text-white shadow-2xl shadow-indigo-500/30 scale-105'
-                : 'bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 hover:scale-105'
-            }`}
+            className={`px-6 py-4 rounded-2xl text-sm font-bold uppercase tracking-wider transition-all duration-300 min-h-[64px] ${timeRange === range
+              ? 'bg-indigo-600 text-white shadow-2xl shadow-indigo-500/30 scale-105'
+              : 'bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 hover:scale-105'
+              }`}
           >
             {range === '10days' ? '10 Days' : range}
           </button>
@@ -355,7 +354,10 @@ export const StatsView = ({
 
       {/* Core Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 hover:border-indigo-500/40 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col">
+        {/* Stats Card 1 */}
+        <div
+          className="group rounded-3xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] [backdrop-filter:blur(48px)] p-8 hover:border-indigo-500/40 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col"
+        >
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.08] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           <div className="relative z-10 flex-1 flex flex-col">
             <Clock className="text-indigo-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
@@ -369,8 +371,10 @@ export const StatsView = ({
             )}
           </div>
         </div>
-
-        <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 hover:border-emerald-500/40 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col">
+        {/* Stats Card 2 */}
+        <div
+          className="group rounded-3xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] [backdrop-filter:blur(48px)] p-8 hover:border-emerald-500/40 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col"
+        >
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.08] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           <div className="relative z-10 flex-1 flex flex-col">
             <Check className="text-emerald-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
@@ -378,8 +382,10 @@ export const StatsView = ({
             <div className="text-sm text-zinc-500 uppercase tracking-[0.15em] font-semibold">Sessions</div>
           </div>
         </div>
-
-        <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 hover:border-cyan-500/40 hover:shadow-2xl hover:shadow-cyan-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col">
+        {/* Stats Card 3 */}
+        <div
+          className="group rounded-3xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] [backdrop-filter:blur(48px)] p-8 hover:border-cyan-500/40 hover:shadow-2xl hover:shadow-cyan-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col"
+        >
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.08] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           <div className="relative z-10 flex-1 flex flex-col">
             <Target className="text-cyan-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
@@ -387,8 +393,10 @@ export const StatsView = ({
             <div className="text-sm text-zinc-500 uppercase tracking-[0.15em] font-semibold">Avg Session</div>
           </div>
         </div>
-
-        <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 hover:border-purple-500/40 hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col">
+        {/* Stats Card 4 */}
+        <div
+          className="group rounded-3xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] [backdrop-filter:blur(48px)] p-8 hover:border-purple-500/40 hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col"
+        >
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.08] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           <div className="relative z-10 flex-1 flex flex-col">
             <Calendar className="text-purple-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
@@ -401,7 +409,7 @@ export const StatsView = ({
       {/* Focus Scores & Activity Mix */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Subject Focus Scores */}
-        <div className="lg:col-span-2 group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 hover:border-indigo-500/30 transition-all duration-500 relative overflow-hidden">
+        <div className="lg:col-span-2 group rounded-3xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] [backdrop-filter:blur(48px)] p-8 hover:border-indigo-500/30 transition-all duration-500 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-8">
@@ -431,7 +439,7 @@ export const StatsView = ({
                     className="group/item hover:translate-x-2 transition-all duration-300 cursor-pointer"
                     style={{ animationDelay: `${index * 30}ms` }}
                   >
-                    <div className="flex justify-between items-center mb-3 p-5 bg-zinc-900/40 rounded-2xl border border-zinc-800 hover:bg-zinc-800/60 hover:border-zinc-700 transition-all duration-300 min-h-[100px]">
+                    <div className="flex justify-between items-center mb-3 p-5 bg-zinc-900/40 rounded-2xl border border-zinc-800/50 hover:bg-zinc-900/50 hover:border-zinc-700 transition-all duration-300 min-h-[100px]">
                       <div className="flex items-center gap-5">
                         <div className={`w-20 h-20 rounded-2xl ${scoreColor.replace('text-', 'bg-')}/20 flex items-center justify-center border-2 ${scoreColor.replace('text-', 'border-')}/40 transition-all duration-300 group-hover/item:scale-110`}>
                           <span className={`text-3xl font-bold font-mono tabular-nums ${scoreColor}`}>
@@ -476,9 +484,8 @@ export const StatsView = ({
                       </div>
                       <ChevronRight
                         size={24}
-                        className={`text-zinc-600 group-hover/item:text-indigo-400 transition-all duration-300 ${
-                          selectedSubject === stat.id ? 'rotate-90' : ''
-                        }`}
+                        className={`text-zinc-600 group-hover/item:text-indigo-400 transition-all duration-300 ${selectedSubject === stat.id ? 'rotate-90' : ''
+                          }`}
                       />
                     </div>
 
@@ -521,7 +528,7 @@ export const StatsView = ({
         </div>
 
         {/* Activity Mix */}
-        <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 hover:border-purple-500/30 transition-all duration-500 relative overflow-hidden">
+        <div className="group rounded-3xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] [backdrop-filter:blur(48px)] p-8 hover:border-purple-500/30 transition-all duration-500 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           <div className="relative z-10">
             <h3 className="text-lg font-bold text-zinc-300 uppercase tracking-[0.15em] group-hover:text-purple-200 transition-colors mb-8 flex items-center gap-3">
@@ -573,7 +580,7 @@ export const StatsView = ({
       </div>
 
       {/* Heatmap */}
-      <div className="group rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-2xl p-8 hover:border-indigo-500/30 transition-all duration-500 relative overflow-hidden">
+      <div className="group rounded-3xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] [backdrop-filter:blur(48px)] p-8 hover:border-indigo-500/30 transition-all duration-500 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
         <div className="relative z-10">
           <h3 className="text-lg font-bold text-zinc-300 uppercase tracking-[0.15em] group-hover:text-indigo-200 transition-colors mb-8 flex items-center gap-3">
@@ -592,15 +599,14 @@ export const StatsView = ({
               return (
                 <div
                   key={i}
-                  className={`w-10 h-10 rounded-xl transition-all duration-300 hover:scale-125 hover:z-10 cursor-pointer ${
-                    intensity === 0
-                      ? "bg-zinc-900 border-2 border-zinc-800 hover:border-zinc-700"
-                      : intensity === 1
-                        ? "bg-indigo-900/60 border-2 border-indigo-800 hover:border-indigo-600 shadow-lg shadow-indigo-900/20"
-                        : intensity === 2
-                          ? "bg-indigo-600 border-2 border-indigo-500 hover:border-indigo-400 shadow-lg shadow-indigo-600/30"
-                          : "bg-indigo-400 border-2 border-indigo-300 shadow-[0_0_15px_rgba(129,140,248,0.5)] hover:shadow-[0_0_25px_rgba(129,140,248,0.7)]"
-                  }`}
+                  className={`w-10 h-10 rounded-xl transition-all duration-300 hover:scale-125 hover:z-10 cursor-pointer ${intensity === 0
+                    ? "bg-zinc-900 border-2 border-zinc-800 hover:border-zinc-700"
+                    : intensity === 1
+                      ? "bg-indigo-900/60 border-2 border-indigo-800 hover:border-indigo-600 shadow-lg shadow-indigo-900/20"
+                      : intensity === 2
+                        ? "bg-indigo-600 border-2 border-indigo-500 hover:border-indigo-400 shadow-lg shadow-indigo-600/30"
+                        : "bg-indigo-400 border-2 border-indigo-300 shadow-[0_0_15px_rgba(129,140,248,0.5)] hover:shadow-[0_0_25px_rgba(129,140,248,0.7)]"
+                    }`}
                   title={dateStr}
                 />
               );

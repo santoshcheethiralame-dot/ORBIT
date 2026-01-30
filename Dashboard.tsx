@@ -21,37 +21,33 @@ import {
   Zap,
   TrendingUp,
   Coffee,
-  Moon,
-  Sun,
-  Cloud,
   AlertCircle,
   AlertTriangle,
   RefreshCw,
   Brain,
   ChevronDown,
   ChevronUp,
-  MoreHorizontal,
 } from "lucide-react";
 import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
+import { DashboardInsights } from "./DashboardInsights";
 
 // ============================================
 // SUB-COMPONENTS
 // ============================================
 
-// Assignment Progress Component
-const AssignmentProgressBar = ({ 
-  assignmentId, 
-  assignments 
-}: { 
-  assignmentId: string; 
-  assignments: any[] 
+const AssignmentProgressBar = ({
+  assignmentId,
+  assignments
+}: {
+  assignmentId: string;
+  assignments: any[]
 }) => {
   const a = assignments.find(a => a.id === assignmentId);
   if (!a) return null;
-  
+
   const percent = Math.round(((a.progressMinutes || 0) / (a.estimatedEffort || 120)) * 100);
-  
+
   return (
     <div className="w-full mt-3">
       <div className="flex justify-between items-center mb-1.5">
@@ -68,14 +64,13 @@ const AssignmentProgressBar = ({
   );
 };
 
-// Backlog Item Component (improved touch targets)
-const BacklogItem = ({ 
-  block, 
-  onAdd, 
-  onDelete 
-}: { 
-  block: any; 
-  onAdd: (block: any) => void; 
+const BacklogItem = ({
+  block,
+  onAdd,
+  onDelete
+}: {
+  block: any;
+  onAdd: (block: any) => void;
   onDelete: (id: string) => void;
 }) => {
   const [touchStart, setTouchStart] = useState(0);
@@ -133,7 +128,6 @@ const BacklogItem = ({
           {block.type} • {block.duration}m
         </div>
       </div>
-      
       <button
         onClick={() => onAdd(block)}
         className="flex items-center justify-center gap-2 px-5 py-3 bg-yellow-500/15 hover:bg-yellow-500/25 text-yellow-300 rounded-xl transition-all font-semibold text-sm hover:scale-105 active:scale-95 shadow-lg shadow-yellow-500/5 min-h-[44px] min-w-[44px] border border-yellow-500/20"
@@ -143,6 +137,17 @@ const BacklogItem = ({
       </button>
     </div>
   );
+};
+
+// ============================================
+// HELPER: Mood Glyph
+// ============================================
+const getMoodGlyph = (mood: string | undefined) => {
+  return {
+    high: "☀️",
+    normal: "☁️",
+    low: "🌙"
+  }[mood || "normal"];
 };
 
 // ============================================
@@ -165,7 +170,7 @@ export const Dashboard = ({
   // ============================================
   // STATE MANAGEMENT
   // ============================================
-  
+
   const [backlog, setBacklog] = useState<StudyBlock[]>([]);
   const [showBacklog, setShowBacklog] = useState(false);
   const [animatedProgress, setAnimatedProgress] = useState(0);
@@ -500,42 +505,58 @@ export const Dashboard = ({
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good Morning";
-    if (hour < 17) return "Good Afternoon";
-    if (hour < 21) return "Good Evening";
-    return "Burning the Midnight Oil";
+    if (hour >= 0 && hour < 2) return "Deep Space Hours";
+    if (hour >= 2 && hour < 4) return "Burning the Midnight Oil";
+    if (hour >= 4 && hour < 6) return "Early Bird Mode";
+    if (hour >= 6 && hour < 8) return "Dawn Patrol";
+    if (hour >= 8 && hour < 10) return "Good Morning";
+    if (hour >= 10 && hour < 12) return "Morning Command";
+    if (hour >= 12 && hour < 14) return "Midday Mission";
+    if (hour >= 14 && hour < 16) return "Afternoon Grind";
+    if (hour >= 16 && hour < 18) return "Golden Hour";
+    if (hour >= 18 && hour < 20) return "Evening Command";
+    if (hour >= 20 && hour < 22) return "Night Shift";
+    return "Night Operations";
   };
 
-  const getMoodIcon = () => {
-    switch (plan.context.mood) {
-      case "high":
-        return <Sun className="text-amber-400" size={20} strokeWidth={2.5} />;
-      case "low":
-        return <Moon className="text-indigo-400" size={20} strokeWidth={2.5} />;
-      default:
-        return <Cloud className="text-zinc-400" size={20} strokeWidth={2.5} />;
-    }
-  };
-
+  // Only retain dayType badges for ESA/ISA; everything else is "normal" (no badge)
   const getDayTypeBadge = () => {
-    if (plan.context.dayType === "esa") {
+    if (plan.context.dayType !== "normal") {
+      const badgeClass =
+        plan.context.dayType === "esa"
+          ? "bg-red-500/15 text-red-300 border-red-500/30"
+          : "bg-orange-500/15 text-orange-300 border-orange-500/30";
       return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/15 text-red-300 border border-red-500/30 text-xs font-bold uppercase tracking-wider">
-          <Flame size={14} />
-          ESA Mode
-        </span>
-      );
-    }
-    if (plan.context.dayType === "isa") {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/15 text-orange-300 border border-orange-500/30 text-xs font-bold uppercase tracking-wider">
-          <Zap size={14} />
-          ISA Mode
+        <span
+          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${badgeClass}`}
+        >
+          {plan.context.dayType.toUpperCase()} MODE
         </span>
       );
     }
     return null;
   };
+
+  // NEW: Only retain load badges for 'heavy' or 'extreme'
+  const getLoadBadge = () => {
+    if (plan.loadLevel === 'heavy' || plan.loadLevel === 'extreme') {
+      const styles =
+        plan.loadLevel === 'extreme'
+          ? 'bg-red-500/15 text-red-300 border-red-500/30'
+          : 'bg-orange-500/15 text-orange-300 border-orange-500/30';
+      return (
+        <span
+          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${styles}`}
+        >
+          {plan.loadLevel === 'extreme' ? 'EXTREME LOAD' : 'HEAVY DAY'}
+        </span>
+      );
+    }
+    return null;
+  };
+
+  // For header system status - e.g. syncing (visible only during refresh)
+  // Will align to "optional/low-key" as per the principle
 
   const estimatedCompletionTime = () => {
     const remainingMinutes = plan.blocks
@@ -546,7 +567,6 @@ export const Dashboard = ({
     return completion.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
   };
 
-  // Determine which blocks to show
   const visibleBlocks = showAllBlocks ? plan.blocks : plan.blocks.slice(0, 4);
   const hasMoreBlocks = plan.blocks.length > 4;
 
@@ -580,82 +600,98 @@ export const Dashboard = ({
       {/* ============================================ */}
       {/* HEADER SECTION */}
       {/* ============================================ */}
-      
       <header className="space-y-4">
-        <div className="text-sm text-zinc-500 font-mono uppercase tracking-widest font-medium">
-          {new Date().toLocaleDateString("en-US", {
-            weekday: "long",
-            month: "short",
-            day: "numeric",
-          })}
-        </div>
-
-        <div className="flex items-start justify-between flex-wrap gap-4">
-          <div className="space-y-3">
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-tight">
-              {getGreeting()}, Pilot
-            </h1>
-            
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900/50 border border-zinc-800/50">
-                {getMoodIcon()}
-                <span className="text-sm font-medium text-zinc-300">
-                  {plan.context.mood === "high" ? "Peak Energy" : 
-                   plan.context.mood === "low" ? "Low Energy" : 
-                   "Normal Energy"}
-                </span>
-              </div>
-              {getDayTypeBadge()}
+        <div className="flex items-center justify-between gap-4 mb-2 flex-wrap">
+          {/* LEFT: State badges */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Date */}
+            <div className="text-xs font-mono text-indigo-400/60 uppercase tracking-[0.2em]">
+              {new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "short",
+                day: "numeric",
+              }).toUpperCase()}
             </div>
-          </div>
-
-          <div className="flex items-center gap-3 text-sm">
-            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-              <Target size={18} className="text-indigo-400" strokeWidth={2.5} />
-              <span className="text-zinc-300 font-semibold tabular-nums">
-                {completedCount}/{totalCount}
-              </span>
-            </div>
-            
-            {plan.blocks.filter((b) => !b.completed).length > 0 && (
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-                <Clock size={18} className="text-cyan-400" strokeWidth={2.5} />
-                <span className="text-zinc-300 font-semibold tabular-nums">
-                  {estimatedCompletionTime()}
-                </span>
-              </div>
+            {getDayTypeBadge()}
+            {getLoadBadge()}
+            {refreshing && (
+              <span className="text-xs text-indigo-400 font-mono">syncing…</span>
             )}
-            
-            <button
-              onClick={loadWeekPreview}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 transition-all text-sm font-bold uppercase tracking-wider hover:scale-105 active:scale-95 min-h-[44px]"
-            >
-              <Calendar size={18} strokeWidth={2.5} />
-              <span className="hidden sm:inline">Week</span>
-            </button>
           </div>
+          {/* RIGHT: Week Preview Action */}
+          <button
+            onClick={loadWeekPreview}
+            className="
+              inline-flex items-center gap-2  
+              px-3 py-1.5
+              rounded-lg
+              bg-white/5 hover:bg-white/10
+              border border-white/10 hover:border-indigo-500/30
+              text-xs font-semibold text-zinc-400 hover:text-indigo-300
+              transition-all duration-200
+              min-h-[32px]
+            "
+          >
+            <Calendar size={14} strokeWidth={2.5} />
+            <span>Week Ahead</span>
+            <ArrowRight size={14} strokeWidth={2.5} />
+          </button>
         </div>
+        <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight">
+          {getGreeting()}
+        </h1>
       </header>
 
       {/* ============================================ */}
       {/* WARNINGS & ALERTS */}
       {/* ============================================ */}
 
+      {/* ============================================ */}
+      {/* WARNINGS & ALERTS */}
+      {/* ============================================ */}
+
+      <DashboardInsights />
+
+      {plan.performanceAdjustments && plan.performanceAdjustments.length > 0 && (
+        <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5 mb-4 animate-in slide-in-from-top-2 fade-in duration-500 backdrop-blur-sm">
+          <h4 className="font-bold text-blue-300 mb-3 text-sm uppercase tracking-wider flex items-center gap-2">
+            <Zap size={16} strokeWidth={2.5} />
+            AI Efficiency Adjustments
+          </h4>
+          <div className="space-y-2 text-sm">
+            {plan.performanceAdjustments.map((adj, i) => {
+              const subject = subjects.find(s => s.id === adj.subjectId);
+              return (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                  <div>
+                    <span className="text-blue-200 font-medium">{subject?.name}</span>
+                    <span className="text-blue-300/70 ml-2 font-mono text-xs">
+                      {adj.oldDuration}m → {adj.newDuration}m
+                    </span>
+                    <div className="text-xs text-blue-400/60 mt-0.5">{adj.reason}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {plan.warning && (
         <div className="animate-in slide-in-from-top-2 fade-in duration-500">
-          <div className={`rounded-2xl border p-5 flex items-start gap-4 backdrop-blur-sm ${
-            plan.loadLevel === 'extreme'
-              ? 'bg-red-500/10 border-red-500/30'
-              : plan.loadLevel === 'heavy'
-                ? 'bg-orange-500/10 border-orange-500/30'
-                : 'bg-blue-500/10 border-blue-500/30'
-          }`}>
+          <div className={`rounded-2xl border p-5 flex items-start gap-4 backdrop-blur-sm ${plan.loadLevel === 'extreme'
+            ? 'bg-red-500/10 border-red-500/30'
+            : plan.loadLevel === 'heavy'
+              ? 'bg-orange-500/10 border-orange-500/30'
+              : 'bg-blue-500/10 border-blue-500/30'
+            }`}>
             <AlertCircle size={24} className="shrink-0 mt-0.5" strokeWidth={2.5} />
             <div className="flex-1 space-y-2">
               <div className="font-bold text-base">
                 {plan.loadLevel === 'extreme' ? '⚠️ Extreme Workload Detected' :
-                 plan.loadLevel === 'heavy' ? '⚡ Heavy Day Ahead' :
-                 '💡 Light Schedule Today'}
+                  plan.loadLevel === 'heavy' ? '⚡ Heavy Day Ahead' :
+                    '💡 Light Schedule Today'}
               </div>
               <div className="text-sm opacity-90 leading-relaxed">{plan.warning}</div>
               {plan.loadScore !== undefined && (
@@ -687,41 +723,41 @@ export const Dashboard = ({
       {/* ============================================ */}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
+
         {/* ============================================ */}
         {/* LEFT COLUMN: NEXT MISSION CARD */}
         {/* ============================================ */}
-        
+
         <div className="lg:col-span-8">
           {nextBlock ? (
             <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.03] to-transparent backdrop-blur-2xl shadow-2xl transition-all duration-500 hover:border-indigo-500/30 hover:shadow-indigo-500/10 group">
-              
+
               {/* Background Decorative Element */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-600/10 to-purple-600/10 rounded-full blur-3xl opacity-50 group-hover:opacity-70 transition-opacity duration-500" />
-              
+
               {/* Progress Ring */}
               <div className="absolute top-8 right-8 w-28 h-28 opacity-20">
                 <svg className="transform -rotate-90" width="112" height="112">
-                  <circle 
-                    cx="56" 
-                    cy="56" 
-                    r="50" 
-                    stroke="currentColor" 
-                    strokeWidth="6" 
-                    fill="none" 
-                    className="text-zinc-700" 
+                  <circle
+                    cx="56"
+                    cy="56"
+                    r="50"
+                    stroke="currentColor"
+                    strokeWidth="6"
+                    fill="none"
+                    className="text-zinc-700"
                   />
-                  <circle 
-                    cx="56" 
-                    cy="56" 
-                    r="50" 
-                    stroke="currentColor" 
-                    strokeWidth="6" 
-                    fill="none" 
-                    className="text-indigo-400" 
-                    strokeDasharray={`${2 * Math.PI * 50}`} 
-                    strokeDashoffset={`${2 * Math.PI * 50 * (1 - animatedProgress / 100)}`} 
-                    style={{ transition: "stroke-dashoffset 0.5s ease" }} 
+                  <circle
+                    cx="56"
+                    cy="56"
+                    r="50"
+                    stroke="currentColor"
+                    strokeWidth="6"
+                    fill="none"
+                    className="text-indigo-400"
+                    strokeDasharray={`${2 * Math.PI * 50}`}
+                    strokeDashoffset={`${2 * Math.PI * 50 * (1 - animatedProgress / 100)}`}
+                    style={{ transition: "stroke-dashoffset 0.5s ease" }}
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-indigo-300 tabular-nums">
@@ -730,7 +766,7 @@ export const Dashboard = ({
               </div>
 
               <div className="relative z-10 p-8 space-y-6">
-                
+
                 {/* Header */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
@@ -739,11 +775,11 @@ export const Dashboard = ({
                       Next Mission
                     </span>
                   </div>
-                  
+
                   <h2 className="text-4xl md:text-5xl font-bold leading-tight group-hover:text-indigo-100 transition-colors">
                     {nextBlock.subjectName}
                   </h2>
-                  
+
                   <div className="flex items-center gap-4 text-zinc-400 flex-wrap">
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5">
                       <Clock size={16} strokeWidth={2.5} />
@@ -810,9 +846,9 @@ export const Dashboard = ({
         {/* ============================================ */}
         {/* RIGHT COLUMN: STATS & INFO CARDS */}
         {/* ============================================ */}
-        
+
         <div className="lg:col-span-4 space-y-4">
-          
+
           {/* Reviews Due Widget */}
           {dueToday.length > 0 && (
             <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-purple-500/30 transition-all duration-300">
@@ -874,8 +910,8 @@ export const Dashboard = ({
               </span>
             </div>
             <div className="relative w-full h-3 bg-zinc-900/50 rounded-full overflow-hidden border border-zinc-800">
-              <div 
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-600 to-cyan-500 transition-all duration-700 ease-out rounded-full" 
+              <div
+                className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-600 to-cyan-500 transition-all duration-700 ease-out rounded-full"
                 style={{ width: `${animatedProgress}%` }}
               />
             </div>
@@ -896,11 +932,10 @@ export const Dashboard = ({
             </div>
             <div className="flex items-center gap-1.5">
               {[...Array(7)].map((_, i) => (
-                <div 
-                  key={i} 
-                  className={`h-2 flex-1 rounded-full transition-all duration-300 ${
-                    i < Math.min(animatedStreak, 7) ? "bg-orange-500 shadow-sm shadow-orange-500/50" : "bg-zinc-800"
-                  }`} 
+                <div
+                  key={i}
+                  className={`h-2 flex-1 rounded-full transition-all duration-300 ${i < Math.min(animatedStreak, 7) ? "bg-orange-500 shadow-sm shadow-orange-500/50" : "bg-zinc-800"
+                    }`}
                 />
               ))}
             </div>
@@ -1001,14 +1036,14 @@ export const Dashboard = ({
                 <Inbox size={22} className="text-yellow-400" strokeWidth={2.5} />
                 <span>Backlog Items</span>
               </h3>
-              <button 
-                onClick={() => setShowBacklog(false)} 
+              <button
+                onClick={() => setShowBacklog(false)}
                 className="p-2.5 hover:bg-zinc-800 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X size={20} strokeWidth={2.5} />
               </button>
             </div>
-            
+
             {backlog.length === 0 ? (
               <EmptyBacklog />
             ) : (
@@ -1055,23 +1090,21 @@ export const Dashboard = ({
               return (
                 <div key={b.id} className="space-y-2 animate-in slide-in-from-left-2 fade-in duration-300" style={{ animationDelay: `${i * 50}ms` }}>
                   <div
-                    className={`flex items-center gap-4 p-4 rounded-2xl border transition-all duration-200 ${
-                      isCompleted
-                        ? "bg-zinc-900/20 border-zinc-800/30 opacity-60"
-                        : isNext
-                          ? "bg-indigo-500/10 border-indigo-500/40 shadow-lg shadow-indigo-500/10"
-                          : "bg-zinc-900/30 border-zinc-800/50 hover:border-zinc-700 hover:bg-zinc-900/40"
-                    }`}
+                    className={`flex items-center gap-4 p-4 rounded-2xl border transition-all duration-200 ${isCompleted
+                      ? "bg-zinc-900/20 border-zinc-800/30 opacity-60"
+                      : isNext
+                        ? "bg-indigo-500/10 border-indigo-500/40 shadow-lg shadow-indigo-500/10"
+                        : "bg-zinc-900/30 border-zinc-800/50 hover:border-zinc-700 hover:bg-zinc-900/40"
+                      }`}
                   >
                     {/* Number/Check Badge */}
                     <div
-                      className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center font-bold text-base ${
-                        isCompleted
-                          ? "bg-zinc-800 text-zinc-600"
-                          : isNext
-                            ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
-                            : "bg-zinc-800 text-zinc-400"
-                      }`}
+                      className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center font-bold text-base ${isCompleted
+                        ? "bg-zinc-800 text-zinc-600"
+                        : isNext
+                          ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
+                          : "bg-zinc-800 text-zinc-400"
+                        }`}
                     >
                       {isCompleted ? <Check size={20} strokeWidth={3} /> : i + 1}
                     </div>
@@ -1100,11 +1133,10 @@ export const Dashboard = ({
                         {hasExplanation && (
                           <button
                             onClick={() => toggleBlockExplanation(b.id)}
-                            className={`px-3 py-2 rounded-xl text-xs font-bold uppercase transition-all min-h-[44px] ${
-                              isExpanded
-                                ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                                : "bg-zinc-900 text-zinc-500 border border-zinc-800 hover:bg-zinc-800"
-                            }`}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold uppercase transition-all min-h-[44px] ${isExpanded
+                              ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                              : "bg-zinc-900 text-zinc-500 border border-zinc-800 hover:bg-zinc-800"
+                              }`}
                           >
                             {isExpanded ? "Hide" : "Why?"}
                           </button>

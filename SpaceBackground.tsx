@@ -203,75 +203,228 @@ const HangingAlienScholar = () => (
 );
 
 export const SpaceBackground = () => {
-    const [stars, setStars] = useState([]);
-    const [shootingStars, setShootingStars] = useState([]);
+    const [stars, setStars] = useState<any[]>([]);
+    const [shootingStars, setShootingStars] = useState<any[]>([]);
+    const [nebulaClouds, setNebulaClouds] = useState<any[]>([]);
 
     useEffect(() => {
-        const newStars = Array.from({ length: 150 }).map((_, i) => ({
+        // Enhanced star field with depth layers
+        const newStars = Array.from({ length: 200 }).map((_, i) => ({
             id: i,
             top: Math.random() * 100,
             left: Math.random() * 100,
             delay: Math.random() * 5,
-            opacity: Math.random() * 0.5 + 0.2
+            opacity: Math.random() * 0.7 + 0.3,
+            size: i % 30 === 0 ? 2.5 : i % 15 === 0 ? 2 : i % 8 === 0 ? 1.5 : 1,
+            layer: i % 3 // depth layers for parallax
         }));
         setStars(newStars);
 
+        // Nebula clouds for depth
+        const clouds = Array.from({ length: 5 }).map((_, i) => ({
+            id: i,
+            top: Math.random() * 100,
+            left: Math.random() * 100,
+            size: 300 + Math.random() * 400,
+            opacity: 0.03 + Math.random() * 0.05,
+            color: i % 3 === 0 ? '#6366f1' : i % 3 === 1 ? '#8b5cf6' : '#06b6d4',
+            delay: i * 2
+        }));
+        setNebulaClouds(clouds);
+
+        // Enhanced shooting stars
         const spawnShootingStar = () => {
             const id = Date.now();
-            setShootingStars(prev => [...prev, { id, top: Math.random() * 40, left: Math.random() * 40, delay: 0 }]);
+            const angle = Math.random() * 60 - 30; // -30 to 30 degrees
+            setShootingStars(prev => [...prev, { 
+                id, 
+                top: Math.random() * 50, 
+                left: Math.random() * 50, 
+                angle,
+                length: 80 + Math.random() * 60
+            }]);
             setTimeout(() => {
                 setShootingStars(prev => prev.filter(s => s.id !== id));
-            }, 2500);
+            }, 2800);
         };
 
-        const interval = setInterval(spawnShootingStar, 6000);
+        const interval = setInterval(spawnShootingStar, 5000);
+        spawnShootingStar(); // Initial shooting star
+        
         return () => clearInterval(interval);
     }, []);
 
     return (
-        <div className="fixed inset-0 z-[-1] overflow-hidden bg-[#050508] pointer-events-none">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,_#111122_0%,_#000000_100%)]" />
-            
-            <HangingAlienScholar />
+        <div className="fixed inset-0 z-[-1] overflow-hidden bg-[#030307] pointer-events-none">
+            {/* Multi-layer gradient foundation */}
+            <div className="absolute inset-0">
+                {/* Base gradient */}
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#0a0a1a_0%,_#030307_50%,_#000000_100%)]" />
+                
+                {/* Secondary gradient for depth */}
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,_rgba(99,102,241,0.08)_0%,_transparent_50%)]" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_60%,_rgba(139,92,246,0.06)_0%,_transparent_50%)]" />
+                
+                {/* Subtle vignette */}
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_rgba(0,0,0,0.4)_100%)]" />
+            </div>
 
-            {stars.map((star) => (
+            {/* Animated nebula clouds */}
+            {nebulaClouds.map((cloud) => (
                 <div
-                    key={star.id}
-                    className="absolute bg-white rounded-full animate-twinkle"
+                    key={cloud.id}
+                    className="absolute rounded-full blur-[100px] animate-nebula-drift"
                     style={{
-                        top: `${star.top}%`,
-                        left: `${star.left}%`,
-                        width: star.id % 25 === 0 ? '2px' : '1px',
-                        height: star.id % 25 === 0 ? '2px' : '1px',
-                        opacity: star.opacity,
-                        animationDelay: `${star.delay}s`,
+                        top: `${cloud.top}%`,
+                        left: `${cloud.left}%`,
+                        width: `${cloud.size}px`,
+                        height: `${cloud.size}px`,
+                        background: `radial-gradient(circle, ${cloud.color} 0%, transparent 70%)`,
+                        opacity: cloud.opacity,
+                        animationDelay: `${cloud.delay}s`,
+                        animationDuration: `${30 + Math.random() * 20}s`
                     }}
                 />
             ))}
 
+            {/* Grid overlay for depth */}
+            <div 
+                className="absolute inset-0 opacity-[0.015]"
+                style={{
+                    backgroundImage: `
+                        linear-gradient(rgba(99,102,241,0.3) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(99,102,241,0.3) 1px, transparent 1px)
+                    `,
+                    backgroundSize: '80px 80px',
+                    maskImage: 'radial-gradient(ellipse at center, black 0%, transparent 80%)',
+                    WebkitMaskImage: 'radial-gradient(ellipse at center, black 0%, transparent 80%)'
+                }}
+            />
+            
+            <HangingAlienScholar />
+
+            {/* Enhanced star field with layers */}
+            {stars.map((star) => (
+                <div
+                    key={star.id}
+                    className="absolute rounded-full animate-twinkle"
+                    style={{
+                        top: `${star.top}%`,
+                        left: `${star.left}%`,
+                        width: `${star.size}px`,
+                        height: `${star.size}px`,
+                        background: star.size > 2 
+                            ? `radial-gradient(circle, rgba(255,255,255,${star.opacity}) 0%, rgba(200,220,255,${star.opacity * 0.6}) 100%)`
+                            : 'white',
+                        opacity: star.opacity,
+                        animationDelay: `${star.delay}s`,
+                        animationDuration: `${3 + star.layer}s`,
+                        boxShadow: star.size > 2 
+                            ? `0 0 ${star.size * 2}px rgba(255,255,255,${star.opacity * 0.5})`
+                            : 'none',
+                        filter: star.layer === 2 ? 'blur(0.3px)' : 'none'
+                    }}
+                />
+            ))}
+
+            {/* Enhanced shooting stars */}
             {shootingStars.map((star) => (
                 <div
                     key={star.id}
-                    className="absolute h-[1px] w-[120px] animate-shooting-star"
-                    style={{ top: `${star.top}%`, left: `${star.left}%` }}
+                    className="absolute animate-shooting-star"
+                    style={{ 
+                        top: `${star.top}%`, 
+                        left: `${star.left}%`,
+                        width: `${star.length}px`,
+                        height: '2px',
+                        transform: `rotate(${star.angle}deg)`
+                    }}
                 >
-                    <div className="w-full h-full bg-gradient-to-r from-transparent via-white/20 to-white/60" />
+                    <div 
+                        className="w-full h-full"
+                        style={{
+                            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 20%, rgba(255,255,255,0.8) 80%, rgba(200,220,255,1) 100%)',
+                            boxShadow: '0 0 6px rgba(255,255,255,0.8), 0 0 12px rgba(200,220,255,0.4)'
+                        }}
+                    />
                 </div>
             ))}
 
+            {/* Subtle particle field */}
+            <div className="absolute inset-0 opacity-20">
+                {Array.from({ length: 30 }).map((_, i) => (
+                    <div
+                        key={i}
+                        className="absolute w-px h-px bg-indigo-400 rounded-full animate-float-particle"
+                        style={{
+                            top: `${Math.random() * 100}%`,
+                            left: `${Math.random() * 100}%`,
+                            animationDelay: `${Math.random() * 10}s`,
+                            animationDuration: `${20 + Math.random() * 20}s`
+                        }}
+                    />
+                ))}
+            </div>
+
             <style>{`
                 @keyframes twinkle {
-                    0%, 100% { opacity: 0.3; }
-                    50% { opacity: 0.8; }
+                    0%, 100% { opacity: 0.3; transform: scale(1); }
+                    50% { opacity: 1; transform: scale(1.2); }
                 }
-                .animate-twinkle { animation: twinkle 4s ease-in-out infinite; }
+                .animate-twinkle { 
+                    animation: twinkle 4s ease-in-out infinite; 
+                }
 
                 @keyframes shooting-star {
-                    0% { transform: translate(0, 0) rotate(35deg); opacity: 0; }
+                    0% { 
+                        transform: translate(0, 0) rotate(var(--angle, 35deg)); 
+                        opacity: 0; 
+                    }
                     10% { opacity: 1; }
-                    100% { transform: translate(500px, 350px) rotate(35deg); opacity: 0; }
+                    90% { opacity: 0.8; }
+                    100% { 
+                        transform: translate(600px, 400px) rotate(var(--angle, 35deg)); 
+                        opacity: 0; 
+                    }
                 }
-                .animate-shooting-star { animation: shooting-star 1.8s linear forwards; }
+                .animate-shooting-star { 
+                    animation: shooting-star 2.2s cubic-bezier(0.4, 0, 0.2, 1) forwards; 
+                }
+
+                @keyframes nebula-drift {
+                    0%, 100% { 
+                        transform: translate(0, 0) scale(1); 
+                        opacity: 0.03;
+                    }
+                    50% { 
+                        transform: translate(40px, -30px) scale(1.1); 
+                        opacity: 0.05;
+                    }
+                }
+                .animate-nebula-drift {
+                    animation: nebula-drift ease-in-out infinite;
+                }
+
+                @keyframes float-particle {
+                    0% { 
+                        transform: translate(0, 0); 
+                        opacity: 0;
+                    }
+                    10% { opacity: 0.6; }
+                    90% { opacity: 0.6; }
+                    100% { 
+                        transform: translate(
+                            calc(var(--tx, 100px) * 1), 
+                            calc(var(--ty, -100px) * 1)
+                        ); 
+                        opacity: 0;
+                    }
+                }
+                .animate-float-particle {
+                    animation: float-particle linear infinite;
+                    --tx: ${Math.random() * 200 - 100}px;
+                    --ty: ${Math.random() * 200 - 100}px;
+                }
             `}</style>
         </div>
     );
