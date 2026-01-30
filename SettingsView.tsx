@@ -2,13 +2,17 @@ import React, { useState, useEffect } from 'react';
 import {
   Settings, Download, Upload, Trash2, Moon, Sun,
   Bell, Database, Shield, Volume2, VolumeX,
-  Monitor, Smartphone, Save, Clock, Sunrise, Zap, Info
+  Monitor, Smartphone, Save, Clock, Sunrise, Zap, Info,
+  Bug, Sparkles, Terminal, Send, X, CheckCircle2, AlertCircle,
+  HelpCircle
 } from 'lucide-react';
 import { db } from './db';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { getAllReadinessScores } from './brain';
 import { NotificationManager } from './utils/notifications';
 import { SoundManager } from './utils/sounds';
 import { StressTestEnhanced } from './StressTestView';
-import { FrostedTile, FrostedMini, PageHeader, MetaText } from './components';
+import { FrostedTile, FrostedMini, PageHeader, MetaText, HeaderChip } from './components';
 
 // --- Types ---
 type AppPreferences = {
@@ -35,6 +39,271 @@ const DEFAULT_PREFS: AppPreferences = {
   }
 };
 
+// --- Bug Report Types ---
+interface BugReportData {
+  title: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high';
+  category: 'bug' | 'feature' | 'ui' | 'performance';
+  email: string;
+}
+
+interface BugReportModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  data: BugReportData;
+  onChange: (field: string, value: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  status: 'idle' | 'submitting' | 'success' | 'error';
+  errorMessage: string;
+  stats: {
+    totalSessions: number;
+    totalStudyHours: number;
+    avgReadiness: number;
+  };
+}
+
+// Helper function for mailto encoding
+function encodeMailto(subject: string, body: string) {
+  return `mailto:santoshcheethirala.me@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+// --- Extracted Component ---
+const BugReportModal = ({
+  isOpen,
+  onClose,
+  data,
+  onChange,
+  onSubmit,
+  status,
+  errorMessage,
+  stats
+}: BugReportModalProps) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={() => status === 'idle' && onClose()}
+      />
+
+      {/* Modal */}
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900 via-zinc-900 to-black [background:linear-gradient(to_bottom_right,rgba(255,255,255,0.03),transparent)] backdrop-blur-2xl shadow-2xl">
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b border-white/10 bg-zinc-900/95 backdrop-blur-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center border border-red-500/30">
+              <Bug size={20} className="text-red-400" />
+            </div>
+            <h3 className="text-xl font-bold text-white">Report an Issue</h3>
+          </div>
+          <button
+            onClick={() => status === 'idle' && onClose()}
+            disabled={status === 'submitting'}
+            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button"
+          >
+            <X size={20} className="text-zinc-400" />
+          </button>
+        </div>
+
+        <form onSubmit={onSubmit} className="p-6 space-y-6" autoComplete="off">
+          {status === 'success' ? (
+            <div className="py-12 text-center">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
+                <CheckCircle2 size={32} className="text-emerald-400" />
+              </div>
+              <h4 className="text-xl font-bold text-white mb-2">Redirecting to Email</h4>
+              <p className="text-zinc-400">Your email client should open. Thank you for helping improve Orbit!</p>
+            </div>
+          ) : status === 'error' ? (
+            <div className="py-12 text-center">
+              <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4 border border-red-500/30">
+                <AlertCircle size={32} className="text-red-400" />
+              </div>
+              <h4 className="text-xl font-bold text-white mb-2">Submission Failed</h4>
+              <p className="text-zinc-400 mb-4">{errorMessage}</p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition-all"
+              >
+                Close
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Email Input */}
+              <div>
+                <label htmlFor="bug-email" className="block text-sm font-semibold text-zinc-300 mb-3">
+                  Your Email (for follow-up) <span className="text-red-400">*</span>
+                </label>
+                <input
+                  id="bug-email"
+                  type="email"
+                  autoComplete="email"
+                  value={data.email}
+                  onChange={(e) => onChange('email', e.target.value)}
+                  placeholder="Enter your email address"
+                  required
+                  maxLength={100}
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
+                />
+              </div>
+
+              {/* Category Selection */}
+              <div>
+                <label className="block text-sm font-semibold text-zinc-300 mb-3">
+                  Issue Type
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: 'bug', label: 'Bug Report', icon: Bug, color: 'red' },
+                    { value: 'feature', label: 'Feature Request', icon: Sparkles, color: 'blue' },
+                    { value: 'ui', label: 'UI/UX Issue', icon: Terminal, color: 'purple' },
+                    { value: 'performance', label: 'Performance', icon: Zap, color: 'amber' }
+                  ].map((cat) => {
+                    const isSelected = data.category === cat.value;
+                    const baseClasses = "p-4 rounded-xl border transition-all hover:scale-[1.02] active:scale-[0.98]";
+                    let colorClasses = 'bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10';
+
+                    if (isSelected) {
+                      if (cat.color === 'red') colorClasses = 'bg-red-500/10 border-red-500/30 text-red-400';
+                      else if (cat.color === 'blue') colorClasses = 'bg-blue-500/10 border-blue-500/30 text-blue-400';
+                      else if (cat.color === 'purple') colorClasses = 'bg-purple-500/10 border-purple-500/30 text-purple-400';
+                      else if (cat.color === 'amber') colorClasses = 'bg-amber-500/10 border-amber-500/30 text-amber-400';
+                    }
+
+                    return (
+                      <button
+                        key={cat.value}
+                        type="button"
+                        onClick={() => onChange('category', cat.value as any)}
+                        className={`${baseClasses} ${colorClasses}`}
+                      >
+                        <cat.icon size={20} className="mx-auto mb-2" />
+                        <span className="text-sm font-medium">{cat.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Severity */}
+              <div>
+                <label className="block text-sm font-semibold text-zinc-300 mb-3">
+                  Severity
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { value: 'low', label: 'Low', color: 'emerald' },
+                    { value: 'medium', label: 'Medium', color: 'amber' },
+                    { value: 'high', label: 'High', color: 'red' }
+                  ].map((sev) => {
+                    const isSelected = data.severity === sev.value;
+                    const baseClasses = "py-3 px-4 rounded-xl border transition-all font-semibold text-sm hover:scale-[1.02] active:scale-[0.98]";
+                    let colorClasses = 'bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10';
+
+                    if (isSelected) {
+                      if (sev.color === 'emerald') colorClasses = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400';
+                      else if (sev.color === 'amber') colorClasses = 'bg-amber-500/10 border-amber-500/30 text-amber-400';
+                      else if (sev.color === 'red') colorClasses = 'bg-red-500/10 border-red-500/30 text-red-400';
+                    }
+
+                    return (
+                      <button
+                        key={sev.value}
+                        type="button"
+                        onClick={() => onChange('severity', sev.value as any)}
+                        className={`${baseClasses} ${colorClasses}`}
+                      >
+                        {sev.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Title */}
+              <div>
+                <label htmlFor="bug-title" className="block text-sm font-semibold text-zinc-300 mb-3">
+                  Title <span className="text-red-400">*</span>
+                </label>
+                <input
+                  id="bug-title"
+                  type="text"
+                  value={data.title}
+                  onChange={(e) => onChange('title', e.target.value)}
+                  placeholder="Brief summary of the issue"
+                  required
+                  maxLength={100}
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label htmlFor="bug-description" className="block text-sm font-semibold text-zinc-300 mb-3">
+                  Description <span className="text-red-400">*</span>
+                </label>
+                <textarea
+                  id="bug-description"
+                  value={data.description}
+                  onChange={(e) => onChange('description', e.target.value)}
+                  placeholder="Detailed description of the issue..."
+                  required
+                  rows={6}
+                  maxLength={1000}
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all resize-none"
+                />
+              </div>
+
+              {/* System Info Notice */}
+              <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                <div className="flex items-start gap-3">
+                  <AlertCircle size={18} className="text-indigo-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-indigo-300 font-medium mb-1">Auto-included Information</p>
+                    <p className="text-xs text-indigo-400/80 leading-relaxed">
+                      Browser details, total sessions ({stats.totalSessions}), study hours ({stats.totalStudyHours}h), and avg readiness ({stats.avgReadiness}%) included.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={
+                  status === 'submitting'
+                  || !data.email.trim()
+                  || !data.title.trim()
+                  || !data.description.trim()
+                }
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-indigo-500/30"
+              >
+                {status === 'submitting' ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Launching Email...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send size={20} />
+                    <span>Submit & Email</span>
+                  </>
+                )}
+              </button>
+            </>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export const SettingsView = () => {
   // --- State ---
   const [prefs, setPrefs] = useState<AppPreferences>(() => {
@@ -48,6 +317,22 @@ export const SettingsView = () => {
   const [showStressTest, setShowStressTest] = useState(false);
   const [canInstall, setCanInstall] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+
+  // --- Bug Report State ---
+  const [showBugReport, setShowBugReport] = useState(false);
+  const [bugReportData, setBugReportData] = useState<BugReportData>({
+    title: '',
+    description: '',
+    severity: 'medium',
+    category: 'bug',
+    email: '',
+  });
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [avgReadiness, setAvgReadiness] = useState(0);
+
+  const subjects = useLiveQuery(() => db.subjects.toArray()) || [];
+  const logs = useLiveQuery(() => db.logs.toArray()) || [];
 
   // --- Effects ---
 
@@ -78,6 +363,24 @@ export const SettingsView = () => {
       });
     }
   }, []);
+
+  // 4a. Readiness Check (for bug report)
+  useEffect(() => {
+    const loadReadiness = async () => {
+      if (subjects.length > 0) {
+        const scores = await getAllReadinessScores();
+        const values = Object.values(scores).map(s => s.score);
+        const avg = values.length > 0
+          ? Math.round(values.reduce((a, b) => a + b, 0) / values.length)
+          : 0;
+        setAvgReadiness(avg);
+      }
+    };
+    loadReadiness();
+  }, [subjects.length]);
+
+  const totalStudyHours = Math.round((logs.reduce((sum, log) => sum + (log.duration || 0), 0) / 60) * 10) / 10;
+  const totalSessions = logs.length;
 
   // 5. PWA Install Check
   useEffect(() => {
@@ -201,6 +504,82 @@ export const SettingsView = () => {
     }
   };
 
+  const handleBugReportChange = (field: string, value: string) => {
+    setBugReportData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleBugReportSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitStatus('submitting');
+    setErrorMessage('');
+
+    try {
+      const systemInfo = {
+        userAgent: navigator.userAgent,
+        screenResolution: `${window.screen.width}x${window.screen.height}`,
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        onlineStatus: navigator.onLine,
+      };
+
+      const appStats = {
+        totalSessions,
+        totalStudyHours,
+        avgReadiness,
+        totalSubjects: subjects.length,
+        totalLogs: logs.length,
+      };
+
+      const payload = {
+        ...bugReportData,
+        timestamp: new Date().toISOString(),
+        systemInfo,
+        appStats,
+        version: 'v3.2.0',
+      };
+
+      const emailSubject = `[Orbit] ${bugReportData.category.toUpperCase()} - ${bugReportData.title}`;
+
+      let emailBody = `Category: ${bugReportData.category}\n`;
+      emailBody += `Severity: ${bugReportData.severity}\n`;
+      emailBody += `Title: ${bugReportData.title}\n\n`;
+      emailBody += `Description:\n${bugReportData.description}\n\n`;
+      emailBody += `--\nUser Email: ${bugReportData.email}\n\n`;
+      emailBody += "App Stats:\n";
+      Object.keys(appStats).forEach((k) => {
+        // @ts-ignore
+        emailBody += `  ${k}: ${appStats[k]}\n`;
+      });
+      emailBody += `\nVersion: v3.2.0\nTimestamp: ${payload.timestamp}`;
+
+      window.location.href = encodeMailto(emailSubject, emailBody);
+
+      setSubmitStatus('success');
+
+      setTimeout(() => {
+        setShowBugReport(false);
+        setBugReportData({
+          title: '',
+          description: '',
+          severity: 'medium',
+          category: 'bug',
+          email: ''
+        });
+        setSubmitStatus('idle');
+      }, 1000);
+    } catch (err) {
+      setSubmitStatus('error');
+      setErrorMessage('Failed to launch email client.');
+      setTimeout(() => {
+        setSubmitStatus('idle');
+        setErrorMessage('');
+      }, 5000);
+    }
+  };
+
   // --- Components ---
 
   const SectionHeader = ({ icon: Icon, title, subtitle }: any) => (
@@ -235,7 +614,23 @@ export const SettingsView = () => {
   }
 
   return (
-    <div className="pb-32 pt-8 px-4 lg:px-8 max-w-6xl mx-auto space-y-10">
+    <div className="pb-32 pt-8 px-4 lg:px-8 max-w-[1400px] mx-auto space-y-10">
+
+      {/* EXTRACTED MODAL */}
+      <BugReportModal
+        isOpen={showBugReport}
+        onClose={() => setShowBugReport(false)}
+        data={bugReportData}
+        onChange={handleBugReportChange}
+        onSubmit={handleBugReportSubmit}
+        status={submitStatus}
+        errorMessage={errorMessage}
+        stats={{
+          totalSessions,
+          totalStudyHours,
+          avgReadiness
+        }}
+      />
 
       {/* Header with enhanced spacing and hierarchy */}
       <PageHeader
@@ -250,6 +645,12 @@ export const SettingsView = () => {
               }).toUpperCase()}
             </MetaText>
           </>
+        }
+        actions={
+          <HeaderChip onClick={() => setShowBugReport(true)}>
+            <Bug size={14} />
+            Report Issue
+          </HeaderChip>
         }
       />
 
@@ -468,9 +869,26 @@ export const SettingsView = () => {
           </div>
         </FrostedTile>
 
-        {/* 5. DEVELOPER ZONE */}
+        {/* 5. SUPPORT & FEEDBACK */}
+        <FrostedTile className="p-8 hover:border-amber-500/30">
+          <SectionHeader icon={HelpCircle} title="Support & Feedback" subtitle="Help improvement & reporting" />
+          <div className="space-y-6">
+            <button
+              onClick={() => setShowBugReport(true)}
+              className="w-full p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold transition-all flex items-center justify-center gap-3"
+            >
+              <Bug size={20} />
+              Report a Problem
+            </button>
+            <p className="text-xs text-zinc-500 text-center">
+              Encountered a bug or have a suggestion? Reach out to the developer directly.
+            </p>
+          </div>
+        </FrostedTile>
+
+        {/* 6. DEVELOPER ZONE */}
         <FrostedTile className="p-8 hover:border-cyan-500/30">
-          <SectionHeader icon={Monitor} title="Developer Zone" subtitle="Advanced tools" />
+          <SectionHeader icon={Terminal} title="Developer Zone" subtitle="Advanced validation tools" />
 
           <div className="space-y-6">
             <button
@@ -483,33 +901,36 @@ export const SettingsView = () => {
             <p className="text-xs text-zinc-500 text-center">
               Runs comprehensive validation on isolated test database. Safe to use.
             </p>
-
-            {/* PWA Install Button */}
-            {!isInstalled && (
-              <div className="pt-6 border-t border-white/10 space-y-4">
-                <button
-                  onClick={() => {
-                    SoundManager.playClick();
-                    (window as any).triggerPwaInstall?.();
-                  }}
-                  disabled={!canInstall}
-                  className={`w-full p-4 rounded-2xl border font-bold transition-all flex items-center justify-center gap-3 ${canInstall
-                    ? 'border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400'
-                    : 'border-zinc-800 bg-zinc-900/50 text-zinc-600 cursor-not-allowed opacity-50'
-                    }`}
-                >
-                  <Download size={20} />
-                  {canInstall ? 'Install Orbit (PWA)' : 'PWA Ready'}
-                </button>
-                <p className="text-xs text-zinc-500 text-center">
-                  {canInstall
-                    ? 'Install for offline access and better performance.'
-                    : 'System is already installed or browser doesn\'t support PWA prompts.'}
-                </p>
-              </div>
-            )}
           </div>
         </FrostedTile>
+
+        {/* 7. SYSTEM INSTALLATION */}
+        {!isInstalled && (
+          <FrostedTile className="p-8 hover:border-indigo-500/30">
+            <SectionHeader icon={Smartphone} title="System Installation" subtitle="PWA Support" />
+            <div className="space-y-6">
+              <button
+                onClick={() => {
+                  SoundManager.playClick();
+                  (window as any).triggerPwaInstall?.();
+                }}
+                disabled={!canInstall}
+                className={`w-full p-4 rounded-2xl border font-bold transition-all flex items-center justify-center gap-3 ${canInstall
+                  ? 'border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400'
+                  : 'border-zinc-800 bg-zinc-900/50 text-zinc-600 cursor-not-allowed opacity-50'
+                  }`}
+              >
+                <Download size={20} />
+                {canInstall ? 'Install Orbit (PWA)' : 'PWA Ready'}
+              </button>
+              <p className="text-xs text-zinc-500 text-center">
+                {canInstall
+                  ? 'Install for offline access and better performance.'
+                  : 'System is already installed or browser doesn\'t support PWA prompts.'}
+              </p>
+            </div>
+          </FrostedTile>
+        )}
 
       </div>
 
