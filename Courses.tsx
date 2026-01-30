@@ -13,11 +13,14 @@ import {
 } from './EmptyStates';
 import { getAllReadinessScores, SubjectReadiness } from './brain';
 import { useToast } from './Toast';
+import { FrostedTile, FrostedMini } from './components';
 
 // ✨ PRODUCTION-GRADE: Enhanced Prediction Modal
 const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300">
-    <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-950 rounded-3xl p-10 max-w-lg w-full relative border border-white/10 shadow-2xl animate-in slide-in-from-bottom-4 duration-500">
+    <FrostedTile
+      className="p-10 max-w-lg w-full relative animate-in slide-in-from-bottom-4 duration-500"
+    >
       {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 rounded-3xl pointer-events-none" />
 
@@ -37,18 +40,18 @@ const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
           <div className="text-2xl font-bold text-white">{subject?.name || 'Unknown'}</div>
         </div>
 
-        <div className="p-6 bg-zinc-800/50 rounded-2xl border border-white/5 mb-8 hover:bg-zinc-800/70 transition-all duration-300">
+        <FrostedMini className="mb-8 hover:bg-zinc-800/70">
           <div className="text-xs text-zinc-500 uppercase tracking-wider mb-3 font-bold">Current Readiness</div>
           <div className="flex items-end gap-4">
             <div className={`text-5xl font-bold font-mono tabular-nums ${currentReadiness?.status === 'critical' ? 'text-red-400' :
-                currentReadiness?.status === 'maintaining' ? 'text-yellow-400' :
-                  'text-emerald-400'
+              currentReadiness?.status === 'maintaining' ? 'text-yellow-400' :
+                'text-emerald-400'
               }`}>
               {currentReadiness?.score || 0}%
             </div>
             <div className={`text-sm mb-2 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider ${currentReadiness?.status === 'critical' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
-                currentReadiness?.status === 'maintaining' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
-                  'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+              currentReadiness?.status === 'maintaining' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
+                'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
               }`}>
               {currentReadiness?.status || 'unknown'}
             </div>
@@ -59,7 +62,7 @@ const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
               Last studied: {currentReadiness.lastStudiedDays === 0 ? 'Today' : `${currentReadiness.lastStudiedDays} days ago`}
             </div>
           )}
-        </div>
+        </FrostedMini>
 
         <div className="space-y-4 mb-8">
           <div className="text-sm font-bold text-zinc-300 flex items-center gap-2">
@@ -78,9 +81,10 @@ const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
           💡 This is a simplified prediction. Actual results depend on comprehension, retention, and review quality.
         </div>
       </div>
-    </div>
+    </FrostedTile>
   </div>
 );
+
 
 const base64ToBlobUrl = (dataUrl: string, mime: string) => {
   try {
@@ -412,19 +416,19 @@ export default function CoursesView_v2() {
               { label: "Avg Score", value: gpa ? `${gpa}%` : '--', color: "amber" },
               { label: "Resources", value: (selectedSubject.resources || []).length, color: "cyan" }
             ].map((stat, i) => (
-              <div key={i} className="p-6 rounded-3xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 hover:border-white/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl group">
+              <FrostedTile key={i} className="p-6 hover:border-white/20 hover:-translate-y-1 group">
                 <div className="text-xs text-zinc-500 uppercase tracking-wider font-bold mb-3">{stat.label}</div>
                 <div className={`text-4xl md:text-5xl font-bold font-mono tabular-nums text-${stat.color}-400 group-hover:scale-110 transition-transform duration-300`}>
                   {stat.value}
                 </div>
-              </div>
+              </FrostedTile>
             ))}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
             {/* ✨ Enhanced Syllabus Section */}
-            <div className="p-8 rounded-3xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 hover:border-indigo-500/30 transition-all duration-300">
+            <FrostedTile className="p-8 hover:border-indigo-500/30">
               <h3 className="font-bold text-xl mb-6 flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/20 flex items-center justify-center border border-indigo-500/30">
                   <Target size={22} className="text-indigo-400" />
@@ -473,10 +477,10 @@ export default function CoursesView_v2() {
                   <Plus size={20} />
                 </button>
               </div>
-            </div>
+            </FrostedTile>
 
             {/* ✨ Enhanced Grades Section */}
-            <div className="p-8 rounded-3xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 hover:border-emerald-500/30 transition-all duration-300">
+            <FrostedTile className="p-8 hover:border-emerald-500/30">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-bold text-xl flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 flex items-center justify-center border border-emerald-500/30">
@@ -536,7 +540,7 @@ export default function CoursesView_v2() {
               ) : (
                 <div className="space-y-3">
                   {(selectedSubject.grades || []).map((g: any) => (
-                    <div key={g.id} className="flex justify-between items-center p-5 bg-zinc-900 rounded-2xl border border-zinc-800/50 hover:bg-zinc-800 hover:scale-[1.02] transition-all duration-300 min-h-[80px]">
+                    <FrostedMini key={g.id} className="flex justify-between items-center hover:bg-zinc-800 hover:scale-[1.02] min-h-[80px]">
                       <div>
                         <div className="font-bold text-base mb-1">{g.type}</div>
                         <div className="text-xs text-zinc-500 uppercase tracking-wider font-mono">{g.date}</div>
@@ -547,14 +551,14 @@ export default function CoursesView_v2() {
                           {((g.score / g.maxScore) * 100).toFixed(0)}%
                         </span>
                       </div>
-                    </div>
+                    </FrostedMini>
                   ))}
                 </div>
               )}
-            </div>
+            </FrostedTile>
 
             {/* ✨ Enhanced Resources Section */}
-            <div className="lg:col-span-2 p-8 rounded-3xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 hover:border-purple-500/30 transition-all duration-300">
+            <FrostedTile className="lg:col-span-2 p-8 hover:border-purple-500/30">
               <h3 className="font-bold text-xl mb-6 flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500/20 to-purple-600/20 flex items-center justify-center border border-purple-500/30">
                   <FileText size={22} className="text-purple-400" />
@@ -636,10 +640,10 @@ export default function CoursesView_v2() {
                   </button>
                 </div>
               )}
-            </div>
+            </FrostedTile>
 
             {/* ✨ Enhanced Session Notes */}
-            <div className="lg:col-span-2 p-8 rounded-3xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 hover:border-amber-500/30 transition-all duration-300">
+            <FrostedTile className="lg:col-span-2 p-8 hover:border-amber-500/30">
               <h3 className="font-bold text-xl mb-6 flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-600/20 flex items-center justify-center border border-amber-500/30">
                   <StickyNote size={22} className="text-amber-400" />
@@ -687,7 +691,7 @@ export default function CoursesView_v2() {
                   </div>
                 );
               })()}
-            </div>
+            </FrostedTile>
           </div>
         </div>
       </div>
@@ -768,10 +772,10 @@ export default function CoursesView_v2() {
             const readiness = readinessScores[s.id!];
 
             return (
-              <div
+              <FrostedTile
                 key={s.id}
                 onClick={() => setSelectedSubjectId(Number(s.id))}
-                className="p-8 rounded-3xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 hover:border-indigo-500/40 hover:bg-white/[0.05] transition-all duration-300 group relative overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-indigo-500/10 cursor-pointer hover:-translate-y-2 active:scale-[0.98]"
+                className="p-8 hover:border-indigo-500/40 hover:bg-white/[0.05] shadow-lg hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2"
               >
                 {/* Gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 via-transparent to-purple-500/0 group-hover:from-indigo-500/5 group-hover:to-purple-500/5 transition-all duration-500 pointer-events-none" />
@@ -835,7 +839,7 @@ export default function CoursesView_v2() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </FrostedTile>
             );
           })}
         </div>

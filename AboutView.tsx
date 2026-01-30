@@ -8,43 +8,9 @@ import {
 import { getAllReadinessScores, SubjectReadiness } from './brain';
 import { db } from './db';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { FrostedTile, FrostedMini } from './components';
 
-// Extracted Frosted Tile wrapper for consistent frosted glass styling
-const FrostedTile: React.FC<
-  React.PropsWithChildren & {
-    className?: string;
-    hoverClassName?: string;
-  }
-> = ({ children, className = '', hoverClassName = '' }) => (
-  <div
-    className={
-      [
-        // BASE FROSTED GLASS STYLING:
-        "group relative overflow-hidden rounded-3xl border border-white/10",
-        "bg-gradient-to-br from-zinc-900 via-zinc-900 to-black",
-        "[background:linear-gradient(to_bottom_right,rgba(255,255,255,0.03),transparent)]",
-        "backdrop-blur-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
-        "transition-all duration-500",
-        className,
-        hoverClassName,
-      ].join(' ')
-    }
-  >
-    {children}
-  </div>
-);
-
-// Mini frosted style for secondary "cards" inside main tiles (small cards inside large frosted tile)
-const FrostedMini: React.FC<React.PropsWithChildren & { className?: string }> = ({ children, className = '' }) => (
-  <div
-    className={[
-      "p-4 bg-zinc-900/30 rounded-2xl border border-zinc-800/50 transition-all",
-      className,
-    ].join(' ')}
-  >
-    {children}
-  </div>
-);
+// Helper function for mailto encoding
 
 // Helper function for mailto encoding
 function encodeMailto(subject: string, body: string) {

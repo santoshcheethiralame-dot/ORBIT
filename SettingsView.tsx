@@ -8,6 +8,7 @@ import { db } from './db';
 import { NotificationManager } from './utils/notifications';
 import { SoundManager } from './utils/sounds';
 import { StressTestEnhanced } from './StressTestView';
+import { FrostedTile, FrostedMini } from './components';
 
 // --- Types ---
 type AppPreferences = {
@@ -237,325 +238,235 @@ export const SettingsView = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
         {/* 1. PROTOCOLS - Main Card */}
-        <div
-          className="group relative overflow-hidden rounded-3xl border border-white/10"
-          style={{
-            background: 'linear-gradient(135deg, rgb(255 255 255 / 0.03), transparent)',
-            backdropFilter: 'blur(48px)',
-          }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <FrostedTile className="p-8 hover:border-indigo-500/30">
+          <SectionHeader icon={Clock} title="Protocols" subtitle="Timing & interface preferences" />
 
-          <div className="relative z-10 p-8">
-            <SectionHeader icon={Clock} title="Protocols" subtitle="Timing & interface preferences" />
-
-            <div className="space-y-6">
-              {/* Day Start Hour Control - Secondary Card */}
-              <div
-                className="p-6 rounded-2xl border"
-                style={{
-                  background: 'rgb(24 24 27 / 0.3)',
-                  borderColor: 'rgb(39 39 42 / 0.5)',
-                  backdropFilter: 'blur(32px)',
-                }}
-              >
-                <div className="flex justify-between items-center mb-5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
-                      <Sunrise size={20} className="text-amber-400" />
-                    </div>
-                    <div>
-                      <span className="text-base font-bold text-white block">New Day Start</span>
-                      <span className="text-xs text-zinc-500">When your study day begins</span>
-                    </div>
+          <div className="space-y-6">
+            {/* Day Start Hour Control - Secondary Card */}
+            <FrostedMini className="p-6">
+              <div className="flex justify-between items-center mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
+                    <Sunrise size={20} className="text-amber-400" />
                   </div>
-                  <span className="font-mono text-2xl font-bold text-indigo-300 tabular-nums">
-                    {prefs.dayStartHour.toString().padStart(2, '0')}:00
-                  </span>
+                  <div>
+                    <span className="text-base font-bold text-white block">New Day Start</span>
+                    <span className="text-xs text-zinc-500">When your study day begins</span>
+                  </div>
                 </div>
-
-                <input
-                  type="range"
-                  min="0"
-                  max="6"
-                  step="1"
-                  value={prefs.dayStartHour}
-                  onChange={(e) => {
-                    SoundManager.playClick();
-                    setPrefs({ ...prefs, dayStartHour: parseInt(e.target.value) })
-                  }}
-                  className="w-full h-3 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500 shadow-inner"
-                />
-
-                <div className="flex justify-between mt-3 text-xs font-mono text-zinc-600">
-                  <span>00:00</span>
-                  <span>06:00</span>
-                </div>
-
-                <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                  <p className="text-xs text-amber-300/80 leading-relaxed flex items-start gap-2">
-                    <Info size={14} className="shrink-0 mt-0.5" />
-                    Dashboard resets at {prefs.dayStartHour}:00 instead of midnight. Perfect for night owls.
-                  </p>
-                </div>
+                <span className="font-mono text-2xl font-bold text-indigo-300 tabular-nums">
+                  {prefs.dayStartHour.toString().padStart(2, '0')}:00
+                </span>
               </div>
 
-              {/* Sound Toggle - Secondary Card */}
-              <div className="pt-6 border-t border-white/10">
-                <Toggle
-                  label="Interface Sounds"
-                  checked={prefs.soundEnabled}
-                  onChange={() => {
-                    setPrefs({ ...prefs, soundEnabled: !prefs.soundEnabled });
-                    if (!prefs.soundEnabled) setTimeout(() => SoundManager.playSuccess(), 100);
-                  }}
-                  icon={prefs.soundEnabled ? Volume2 : VolumeX}
-                />
+              <input
+                type="range"
+                min="0"
+                max="6"
+                step="1"
+                value={prefs.dayStartHour}
+                onChange={(e) => {
+                  SoundManager.playClick();
+                  setPrefs({ ...prefs, dayStartHour: parseInt(e.target.value) })
+                }}
+                className="w-full h-3 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500 shadow-inner"
+              />
+
+              <div className="flex justify-between mt-3 text-xs font-mono text-zinc-600">
+                <span>00:00</span>
+                <span>06:00</span>
               </div>
 
-              {/* Theme Toggle - Secondary Card */}
-              <div className="border-t border-white/10 pt-6">
-                <Toggle
-                  label="Light Mode"
-                  checked={prefs.theme === 'light'}
-                  onChange={() => {
-                    SoundManager.playClick();
-                    setPrefs({ ...prefs, theme: prefs.theme === 'dark' ? 'light' : 'dark' });
-                  }}
-                  icon={prefs.theme === 'light' ? Sun : Moon}
-                />
+              <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                <p className="text-xs text-amber-300/80 leading-relaxed flex items-start gap-2">
+                  <Info size={14} className="shrink-0 mt-0.5" />
+                  Dashboard resets at {prefs.dayStartHour}:00 instead of midnight. Perfect for night owls.
+                </p>
               </div>
+            </FrostedMini>
+
+            {/* Sound Toggle - Secondary Card */}
+            <div className="pt-6 border-t border-white/10">
+              <Toggle
+                label="Interface Sounds"
+                checked={prefs.soundEnabled}
+                onChange={() => {
+                  setPrefs({ ...prefs, soundEnabled: !prefs.soundEnabled });
+                  if (!prefs.soundEnabled) setTimeout(() => SoundManager.playSuccess(), 100);
+                }}
+                icon={prefs.soundEnabled ? Volume2 : VolumeX}
+              />
+            </div>
+
+            {/* Theme Toggle - Secondary Card */}
+            <div className="border-t border-white/10 pt-6">
+              <Toggle
+                label="Light Mode"
+                checked={prefs.theme === 'light'}
+                onChange={() => {
+                  SoundManager.playClick();
+                  setPrefs({ ...prefs, theme: prefs.theme === 'dark' ? 'light' : 'dark' });
+                }}
+                icon={prefs.theme === 'light' ? Sun : Moon}
+              />
             </div>
           </div>
-        </div>
+        </FrostedTile>
 
         {/* 2. NOTIFICATIONS - Main Card */}
-        <div
-          className="group relative overflow-hidden rounded-3xl border border-white/10"
-          style={{
-            background: 'linear-gradient(135deg, rgb(255 255 255 / 0.03), transparent)',
-            backdropFilter: 'blur(48px)',
-          }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <FrostedTile className="p-8 hover:border-purple-500/30">
+          <SectionHeader icon={Bell} title="Notifications" subtitle="Alert preferences (default: off)" />
 
-          <div className="relative z-10 p-8">
-            <SectionHeader icon={Bell} title="Notifications" subtitle="Alert preferences (default: off)" />
-
-            <div className="space-y-2 mb-6">
-              <Toggle
-                label="Session Reminders"
-                checked={prefs.notifications.sessionReminders}
-                onChange={() => updateNotify('sessionReminders')}
-              />
-              <Toggle
-                label="Daily Plan Ready"
-                checked={prefs.notifications.dailyPlanReady}
-                onChange={() => updateNotify('dailyPlanReady')}
-              />
-              <Toggle
-                label="Assignment Alerts"
-                checked={prefs.notifications.assignmentDue}
-                onChange={() => updateNotify('assignmentDue')}
-              />
-              <Toggle
-                label="Streak Milestones"
-                checked={prefs.notifications.streakMilestones}
-                onChange={() => updateNotify('streakMilestones')}
-              />
-            </div>
-
-            {/* Secondary card style for browser permission info */}
-            <div
-              className="p-4 rounded-2xl border"
-              style={{
-                background: 'rgb(24 24 27 / 0.4)',
-                borderColor: 'rgb(39 39 42 / 0.5)',
-                backdropFilter: 'blur(32px)',
-              }}
-            >
-              <div className="flex gap-3">
-                <Smartphone size={18} className="text-indigo-400 shrink-0 mt-0.5" />
-                <div className="space-y-2">
-                  <p className="text-sm text-indigo-200 font-semibold">
-                    Browser Permission Required
-                  </p>
-                  <p className="text-xs text-indigo-300/70 leading-relaxed">
-                    Enable specific alerts to receive notifications. Each toggle will request permission.
-                  </p>
-                  {Notification.permission === 'denied' && (
-                    <div className="mt-3 p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
-                      <span className="text-xs text-red-300 font-bold flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                        Blocked by browser settings
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+          <div className="space-y-2 mb-6">
+            <Toggle
+              label="Session Reminders"
+              checked={prefs.notifications.sessionReminders}
+              onChange={() => updateNotify('sessionReminders')}
+            />
+            <Toggle
+              label="Daily Plan Ready"
+              checked={prefs.notifications.dailyPlanReady}
+              onChange={() => updateNotify('dailyPlanReady')}
+            />
+            <Toggle
+              label="Assignment Alerts"
+              checked={prefs.notifications.assignmentDue}
+              onChange={() => updateNotify('assignmentDue')}
+            />
+            <Toggle
+              label="Streak Milestones"
+              checked={prefs.notifications.streakMilestones}
+              onChange={() => updateNotify('streakMilestones')}
+            />
           </div>
-        </div>
 
-        {/* 3. DATA GOVERNANCE - Main Card */}
-        <div
-          className="group relative overflow-hidden rounded-3xl border border-white/10"
-          style={{
-            background: 'linear-gradient(135deg, rgb(255 255 255 / 0.03), transparent)',
-            backdropFilter: 'blur(48px)',
-          }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
-          <div className="relative z-10 p-8">
-            <SectionHeader icon={Database} title="Data Governance" subtitle="Backup & storage management" />
-
-            <div className="space-y-6">
-              {/* Storage Usage - Stats Card */}
-              {storageUsage && (
-                <div
-                  className="p-6 rounded-2xl border"
-                  style={{
-                    background: 'rgb(255 255 255 / 0.02)',
-                    border: '1px solid rgb(255 255 255 / 0.1)',
-                    backdropFilter: 'blur(48px)',
-                  }}
-                >
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-sm font-semibold text-zinc-300">Database Size</span>
-                    <span className="font-mono text-sm text-zinc-400 font-bold tabular-nums">
-                      {formatBytes(storageUsage.used)} / {formatBytes(storageUsage.quota)}
+          {/* Secondary card style for browser permission info */}
+          <FrostedMini className="p-4">
+            <div className="flex gap-3">
+              <Smartphone size={18} className="text-indigo-400 shrink-0 mt-0.5" />
+              <div className="space-y-2">
+                <p className="text-sm text-indigo-200 font-semibold">
+                  Browser Permission Required
+                </p>
+                <p className="text-xs text-indigo-300/70 leading-relaxed">
+                  Enable specific alerts to receive notifications. Each toggle will request permission.
+                </p>
+                {Notification.permission === 'denied' && (
+                  <div className="mt-3 p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
+                    <span className="text-xs text-red-300 font-bold flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                      Blocked by browser settings
                     </span>
                   </div>
-                  <div className="w-full h-3 bg-zinc-800 rounded-full overflow-hidden border border-white/5 shadow-inner">
-                    <div
-                      className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full transition-all duration-1000 shadow-lg"
-                      style={{ width: `${Math.min((storageUsage.used / storageUsage.quota) * 100, 100)}%` }}
-                    />
-                  </div>
-                  <div className="mt-3 flex justify-between text-xs text-zinc-600">
-                    <span>0%</span>
-                    <span>{Math.round((storageUsage.used / storageUsage.quota) * 100)}% used</span>
-                    <span>100%</span>
-                  </div>
+                )}
+              </div>
+            </div>
+          </FrostedMini>
+        </FrostedTile>
+
+        {/* 3. DATA GOVERNANCE - Main Card */}
+        <FrostedTile className="p-8 hover:border-emerald-500/30">
+          <SectionHeader icon={Database} title="Data Governance" subtitle="Backup & storage management" />
+
+          <div className="space-y-6">
+            {/* Storage Usage - Stats Card */}
+            {storageUsage && (
+              <FrostedMini className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-sm font-semibold text-zinc-300">Database Size</span>
+                  <span className="font-mono text-sm text-zinc-400 font-bold tabular-nums">
+                    {formatBytes(storageUsage.used)} / {formatBytes(storageUsage.quota)}
+                  </span>
                 </div>
-              )}
+                <div className="w-full h-3 bg-zinc-800 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full transition-all duration-1000 shadow-lg"
+                    style={{ width: `${Math.min((storageUsage.used / storageUsage.quota) * 100, 100)}%` }}
+                  />
+                </div>
+                <div className="mt-3 flex justify-between text-xs text-zinc-600">
+                  <span>0%</span>
+                  <span>{Math.round((storageUsage.used / storageUsage.quota) * 100)}% used</span>
+                  <span>100%</span>
+                </div>
+              </FrostedMini>
+            )}
 
-              {/* Action Buttons - "Tile" Buttons resembling main/secondary cards */}
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={exportData}
-                  className="group/btn flex flex-col items-center justify-center p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] active:scale-95 min-h-[120px]"
-                  style={{
-                    background: 'rgb(255 255 255 / 0.02)',
-                    border: '1px solid rgb(255 255 255 / 0.1)',
-                    backdropFilter: 'blur(48px)',
-                    boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.25)'
-                  }}
-                >
-                  <Download size={28} className="text-indigo-400 mb-3 group-hover/btn:scale-110 transition-transform duration-300" />
-                  <span className="text-sm font-bold text-white">Backup</span>
-                  <span className="text-xs text-zinc-400 mt-1">Export all data</span>
-                </button>
+            {/* Action Buttons - "Tile" Buttons resembling main/secondary cards */}
+            <div className="grid grid-cols-2 gap-4">
+              <FrostedMini
+                onClick={exportData}
+                className="group/btn flex flex-col items-center justify-center p-6 min-h-[120px]"
+              >
+                <Download size={28} className="text-indigo-400 mb-3 group-hover/btn:scale-110 transition-transform duration-300" />
+                <span className="text-sm font-bold text-white">Backup</span>
+                <span className="text-xs text-zinc-400 mt-1">Export all data</span>
+              </FrostedMini>
 
-                <label
-                  className="group/btn flex flex-col items-center justify-center p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] cursor-pointer active:scale-95 min-h-[120px]"
-                  style={{
-                    background: 'rgb(255 255 255 / 0.02)',
-                    border: '1px solid rgb(255 255 255 / 0.1)',
-                    backdropFilter: 'blur(48px)',
-                    boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.25)'
-                  }}
-                >
+              <label className="flex-1">
+                <FrostedMini className="group/btn flex flex-col items-center justify-center p-6 cursor-pointer min-h-[120px]">
                   <Upload size={28} className="text-emerald-400 mb-3 group-hover/btn:scale-110 transition-transform duration-300" />
                   <span className="text-sm font-bold text-white">Restore</span>
                   <span className="text-xs text-zinc-400 mt-1">Import backup</span>
                   <input type="file" accept=".json" onChange={importData} className="hidden" />
-                </label>
-              </div>
+                </FrostedMini>
+              </label>
             </div>
           </div>
-        </div>
+        </FrostedTile>
 
         {/* 4. DANGER ZONE - Main Card */}
-        <div
-          className="group relative overflow-hidden rounded-3xl border border-red-500/30"
-          style={{
-            background: 'linear-gradient(135deg, rgb(255 255 255 / 0.03), transparent)',
-            backdropFilter: 'blur(48px)',
-          }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-red-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <FrostedTile className="p-8 border-red-500/30 hover:border-red-500/50">
+          <SectionHeader icon={Shield} title="Danger Zone" subtitle="Irreversible actions" />
 
-          <div className="relative z-10 p-8">
-            <SectionHeader icon={Shield} title="Danger Zone" subtitle="Irreversible actions" />
-
-            <div className="space-y-6">
-              <div
-                className="p-4 rounded-2xl border"
-                style={{
-                  background: 'rgb(255 0 0 / 0.10)',
-                  borderColor: 'rgba(239, 68, 68, 0.2)',
-                  backdropFilter: 'blur(16px)',
-                }}
-              >
-                <p className="text-sm text-red-200 leading-relaxed font-semibold mb-2">
-                  ⚠️ Warning: Permanent Action
-                </p>
-                <p className="text-xs text-red-300/70 leading-relaxed">
-                  Resetting will permanently erase all local data, including study logs, schedules, subjects, and settings. This action cannot be undone.
-                </p>
-              </div>
-
-              <button
-                onClick={resetAllData}
-                className={`w-full p-5 rounded-2xl font-bold transition-all duration-300 border-2 flex items-center justify-center gap-3 min-h-[64px] ${confirmReset
-                  ? 'bg-red-500 text-white border-red-500 animate-pulse shadow-xl shadow-red-500/30 scale-105'
-                  : 'bg-transparent text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50 hover:scale-[1.02] active:scale-95'
-                  }`}
-              >
-                <Trash2 size={20} className={confirmReset ? 'animate-bounce' : ''} />
-                <span className="text-base">
-                  {confirmReset ? 'CONFIRM FACTORY RESET' : 'Factory Reset'}
-                </span>
-              </button>
-
-              {confirmReset && (
-                <p className="text-xs text-red-300 text-center animate-in fade-in slide-in-from-bottom-2">
-                  Click again within 5 seconds to confirm
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 5. DEVELOPER ZONE */}
-        <div
-          className="group relative overflow-hidden rounded-3xl border border-white/10"
-          style={{
-            background: 'linear-gradient(135deg, rgb(255 255 255 / 0.03), transparent)',
-            backdropFilter: 'blur(48px)',
-          }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
-          <div className="relative z-10 p-8">
-            <SectionHeader icon={Monitor} title="Developer Zone" subtitle="Advanced tools" />
-
-            <div className="space-y-6">
-              <button
-                onClick={() => setShowStressTest(true)}
-                className="w-full p-4 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-bold transition-all flex items-center justify-center gap-3"
-              >
-                <Monitor size={20} />
-                Launch Stress Test Console
-              </button>
-              <p className="text-xs text-zinc-500 text-center">
-                Runs comprehensive validation on isolated test database. Safe to use.
+          <div className="space-y-6">
+            <div className="p-4 rounded-2xl border border-red-500/20 bg-red-500/10 backdrop-blur-md">
+              <p className="text-sm text-red-200 leading-relaxed font-semibold mb-2">
+                ⚠️ Warning: Permanent Action
+              </p>
+              <p className="text-xs text-red-300/70 leading-relaxed">
+                Resetting will permanently erase all local data, including study logs, schedules, subjects, and settings. This action cannot be undone.
               </p>
             </div>
+
+            <button
+              onClick={resetAllData}
+              className={`w-full p-5 rounded-2xl font-bold transition-all duration-300 border-2 flex items-center justify-center gap-3 min-h-[64px] ${confirmReset
+                ? 'bg-red-500 text-white border-red-500 animate-pulse shadow-xl shadow-red-500/30 scale-105'
+                : 'bg-transparent text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50 hover:scale-[1.02] active:scale-95'
+                }`}
+            >
+              <Trash2 size={20} className={confirmReset ? 'animate-bounce' : ''} />
+              <span className="text-base">
+                {confirmReset ? 'CONFIRM FACTORY RESET' : 'Factory Reset'}
+              </span>
+            </button>
+
+            {confirmReset && (
+              <p className="text-xs text-red-300 text-center animate-in fade-in slide-in-from-bottom-2">
+                Click again within 5 seconds to confirm
+              </p>
+            )}
           </div>
-        </div>
+        </FrostedTile>
+
+        {/* 5. DEVELOPER ZONE */}
+        <FrostedTile className="p-8 hover:border-cyan-500/30">
+          <SectionHeader icon={Monitor} title="Developer Zone" subtitle="Advanced tools" />
+
+          <div className="space-y-6">
+            <button
+              onClick={() => setShowStressTest(true)}
+              className="w-full p-4 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-bold transition-all flex items-center justify-center gap-3"
+            >
+              <Monitor size={20} />
+              Launch Stress Test Console
+            </button>
+            <p className="text-xs text-zinc-500 text-center">
+              Runs comprehensive validation on isolated test database. Safe to use.
+            </p>
+          </div>
+        </FrostedTile>
 
       </div>
 

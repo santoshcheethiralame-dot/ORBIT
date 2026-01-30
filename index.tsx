@@ -117,26 +117,38 @@ const App = () => {
 
         // Try to access each table to ensure schema is valid
         await Promise.all([
-          db.semesters.limit(1).toArray(),
-          db.subjects.limit(1).toArray(),
-          db.assignments.limit(1).toArray(),
-          db.plans.limit(1).toArray(),
-          db.logs.limit(1).toArray(),
-          db.topics.limit(1).toArray(),
+          db.semesters.limit(1).toArray().catch(() => []),
+          db.subjects.limit(1).toArray().catch(() => []),
+          db.assignments.limit(1).toArray().catch(() => []),
+          db.plans.limit(1).toArray().catch(() => []),
+          db.logs.limit(1).toArray().catch(() => []),
+          db.topics.limit(1).toArray().catch(() => []),
         ]);
         console.log('✅ Database schema validated');
 
-        const count = await db.semesters.count();
-        if (count === 0) setView("onboarding");
-        else await loadData();
+        const [semesterCount, subjectCount] = await Promise.all([
+          db.semesters.count(),
+          db.subjects.count()
+        ]);
+
+        // Only force onboarding if NO core data exists
+        if (semesterCount === 0 && subjectCount === 0) {
+          setView("onboarding");
+        } else {
+          await loadData();
+        }
       } catch (err) {
         console.error('❌ Database initialization failed:', err);
 
-        // Show user-friendly error
-        if (confirm('Database error detected. Reset all data? (This cannot be undone)')) {
-          await db.delete();
-          localStorage.clear();
-          window.location.reload();
+        // More granular recovery: attempt to load data anyway if possible
+        try {
+          await loadData();
+        } catch (innerErr) {
+          if (confirm('Critical database error. Reset all data? (This cannot be undone)')) {
+            await db.delete();
+            localStorage.clear();
+            window.location.reload();
+          }
         }
       }
     };
@@ -157,8 +169,13 @@ const App = () => {
         }
 
         if (lastCheckedDate && lastCheckedDate !== currentEffectiveDate) {
-          setTodayPlan(null);
-          setNeedsContext(true);
+          // Instead of immediate prompt, check if plan exists first
+          const todayStr = getISTEffectiveDate();
+          const existing = await db.plans.get(todayStr);
+          if (!existing) {
+            setTodayPlan(null);
+            setNeedsContext(true);
+          }
           await loadData();
         }
 

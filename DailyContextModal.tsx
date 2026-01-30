@@ -415,20 +415,18 @@ export const DailyContextModal = ({
               <button
                 key={opt.val}
                 onClick={() => setMood(opt.val as any)}
-                className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all duration-300 group relative overflow-hidden min-h-[100px] justify-center ${
-                  mood === opt.val
-                    ? "bg-gradient-to-br from-indigo-600 to-indigo-500 border-indigo-400 text-white shadow-2xl shadow-indigo-500/40 scale-105"
-                    : "bg-black/30 border-white/5 text-zinc-500 hover:bg-white/5 hover:border-white/20 hover:scale-[1.02]"
-                }`}
+                className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all duration-300 group relative overflow-hidden min-h-[100px] justify-center ${mood === opt.val
+                  ? "bg-gradient-to-br from-indigo-600 to-indigo-500 border-indigo-400 text-white shadow-2xl shadow-indigo-500/40 scale-105"
+                  : "bg-black/30 border-white/5 text-zinc-500 hover:bg-white/5 hover:border-white/20 hover:scale-[1.02]"
+                  }`}
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 <opt.icon
                   size={24}
-                  className={`transition-all duration-500 relative z-10 ${
-                    mood === opt.val
-                      ? "rotate-12 scale-110 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]"
-                      : "group-hover:scale-110"
-                  }`}
+                  className={`transition-all duration-500 relative z-10 ${mood === opt.val
+                    ? "rotate-12 scale-110 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+                    : "group-hover:scale-110"
+                    }`}
                   strokeWidth={2.5}
                 />
                 <span className="text-xs font-bold uppercase tracking-wider relative z-10">
@@ -448,31 +446,28 @@ export const DailyContextModal = ({
           <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => setIsHoliday(!isHoliday)}
-              className={`py-4 px-3 rounded-2xl border-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] min-h-[64px] ${
-                isHoliday
-                  ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-lg shadow-emerald-500/20"
-                  : "bg-black/30 border-white/5 text-zinc-600 hover:bg-white/5 hover:border-white/20"
-              }`}
+              className={`py-4 px-3 rounded-2xl border-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] min-h-[64px] ${isHoliday
+                ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-lg shadow-emerald-500/20"
+                : "bg-black/30 border-white/5 text-zinc-600 hover:bg-white/5 hover:border-white/20"
+                }`}
             >
               Holiday
             </button>
             <button
               onClick={() => setIsSick(!isSick)}
-              className={`py-4 px-3 rounded-2xl border-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] min-h-[64px] ${
-                isSick
-                  ? "bg-red-500/20 border-red-500/50 text-red-300 shadow-lg shadow-red-500/20"
-                  : "bg-black/30 border-white/5 text-zinc-600 hover:bg-white/5 hover:border-white/20"
-              }`}
+              className={`py-4 px-3 rounded-2xl border-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] min-h-[64px] ${isSick
+                ? "bg-red-500/20 border-red-500/50 text-red-300 shadow-lg shadow-red-500/20"
+                : "bg-black/30 border-white/5 text-zinc-600 hover:bg-white/5 hover:border-white/20"
+                }`}
             >
               Sick
             </button>
             <button
               onClick={() => setBunked(!bunked)}
-              className={`py-4 px-3 rounded-2xl border-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] min-h-[64px] ${
-                bunked
-                  ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-300 shadow-lg shadow-yellow-500/20"
-                  : "bg-black/30 border-white/5 text-zinc-600 hover:bg-white/5 hover:border-white/20"
-              }`}
+              className={`py-4 px-3 rounded-2xl border-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] min-h-[64px] ${bunked
+                ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-300 shadow-lg shadow-yellow-500/20"
+                : "bg-black/30 border-white/5 text-zinc-600 hover:bg-white/5 hover:border-white/20"
+                }`}
             >
               Bunked
             </button>
@@ -665,8 +660,8 @@ export const DailyContextModal = ({
                     key={key}
                     onClick={() => handlePresetSelect(key)}
                     className={`p-5 rounded-2xl border-2 transition-all duration-300 group relative overflow-hidden min-h-[120px] flex flex-col justify-center items-center text-center ${isActive
-                        ? colors.active
-                        : `${colors.bg} ${colors.border} ${colors.hover}`
+                      ? colors.active
+                      : `${colors.bg} ${colors.border} ${colors.hover}`
                       }`}
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -674,8 +669,8 @@ export const DailyContextModal = ({
                     <Icon
                       size={28}
                       className={`mb-3 transition-all duration-500 relative z-10 ${isActive
-                          ? "scale-110 rotate-12 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]"
-                          : "group-hover:scale-110"
+                        ? "scale-110 rotate-12 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+                        : "group-hover:scale-110"
                         }`}
                       strokeWidth={2.5}
                     />
@@ -702,8 +697,8 @@ export const DailyContextModal = ({
             >
               <div
                 className={`p-6 rounded-2xl border-2 backdrop-blur-sm transition-all ${dayType === "esa"
-                    ? "bg-red-500/10 border-red-500/30"
-                    : "bg-orange-500/10 border-orange-500/30"
+                  ? "bg-red-500/10 border-red-500/30"
+                  : "bg-orange-500/10 border-orange-500/30"
                   }`}
               >
                 <label className="text-xs font-bold uppercase tracking-[0.2em] block mb-4 flex items-center gap-2">
@@ -750,6 +745,17 @@ export const DailyContextModal = ({
 
           {/* Primary Actions */}
           <div className="flex flex-row justify-end items-center gap-4 mt-8 z-10 relative">
+            <button
+              onClick={() => onGenerate({
+                mood: 'normal',
+                dayType: 'normal',
+                isHoliday: false,
+                isSick: false
+              })}
+              className="px-5 py-2 text-xs font-bold text-zinc-500 hover:text-zinc-300 uppercase tracking-widest transition-colors"
+            >
+              Skip for Now
+            </button>
             <Button
               onClick={handleSubmit}
               disabled={!canSubmit()}

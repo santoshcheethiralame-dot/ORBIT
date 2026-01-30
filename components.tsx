@@ -27,6 +27,60 @@ export const Button = ({ children, onClick, disabled, variant = 'primary', class
   );
 };
 
+// Extracted from AboutView.tsx for global use
+export interface FrostedProps extends React.HTMLAttributes<HTMLDivElement> {
+  className?: string;
+  hoverClassName?: string;
+}
+
+export const FrostedTile: React.FC<React.PropsWithChildren<FrostedProps>> = ({
+  children,
+  className = '',
+  hoverClassName = '',
+  onClick,
+  ...props
+}) => (
+  <div
+    onClick={onClick}
+    className={
+      [
+        "group relative overflow-hidden rounded-3xl border border-white/10",
+        "bg-gradient-to-br from-zinc-900 via-zinc-900 to-black",
+        "[background:linear-gradient(to_bottom_right,rgba(255,255,255,0.03),transparent)]",
+        "backdrop-blur-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
+        "transition-all duration-500",
+        onClick ? "cursor-pointer active:scale-[0.98]" : "",
+        className,
+        hoverClassName,
+      ].join(' ')
+    }
+    {...props}
+  >
+    {children}
+  </div>
+);
+
+// Mini frosted style for secondary "cards" inside main tiles
+export const FrostedMini: React.FC<React.PropsWithChildren<FrostedProps>> = ({
+  children,
+  className = '',
+  onClick,
+  ...props
+}) => (
+  <div
+    onClick={onClick}
+    className={[
+      "p-4 bg-zinc-900/30 rounded-2xl border border-zinc-800/50 transition-all",
+      onClick ? "cursor-pointer active:scale-[0.98]" : "",
+      className,
+    ].join(' ')}
+    {...props}
+  >
+    {children}
+  </div>
+);
+
+
 export const Slider = ({ value, min, max, onChange, label }: any) => (
   <div className="w-full">
     {label && <div className="text-xs font-bold text-zinc-500 mb-2 uppercase">{label}</div>}
@@ -313,11 +367,11 @@ export const InstallPrompt = () => {
   );
 };
 
-export const BottomSheet = ({ 
-  isOpen, 
-  onClose, 
-  title, 
-  children 
+export const BottomSheet = ({
+  isOpen,
+  onClose,
+  title,
+  children
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -329,7 +383,7 @@ export const BottomSheet = ({
   return (
     <>
       {/* Backdrop */}
-      <div 
+      <div
         className="md:hidden fixed inset-0 bg-black/60 z-[80] animate-in fade-in duration-200"
         onClick={onClose}
       />

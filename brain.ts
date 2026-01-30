@@ -1253,42 +1253,93 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
   const logs = await db.logs.toArray();
   const schedule = await db.schedule.toArray();
 
-  // Read day start hour from preferences
-  let dayStartHour = 4;
-  try {
-    const saved = localStorage.getItem('orbit-prefs');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (typeof parsed.dayStartHour === 'number') {
-        dayStartHour = parsed.dayStartHour;
-      }
-    }
-  } catch (e) { }
-
   const today = new Date(getISTEffectiveDate() + 'T00:00:00');
 
   projects.forEach(p => {
     projectWorkCounts[p.name] = 0;
   });
 
+  // Calculate recent burnout/stress levels
+  const recentLogs = logs.filter(l => {
+    const logDate = new Date(l.date);
+    const daysAgo = Math.floor((today.getTime() - logDate.getTime()) / (1000 * 60 * 60 * 24));
+    return daysAgo <= 7;
+  });
+  const recentDailyMinutes = recentLogs.reduce((sum, l) => sum + l.duration, 0) / 7;
+
   for (let i = 0; i < 7; i++) {
     const simDate = new Date(today);
     simDate.setDate(today.getDate() + i);
     const dateStr = simDate.toISOString().split('T')[0];
-    const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][simDate.getDay()];
+    const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][simDate.getDay()];
+    const isWeekend = simDate.getDay() === 0 || simDate.getDay() === 6;
+
+    // Dynamic context based on day characteristics
+    let mood: 'low' | 'normal' | 'high' = 'normal';
+    let dayType: 'normal' | 'isa' | 'esa' = 'normal';
+    let focusSubjectId: number | undefined = undefined;
+
+    // Detect assignments due on this day
+    const dueThatDay = assignments.filter(a => a.dueDate === dateStr);
+    const dueNextDay = assignments.filter(a => {
+      const nextDayDate = new Date(simDate);
+      nextDayDate.setDate(simDate.getDate() + 1);
+      return a.dueDate === nextDayDate.toISOString().split('T')[0];
+    });
+    const dueSoon = assignments.filter(a => {
+      const assignmentDate = new Date(a.dueDate);
+      const daysUntil = Math.floor((assignmentDate.getTime() - simDate.getTime()) / (1000 * 60 * 60 * 24));
+      return daysUntil >= 0 && daysUntil <= 2;
+    });
+
+    // ISA detection (2+ assignments due that day)
+    if (dueThatDay.length >= 2) {
+      dayType = 'isa';
+      if (dueThatDay[0]) {
+        focusSubjectId = dueThatDay[0].subjectId;
+      }
+    }
+
+    // ESA detection (urgent deadline within 2 days)
+    if (dueSoon.length > 0 && dueSoon.some(a => {
+      const daysUntil = Math.floor((new Date(a.dueDate).getTime() - simDate.getTime()) / (1000 * 60 * 60 * 24));
+      return daysUntil <= 1;
+    })) {
+      dayType = 'esa';
+      const urgentAssignment = dueSoon.find(a => {
+        const daysUntil = Math.floor((new Date(a.dueDate).getTime() - simDate.getTime()) / (1000 * 60 * 60 * 24));
+        return daysUntil <= 1;
+      });
+      if (urgentAssignment) {
+        focusSubjectId = urgentAssignment.subjectId;
+      }
+    }
+
+    // Mood variation based on workload patterns
+    if (i === 0) {
+      // Today - use recent patterns
+      mood = recentDailyMinutes > 240 ? 'low' : recentDailyMinutes < 120 ? 'high' : 'normal';
+    } else if (isWeekend) {
+      // Weekends - lighter mood unless urgent work
+      mood = dayType === 'esa' ? 'normal' : 'high';
+    } else if (i >= 3 && recentDailyMinutes > 180) {
+      // Mid-week fatigue if heavy recent load
+      mood = 'low';
+    } else if (dayType === 'esa' || dayType === 'isa') {
+      // Exam/assessment days - normal to high focus
+      mood = 'high';
+    } else {
+      // Natural variation
+      mood = i % 3 === 0 ? 'high' : i % 3 === 1 ? 'normal' : 'low';
+    }
 
     const simContext: DailyContext = {
-      mood: 'normal',
-      dayType: 'normal',
+      mood,
+      dayType,
+      focusSubjectId,
       isHoliday: false,
       isSick: false,
     };
-
-    // Detect ISA days (multiple assignments due)
-    const dueThatDay = assignments.filter(a => a.dueDate === dateStr);
-    if (dueThatDay.length >= 2) {
-      simContext.dayType = 'isa';
-    }
 
     const result = await generateDailyPlan(simContext);
     const blocks = result.blocks;
@@ -1311,8 +1362,8 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
       blockCount: blocks.length,
       totalMinutes: blocks.reduce((sum, b) => sum + b.duration, 0),
       loadLevel: loadAnalysis.loadLevel,
-      hasESA: blocks.some(b => b.notes?.toLowerCase().includes('esa')),
-      hasISA: simContext.dayType === 'isa',
+      hasESA: dayType === 'esa',
+      hasISA: dayType === 'isa',
       urgentAssignments: urgentCount,
       projects: blocks
         .filter(b => b.type === 'project')
@@ -1372,4 +1423,4 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
     overloadDays,
     peakDay: peakDay.dayName,
   };
-}
+};

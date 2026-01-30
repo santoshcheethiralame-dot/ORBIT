@@ -47,7 +47,16 @@ export const WeekPreviewModal = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[20] bg-black/70 backdrop-blur-xl flex items-center justify-center">
+        <div
+            className="
+    fixed top-0 left-0 right-0 bottom-0
+    w-screen h-[100dvh]
+    z-[20]
+    bg-black/70 backdrop-blur-xl
+    flex items-center justify-center
+    overscroll-none
+  "
+        >
             {/* Reworked responsive breakpoints for modal wrapper for improved mobile usability */}
             <div
                 className="
@@ -82,10 +91,26 @@ export const WeekPreviewModal = ({
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
+                <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
 
                     {/* Timeline */}
-                    <div className="flex-[1.8] p-2 xs:p-3 sm:p-4 md:p-6 lg:p-8 overflow-y-auto space-y-2 sm:space-y-3 md:space-y-4 custom-scrollbar">
+                    <div
+                        className="
+    flex-[1.8]
+    p-2 xs:p-3 sm:p-4 md:p-6 lg:p-8
+    space-y-2 sm:space-y-3 md:space-y-4
+    overflow-y-scroll
+    overscroll-contain
+    scroll-smooth
+    will-change-scroll
+    [scrollbar-gutter:stable]
+    touch-pan-y
+    custom-scrollbar
+  "
+                        style={{
+                            WebkitOverflowScrolling: 'touch'
+                        }}
+                    >
                         {weekPreview.days.map((day) => {
                             const style = getLevelStyle(day.loadLevel);
                             const isPeak = day.dayName === weekPreview.peakDay;
@@ -94,15 +119,15 @@ export const WeekPreviewModal = ({
                             return (
                                 <div
                                     key={day.date}
+                                    style={{ contain: 'layout paint' }}
                                     className={`
                                         relative flex items-center gap-2 xs:gap-3 sm:gap-4 md:gap-6 lg:gap-8
                                         p-2 xs:p-3 sm:p-4 md:p-6
                                         rounded-lg xs:rounded-xl sm:rounded-2xl md:rounded-[2rem]
                                         border transition-all duration-300
-                                        ${
-                                            isPeak
-                                                ? 'bg-white/[0.05] border-white/20 shadow-2xl'
-                                                : 'bg-transparent border-white/5 hover:border-white/10'
+                                        ${isPeak
+                                            ? 'bg-white/[0.05] border-white/20 shadow-2xl'
+                                            : 'bg-transparent border-white/5 hover:border-white/10'
                                         }
                                     `}
                                 >

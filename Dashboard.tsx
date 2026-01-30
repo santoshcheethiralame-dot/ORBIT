@@ -31,6 +31,7 @@ import {
 import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
 import { DashboardInsights } from "./DashboardInsights";
+import { FrostedTile, FrostedMini } from "./components";
 
 // ============================================
 // SUB-COMPONENTS
@@ -114,11 +115,11 @@ const BacklogItem = ({
   };
 
   return (
-    <div
+    <FrostedMini
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="group flex items-center gap-4 p-4 bg-zinc-900/40 rounded-2xl border border-zinc-800/50 hover:border-yellow-500/30 hover:bg-zinc-800/40 transition-all duration-200 backdrop-blur-sm"
+      className="group flex items-center gap-4 p-4 hover:border-yellow-500/30 hover:bg-zinc-800/40"
     >
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-zinc-100 truncate group-hover:text-white transition-colors text-base">
@@ -135,7 +136,7 @@ const BacklogItem = ({
         <PlusCircle size={18} strokeWidth={2.5} />
         <span className="hidden sm:inline">Add to Today</span>
       </button>
-    </div>
+    </FrostedMini>
   );
 };
 
@@ -650,7 +651,6 @@ export const Dashboard = ({
       {/* WARNINGS & ALERTS */}
       {/* ============================================ */}
 
-      <DashboardInsights />
 
       {plan.performanceAdjustments && plan.performanceAdjustments.length > 0 && (
         <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5 mb-4 animate-in slide-in-from-top-2 fade-in duration-500 backdrop-blur-sm">
@@ -730,7 +730,7 @@ export const Dashboard = ({
 
         <div className="lg:col-span-8">
           {nextBlock ? (
-            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.03] to-transparent backdrop-blur-2xl shadow-2xl transition-all duration-500 hover:border-indigo-500/30 hover:shadow-indigo-500/10 group">
+            <FrostedTile className="p-8 hover:border-indigo-500/30">
 
               {/* Background Decorative Element */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-600/10 to-purple-600/10 rounded-full blur-3xl opacity-50 group-hover:opacity-70 transition-opacity duration-500" />
@@ -825,9 +825,9 @@ export const Dashboard = ({
                   <span>Start Focus Session</span>
                 </button>
               </div>
-            </div>
+            </FrostedTile>
           ) : (
-            <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.03] to-transparent backdrop-blur-2xl p-12 flex flex-col items-center justify-center text-center min-h-[400px] relative overflow-hidden">
+            <FrostedTile className="p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/5 to-transparent" />
               <div className="relative z-10 space-y-6">
                 <div className="w-24 h-24 rounded-full bg-emerald-500/15 flex items-center justify-center mb-4 animate-pulse mx-auto border border-emerald-500/30">
@@ -839,7 +839,7 @@ export const Dashboard = ({
                 </p>
                 <div className="text-7xl animate-bounce">🎉</div>
               </div>
-            </div>
+            </FrostedTile>
           )}
         </div>
 
@@ -851,7 +851,7 @@ export const Dashboard = ({
 
           {/* Reviews Due Widget */}
           {dueToday.length > 0 && (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-purple-500/30 transition-all duration-300">
+            <FrostedTile className="p-5 hover:border-purple-500/30">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Brain size={18} className="text-purple-400" strokeWidth={2.5} />
@@ -867,7 +867,7 @@ export const Dashboard = ({
                 {dueToday.slice(0, 3).map(topic => {
                   const subject = subjects.find(s => s.id === topic.subjectId);
                   return (
-                    <div
+                    <FrostedMini
                       key={topic.id}
                       onClick={() => {
                         if (!subject) return;
@@ -885,19 +885,19 @@ export const Dashboard = ({
                         };
                         onStartFocus(reviewBlock);
                       }}
-                      className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20 cursor-pointer hover:bg-purple-500/20 transition-all active:scale-95 min-h-[44px]"
+                      className="p-3 bg-purple-500/10 border-purple-500/20 cursor-pointer hover:bg-purple-500/20"
                     >
                       <div className="text-xs text-purple-300 font-bold">{topic.subjectName}</div>
                       <div className="text-sm text-white font-medium">{topic.name}</div>
-                    </div>
+                    </FrostedMini>
                   );
                 })}
               </div>
-            </div>
+            </FrostedTile>
           )}
 
           {/* Daily Goal Card */}
-          <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300 hover:-translate-y-1">
+          <FrostedTile className="p-5 hover:border-indigo-500/30">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Target size={18} className="text-indigo-400" strokeWidth={2.5} />
@@ -915,10 +915,10 @@ export const Dashboard = ({
                 style={{ width: `${animatedProgress}%` }}
               />
             </div>
-          </div>
+          </FrostedTile>
 
           {/* Streak Card */}
-          <div className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5 transition-all duration-300 hover:-translate-y-1">
+          <FrostedTile className="p-5 hover:border-orange-500/30">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Flame size={18} className="text-orange-400" strokeWidth={2.5} />
@@ -939,11 +939,11 @@ export const Dashboard = ({
                 />
               ))}
             </div>
-          </div>
+          </FrostedTile>
 
           {/* In Progress Assignments */}
           {inProgressAssignments.length > 0 && (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-amber-500/30 transition-all duration-300">
+            <FrostedTile className="p-5 hover:border-amber-500/30">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Clock size={18} className="text-amber-400" strokeWidth={2.5} />
@@ -976,12 +976,12 @@ export const Dashboard = ({
                   );
                 })}
               </div>
-            </div>
+            </FrostedTile>
           )}
 
           {/* Readiness Impact */}
           {plan.loadAnalysis?.readinessImpact && plan.loadAnalysis.readinessImpact > 0 && (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-emerald-500/30 transition-all duration-300">
+            <FrostedTile className="p-5 hover:border-emerald-500/30">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <TrendingUp size={18} className="text-emerald-400" strokeWidth={2.5} />
@@ -996,14 +996,14 @@ export const Dashboard = ({
               <div className="text-xs text-emerald-500/70 uppercase tracking-wide font-medium">
                 Today's Plan Impact
               </div>
-            </div>
+            </FrostedTile>
           )}
 
           {/* Backlog Card */}
           {backlog.length > 0 && (
-            <div
+            <FrostedTile
               onClick={() => setShowBacklog(!showBacklog)}
-              className="group rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-5 hover:border-yellow-500/30 cursor-pointer transition-all duration-300 hover:-translate-y-1 min-h-[44px]"
+              className="p-5 hover:border-yellow-500/30"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -1019,7 +1019,7 @@ export const Dashboard = ({
               <div className="text-xs text-yellow-500/70 uppercase tracking-wide font-medium">
                 Tap to view • Swipe to manage
               </div>
-            </div>
+            </FrostedTile>
           )}
         </div>
       </div>
@@ -1030,7 +1030,7 @@ export const Dashboard = ({
 
       {showBacklog && (
         <div className="animate-in slide-in-from-bottom-4 fade-in duration-500">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-6">
+          <FrostedTile className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold flex items-center gap-3">
                 <Inbox size={22} className="text-yellow-400" strokeWidth={2.5} />
@@ -1058,7 +1058,7 @@ export const Dashboard = ({
                 ))}
               </div>
             )}
-          </div>
+          </FrostedTile>
         </div>
       )}
 
@@ -1066,7 +1066,7 @@ export const Dashboard = ({
       {/* TODAY'S SCHEDULE */}
       {/* ============================================ */}
 
-      <div className="rounded-3xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl p-6">
+      <FrostedTile className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-bold flex items-center gap-3">
             <Calendar size={22} className="text-indigo-400" strokeWidth={2.5} />
@@ -1089,12 +1089,12 @@ export const Dashboard = ({
 
               return (
                 <div key={b.id} className="space-y-2 animate-in slide-in-from-left-2 fade-in duration-300" style={{ animationDelay: `${i * 50}ms` }}>
-                  <div
-                    className={`flex items-center gap-4 p-4 rounded-2xl border transition-all duration-200 ${isCompleted
-                      ? "bg-zinc-900/20 border-zinc-800/30 opacity-60"
+                  <FrostedMini
+                    className={`flex items-center gap-4 p-4 transition-all duration-200 ${isCompleted
+                      ? "opacity-60"
                       : isNext
-                        ? "bg-indigo-500/10 border-indigo-500/40 shadow-lg shadow-indigo-500/10"
-                        : "bg-zinc-900/30 border-zinc-800/50 hover:border-zinc-700 hover:bg-zinc-900/40"
+                        ? "border-indigo-500/40 shadow-lg shadow-indigo-500/10"
+                        : "hover:border-zinc-700 hover:bg-zinc-900/40"
                       }`}
                   >
                     {/* Number/Check Badge */}
@@ -1175,7 +1175,7 @@ export const Dashboard = ({
                         Done
                       </div>
                     )}
-                  </div>
+                  </FrostedMini>
 
                   {/* Block Reason Explanation */}
                   {isExpanded && !isCompleted && hasExplanation && (
@@ -1208,7 +1208,7 @@ export const Dashboard = ({
             )}
           </div>
         )}
-      </div>
+      </FrostedTile>
 
       {/* ============================================ */}
       {/* FOOTER TIP */}
@@ -1225,12 +1225,14 @@ export const Dashboard = ({
       {/* MODALS */}
       {/* ============================================ */}
 
-      {showWeekPreview && weekPreview && (
-        <WeekPreviewModal
-          weekPreview={weekPreview}
-          onClose={() => setShowWeekPreview(false)}
-        />
-      )}
-    </div>
+      {
+        showWeekPreview && weekPreview && (
+          <WeekPreviewModal
+            weekPreview={weekPreview}
+            onClose={() => setShowWeekPreview(false)}
+          />
+        )
+      }
+    </div >
   );
 };
