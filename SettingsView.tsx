@@ -242,7 +242,6 @@ export const SettingsView = () => {
         title="Settings"
         meta={
           <>
-            <MetaText>SYSTEM CONTROL</MetaText>
             <MetaText>
               {new Date().toLocaleDateString("en-US", {
                 weekday: "long",

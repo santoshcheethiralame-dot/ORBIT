@@ -20,14 +20,14 @@ import {
     saveEnergyProfile,
     getDashboardInsights,
 } from "./brain-enhanced-integration";
-import { Subject, DailyContext, BlockOutcome, Assignment, StudyBlock } from "./types";
+import { Subject, DailyContext, BlockOutcome, Assignment, StudyBlock, Project, EnergyProfile, DailyPlan } from "./types";
 import { Activity, Terminal, Play, AlertCircle, CheckCircle, XCircle, Settings, Zap } from "lucide-react";
 
 type TestMode = 'auto' | 'manual';
 
 export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
     console.log('StressTestEnhanced component mounting...');
-    
+
     const [logs, setLogs] = useState<string[]>([]);
     const [isRunning, setIsRunning] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -37,6 +37,14 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
     // Manual simulation state
     const [manualSubjects, setManualSubjects] = useState<Subject[]>([]);
+    const [manualAssignments, setManualAssignments] = useState<Assignment[]>([]);
+    const [manualProjects, setManualProjects] = useState<Project[]>([]);
+    const [manualEnergy, setManualEnergy] = useState<EnergyProfile>({
+        morning: 100,
+        afternoon: 80,
+        evening: 60,
+        night: 40,
+    });
     const [manualContext, setManualContext] = useState<DailyContext>({
         mood: 'normal',
         dayType: 'normal',
@@ -84,6 +92,9 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             addLog(`Isolated DB Instance: ${testDBName}`);
             addLog(`Start Time: ${new Date().toISOString()}`);
 
+            const todayStr = new Date().toISOString().split('T')[0];
+            const oneDay = 24 * 60 * 60 * 1000;
+
             // ==========================================
             // PHASE 1: DATA LAYER STRESS TEST
             // ==========================================
@@ -112,22 +123,55 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             }
             setProgress(5);
 
-            // 1.2 Setup Standard Test Data
-            addLog("Test 1.2: Creating standard test dataset...");
+            // 1.2 Semesters & Schedule
+            addLog("Test 1.2: Semesters & Schedule Slots...");
+            await testDB.semesters.clear();
+            const semesterId = await testDB.semesters.add({
+                name: "Fall 2026",
+                major: "Computer Science",
+                startDate: "2026-01-01",
+                endDate: "2026-05-30"
+            });
+            const storedSem = await testDB.semesters.get(semesterId);
+            assert(storedSem?.name === "Fall 2026", "Semester persistence");
+
+            await testDB.schedule.clear();
+            await testDB.schedule.add({ day: 1, slot: 1, subjectId: 101 });
+            await testDB.schedule.add({ day: 1, slot: 2, subjectId: 102 });
+            assert(await testDB.schedule.count() === 2, "Schedule slots persistence");
+            setProgress(7);
+
+            // 1.3 Setup Standard Test Data
+            addLog("Test 1.3: Creating standard test dataset...");
             await testDB.subjects.clear();
-            
+
             const sub1 = await testDB.subjects.add({ name: "Math", code: "MATH101", credits: 3, difficulty: 4 });
             const sub2 = await testDB.subjects.add({ name: "History", code: "HIST201", credits: 3, difficulty: 2 });
             const sub3 = await testDB.subjects.add({ name: "Physics", code: "PHYS301", credits: 4, difficulty: 5 });
             const sub4 = await testDB.subjects.add({ name: "Literature", code: "LIT101", credits: 2, difficulty: 1 });
 
             assert(await testDB.subjects.count() === 4, "4 subjects created");
-            setProgress(10);
+            setProgress(12);
 
-            // 1.3 Assignments - Backward Planning Logic
-            addLog("Test 1.3: Assignments & Progress Tracking...");
+            // 1.4 Subject Metadata (Syllabus, Resources, Grades)
+            addLog("Test 1.4: Subject Deep Metadata...");
+            const subWithMeta = await testDB.subjects.add({
+                name: "Deep Math",
+                code: "MATH-ADV",
+                credits: 4,
+                difficulty: 5,
+                syllabus: [{ id: "u1", title: "Quantum Calculus", completed: false }],
+                resources: [{ id: "r1", title: "Secret Papers", type: "pdf", priority: "required" }],
+                grades: [{ id: "g1", type: "Midterm", score: 85, maxScore: 100, date: todayStr }]
+            });
+            const retrievedMeta = await testDB.subjects.get(subWithMeta);
+            assert(retrievedMeta?.syllabus?.length === 1, "Syllabus persistence");
+            assert(retrievedMeta?.resources?.length === 1, "Resources persistence");
+            assert(retrievedMeta?.grades?.length === 1, "Grades persistence");
+            setProgress(15);
 
-            const oneDay = 24 * 60 * 60 * 1000;
+            // 1.5 Assignments - Backward Planning Logic
+            addLog("Test 1.5: Assignments & Progress Tracking...");
             const today = new Date();
             const tomorrow = new Date(Date.now() + oneDay).toISOString().split('T')[0];
             const threeDays = new Date(Date.now() + 3 * oneDay).toISOString().split('T')[0];
@@ -156,7 +200,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             await updateAssignmentProgress(assignmentIds[0], 90, testDB); // Complete it
             const a1Completed = await testDB.assignments.get(assignmentIds[0]);
             assert(a1Completed?.completed === true, "Assignment auto-completed");
-            
+
             setProgress(15);
 
             // 1.4 Projects
@@ -178,14 +222,12 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             // 1.5 Study Logs & Topics (Spaced Repetition)
             addLog("Test 1.5: Study Logs & Spaced Repetition...");
 
-            const todayStr = new Date().toISOString().split('T')[0];
-            
             // Add study logs
             for (let i = 0; i < 10; i++) {
                 const daysAgo = i;
                 const logDate = new Date(Date.now() - daysAgo * oneDay);
                 const dateStr = logDate.toISOString().split('T')[0];
-                
+
                 await testDB.logs.add({
                     subjectId: Number(sub1),
                     date: dateStr,
@@ -198,14 +240,14 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             // Test topic review system
             await recordTopicReview(Number(sub1), "Calculus Basics", 3, 45, todayStr, testDB);
             await recordTopicReview(Number(sub2), "World War II", 2, 30, todayStr, testDB);
-            
+
             const topics = await testDB.topics.toArray();
             assert(topics.length === 2, "Topics created via review");
-            
+
             const dueTomorrow = new Date(Date.now() + oneDay).toISOString().split('T')[0];
             const dueTopics = await getTopicsDueForReview(dueTomorrow, testDB);
             addLog(`Found ${dueTopics.length} topics due for review`);
-            
+
             setProgress(25);
 
             // ==========================================
@@ -256,7 +298,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
             const readiness1 = calculateReadiness(fullSub1!, allLogs, todayStr);
             assert(readiness1.score >= 0 && readiness1.score <= 100, "Math readiness in range");
-            
+
             const readiness2 = calculateReadiness(fullSub2!, allLogs, todayStr);
             assert(readiness2.score <= readiness1.score, "History readiness lower (no logs)");
 
@@ -317,7 +359,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             addLog("Test 3.2: Performance Analysis & Adjustment...");
 
             const performance = await getSubjectPerformance(Number(sub1), 30, testDB);
-            
+
             assert(performance.avgQuality >= 1 && performance.avgQuality <= 5, "Quality avg in range");
             assert(performance.recommendedDuration >= 20 && performance.recommendedDuration <= 90, "Recommended duration valid");
             assert(performance.skipRate >= 0 && performance.skipRate <= 1, "Skip rate in range");
@@ -431,7 +473,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             addLog("Test 3.7: Dashboard Insights...");
 
             const insights = await getDashboardInsights(testDB);
-            
+
             assert(insights.burnout !== undefined, "Burnout insights present");
             assert(Array.isArray(insights.topPerformers), "Top performers array");
             assert(Array.isArray(insights.strugglingSubjects), "Struggling subjects array");
@@ -449,7 +491,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             // 4.1 Empty Database
             addLog("Test 4.1: Empty Database Handling...");
             const emptyDB = new OrbitDB("EmptyTest_" + Date.now());
-            
+
             const emptyPlan = await generateDailyPlan({
                 mood: 'normal',
                 dayType: 'normal',
@@ -498,7 +540,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
             const integrityAssignments = await testDB.assignments.toArray();
             const integrityProjects = await testDB.projects.toArray();
-            
+
             assert(integrityAssignments.length > 0, "Assignments intact");
             assert(integrityProjects.length === 3, "Projects intact");
             setProgress(99);
@@ -507,9 +549,9 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             // FINAL SUMMARY
             // ==========================================
             addLog("", "header");
-            addLog("=" .repeat(60), "header");
+            addLog("=".repeat(60), "header");
             addLog("🎉 ALL TESTS PASSED SUCCESSFULLY", "header");
-            addLog("=" .repeat(60), "header");
+            addLog("=".repeat(60), "header");
             addLog(`Total Tests Passed: ${passedCount}`);
             addLog(`Total Tests Failed: ${failedCount}`);
             addLog(`Success Rate: ${((passedCount / (passedCount + failedCount)) * 100).toFixed(1)}%`);
@@ -552,7 +594,20 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                 await testDB.subjects.add(subject);
             }
 
-            addLog(`✓ Added ${manualSubjects.length} subjects`);
+            // Add assignments
+            for (const assignment of manualAssignments) {
+                await testDB.assignments.add(assignment);
+            }
+
+            // Add projects
+            for (const project of manualProjects) {
+                await testDB.projects.add(project);
+            }
+
+            // Save energy profile
+            saveEnergyProfile(manualEnergy);
+
+            addLog(`✓ Added ${manualSubjects.length} subjects, ${manualAssignments.length} assignments, ${manualProjects.length} projects`);
             addLog(`✓ Context: Mood=${manualContext.mood}, Type=${manualContext.dayType}, Sick=${manualContext.isSick}, Holiday=${manualContext.isHoliday}`);
 
             // Generate plan
@@ -564,7 +619,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             addLog(`Total Blocks: ${result.blocks.length}`);
             addLog(`Total Minutes: ${result.blocks.reduce((s, b) => s + b.duration, 0)}`);
             addLog(`Load Level: ${result.loadAnalysis.loadLevel}`);
-            
+
             if (result.loadAnalysis.warning) {
                 addLog(`⚠️ Warning: ${result.loadAnalysis.warning}`, 'warning');
             }
@@ -608,7 +663,9 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
     };
 
     const addManualSubject = () => {
+        const id = Date.now() + manualSubjects.length;
         setManualSubjects([...manualSubjects, {
+            id,
             name: `Subject ${manualSubjects.length + 1}`,
             code: `SUB${manualSubjects.length + 1}`,
             credits: 3,
@@ -624,6 +681,50 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
     const removeManualSubject = (index: number) => {
         setManualSubjects(manualSubjects.filter((_, i) => i !== index));
+    };
+
+    const addManualAssignment = () => {
+        if (manualSubjects.length === 0) return;
+        setManualAssignments([...manualAssignments, {
+            id: `manual-a-${Date.now()}`,
+            subjectId: manualSubjects[0].id || 0,
+            title: `Assignment ${manualAssignments.length + 1}`,
+            dueDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+            completed: false,
+            estimatedEffort: 120,
+            progressMinutes: 0,
+        }]);
+    };
+
+    const updateManualAssignment = (index: number, field: keyof Assignment, value: any) => {
+        const updated = [...manualAssignments];
+        updated[index] = { ...updated[index], [field]: value };
+        setManualAssignments(updated);
+    };
+
+    const removeManualAssignment = (index: number) => {
+        setManualAssignments(manualAssignments.filter((_, i) => i !== index));
+    };
+
+    const addManualProject = () => {
+        if (manualSubjects.length === 0) return;
+        setManualProjects([...manualProjects, {
+            name: `Project ${manualProjects.length + 1}`,
+            subjectId: manualSubjects[0].id || 0,
+            progression: 0,
+            effort: 'med',
+            deadline: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0],
+        }]);
+    };
+
+    const updateManualProject = (index: number, field: keyof Project, value: any) => {
+        const updated = [...manualProjects];
+        updated[index] = { ...updated[index], [field]: value };
+        setManualProjects(updated);
+    };
+
+    const removeManualProject = (index: number) => {
+        setManualProjects(manualProjects.filter((_, i) => i !== index));
     };
 
     if (!mode) {
@@ -783,6 +884,131 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                                         No subjects added yet
                                     </div>
                                 )}
+                            </div>
+                        </div>
+
+                        {/* Assignments */}
+                        <div className="border-t border-green-900/30 pt-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-xs opacity-70">ASSIGNMENTS</label>
+                                <button
+                                    onClick={addManualAssignment}
+                                    className="text-xs px-3 py-1 bg-green-900/20 border border-green-500/50 rounded hover:bg-green-500/20 transition-colors"
+                                >
+                                    + ADD ASSIGNMENT
+                                </button>
+                            </div>
+                            <div className="space-y-2">
+                                {manualAssignments.map((a, i) => (
+                                    <div key={i} className="grid grid-cols-12 gap-2 items-center p-2 bg-green-900/10 rounded">
+                                        <input
+                                            type="text"
+                                            value={a.title}
+                                            onChange={(e) => updateManualAssignment(i, 'title', e.target.value)}
+                                            placeholder="Title"
+                                            className="col-span-4 bg-black border border-green-900/50 rounded px-2 py-1 text-sm text-green-400"
+                                        />
+                                        <select
+                                            value={a.subjectId}
+                                            onChange={(e) => updateManualAssignment(i, 'subjectId', parseInt(e.target.value))}
+                                            className="col-span-3 bg-black border border-green-900/50 rounded px-2 py-1 text-sm text-green-400"
+                                        >
+                                            <option value={0}>Subject</option>
+                                            {manualSubjects.map((s, idx) => <option key={idx} value={s.id}>{s.name} ({s.code})</option>)}
+                                        </select>
+                                        <input
+                                            type="date"
+                                            value={a.dueDate}
+                                            onChange={(e) => updateManualAssignment(i, 'dueDate', e.target.value)}
+                                            className="col-span-3 bg-black border border-green-900/50 rounded px-2 py-1 text-sm text-green-400"
+                                        />
+                                        <input
+                                            type="number"
+                                            value={a.estimatedEffort}
+                                            onChange={(e) => updateManualAssignment(i, 'estimatedEffort', parseInt(e.target.value))}
+                                            placeholder="Effort (m)"
+                                            className="col-span-2 bg-black border border-green-900/50 rounded px-2 py-1 text-sm text-green-400"
+                                        />
+                                        <button onClick={() => removeManualAssignment(i)} className="text-red-500 hover:text-red-300 text-xs font-bold px-2">✗</button>
+                                    </div>
+                                ))}
+                                {manualAssignments.length === 0 && (
+                                    <div className="text-center py-2 text-green-900 text-[10px] italic">No assignments added</div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Projects */}
+                        <div className="border-t border-green-900/30 pt-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-xs opacity-70">PROJECTS</label>
+                                <button
+                                    onClick={addManualProject}
+                                    className="text-xs px-3 py-1 bg-green-900/20 border border-green-500/50 rounded hover:bg-green-500/20 transition-colors"
+                                >
+                                    + ADD PROJECT
+                                </button>
+                            </div>
+                            <div className="space-y-2">
+                                {manualProjects.map((p, i) => (
+                                    <div key={i} className="grid grid-cols-12 gap-2 items-center p-2 bg-green-900/10 rounded">
+                                        <input
+                                            type="text"
+                                            value={p.name}
+                                            onChange={(e) => updateManualProject(i, 'name', e.target.value)}
+                                            placeholder="Project Name"
+                                            className="col-span-4 bg-black border border-green-900/50 rounded px-2 py-1 text-sm text-green-400"
+                                        />
+                                        <select
+                                            value={p.subjectId}
+                                            onChange={(e) => updateManualProject(i, 'subjectId', parseInt(e.target.value))}
+                                            className="col-span-3 bg-black border border-green-900/50 rounded px-2 py-1 text-sm text-green-400"
+                                        >
+                                            <option value={0}>Subject</option>
+                                            {manualSubjects.map((s, idx) => <option key={idx} value={s.id}>{s.name} ({s.code})</option>)}
+                                        </select>
+                                        <select
+                                            value={p.effort}
+                                            onChange={(e) => updateManualProject(i, 'effort', e.target.value)}
+                                            className="col-span-2 bg-black border border-green-900/50 rounded px-2 py-1 text-sm text-green-400"
+                                        >
+                                            <option value="low">Low Effort</option>
+                                            <option value="med">Medium Effort</option>
+                                            <option value="high">High Effort</option>
+                                        </select>
+                                        <input
+                                            type="number"
+                                            value={p.progression}
+                                            onChange={(e) => updateManualProject(i, 'progression', parseInt(e.target.value))}
+                                            placeholder="%"
+                                            className="col-span-2 bg-black border border-green-900/50 rounded px-2 py-1 text-sm text-green-400"
+                                        />
+                                        <button onClick={() => removeManualProject(i)} className="text-red-500 hover:text-red-300 text-xs font-bold px-2">✗</button>
+                                    </div>
+                                ))}
+                                {manualProjects.length === 0 && (
+                                    <div className="text-center py-2 text-green-900 text-[10px] italic">No projects added</div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Energy Profile */}
+                        <div className="border-t border-green-900/30 pt-4">
+                            <label className="text-xs opacity-70 block mb-2 font-bold tracking-wider">ENERGY PROFILE (% CAPACITY)</label>
+                            <div className="grid grid-cols-4 gap-4">
+                                {Object.entries(manualEnergy).map(([period, value]) => (
+                                    <div key={period} className="flex flex-col gap-1">
+                                        <label className="text-[10px] uppercase opacity-50">{period}</label>
+                                        <input
+                                            type="number"
+                                            value={value}
+                                            onChange={(e) => setManualEnergy({ ...manualEnergy, [period]: parseInt(e.target.value) || 0 })}
+                                            min="0"
+                                            max="100"
+                                            className="w-full bg-black border border-green-900/50 rounded px-2 py-1 text-xs text-green-400 focus:border-green-500 outline-none"
+                                        />
+                                    </div>
+                                ))}
                             </div>
                         </div>
 

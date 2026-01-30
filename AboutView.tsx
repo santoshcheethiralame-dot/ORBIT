@@ -422,7 +422,6 @@ export const AboutView = () => {
         title="About Orbit"
         meta={
           <>
-            <MetaText>SYSTEM INFORMATION</MetaText>
             <MetaText>
               {new Date().toLocaleDateString("en-US", {
                 weekday: "long",
