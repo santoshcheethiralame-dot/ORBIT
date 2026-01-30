@@ -210,6 +210,22 @@ export const FocusSession = ({
     }
   }, [showNotes]);
 
+  /* ---------------- Tab Title Update ---------------- */
+  useEffect(() => {
+    if (!isActive && !isBreak) {
+      document.title = "Orbit";
+      return;
+    }
+
+    const time = isBreak ? breakTime : timeLeft;
+    const formatted = `${Math.floor(time / 60)}:${(time % 60).toString().padStart(2, '0')}`;
+    document.title = `${formatted} - ${isBreak ? 'Break' : 'Focus'}`;
+
+    return () => {
+      document.title = "Orbit";
+    };
+  }, [isActive, isBreak, timeLeft, breakTime]);
+
   /* ---------------- ACTIONS ---------------- */
   const toggleTimer = () => {
     try {
@@ -252,6 +268,19 @@ export const FocusSession = ({
     1,
     Math.max(0, (currentTotal - currentVal) / currentTotal)
   );
+
+  // Force-stabilize progress ring on mount
+  const isInitial = React.useRef(true);
+  const [hasStarted, setHasStarted] = useState(false);
+
+  useEffect(() => {
+    // Wait a frame to ensure all parent state (block duration) is resolved
+    const timer = setTimeout(() => {
+      isInitial.current = false;
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
   const dashOffset = CIRCUMFERENCE * (1 - progress);
 
   const strokeWidth = 12;
@@ -386,7 +415,7 @@ export const FocusSession = ({
                 strokeDashoffset={dashOffset}
                 strokeLinecap="round"
                 transform={`rotate(-90 ${SVG_SIZE / 2} ${SVG_SIZE / 2})`}
-                style={{ transition: "stroke-dashoffset 0.6s ease, stroke 0.3s ease" }}
+                style={{ transition: isInitial.current ? "none" : "stroke-dashoffset 0.6s ease, stroke 0.3s ease" }}
               />
             </g>
           </svg>

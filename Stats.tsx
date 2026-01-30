@@ -9,6 +9,7 @@ import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
 import { EmptyStats } from './EmptyStates';
 import { useToast } from "./Toast";
+import { PageHeader, MetaText } from "./components";
 
 export const StatsView = ({
   logs,
@@ -282,27 +283,27 @@ export const StatsView = ({
 
   return (
     <div className="pb-32 pt-8 px-4 lg:px-10 w-full max-w-[1400px] mx-auto space-y-10 animate-fade-in">
-      {/* Header */}
-      <div className="flex justify-between items-end mb-10">
-        <div className="flex flex-col gap-3">
-          <div className="text-xs font-mono text-indigo-400/60 uppercase tracking-[0.2em]">
+      <PageHeader
+        title="Performance Analytics"
+        meta={
+          <MetaText>
             {new Date().toLocaleDateString("en-US", {
               weekday: "long",
               month: "short",
               day: "numeric",
             }).toUpperCase()}
-          </div>
-          <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight">Performance Analytics</h1>
-        </div>
-
-        <button
-          onClick={exportDetailedStats}
-          className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-500/30 text-xs font-semibold text-zinc-400 hover:text-indigo-300 transition-all"
-        >
-          <Download size={14} />
-          Export CSV
-        </button>
-      </div>
+          </MetaText>
+        }
+        actions={
+          <button
+            onClick={exportDetailedStats}
+            className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-500/30 text-xs font-semibold text-zinc-400 hover:text-indigo-300 transition-all font-bold"
+          >
+            <Download size={14} />
+            Export CSV
+          </button>
+        }
+      />
 
       {/* Upcoming Reviews */}
       <div className="space-y-4">
@@ -490,7 +491,7 @@ export const StatsView = ({
                     </div>
 
                     {selectedSubject === stat.id && (
-                      <div className="mt-4 p-8 bg-zinc-900/60 rounded-3xl border border-zinc-700 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="mt-4 p-8 bg-zinc-900/60 rounded-3xl border border-zinc-700">
                         <div className="grid grid-cols-3 gap-6 text-center">
                           <div className="p-5 bg-zinc-800/50 rounded-2xl border border-zinc-700">
                             <div className="text-sm text-zinc-400 mb-2 uppercase tracking-wider font-semibold">Consistency</div>

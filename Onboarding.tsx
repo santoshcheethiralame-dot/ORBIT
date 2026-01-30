@@ -18,6 +18,8 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   // Timetable State: 7 Days x 8 Slots (1 hour each, 09:00 - 16:00)
   // 0-4 are weekdays, 5-6 are weekends
   const [timetable, setTimetable] = useState<number[][]>(Array(7).fill(0).map(() => Array(8).fill(0)));
+  const [timeLabels, setTimeLabels] = useState(["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"]);
+  const [slotIndices, setSlotIndices] = useState([0, 1, 2, 3, 4, 5, 6, 7]);
   const [showWeekend, setShowWeekend] = useState(false);
 
   // Timetable Selection Modal State
@@ -121,8 +123,24 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
     onComplete();
   };
 
-  const timeLabels = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"];
-  const slotIndices = [0, 1, 2, 3, 4, 5, 6, 7];
+  const addTimeSlot = () => {
+    const lastLabel = timeLabels[timeLabels.length - 1];
+    const [hour] = lastLabel.split(':').map(Number);
+    const nextHour = (hour + 1) % 24;
+    const nextLabel = `${nextHour.toString().padStart(2, '0')}:00`;
+
+    setTimeLabels(prev => [...prev, nextLabel]);
+    setSlotIndices(prev => [...prev, prev.length]);
+    setTimetable(prev => prev.map(day => [...day, 0]));
+  };
+
+  const removeTimeSlot = () => {
+    if (slotIndices.length <= 1) return;
+    setTimeLabels(prev => prev.slice(0, -1));
+    setSlotIndices(prev => prev.slice(0, -1));
+    setTimetable(prev => prev.map(day => day.slice(0, -1)));
+  };
+
 
   return (
     <div className={`min-h-screen text-white p-8 md:p-10 flex flex-col justify-center mx-auto relative overflow-hidden transition-all duration-500 ${step === 3 ? 'max-w-6xl' : 'max-w-2xl'}`}>
@@ -353,8 +371,8 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
                             key={`${dayIdx}-${slotIdx}`}
                             onClick={() => setSelectingSlot({ d: dayIdx, s: slotIdx })}
                             className={`rounded-2xl text-sm font-bold p-2 overflow-hidden transition-all duration-300 relative group/cell flex items-center justify-center border-2 min-h-[64px] ${sub
-                                ? 'bg-gradient-to-br from-indigo-600 to-indigo-500 border-indigo-400/50 text-white shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] scale-105'
-                                : 'bg-zinc-800/30 border-white/5 text-zinc-500 hover:bg-white/10 hover:border-white/20 hover:scale-[1.05]'
+                              ? 'bg-gradient-to-br from-indigo-600 to-indigo-500 border-indigo-400/50 text-white shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] scale-105'
+                              : 'bg-zinc-800/30 border-white/5 text-zinc-500 hover:bg-white/10 hover:border-white/20 hover:scale-[1.05]'
                               }`}
                           >
                             <span className="relative z-10 text-xs md:text-sm">
@@ -371,6 +389,42 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
                       })}
                     </div>
                   ))}
+                </div>
+
+                {/* Flexible Slots Controls */}
+                <div className="flex justify-center gap-4 mt-8 pt-4 border-t border-white/5">
+                  <button
+                    onClick={addTimeSlot}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs font-bold text-indigo-400 hover:bg-indigo-500/20 transition-all active:scale-95"
+                  >
+                    + Add Time Slot
+                  </button>
+                  {slotIndices.length > 1 && (
+                    <button
+                      onClick={removeTimeSlot}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-xs font-bold text-red-400 hover:bg-red-500/20 transition-all active:scale-95"
+                    >
+                      - Remove Last Slot
+                    </button>
+                  )}
+                </div>
+
+                {/* Flexible Slots Controls */}
+                <div className="flex justify-center gap-4 mt-8 pt-4 border-t border-white/5">
+                  <button
+                    onClick={addTimeSlot}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs font-bold text-indigo-400 hover:bg-indigo-500/20 transition-all active:scale-95"
+                  >
+                    + Add Time Slot
+                  </button>
+                  {slotIndices.length > 1 && (
+                    <button
+                      onClick={removeTimeSlot}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-xs font-bold text-red-400 hover:bg-red-500/20 transition-all active:scale-95"
+                    >
+                      - Remove Last Slot
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -494,8 +548,8 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
                     key={eff}
                     onClick={() => setNewProject({ ...newProject, effort: eff as any })}
                     className={`py-6 rounded-2xl text-base font-bold uppercase tracking-[0.2em] transition-all duration-300 relative overflow-hidden group/effort border-2 min-h-[80px] ${newProject.effort === eff
-                        ? 'bg-gradient-to-br from-indigo-600 to-indigo-500 text-white shadow-2xl shadow-indigo-500/40 scale-105 border-indigo-400'
-                        : 'bg-white/5 border-white/5 text-zinc-500 hover:bg-white/10 hover:scale-[1.02] hover:border-white/20'
+                      ? 'bg-gradient-to-br from-indigo-600 to-indigo-500 text-white shadow-2xl shadow-indigo-500/40 scale-105 border-indigo-400'
+                      : 'bg-white/5 border-white/5 text-zinc-500 hover:bg-white/10 hover:scale-[1.02] hover:border-white/20'
                       }`}
                   >
                     <span className="relative z-10">{eff}</span>

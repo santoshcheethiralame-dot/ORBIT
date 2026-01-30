@@ -13,7 +13,7 @@ import {
 } from './EmptyStates';
 import { getAllReadinessScores, SubjectReadiness } from './brain';
 import { useToast } from './Toast';
-import { FrostedTile, FrostedMini } from './components';
+import { FrostedTile, FrostedMini, PageHeader, MetaText } from './components';
 
 // ✨ PRODUCTION-GRADE: Enhanced Prediction Modal
 const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
@@ -711,7 +711,21 @@ export default function CoursesView_v2() {
     });
 
   return (
-    <div className="max-w-[1400px] mx-auto p-8 space-y-10 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-[1400px] mx-auto p-8 space-y-10 pb-32">
+      <PageHeader
+        title="Academic Loadout"
+        meta={
+          <>
+            <MetaText>
+              {new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "short",
+                day: "numeric",
+              }).toUpperCase()}
+            </MetaText>
+          </>
+        }
+      />
       {/* Prediction Modal */}
       {showPrediction !== null && (
         <PredictionModal

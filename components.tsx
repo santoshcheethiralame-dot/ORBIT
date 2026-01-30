@@ -416,3 +416,52 @@ export const BottomSheet = ({
     </>
   );
 };
+
+// ============================================
+// 👇 PageHeader & Meta Components
+// ============================================
+
+export const MetaText = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
+  <div className={`text-xs font-mono text-indigo-400/60 uppercase tracking-[0.2em] font-bold ${className}`}>
+    {children}
+  </div>
+);
+
+export const HeaderChip = ({ children, onClick, className = "" }: { children: React.ReactNode, onClick?: () => void, className?: string }) => (
+  <button
+    onClick={onClick}
+    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-500/30 text-xs font-semibold text-zinc-400 hover:text-indigo-300 transition-all duration-200 min-h-[32px] ${className}`}
+  >
+    {children}
+  </button>
+);
+
+export const PageHeader = ({
+  title,
+  meta,
+  actions,
+  className = ""
+}: {
+  title: React.ReactNode;
+  meta?: React.ReactNode;
+  actions?: React.ReactNode;
+  className?: string;
+}) => (
+  <header className={`flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10 ${className}`}>
+    <div className="space-y-3">
+      {meta && (
+        <div className="flex items-center gap-3 flex-wrap">
+          {meta}
+        </div>
+      )}
+      <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight text-white leading-tight">
+        {title}
+      </h1>
+    </div>
+    {actions && (
+      <div className="flex items-center gap-3 flex-wrap md:pb-1">
+        {actions}
+      </div>
+    )}
+  </header>
+);

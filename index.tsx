@@ -82,6 +82,17 @@ const App = () => {
     } catch (e) { }
   }, []);
 
+  // ✨ NEW: PWA Install Logic
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      (window as any).deferredPrompt = e;
+      console.log('✅ PWA Install Prompt captured');
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
   const loadData = async () => {
     const subs = await db.subjects.toArray();
     setSubjects(subs);
@@ -597,7 +608,7 @@ const App = () => {
 
       {/* MAIN CONTENT */}
       <main className="flex-1 min-h-screen pb-24 md:pb-0 overflow-x-hidden">
-        <div className="max-w-7xl mx-auto w-full">
+        <div key={activeTab} className="max-w-7xl mx-auto w-full animate-slide-up">
           {activeTab === "dashboard" && todayPlan && (
             <Dashboard
               plan={todayPlan}
@@ -708,6 +719,13 @@ const App = () => {
       )}
 
       <style>{`
+        @keyframes slide-up {
+          from { opacity: 0; transform: translateY(10px); filter: blur(4px); }
+          to { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
         @keyframes float {
           0%, 100% { transform: translateX(-50%) translateY(0px); }
           50% { transform: translateX(-50%) translateY(-4px); }
@@ -777,6 +795,19 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
       window.location.reload();
     }
   });
+
+  // ✨ NEW: Expose triggerPwaInstall global for Settings page
+  (window as any).triggerPwaInstall = async () => {
+    const prompt = (window as any).deferredPrompt;
+    if (prompt) {
+      prompt.prompt();
+      const { outcome } = await prompt.userChoice;
+      console.log(`User response for PWA: ${outcome}`);
+      (window as any).deferredPrompt = null;
+    } else {
+      console.warn('❌ PWA prompt not available');
+    }
+  };
 }
 
 // ✨ NEW: Wrap root with ToastProvider

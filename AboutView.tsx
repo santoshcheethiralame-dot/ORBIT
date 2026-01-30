@@ -8,7 +8,7 @@ import {
 import { getAllReadinessScores, SubjectReadiness } from './brain';
 import { db } from './db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { FrostedTile, FrostedMini } from './components';
+import { FrostedTile, FrostedMini, PageHeader, MetaText, HeaderChip } from './components';
 
 // Helper function for mailto encoding
 
@@ -41,22 +41,6 @@ interface BugReportModalProps {
   };
 }
 
-// AboutHeader component as specified
-export const AboutHeader = () => (
-  <div className="flex justify-between items-end mb-10">
-    <div className="flex flex-col gap-3">
-      <div className="text-xs font-mono text-indigo-400/60 uppercase tracking-[0.2em]">
-        SYSTEM INFORMATION
-      </div>
-      <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight">
-        About Orbit
-      </h1>
-    </div>
-    <span className="hidden md:inline-flex text-xs px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
-      v3.2.0 ALPHA
-    </span>
-  </div>
-);
 
 // --- Extracted Component (Fixes the re-render/focus issue) ---
 const BugReportModal = ({
@@ -415,7 +399,7 @@ export const AboutView = () => {
   };
 
   return (
-    <div className="pb-32 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-10 animate-fade-in">
+    <div className="pb-32 pt-8 px-4 lg:px-8 max-w-6xl mx-auto space-y-10">
 
       {/* EXTRACTED MODAL */}
       <BugReportModal
@@ -434,29 +418,32 @@ export const AboutView = () => {
       />
 
       {/* Fixed Header - properly aligned buttons */}
-      <div className="flex justify-between items-end mb-10">
-        <div className="flex flex-col gap-3">
-          <div className="text-xs font-mono text-indigo-400/60 uppercase tracking-[0.2em]">
-            SYSTEM INFORMATION
-          </div>
-          <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight text-white">
-            About Orbit
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="text-xs px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
-            v3.2.0 ALPHA
-          </span>
-          <button
-            onClick={() => setShowBugReport(true)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-500/30 text-xs font-semibold text-zinc-400 hover:text-red-300 transition-all"
-          >
-            <Bug size={14} />
-            Report Issue
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="About Orbit"
+        meta={
+          <>
+            <MetaText>SYSTEM INFORMATION</MetaText>
+            <MetaText>
+              {new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "short",
+                day: "numeric",
+              }).toUpperCase()}
+            </MetaText>
+          </>
+        }
+        actions={
+          <>
+            <span className="text-xs px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
+              v3.2.0 ALPHA
+            </span>
+            <HeaderChip onClick={() => setShowBugReport(true)}>
+              <Bug size={14} />
+              Report Issue
+            </HeaderChip>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 

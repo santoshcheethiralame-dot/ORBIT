@@ -8,7 +8,7 @@ import { db } from './db';
 import { NotificationManager } from './utils/notifications';
 import { SoundManager } from './utils/sounds';
 import { StressTestEnhanced } from './StressTestView';
-import { FrostedTile, FrostedMini } from './components';
+import { FrostedTile, FrostedMini, PageHeader, MetaText } from './components';
 
 // --- Types ---
 type AppPreferences = {
@@ -46,6 +46,8 @@ export const SettingsView = () => {
   const [statusMsg, setStatusMsg] = useState<{ txt: string; type: 'success' | 'error' } | null>(null);
   const [storageUsage, setStorageUsage] = useState<{ used: number; quota: number } | null>(null);
   const [showStressTest, setShowStressTest] = useState(false);
+  const [canInstall, setCanInstall] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
 
   // --- Effects ---
 
@@ -75,6 +77,18 @@ export const SettingsView = () => {
         });
       });
     }
+  }, []);
+
+  // 5. PWA Install Check
+  useEffect(() => {
+    const checkInstall = () => {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+      setIsInstalled(!!isStandalone);
+      setCanInstall(!!(window as any).deferredPrompt);
+    };
+    checkInstall();
+    window.addEventListener('beforeinstallprompt', checkInstall);
+    return () => window.removeEventListener('beforeinstallprompt', checkInstall);
   }, []);
 
   // --- Actions ---
@@ -221,19 +235,24 @@ export const SettingsView = () => {
   }
 
   return (
-    <div className="pb-32 pt-8 px-4 lg:px-8 max-w-6xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="pb-32 pt-8 px-4 lg:px-8 max-w-6xl mx-auto space-y-10">
 
       {/* Header with enhanced spacing and hierarchy */}
-      <div className="flex justify-between items-end mb-12">
-        <div className="flex flex-col gap-3">
-          <div className="text-xs font-mono text-indigo-400/60 uppercase tracking-[0.2em]">
-            SYSTEM CONTROL
-          </div>
-          <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight">
-            Settings
-          </h1>
-        </div>
-      </div>
+      <PageHeader
+        title="Settings"
+        meta={
+          <>
+            <MetaText>SYSTEM CONTROL</MetaText>
+            <MetaText>
+              {new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "short",
+                day: "numeric",
+              }).toUpperCase()}
+            </MetaText>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
@@ -465,6 +484,31 @@ export const SettingsView = () => {
             <p className="text-xs text-zinc-500 text-center">
               Runs comprehensive validation on isolated test database. Safe to use.
             </p>
+
+            {/* PWA Install Button */}
+            {!isInstalled && (
+              <div className="pt-6 border-t border-white/10 space-y-4">
+                <button
+                  onClick={() => {
+                    SoundManager.playClick();
+                    (window as any).triggerPwaInstall?.();
+                  }}
+                  disabled={!canInstall}
+                  className={`w-full p-4 rounded-2xl border font-bold transition-all flex items-center justify-center gap-3 ${canInstall
+                    ? 'border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400'
+                    : 'border-zinc-800 bg-zinc-900/50 text-zinc-600 cursor-not-allowed opacity-50'
+                    }`}
+                >
+                  <Download size={20} />
+                  {canInstall ? 'Install Orbit (PWA)' : 'PWA Ready'}
+                </button>
+                <p className="text-xs text-zinc-500 text-center">
+                  {canInstall
+                    ? 'Install for offline access and better performance.'
+                    : 'System is already installed or browser doesn\'t support PWA prompts.'}
+                </p>
+              </div>
+            )}
           </div>
         </FrostedTile>
 

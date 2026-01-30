@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { DailyPlan, StudyBlock, Subject, StudyLog } from "./types";
 import { WeekPreviewModal } from "./WeekPreviewModal";
-import { BlockReason } from "./components";
+import { BlockReason, PageHeader, MetaText, HeaderChip } from "./components";
 import { getISTTime, getISTEffectiveDate } from "./utils/time";
 import { EmptyBacklog, EmptyTodayPlan } from './EmptyStates';
 import { getAllReadinessScores, SubjectReadiness, updateAssignmentProgress } from './brain';
@@ -580,7 +580,7 @@ export const Dashboard = ({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="pb-32 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-8 animate-fade-in"
+      className="pb-32 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-8"
     >
       {/* Pull to Refresh Indicator */}
       {pullDistance > 0 && (
@@ -601,47 +601,32 @@ export const Dashboard = ({
       {/* ============================================ */}
       {/* HEADER SECTION */}
       {/* ============================================ */}
-      <header className="space-y-4">
-        <div className="flex items-center justify-between gap-4 mb-2 flex-wrap">
-          {/* LEFT: State badges */}
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Date */}
-            <div className="text-xs font-mono text-indigo-400/60 uppercase tracking-[0.2em]">
+      <PageHeader
+        title={<>{getGreeting()}, <span className="text-indigo-400">Commander</span></>}
+        meta={
+          <>
+            <MetaText>
               {new Date().toLocaleDateString("en-US", {
                 weekday: "long",
                 month: "short",
                 day: "numeric",
               }).toUpperCase()}
-            </div>
+            </MetaText>
             {getDayTypeBadge()}
             {getLoadBadge()}
             {refreshing && (
               <span className="text-xs text-indigo-400 font-mono">syncing…</span>
             )}
-          </div>
-          {/* RIGHT: Week Preview Action */}
-          <button
-            onClick={loadWeekPreview}
-            className="
-              inline-flex items-center gap-2  
-              px-3 py-1.5
-              rounded-lg
-              bg-white/5 hover:bg-white/10
-              border border-white/10 hover:border-indigo-500/30
-              text-xs font-semibold text-zinc-400 hover:text-indigo-300
-              transition-all duration-200
-              min-h-[32px]
-            "
-          >
+          </>
+        }
+        actions={
+          <HeaderChip onClick={loadWeekPreview}>
             <Calendar size={14} strokeWidth={2.5} />
             <span>Week Ahead</span>
             <ArrowRight size={14} strokeWidth={2.5} />
-          </button>
-        </div>
-        <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight">
-          {getGreeting()}
-        </h1>
-      </header>
+          </HeaderChip>
+        }
+      />
 
       {/* ============================================ */}
       {/* WARNINGS & ALERTS */}
@@ -1029,7 +1014,7 @@ export const Dashboard = ({
       {/* ============================================ */}
 
       {showBacklog && (
-        <div className="animate-in slide-in-from-bottom-4 fade-in duration-500">
+        <div className="max-w-7xl mx-auto p-8 space-y-12 pb-32">
           <FrostedTile className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold flex items-center gap-3">
