@@ -28,6 +28,7 @@ interface WeekPreview {
     neglectedProjects: string[];
 }
 
+// WeekPreviewModal with new wrapper + layout tweaks
 export const WeekPreviewModal = ({
     weekPreview,
     onClose
@@ -49,27 +50,22 @@ export const WeekPreviewModal = ({
     return (
         <div
             className="
-    fixed top-0 left-0 right-0 bottom-0
-    w-screen h-[100dvh]
-    z-[20]
-    bg-black/70 backdrop-blur-xl
-    flex items-center justify-center
-    overscroll-none
-  "
+                fixed inset-0 z-[20]
+                bg-black/70 backdrop-blur-xl
+                flex items-center justify-center
+                p-4
+            "
         >
-            {/* Reworked responsive breakpoints for modal wrapper for improved mobile usability */}
             <div
                 className="
                     w-full max-w-6xl
-                    mx-2 xs:mx-3 sm:mx-6 md:mx-8 lg:mx-10
-                    my-4 md:my-8 lg:my-16
+                    mx-auto
                     bg-[#09090b] border border-white/10
-                    rounded-lg xs:rounded-xl sm:rounded-2xl md:rounded-[3rem]
-                    shadow-[0_0_100px_-20px_rgba(0,0,0,0.8)]
+                    rounded-2xl md:rounded-[2rem]
+                    shadow-[0_0_80px_-20px_rgba(0,0,0,0.8)]
+                    overflow-hidden
                     flex flex-col
                     max-h-[calc(100vh-2rem)]
-                    md:max-h-[calc(100vh-8rem)]
-                    overflow-hidden
                 "
             >
                 {/* Header */}
@@ -92,24 +88,10 @@ export const WeekPreviewModal = ({
                 </div>
 
                 <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-
-                    {/* Timeline */}
+                    {/* Timeline (left) - flexible, allow it to shrink but never vanish */}
                     <div
-                        className="
-    flex-[1.8]
-    p-2 xs:p-3 sm:p-4 md:p-6 lg:p-8
-    space-y-2 sm:space-y-3 md:space-y-4
-    overflow-y-scroll
-    overscroll-contain
-    scroll-smooth
-    will-change-scroll
-    [scrollbar-gutter:stable]
-    touch-pan-y
-    custom-scrollbar
-  "
-                        style={{
-                            WebkitOverflowScrolling: 'touch'
-                        }}
+                        className="flex-1 min-w-0 p-4 md:p-6 lg:p-8 overflow-y-auto custom-scrollbar"
+                        style={{ WebkitOverflowScrolling: 'touch' }}
                     >
                         {weekPreview.days.map((day) => {
                             const style = getLevelStyle(day.loadLevel);
@@ -181,9 +163,8 @@ export const WeekPreviewModal = ({
                         })}
                     </div>
 
-                    {/* Right Sidebar */}
-                    <div className="flex-1 p-3 xs:p-4 sm:p-6 md:p-8 lg:p-10 bg-white/[0.01] border-t lg:border-t-0 lg:border-l border-white/5 flex flex-col space-y-5 xs:space-y-6 sm:space-y-8 md:space-y-10">
-
+                    {/* Right Sidebar - fixed width so it never collapses weirdly */}
+                    <div className="w-full lg:w-[320px] xl:w-[360px] p-4 md:p-6 lg:p-8 bg-white/[0.01] border-t lg:border-t-0 lg:border-l border-white/5 flex flex-col">
                         <section>
                             <h3 className="text-[9px] xs:text-[10px] sm:text-xs font-mono font-black text-zinc-500 uppercase tracking-[0.18em] xs:tracking-[0.2em] sm:tracking-[0.3em] mb-3 xs:mb-4 sm:mb-6 flex items-center gap-1.5 xs:gap-2 sm:gap-3">
                                 <Target className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-[18px] sm:h-[18px] text-white" /> Core Metrics

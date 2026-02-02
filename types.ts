@@ -79,6 +79,7 @@ export interface StudyBlock {
   type: 'review' | 'project' | 'prep' | 'recovery' | 'assignment';
   duration: number;
   completed: boolean;
+  date?: string;
 
   migrated?: boolean;
   priority: number;

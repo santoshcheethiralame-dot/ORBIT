@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { DailyPlan, StudyBlock, Subject, StudyLog } from "./types";
 import { WeekPreviewModal } from "./WeekPreviewModal";
 import { BlockReason, PageHeader, MetaText, HeaderChip } from "./components";
@@ -34,25 +34,37 @@ import { DashboardInsights } from "./DashboardInsights";
 import { FrostedTile, FrostedMini } from "./components";
 
 // ============================================
+// CONSTANTS
+// ============================================
+
+const PULL_REFRESH_THRESHOLD = 60;
+const SWIPE_THRESHOLD = 75;
+const SWIPE_DETECTION_MIN = 15;
+const VISIBLE_BLOCKS_DEFAULT = 4;
+const PROGRESS_ANIMATION_INTERVAL = 20;
+const STREAK_ANIMATION_INTERVAL = 50;
+const MAX_STREAK_DAYS = 365;
+
+// ============================================
 // SUB-COMPONENTS
 // ============================================
 
-const AssignmentProgressBar = ({
+const AssignmentProgressBar = React.memo(({
   assignmentId,
   assignments
 }: {
   assignmentId: string;
   assignments: any[]
 }) => {
-  const a = assignments.find(a => a.id === assignmentId);
-  if (!a) return null;
+  const assignment = assignments.find(a => a.id === assignmentId);
+  if (!assignment) return null;
 
-  const percent = Math.round(((a.progressMinutes || 0) / (a.estimatedEffort || 120)) * 100);
+  const percent = Math.round(((assignment.progressMinutes || 0) / (assignment.estimatedEffort || 120)) * 100);
 
   return (
     <div className="w-full mt-3">
       <div className="flex justify-between items-center mb-1.5">
-        <span className="text-xs font-medium text-zinc-300 truncate pr-2">{a.title}</span>
+        <span className="text-xs font-medium text-zinc-300 truncate pr-2">{assignment.title}</span>
         <span className="text-xs font-mono font-bold text-indigo-400 tabular-nums">{percent}%</span>
       </div>
       <div className="h-2 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
@@ -63,9 +75,11 @@ const AssignmentProgressBar = ({
       </div>
     </div>
   );
-};
+});
 
-const BacklogItem = ({
+AssignmentProgressBar.displayName = 'AssignmentProgressBar';
+
+const BacklogItem = React.memo(({
   block,
   onAdd,
   onDelete
@@ -77,78 +91,109 @@ const BacklogItem = ({
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.targetTouches[0].clientX);
     setTouchEnd(e.targetTouches[0].clientX);
     setIsDragging(false);
+    setSwipeOffset(0);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-    const distance = Math.abs(touchStart - e.targetTouches[0].clientX);
+    const currentX = e.targetTouches[0].clientX;
+    setTouchEnd(currentX);
+    const distance = Math.abs(touchStart - currentX);
 
-    if (distance > 15 && !isDragging) {
+    if (distance > SWIPE_DETECTION_MIN && !isDragging) {
       setIsDragging(true);
     }
 
     if (isDragging) {
       e.preventDefault();
+      const offset = currentX - touchStart;
+      setSwipeOffset(Math.max(-100, Math.min(100, offset)));
     }
   };
 
   const handleTouchEnd = () => {
-    if (!isDragging) return;
+    if (!isDragging) {
+      setSwipeOffset(0);
+      return;
+    }
 
     const swipeDistance = touchStart - touchEnd;
-    const threshold = 75;
 
-    if (swipeDistance > threshold) {
+    if (swipeDistance > SWIPE_THRESHOLD) {
       if (confirm("Remove from backlog?")) {
         onDelete(block.id);
       }
-    } else if (swipeDistance < -threshold) {
+    } else if (swipeDistance < -SWIPE_THRESHOLD) {
       onAdd(block);
     }
 
     setIsDragging(false);
+    setSwipeOffset(0);
   };
 
   return (
-    <FrostedMini
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      className="group flex items-center gap-4 p-4 hover:border-yellow-500/30 hover:bg-zinc-800/40"
-    >
-      <div className="flex-1 min-w-0">
-        <div className="font-semibold text-zinc-100 truncate group-hover:text-white transition-colors text-base">
-          {block.subjectName}
-        </div>
-        <div className="text-xs text-zinc-500 uppercase tracking-wide mt-1 font-medium">
-          {block.type} • {block.duration}m
-        </div>
+    <div className="relative overflow-hidden rounded-xl">
+      {/* Swipe Action Hints */}
+      <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-yellow-500/20 to-transparent flex items-center justify-start pl-4 pointer-events-none">
+        <ArrowRight className="text-yellow-400" size={20} strokeWidth={2.5} />
       </div>
-      <button
-        onClick={() => onAdd(block)}
-        className="flex items-center justify-center gap-2 px-5 py-3 bg-yellow-500/15 hover:bg-yellow-500/25 text-yellow-300 rounded-xl transition-all font-semibold text-sm hover:scale-105 active:scale-95 shadow-lg shadow-yellow-500/5 min-h-[44px] min-w-[44px] border border-yellow-500/20"
+      <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-red-500/20 to-transparent flex items-center justify-end pr-4 pointer-events-none">
+        <X className="text-red-400" size={20} strokeWidth={2.5} />
+      </div>
+
+      <FrostedMini
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ transform: `translateX(${swipeOffset}px)`, transition: isDragging ? 'none' : 'transform 0.3s ease-out' }}
+        className="group flex items-center gap-4 p-4 hover:border-yellow-500/30 hover:bg-zinc-800/40 relative z-10"
       >
-        <PlusCircle size={18} strokeWidth={2.5} />
-        <span className="hidden sm:inline">Add to Today</span>
-      </button>
-    </FrostedMini>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-zinc-100 truncate group-hover:text-white transition-colors text-base">
+            {block.subjectName}
+          </div>
+          <div className="text-xs text-zinc-500 uppercase tracking-wide mt-1 font-medium">
+            {block.type} • {block.duration}m
+          </div>
+        </div>
+        <button
+          onClick={() => onAdd(block)}
+          aria-label="Add to today's plan"
+          className="flex items-center justify-center gap-2 px-5 py-3 bg-yellow-500/15 hover:bg-yellow-500/25 text-yellow-300 rounded-xl transition-all font-semibold text-sm hover:scale-105 active:scale-95 shadow-lg shadow-yellow-500/5 min-h-[44px] min-w-[44px] border border-yellow-500/20"
+        >
+          <PlusCircle size={18} strokeWidth={2.5} />
+          <span className="hidden sm:inline">Add to Today</span>
+        </button>
+      </FrostedMini>
+    </div>
   );
-};
+});
+
+BacklogItem.displayName = 'BacklogItem';
 
 // ============================================
-// HELPER: Mood Glyph
+// HELPER: Greeting & Badges
 // ============================================
-const getMoodGlyph = (mood: string | undefined) => {
-  return {
-    high: "☀️",
-    normal: "☁️",
-    low: "🌙"
-  }[mood || "normal"];
+
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour >= 0 && hour < 2) return "Deep Space Hours";
+  if (hour >= 2 && hour < 4) return "Burning the Midnight Oil";
+  if (hour >= 4 && hour < 6) return "Early Bird Mode";
+  if (hour >= 6 && hour < 8) return "Dawn Patrol";
+  if (hour >= 8 && hour < 10) return "Good Morning";
+  if (hour >= 10 && hour < 12) return "Morning Command";
+  if (hour >= 12 && hour < 14) return "Midday Mission";
+  if (hour >= 14 && hour < 16) return "Afternoon Grind";
+  if (hour >= 16 && hour < 18) return "Golden Hour";
+  if (hour >= 18 && hour < 20) return "Evening Command";
+  if (hour >= 20 && hour < 22) return "Night Shift";
+  return "Night Operations";
 };
 
 // ============================================
@@ -184,6 +229,7 @@ export const Dashboard = ({
   const [showWeekPreview, setShowWeekPreview] = useState(false);
   const [weekPreview, setWeekPreview] = useState<any>(null);
   const [showAllBlocks, setShowAllBlocks] = useState(false);
+  const [isLoadingWeek, setIsLoadingWeek] = useState(false);
 
   const toast = useToast();
 
@@ -195,14 +241,26 @@ export const Dashboard = ({
     db.assignments.filter(a => !a.completed).toArray()
   ) || [];
 
-  const inProgressAssignments = assignments.filter(a => a.progressMinutes && a.progressMinutes > 0);
+  const inProgressAssignments = useMemo(() =>
+    assignments.filter(a => a.progressMinutes && a.progressMinutes > 0),
+    [assignments]
+  );
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split("T")[0];
-  const sevenDaysLater = new Date(today);
-  sevenDaysLater.setDate(today.getDate() + 7);
-  const sevenDaysLaterStr = sevenDaysLater.toISOString().split('T')[0];
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  const todayStr = useMemo(() => today.toISOString().split("T")[0], [today]);
+
+  const sevenDaysLater = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(today.getDate() + 7);
+    return d;
+  }, [today]);
+
+  const sevenDaysLaterStr = useMemo(() => sevenDaysLater.toISOString().split('T')[0], [sevenDaysLater]);
 
   const upcomingReviews = useLiveQuery(async () => {
     const topics = await db.topics
@@ -216,20 +274,35 @@ export const Dashboard = ({
       })
     );
     return withSubjects;
-  }) || [];
+  }, [todayStr, sevenDaysLaterStr]) || [];
 
-  const dueToday = upcomingReviews.filter(t => t.nextReview <= todayStr);
+  const dueToday = useMemo(() =>
+    upcomingReviews.filter(t => t.nextReview <= todayStr),
+    [upcomingReviews, todayStr]
+  );
 
   // ============================================
   // COMPUTED VALUES
   // ============================================
 
-  const nextBlock = plan.blocks.find((b) => !b.completed);
-  const completedCount = plan.blocks.filter((b) => b.completed).length;
-  const totalCount = plan.blocks.length;
-  const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const nextBlock = useMemo(() =>
+    plan.blocks.find((b) => !b.completed),
+    [plan.blocks]
+  );
 
-  const streak = (() => {
+  const completedCount = useMemo(() =>
+    plan.blocks.filter((b) => b.completed).length,
+    [plan.blocks]
+  );
+
+  const totalCount = plan.blocks.length;
+
+  const progressPercent = useMemo(() =>
+    totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0,
+    [completedCount, totalCount]
+  );
+
+  const streak = useMemo(() => {
     if (!logs || logs.length === 0) return 0;
     const today = new Date();
     let count = 0;
@@ -237,7 +310,7 @@ export const Dashboard = ({
     logs.forEach((l) => {
       if (l && l.date) daysSeen.add(String(l.date));
     });
-    for (let i = 0; i < 365; i++) {
+    for (let i = 0; i < MAX_STREAK_DAYS; i++) {
       const d = new Date();
       d.setDate(today.getDate() - i);
       const key = d.toISOString().split("T")[0];
@@ -245,12 +318,18 @@ export const Dashboard = ({
       else break;
     }
     return count;
-  })();
+  }, [logs]);
 
-  const criticalSubjects = Object.entries(readinessScores)
-    .filter(([_, r]) => r.status === 'critical')
-    .map(([id, _]) => subjects.find(s => s.id === Number(id))?.name)
-    .filter(Boolean);
+  const criticalSubjects = useMemo(() =>
+    Object.entries(readinessScores)
+      .filter(([_, r]) => r.status === 'critical')
+      .map(([id, _]) => subjects.find(s => s.id === Number(id))?.name)
+      .filter(Boolean),
+    [readinessScores, subjects]
+  );
+
+  const visibleBlocks = showAllBlocks ? plan.blocks : plan.blocks.slice(0, VISIBLE_BLOCKS_DEFAULT);
+  const hasMoreBlocks = plan.blocks.length > VISIBLE_BLOCKS_DEFAULT;
 
   // ============================================
   // EFFECTS
@@ -258,8 +337,12 @@ export const Dashboard = ({
 
   useEffect(() => {
     const loadReadiness = async () => {
-      const scores = await getAllReadinessScores();
-      setReadinessScores(scores);
+      try {
+        const scores = await getAllReadinessScores();
+        setReadinessScores(scores);
+      } catch (error) {
+        console.error('Failed to load readiness scores:', error);
+      }
     };
     loadReadiness();
   }, [plan]);
@@ -275,14 +358,14 @@ export const Dashboard = ({
         if (prev > progressPercent) return progressPercent;
         return prev;
       });
-    }, 20);
+    }, PROGRESS_ANIMATION_INTERVAL);
 
     const streakTimer = setInterval(() => {
       setAnimatedStreak((prev) => {
         if (prev < streak) return prev + 1;
         return prev;
       });
-    }, 50);
+    }, STREAK_ANIMATION_INTERVAL);
 
     return () => {
       clearInterval(progressTimer);
@@ -295,23 +378,28 @@ export const Dashboard = ({
   // ============================================
 
   const fetchBacklog = async () => {
-    const allPlans = await db.plans.toArray();
-    const today = getISTEffectiveDate();
-    const incomplete: any[] = [];
+    try {
+      const allPlans = await db.plans.toArray();
+      const today = getISTEffectiveDate();
+      const incomplete: StudyBlock[] = [];
 
-    allPlans.forEach((p) => {
-      if (p.date < today) {
-        p.blocks.forEach((b) => {
-          if (!b.completed && !b.migrated) {
-            incomplete.push({ ...b, sourceDate: p.date });
-          }
-        });
-      }
-    });
-    setBacklog(incomplete);
+      allPlans.forEach((p) => {
+        if (p.date < today) {
+          p.blocks.forEach((b) => {
+            if (!b.completed && !b.migrated) {
+              incomplete.push({ ...b, sourceDate: p.date } as any);
+            }
+          });
+        }
+      });
+      setBacklog(incomplete);
+    } catch (error) {
+      console.error('Failed to fetch backlog:', error);
+      toast.error('Failed to load backlog');
+    }
   };
 
-  const addToToday = async (block: any) => {
+  const addToToday = useCallback(async (block: any) => {
     try {
       const todayStr = getISTEffectiveDate();
 
@@ -345,9 +433,9 @@ export const Dashboard = ({
       console.error("Failed to migrate backlog item", err);
       toast.error('Failed to add item');
     }
-  };
+  }, [plan.context, onRefresh, toast]);
 
-  const deleteFromBacklog = async (blockId: string) => {
+  const deleteFromBacklog = useCallback(async (blockId: string) => {
     try {
       const blockToDelete = backlog.find(b => b.id === blockId) as any;
       if (!blockToDelete) return;
@@ -363,9 +451,9 @@ export const Dashboard = ({
       console.error("Failed to delete backlog item", err);
       toast.error('Failed to remove item');
     }
-  };
+  }, [backlog, toast]);
 
-  const markComplete = async (blockId: string) => {
+  const markComplete = useCallback(async (blockId: string) => {
     try {
       const todayStr = getISTEffectiveDate();
       const currentPlan = await db.plans.get(todayStr);
@@ -386,13 +474,18 @@ export const Dashboard = ({
       toast.success('Block marked complete!', {
         label: 'UNDO',
         onClick: async () => {
-          if (currentPlan) {
-            const revertBlocks = currentPlan.blocks.map((b: StudyBlock) =>
-              b.id === blockId ? { ...b, completed: false } : b
-            );
-            await db.plans.put({ ...currentPlan, blocks: revertBlocks });
-            onRefresh();
-            toast.info('Block marked as incomplete');
+          try {
+            const planToRevert = await db.plans.get(todayStr);
+            if (planToRevert) {
+              const revertBlocks = planToRevert.blocks.map((b: StudyBlock) =>
+                b.id === blockId ? { ...b, completed: false } : b
+              );
+              await db.plans.put({ ...planToRevert, blocks: revertBlocks });
+              onRefresh();
+              toast.info('Block marked as incomplete');
+            }
+          } catch (err) {
+            toast.error('Failed to undo');
           }
         }
       });
@@ -401,9 +494,9 @@ export const Dashboard = ({
       console.error("Failed to mark complete", err);
       toast.error('Failed to mark complete');
     }
-  };
+  }, [onRefresh, toast]);
 
-  const snoozeBlock = async (blockId: string) => {
+  const snoozeBlock = useCallback(async (blockId: string) => {
     try {
       const todayStr = getISTEffectiveDate();
       const currentPlan = await db.plans.get(todayStr);
@@ -457,30 +550,44 @@ export const Dashboard = ({
       console.error("Failed to snooze block", err);
       toast.error('Failed to snooze block');
     }
-  };
+  }, [plan.context, onRefresh, toast]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStartY(e.touches[0].clientY);
+    if (window.scrollY === 0) {
+      setTouchStartY(e.touches[0].clientY);
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    if (window.scrollY > 0) return;
+
     const currentTouch = e.touches[0].clientY;
     const distance = currentTouch - touchStartY;
-    if (distance > 0 && window.scrollY === 0) {
+
+    if (distance > 0) {
       setPullDistance(Math.min(distance, 100));
     }
   };
 
   const handleTouchEnd = async () => {
-    if (pullDistance > 60) {
+    if (pullDistance > PULL_REFRESH_THRESHOLD) {
       setRefreshing(true);
-      await onRefresh();
-      setTimeout(() => setRefreshing(false), 500);
+      try {
+        await onRefresh();
+      } catch (error) {
+        console.error('Refresh failed:', error);
+        toast.error('Failed to refresh');
+      } finally {
+        setTimeout(() => setRefreshing(false), 500);
+      }
     }
     setPullDistance(0);
   };
 
   const loadWeekPreview = async () => {
+    if (isLoadingWeek) return;
+
+    setIsLoadingWeek(true);
     try {
       const { simulateWeek } = await import('./brain');
       const preview = await simulateWeek();
@@ -489,10 +596,12 @@ export const Dashboard = ({
     } catch (err) {
       console.error('Failed to load week preview:', err);
       toast.error('Failed to load week preview');
+    } finally {
+      setIsLoadingWeek(false);
     }
   };
 
-  const toggleBlockExplanation = (blockId: string) => {
+  const toggleBlockExplanation = useCallback((blockId: string) => {
     setExpandedBlocks(prev => {
       const next = new Set(prev);
       if (next.has(blockId)) {
@@ -502,25 +611,8 @@ export const Dashboard = ({
       }
       return next;
     });
-  };
+  }, []);
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour >= 0 && hour < 2) return "Deep Space Hours";
-    if (hour >= 2 && hour < 4) return "Burning the Midnight Oil";
-    if (hour >= 4 && hour < 6) return "Early Bird Mode";
-    if (hour >= 6 && hour < 8) return "Dawn Patrol";
-    if (hour >= 8 && hour < 10) return "Good Morning";
-    if (hour >= 10 && hour < 12) return "Morning Command";
-    if (hour >= 12 && hour < 14) return "Midday Mission";
-    if (hour >= 14 && hour < 16) return "Afternoon Grind";
-    if (hour >= 16 && hour < 18) return "Golden Hour";
-    if (hour >= 18 && hour < 20) return "Evening Command";
-    if (hour >= 20 && hour < 22) return "Night Shift";
-    return "Night Operations";
-  };
-
-  // Only retain dayType badges for ESA/ISA; everything else is "normal" (no badge)
   const getDayTypeBadge = () => {
     if (plan.context.dayType !== "normal") {
       const badgeClass =
@@ -538,7 +630,6 @@ export const Dashboard = ({
     return null;
   };
 
-  // NEW: Only retain load badges for 'heavy' or 'extreme'
   const getLoadBadge = () => {
     if (plan.loadLevel === 'heavy' || plan.loadLevel === 'extreme') {
       const styles =
@@ -556,25 +647,9 @@ export const Dashboard = ({
     return null;
   };
 
-  // For header system status - e.g. syncing (visible only during refresh)
-  // Will align to "optional/low-key" as per the principle
-
-  const estimatedCompletionTime = () => {
-    const remainingMinutes = plan.blocks
-      .filter((b) => !b.completed)
-      .reduce((sum, b) => sum + b.duration, 0);
-    const now = getISTTime();
-    const completion = new Date(now.getTime() + remainingMinutes * 60000);
-    return completion.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-  };
-
-  const visibleBlocks = showAllBlocks ? plan.blocks : plan.blocks.slice(0, 4);
-  const hasMoreBlocks = plan.blocks.length > 4;
-
   // ============================================
   // RENDER
   // ============================================
-
   return (
     <div
       onTouchStart={handleTouchStart}
@@ -628,118 +703,100 @@ export const Dashboard = ({
         }
       />
 
-      {/* ============================================ */}
-      {/* WARNINGS & ALERTS */}
-      {/* ============================================ */}
+      {/* ---------- Replace the top warnings/alerts area with a responsive grid ---------- */}
+      {/* TOP ALERTS / ADJUSTMENTS - tiled layout so they can sit beside each other */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2">
 
-      {/* ============================================ */}
-      {/* WARNINGS & ALERTS */}
-      {/* ============================================ */}
-
-
-      {plan.performanceAdjustments && plan.performanceAdjustments.length > 0 && (
-        <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5 mb-4 animate-in slide-in-from-top-2 fade-in duration-500 backdrop-blur-sm">
-          <h4 className="font-bold text-blue-300 mb-3 text-sm uppercase tracking-wider flex items-center gap-2">
-            <Zap size={16} strokeWidth={2.5} />
-            AI Efficiency Adjustments
-          </h4>
-          <div className="space-y-2 text-sm">
-            {plan.performanceAdjustments.map((adj, i) => {
-              const subject = subjects.find(s => s.id === adj.subjectId);
-              return (
-                <div key={i} className="flex items-start gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
-                  <div>
-                    <span className="text-blue-200 font-medium">{subject?.name}</span>
-                    <span className="text-blue-300/70 ml-2 font-mono text-xs">
-                      {adj.oldDuration}m → {adj.newDuration}m
-                    </span>
-                    <div className="text-xs text-blue-400/60 mt-0.5">{adj.reason}</div>
+        {/* AI Efficiency Adjustments */}
+        {plan.performanceAdjustments && plan.performanceAdjustments.length > 0 && (
+          <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5 animate-in slide-in-from-top-2 fade-in duration-500 backdrop-blur-sm">
+            <h4 className="font-bold text-blue-300 mb-3 text-sm uppercase tracking-wider flex items-center gap-2">
+              <Zap size={16} strokeWidth={2.5} />
+              AI Efficiency Adjustments
+            </h4>
+            <div className="space-y-2 text-sm">
+              {plan.performanceAdjustments.map((adj, i) => {
+                const subject = subjects.find(s => s.id === adj.subjectId);
+                return (
+                  <div key={i} className="flex items-start gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                    <div>
+                      <span className="text-blue-200 font-medium">{subject?.name}</span>
+                      <span className="text-blue-300/70 ml-2 font-mono text-xs">
+                        {adj.oldDuration}m → {adj.newDuration}m
+                      </span>
+                      <div className="text-xs text-blue-400/60 mt-0.5">{adj.reason}</div>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {plan.warning && (
-        <div className="animate-in slide-in-from-top-2 fade-in duration-500">
-          <div className={`rounded-2xl border p-5 flex items-start gap-4 backdrop-blur-sm ${plan.loadLevel === 'extreme'
-            ? 'bg-red-500/10 border-red-500/30'
-            : plan.loadLevel === 'heavy'
-              ? 'bg-orange-500/10 border-orange-500/30'
-              : 'bg-blue-500/10 border-blue-500/30'
-            }`}>
-            <AlertCircle size={24} className="shrink-0 mt-0.5" strokeWidth={2.5} />
-            <div className="flex-1 space-y-2">
-              <div className="font-bold text-base">
-                {plan.loadLevel === 'extreme' ? '⚠️ Extreme Workload Detected' :
-                  plan.loadLevel === 'heavy' ? '⚡ Heavy Day Ahead' :
-                    '💡 Light Schedule Today'}
+        {/* Light / Load warning tile */}
+        {plan.warning && (
+          <div className={`rounded-2xl border p-5 backdrop-blur-sm
+            ${plan.loadLevel === 'extreme'
+              ? 'bg-red-500/10 border-red-500/30'
+              : plan.loadLevel === 'heavy'
+                ? 'bg-orange-500/10 border-orange-500/30'
+                : 'bg-blue-500/10 border-blue-500/30'
+            } animate-in slide-in-from-top-2 fade-in duration-500`}>
+            <div className="flex items-start gap-4">
+              <AlertCircle size={24} className="shrink-0 mt-0.5" strokeWidth={2.5} />
+              <div className="flex-1 space-y-2">
+                <div className="font-bold text-base">
+                  {plan.loadLevel === 'extreme' ? '⚠️ Extreme Workload Detected' :
+                    plan.loadLevel === 'heavy' ? '⚡ Heavy Day Ahead' :
+                      '💡 Light Schedule Today'}
+                </div>
+                <div className="text-sm opacity-90 leading-relaxed">{plan.warning}</div>
+                {plan.loadScore !== undefined && (
+                  <div className="text-xs opacity-70 font-mono pt-1">
+                    Load Score: {plan.loadScore}/100
+                  </div>
+                )}
               </div>
-              <div className="text-sm opacity-90 leading-relaxed">{plan.warning}</div>
-              {plan.loadScore !== undefined && (
-                <div className="text-xs opacity-70 font-mono pt-1">
-                  Load Score: {plan.loadScore}/100
-                </div>
-              )}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {criticalSubjects.length > 0 && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5 flex items-start gap-4 animate-in slide-in-from-top-2 fade-in duration-500 backdrop-blur-sm">
-          <AlertTriangle size={24} className="text-red-400 shrink-0 mt-0.5" strokeWidth={2.5} />
-          <div className="flex-1 space-y-1">
-            <div className="font-bold text-base text-red-300">
-              ⚠️ Critical Subjects Need Attention
-            </div>
-            <div className="text-sm text-red-200/80 leading-relaxed">
-              {criticalSubjects.join(', ')} require urgent review (readiness {"<"}35%)
+        {/* Critical subjects */}
+        {criticalSubjects.length > 0 && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5 animate-in slide-in-from-top-2 fade-in duration-500 backdrop-blur-sm">
+            <div className="flex items-start gap-4">
+              <AlertTriangle size={24} className="text-red-400 shrink-0 mt-0.5" strokeWidth={2.5} />
+              <div className="flex-1 space-y-1">
+                <div className="font-bold text-base text-red-300">⚠️ Critical Subjects Need Attention</div>
+                <div className="text-sm text-red-200/80 leading-relaxed">
+                  {criticalSubjects.join(', ')} require urgent review (readiness {"<"}35%)
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+      {/* ---------- end: replace top warnings/alerts area ---------- */}
 
       {/* ============================================ */}
       {/* MAIN CONTENT GRID */}
       {/* ============================================ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        {/* ============================================ */}
-        {/* LEFT COLUMN: NEXT MISSION CARD */}
-        {/* ============================================ */}
-
+        {/* LEFT COLUMN: NEXT MISSION CARD (fills column height) */}
         <div className="lg:col-span-8">
           {nextBlock ? (
-            <FrostedTile className="p-8 hover:border-indigo-500/30">
-
+            <FrostedTile className="p-8 hover:border-indigo-500/30 relative overflow-hidden group">
               {/* Background Decorative Element */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-600/10 to-purple-600/10 rounded-full blur-3xl opacity-50 group-hover:opacity-70 transition-opacity duration-500" />
 
               {/* Progress Ring */}
               <div className="absolute top-8 right-8 w-28 h-28 opacity-20">
                 <svg className="transform -rotate-90" width="112" height="112">
+                  <circle cx="56" cy="56" r="50" stroke="currentColor" strokeWidth="6" fill="none" className="text-zinc-700" />
                   <circle
-                    cx="56"
-                    cy="56"
-                    r="50"
-                    stroke="currentColor"
-                    strokeWidth="6"
-                    fill="none"
-                    className="text-zinc-700"
-                  />
-                  <circle
-                    cx="56"
-                    cy="56"
-                    r="50"
-                    stroke="currentColor"
-                    strokeWidth="6"
-                    fill="none"
-                    className="text-indigo-400"
+                    cx="56" cy="56" r="50" stroke="currentColor" strokeWidth="6" fill="none" className="text-indigo-400"
                     strokeDasharray={`${2 * Math.PI * 50}`}
                     strokeDashoffset={`${2 * Math.PI * 50 * (1 - animatedProgress / 100)}`}
                     style={{ transition: "stroke-dashoffset 0.5s ease" }}
@@ -750,15 +807,12 @@ export const Dashboard = ({
                 </div>
               </div>
 
-              <div className="relative z-10 p-8 space-y-6">
-
+              <div className="relative z-10 space-y-6">
                 {/* Header */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shadow-lg shadow-indigo-500/50" />
-                    <span className="text-xs font-bold tracking-[0.2em] text-indigo-400 uppercase">
-                      Next Mission
-                    </span>
+                    <span className="text-xs font-bold tracking-[0.2em] text-indigo-400 uppercase">Next Mission</span>
                   </div>
 
                   <h2 className="text-4xl md:text-5xl font-bold leading-tight group-hover:text-indigo-100 transition-colors">
@@ -771,9 +825,7 @@ export const Dashboard = ({
                       <span className="font-mono font-semibold tabular-nums">{nextBlock.duration} min</span>
                     </div>
                     <div className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
-                    <span className="font-semibold uppercase tracking-wide text-sm">
-                      {nextBlock.type}
-                    </span>
+                    <span className="font-semibold uppercase tracking-wide text-sm">{nextBlock.type}</span>
                   </div>
                 </div>
 
@@ -785,6 +837,7 @@ export const Dashboard = ({
                       High Priority
                     </span>
                   )}
+
                   {nextBlock.type === "review" && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/15 text-blue-300 border border-blue-500/25 text-xs font-bold">
                       <TrendingUp size={14} strokeWidth={2.5} />
@@ -804,6 +857,7 @@ export const Dashboard = ({
                 {/* CTA Button */}
                 <button
                   onClick={() => onStartFocus(nextBlock)}
+                  aria-label="Start focus session"
                   className="w-full inline-flex items-center justify-center gap-3 px-8 py-5 bg-white text-black rounded-2xl font-bold text-lg hover:bg-indigo-500 hover:text-white hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/30 active:scale-[0.98] transition-all duration-300 group/btn min-h-[60px]"
                 >
                   <Play size={20} fill="currentColor" className="group-hover/btn:animate-pulse" strokeWidth={0} />
@@ -812,7 +866,7 @@ export const Dashboard = ({
               </div>
             </FrostedTile>
           ) : (
-            <FrostedTile className="p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
+            <FrostedTile className="p-12 flex flex-col items-center justify-center text-center min-h-[320px] h-full">
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/5 to-transparent" />
               <div className="relative z-10 space-y-6">
                 <div className="w-24 h-24 rounded-full bg-emerald-500/15 flex items-center justify-center mb-4 animate-pulse mx-auto border border-emerald-500/30">
@@ -828,12 +882,8 @@ export const Dashboard = ({
           )}
         </div>
 
-        {/* ============================================ */}
         {/* RIGHT COLUMN: STATS & INFO CARDS */}
-        {/* ============================================ */}
-
         <div className="lg:col-span-4 space-y-4">
-
           {/* Reviews Due Widget */}
           {dueToday.length > 0 && (
             <FrostedTile className="p-5 hover:border-purple-500/30">
@@ -984,35 +1034,34 @@ export const Dashboard = ({
             </FrostedTile>
           )}
 
-          {/* Backlog Card */}
-          {backlog.length > 0 && (
-            <FrostedTile
-              onClick={() => setShowBacklog(!showBacklog)}
-              className="p-5 hover:border-yellow-500/30"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Inbox size={18} className="text-yellow-400" strokeWidth={2.5} />
-                  <span className="text-xs font-bold uppercase tracking-widest text-yellow-400">
-                    Backlog
-                  </span>
-                </div>
-                <span className="text-3xl font-mono font-bold text-yellow-200 tabular-nums">
-                  {backlog.length}
+          {/* Backlog Card - ALWAYS SHOW */}
+          <FrostedTile
+            onClick={() => backlog.length > 0 && setShowBacklog(!showBacklog)}
+            className={`p-5 hover:border-yellow-500/30 ${backlog.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Inbox size={18} className="text-yellow-400" strokeWidth={2.5} />
+                <span className="text-xs font-bold uppercase tracking-widest text-yellow-400">
+                  Backlog
                 </span>
               </div>
-              <div className="text-xs text-yellow-500/70 uppercase tracking-wide font-medium">
-                Tap to view • Swipe to manage
-              </div>
-            </FrostedTile>
-          )}
+              <span className={`text-3xl font-mono font-bold tabular-nums transition-colors ${backlog.length > 0 ? 'text-yellow-200' : 'text-zinc-600'
+                }`}>
+                {backlog.length}
+              </span>
+            </div>
+            <div className={`text-xs uppercase tracking-wide font-medium transition-colors ${backlog.length > 0
+              ? 'text-yellow-500/70'
+              : 'text-zinc-600'
+              }`}>
+              {backlog.length > 0 ? 'Tap to view • Swipe to manage' : 'All caught up!'}
+            </div>
+          </FrostedTile>
         </div>
       </div>
 
-      {/* ============================================ */}
       {/* BACKLOG SECTION */}
-      {/* ============================================ */}
-
       {showBacklog && (
         <div className="max-w-7xl mx-auto p-8 space-y-12 pb-32">
           <FrostedTile className="p-6">
@@ -1047,10 +1096,7 @@ export const Dashboard = ({
         </div>
       )}
 
-      {/* ============================================ */}
       {/* TODAY'S SCHEDULE */}
-      {/* ============================================ */}
-
       <FrostedTile className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-bold flex items-center gap-3">
@@ -1195,10 +1241,7 @@ export const Dashboard = ({
         )}
       </FrostedTile>
 
-      {/* ============================================ */}
       {/* FOOTER TIP */}
-      {/* ============================================ */}
-
       <div className="flex justify-center pt-4">
         <div className="flex items-center gap-3 px-5 py-3 rounded-full bg-white/[0.03] border border-white/5 text-zinc-500 text-sm backdrop-blur-sm">
           <Coffee size={18} strokeWidth={2.5} />
@@ -1206,10 +1249,7 @@ export const Dashboard = ({
         </div>
       </div>
 
-      {/* ============================================ */}
       {/* MODALS */}
-      {/* ============================================ */}
-
       {
         showWeekPreview && weekPreview && (
           <WeekPreviewModal

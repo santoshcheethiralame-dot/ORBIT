@@ -869,23 +869,6 @@ export const SettingsView = () => {
           </div>
         </FrostedTile>
 
-        {/* 5. SUPPORT & FEEDBACK */}
-        <FrostedTile className="p-8 hover:border-amber-500/30">
-          <SectionHeader icon={HelpCircle} title="Support & Feedback" subtitle="Help improvement & reporting" />
-          <div className="space-y-6">
-            <button
-              onClick={() => setShowBugReport(true)}
-              className="w-full p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold transition-all flex items-center justify-center gap-3"
-            >
-              <Bug size={20} />
-              Report a Problem
-            </button>
-            <p className="text-xs text-zinc-500 text-center">
-              Encountered a bug or have a suggestion? Reach out to the developer directly.
-            </p>
-          </div>
-        </FrostedTile>
-
         {/* 6. DEVELOPER ZONE */}
         <FrostedTile className="p-8 hover:border-cyan-500/30">
           <SectionHeader icon={Terminal} title="Developer Zone" subtitle="Advanced validation tools" />

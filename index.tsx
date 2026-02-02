@@ -226,6 +226,13 @@ const App = () => {
       };
 
       await db.plans.put(plan);
+
+      // 🆕 Persist individual blocks for direct access/backlog
+      await Promise.all(plan.blocks.map(b => db.studyBlocks.put({
+        ...b,
+        date: dateStr
+      })));
+
       setTodayPlan(plan);
       setNeedsContext(false);
 
@@ -291,6 +298,10 @@ const App = () => {
           );
           const newPlan = { ...todayPlan, blocks: newBlocks };
           await db.plans.put(newPlan);
+
+          // 🆕 Update individual block in db.studyBlocks
+          await db.studyBlocks.update(activeBlock.id, { completed: true });
+
           setTodayPlan(newPlan);
         }
 
