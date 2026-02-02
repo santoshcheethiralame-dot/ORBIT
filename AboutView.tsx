@@ -53,7 +53,7 @@ export const AboutView = () => {
             <div className="hidden md:flex flex-col items-end">
               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Current Version</span>
               <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-400/10 px-2 py-0.5 rounded-md border border-indigo-400/20">
-                v3.2.0-STABLE
+                v4.0.1-STABLE
               </span>
             </div>
           </div>
@@ -64,10 +64,8 @@ export const AboutView = () => {
 
         {/* HERO SECTION */}
         <div className="lg:col-span-8 flex flex-col gap-6">
-          <FrostedTile
-            className="hover:border-indigo-500/30 hover:-translate-y-1"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+
+          <FrostedTile variant="indigo">
             <div className="relative z-10 p-8">
               <h2 className="text-2xl md:text-3xl font-display font-bold text-white mb-6 leading-tight">
                 Order from{" "}
@@ -87,10 +85,7 @@ export const AboutView = () => {
             </div>
           </FrostedTile>
 
-          <FrostedTile
-            className="p-8 hover:border-purple-500/30 hover:-translate-y-1"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <FrostedTile variant="purple" className="p-8">
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
@@ -105,7 +100,7 @@ export const AboutView = () => {
                 </p>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <FrostedMini className="hover:bg-purple-500/15">
+                  <FrostedMini variant="purple">
                     <div className="flex items-center gap-2 mb-2">
                       <Target size={16} className="text-purple-400" />
                       <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Volume Tracking</span>
@@ -113,7 +108,7 @@ export const AboutView = () => {
                     <p className="text-sm text-zinc-400">10 hours per credit benchmark</p>
                   </FrostedMini>
 
-                  <FrostedMini className="hover:bg-purple-500/15">
+                  <FrostedMini variant="purple">
                     <div className="flex items-center gap-2 mb-2">
                       <Clock size={16} className="text-purple-400" />
                       <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Decay Curve</span>
@@ -121,7 +116,7 @@ export const AboutView = () => {
                     <p className="text-sm text-zinc-400">Exponential forgetting model</p>
                   </FrostedMini>
 
-                  <FrostedMini className="hover:bg-purple-500/15">
+                  <FrostedMini variant="purple">
                     <div className="flex items-center gap-2 mb-2">
                       <TrendingUp size={16} className="text-purple-400" />
                       <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Smart Recovery</span>
@@ -129,7 +124,7 @@ export const AboutView = () => {
                     <p className="text-sm text-zinc-400">Auto-schedules critical reviews</p>
                   </FrostedMini>
 
-                  <FrostedMini className="hover:bg-purple-500/15">
+                  <FrostedMini variant="purple">
                     <div className="flex items-center gap-2 mb-2">
                       <Sparkles size={16} className="text-purple-400" />
                       <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Predictive</span>
@@ -141,10 +136,7 @@ export const AboutView = () => {
             </div>
           </FrostedTile>
 
-          <FrostedTile
-            className="p-8 hover:border-cyan-500/30 hover:-translate-y-1"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <FrostedTile variant="cyan" className="p-8">
 
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-4">
@@ -158,15 +150,15 @@ export const AboutView = () => {
               </p>
             </div>
           </FrostedTile>
+
+
+
         </div>
 
         {/* RIGHT COLUMN */}
         <div className="lg:col-span-4 space-y-6">
 
-          <FrostedTile
-            className="p-6 hover:border-indigo-500/30 hover:-translate-y-1"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <FrostedTile variant="indigo" className="p-6">
 
             <div className="relative z-10">
               <div className="flex items-center gap-4 mb-4">
@@ -206,10 +198,7 @@ export const AboutView = () => {
             </div>
           </FrostedTile>
 
-          <FrostedTile
-            className="p-6 hover:border-orange-500/30 hover:-translate-y-1"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <FrostedTile variant="orange" className="p-6">
 
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-4">
@@ -237,10 +226,7 @@ export const AboutView = () => {
             </div>
           </FrostedTile>
 
-          <FrostedTile
-            className="p-6 hover:border-cyan-500/30 hover:-translate-y-1"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <FrostedTile variant="cyan" className="p-6">
 
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-4">
@@ -269,8 +255,7 @@ export const AboutView = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <FrostedTile className="p-6 hover:bg-emerald-500/5 hover:border-emerald-500/30 hover:-translate-y-2">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <FrostedTile variant="emerald" className="p-6">
           <div className="relative z-10">
             <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center mb-5 text-emerald-400 group-hover:scale-110 transition-transform duration-500 border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
               <Shield size={28} />
@@ -282,8 +267,7 @@ export const AboutView = () => {
           </div>
         </FrostedTile>
 
-        <FrostedTile className="p-6 hover:bg-amber-500/5 hover:border-amber-500/30 hover:-translate-y-2">
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <FrostedTile variant="amber" className="p-6">
 
           <div className="relative z-10">
             <div className="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-5 text-amber-400 group-hover:scale-110 transition-transform duration-500 border border-amber-500/30 shadow-lg shadow-amber-500/10">
@@ -296,8 +280,7 @@ export const AboutView = () => {
           </div>
         </FrostedTile>
 
-        <FrostedTile className="p-6 hover:bg-cyan-500/5 hover:border-cyan-500/30 hover:-translate-y-2">
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <FrostedTile variant="cyan" className="p-6">
 
           <div className="relative z-10">
             <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 flex items-center justify-center mb-5 text-cyan-400 group-hover:scale-110 transition-transform duration-500 border border-cyan-500/30 shadow-lg shadow-cyan-500/10">
@@ -311,8 +294,7 @@ export const AboutView = () => {
         </FrostedTile>
       </div>
 
-      <FrostedTile className="p-8 hover:border-indigo-500/30">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      <FrostedTile variant="indigo" className="p-8">
 
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-8">
@@ -349,7 +331,7 @@ export const AboutView = () => {
                 a: "Your study day starts at 4 AM (configurable), not midnight. Studying at 3 AM still counts as 'today'—no broken streaks."
               },
             ].map((faq, i) => (
-              <FrostedMini key={i} className="group/faq p-5 bg-zinc-900/40 border-zinc-800/50 hover:bg-white/[0.05] hover:border-indigo-500/20 duration-300">
+              <FrostedMini key={i} variant="indigo" className="group/faq p-5 transition-all duration-300">
                 <h4 className="text-white font-bold mb-2 group-hover/faq:text-indigo-300 transition-colors text-base">{faq.q}</h4>
                 <p className="text-sm text-zinc-400 leading-relaxed">{faq.a}</p>
               </FrostedMini>
@@ -365,9 +347,10 @@ export const AboutView = () => {
             <span className="text-xs text-zinc-500 font-mono tracking-wider">LOCAL_FIRST</span>
           </div>
           <div className="w-px h-4 bg-white/10"></div>
-          <span className="text-xs text-zinc-500 font-mono tracking-wider">ORBIT v3.2.0</span>
+          <span className="text-xs text-zinc-500 font-mono tracking-wider">ORBIT v4.0.1</span>
         </div>
       </div>
     </div>
+
   );
 };

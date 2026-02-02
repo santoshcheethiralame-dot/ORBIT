@@ -18,11 +18,7 @@ import { FrostedTile, FrostedMini, PageHeader, MetaText } from './components';
 // ✨ PRODUCTION-GRADE: Enhanced Prediction Modal
 const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300">
-    <FrostedTile
-      className="p-10 max-w-lg w-full relative animate-in slide-in-from-bottom-4 duration-500"
-    >
-      {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 rounded-3xl pointer-events-none" />
+    <FrostedTile variant="indigo" className="p-10 max-w-lg w-full relative animate-in slide-in-from-bottom-4 duration-500">
 
       <button
         onClick={onClose}
@@ -416,7 +412,7 @@ export default function CoursesView_v2() {
               { label: "Avg Score", value: gpa ? `${gpa}%` : '--', color: "amber" },
               { label: "Resources", value: (selectedSubject.resources || []).length, color: "cyan" }
             ].map((stat, i) => (
-              <FrostedTile key={i} className="p-6 hover:border-white/20 hover:-translate-y-1 group">
+              <FrostedTile key={i} variant={stat.color as any} className="p-6 group">
                 <div className="text-xs text-zinc-500 uppercase tracking-wider font-bold mb-3">{stat.label}</div>
                 <div className={`text-4xl md:text-5xl font-bold font-mono tabular-nums text-${stat.color}-400 group-hover:scale-110 transition-transform duration-300`}>
                   {stat.value}
@@ -428,7 +424,7 @@ export default function CoursesView_v2() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
             {/* ✨ Enhanced Syllabus Section */}
-            <FrostedTile className="p-8 hover:border-indigo-500/30">
+            <FrostedTile variant="indigo" className="p-8">
               <h3 className="font-bold text-xl mb-6 flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/20 flex items-center justify-center border border-indigo-500/30">
                   <Target size={22} className="text-indigo-400" />
@@ -480,7 +476,7 @@ export default function CoursesView_v2() {
             </FrostedTile>
 
             {/* ✨ Enhanced Grades Section */}
-            <FrostedTile className="p-8 hover:border-emerald-500/30">
+            <FrostedTile variant="emerald" className="p-8">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-bold text-xl flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 flex items-center justify-center border border-emerald-500/30">
@@ -558,7 +554,7 @@ export default function CoursesView_v2() {
             </FrostedTile>
 
             {/* ✨ Enhanced Resources Section */}
-            <FrostedTile className="lg:col-span-2 p-8 hover:border-purple-500/30">
+            <FrostedTile variant="purple" className="lg:col-span-2 p-8">
               <h3 className="font-bold text-xl mb-6 flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500/20 to-purple-600/20 flex items-center justify-center border border-purple-500/30">
                   <FileText size={22} className="text-purple-400" />
@@ -643,7 +639,7 @@ export default function CoursesView_v2() {
             </FrostedTile>
 
             {/* ✨ Enhanced Session Notes */}
-            <FrostedTile className="lg:col-span-2 p-8 hover:border-amber-500/30">
+            <FrostedTile variant="amber" className="lg:col-span-2 p-8">
               <h3 className="font-bold text-xl mb-6 flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-600/20 flex items-center justify-center border border-amber-500/30">
                   <StickyNote size={22} className="text-amber-400" />
@@ -789,10 +785,9 @@ export default function CoursesView_v2() {
               <FrostedTile
                 key={s.id}
                 onClick={() => setSelectedSubjectId(Number(s.id))}
-                className="p-8 hover:border-indigo-500/40 hover:bg-white/[0.05] shadow-lg hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2"
+                variant="indigo"
+                className="p-8 hover:bg-white/[0.05] shadow-lg hover:shadow-2xl hover:shadow-indigo-500/10"
               >
-                {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 via-transparent to-purple-500/0 group-hover:from-indigo-500/5 group-hover:to-purple-500/5 transition-all duration-500 pointer-events-none" />
 
                 <div className="relative z-10">
                   <div className="flex justify-between items-start mb-6">

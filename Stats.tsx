@@ -9,7 +9,7 @@ import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
 import { EmptyStats } from './EmptyStates';
 import { useToast } from "./Toast";
-import { PageHeader, MetaText } from "./components";
+import { PageHeader, MetaText, FrostedTile } from "./components";
 
 export const StatsView = ({
   logs,
@@ -356,10 +356,7 @@ export const StatsView = ({
       {/* Core Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Stats Card 1 */}
-        <div
-          className="group rounded-3xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] [backdrop-filter:blur(48px)] p-8 hover:border-indigo-500/40 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.08] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <FrostedTile variant="indigo" className="p-8 group min-h-[200px] flex flex-col">
           <div className="relative z-10 flex-1 flex flex-col">
             <Clock className="text-indigo-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
             <div className="text-5xl font-mono font-bold mb-2 tabular-nums group-hover:text-indigo-100 transition-colors">{totalHours}h</div>
@@ -371,47 +368,40 @@ export const StatsView = ({
               </div>
             )}
           </div>
-        </div>
+        </FrostedTile>
+
         {/* Stats Card 2 */}
-        <div
-          className="group rounded-3xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] [backdrop-filter:blur(48px)] p-8 hover:border-emerald-500/40 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.08] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <FrostedTile variant="emerald" className="p-8 group min-h-[200px] flex flex-col">
           <div className="relative z-10 flex-1 flex flex-col">
             <Check className="text-emerald-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
             <div className="text-5xl font-mono font-bold mb-2 tabular-nums group-hover:text-emerald-100 transition-colors">{totalSessions}</div>
             <div className="text-sm text-zinc-500 uppercase tracking-[0.15em] font-semibold">Sessions</div>
           </div>
-        </div>
+        </FrostedTile>
+
         {/* Stats Card 3 */}
-        <div
-          className="group rounded-3xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] [backdrop-filter:blur(48px)] p-8 hover:border-cyan-500/40 hover:shadow-2xl hover:shadow-cyan-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.08] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <FrostedTile variant="cyan" className="p-8 group min-h-[200px] flex flex-col">
           <div className="relative z-10 flex-1 flex flex-col">
             <Target className="text-cyan-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
             <div className="text-5xl font-mono font-bold mb-2 tabular-nums group-hover:text-cyan-100 transition-colors">{avgSessionMinutes}m</div>
             <div className="text-sm text-zinc-500 uppercase tracking-[0.15em] font-semibold">Avg Session</div>
           </div>
-        </div>
+        </FrostedTile>
+
         {/* Stats Card 4 */}
-        <div
-          className="group rounded-3xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] [backdrop-filter:blur(48px)] p-8 hover:border-purple-500/40 hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-500 hover:-translate-y-2 relative overflow-hidden min-h-[200px] flex flex-col"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.08] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <FrostedTile variant="purple" className="p-8 group min-h-[200px] flex flex-col">
           <div className="relative z-10 flex-1 flex flex-col">
             <Calendar className="text-purple-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
             <div className="text-5xl font-mono font-bold mb-2 tabular-nums group-hover:text-purple-100 transition-colors">{avgDailyHours}h</div>
             <div className="text-sm text-zinc-500 uppercase tracking-[0.15em] font-semibold">Daily Average</div>
           </div>
-        </div>
+        </FrostedTile>
       </div>
 
       {/* Focus Scores & Activity Mix */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Subject Focus Scores */}
-        <div className="lg:col-span-2 group rounded-3xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] [backdrop-filter:blur(48px)] p-8 hover:border-indigo-500/30 transition-all duration-500 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <FrostedTile variant="indigo" className="lg:col-span-2 p-8 group relative overflow-hidden">
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-8">
               <h3 className="text-lg font-bold text-zinc-300 uppercase tracking-[0.15em] group-hover:text-indigo-200 transition-colors flex items-center gap-3">
@@ -526,11 +516,10 @@ export const StatsView = ({
               })}
             </div>
           </div>
-        </div>
+        </FrostedTile>
 
         {/* Activity Mix */}
-        <div className="group rounded-3xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] [backdrop-filter:blur(48px)] p-8 hover:border-purple-500/30 transition-all duration-500 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <FrostedTile variant="purple" className="p-8 group relative overflow-hidden">
           <div className="relative z-10">
             <h3 className="text-lg font-bold text-zinc-300 uppercase tracking-[0.15em] group-hover:text-purple-200 transition-colors mb-8 flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
@@ -577,12 +566,11 @@ export const StatsView = ({
                 })}
             </div>
           </div>
-        </div>
+        </FrostedTile>
       </div>
 
       {/* Heatmap */}
-      <div className="group rounded-3xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] [backdrop-filter:blur(48px)] p-8 hover:border-indigo-500/30 transition-all duration-500 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      <FrostedTile variant="indigo" className="p-8 group relative overflow-hidden">
         <div className="relative z-10">
           <h3 className="text-lg font-bold text-zinc-300 uppercase tracking-[0.15em] group-hover:text-indigo-200 transition-colors mb-8 flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center">
@@ -625,7 +613,7 @@ export const StatsView = ({
             <span className="font-semibold">More</span>
           </div>
         </div>
-      </div>
+      </FrostedTile>
 
       {/* Notes Modal */}
       {showNotesModal && (

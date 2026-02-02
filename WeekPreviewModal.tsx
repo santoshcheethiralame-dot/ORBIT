@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 import {
     Calendar,
     X,
@@ -47,13 +48,15 @@ export const WeekPreviewModal = ({
         }
     };
 
-    return (
+    if (typeof document === 'undefined') return null;
+
+    return ReactDOM.createPortal(
         <div
             className="
-                fixed inset-0 z-[20]
-                bg-black/70 backdrop-blur-xl
+                fixed inset-0 z-[9999]
+                bg-black/70 backdrop-blur-md
                 flex items-center justify-center
-                p-4
+                p-4 overflow-hidden
             "
         >
             <div
@@ -226,12 +229,13 @@ export const WeekPreviewModal = ({
                         </span>
                     </div>
                     <div className="text-[7px] xs:text-[8px] sm:text-[9px] md:text-[10px] font-mono text-zinc-500 uppercase">
-                        <span className="hidden sm:inline">Orbit Forecast Engine v3.2.0</span>
-                        <span className="sm:hidden">v3.2.0</span>
+                        <span className="hidden sm:inline">Orbit Forecast Engine v4.0.1</span>
+                        <span className="sm:hidden">v4.0.1</span>
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

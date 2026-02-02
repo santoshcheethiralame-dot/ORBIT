@@ -31,54 +31,99 @@ export const Button = ({ children, onClick, disabled, variant = 'primary', class
 export interface FrostedProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
   hoverClassName?: string;
+  variant?: 'indigo' | 'purple' | 'cyan' | 'orange' | 'emerald' | 'amber' | 'yellow' | 'red';
 }
+
+const tileVariants = {
+  indigo: { border: "border-indigo-500/20 hover:border-indigo-500/50", bg: "from-indigo-500/[0.10]" },
+  purple: { border: "border-purple-500/20 hover:border-purple-500/50", bg: "from-purple-500/[0.10]" },
+  cyan: { border: "border-cyan-500/20 hover:border-cyan-500/50", bg: "from-cyan-500/[0.10]" },
+  orange: { border: "border-orange-500/20 hover:border-orange-500/50", bg: "from-orange-500/[0.10]" },
+  emerald: { border: "border-emerald-500/20 hover:border-emerald-500/50", bg: "from-emerald-500/[0.10]" },
+  amber: { border: "border-amber-500/20 hover:border-amber-500/50", bg: "from-amber-500/[0.10]" },
+  yellow: { border: "border-yellow-500/20 hover:border-yellow-500/50", bg: "from-yellow-500/[0.10]" },
+  red: { border: "border-red-500/20 hover:border-red-500/50", bg: "from-red-500/[0.10]" },
+};
+
+const miniVariants = {
+  indigo: "bg-indigo-500/5 hover:bg-indigo-500/15 border-indigo-500/10 hover:border-indigo-500/30",
+  purple: "bg-purple-500/5 hover:bg-purple-500/15 border-purple-500/10 hover:border-purple-500/30",
+  cyan: "bg-cyan-500/5 hover:bg-cyan-500/15 border-cyan-500/10 hover:border-cyan-500/30",
+  orange: "bg-orange-500/5 hover:bg-orange-500/15 border-orange-500/10 hover:border-orange-500/30",
+  emerald: "bg-emerald-500/5 hover:bg-emerald-500/15 border-emerald-500/10 hover:border-emerald-500/30",
+  amber: "bg-amber-500/5 hover:bg-amber-500/15 border-amber-500/10 hover:border-amber-500/30",
+  yellow: "bg-yellow-500/5 hover:bg-yellow-500/15 border-yellow-500/10 hover:border-yellow-500/30",
+  red: "bg-red-500/5 hover:bg-red-500/15 border-red-500/10 hover:border-red-500/30",
+};
 
 export const FrostedTile: React.FC<React.PropsWithChildren<FrostedProps>> = ({
   children,
   className = '',
   hoverClassName = '',
+  variant,
   onClick,
   ...props
-}) => (
-  <div
-    onClick={onClick}
-    className={
-      [
-        "group relative overflow-hidden rounded-3xl border border-white/10",
-        "bg-gradient-to-br from-zinc-900 via-zinc-900 to-black",
-        "[background:linear-gradient(to_bottom_right,rgba(255,255,255,0.03),transparent)]",
-        "backdrop-blur-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
-        "transition-all duration-500",
-        onClick ? "cursor-pointer active:scale-[0.98]" : "",
-        className,
-        hoverClassName,
-      ].join(' ')
-    }
-    {...props}
-  >
-    {children}
-  </div>
-);
+}) => {
+  const variantStyles = variant ? tileVariants[variant] : null;
+
+  return (
+    <div
+      onClick={onClick}
+      className={
+        [
+          "group relative overflow-hidden rounded-3xl border",
+          // Use variant border if available, otherwise default white/10
+          variantStyles ? variantStyles.border : "border-white/10",
+          "bg-gradient-to-br from-zinc-900 via-zinc-900 to-black",
+          "[background:linear-gradient(to_bottom_right,rgba(255,255,255,0.03),transparent)]",
+          "backdrop-blur-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
+          "transition-all duration-500",
+          onClick ? "cursor-pointer active:scale-[0.98]" : "",
+          variantStyles ? "hover:-translate-y-1" : "",
+          className,
+          hoverClassName,
+        ].join(' ')
+      }
+      {...props}
+    >
+      {/* Background gradient overlay - always visible if variant present, intensifies on hover */}
+      {variantStyles && (
+        <div className={`absolute inset-0 bg-gradient-to-br ${variantStyles.bg} to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-500`} />
+      )}
+
+      {/* Content */}
+      <div className={variantStyles ? "relative z-10" : ""}>
+        {children}
+      </div>
+    </div>
+  );
+};
 
 // Mini frosted style for secondary "cards" inside main tiles
 export const FrostedMini: React.FC<React.PropsWithChildren<FrostedProps>> = ({
   children,
   className = '',
+  variant,
   onClick,
   ...props
-}) => (
-  <div
-    onClick={onClick}
-    className={[
-      "p-4 bg-zinc-900/30 rounded-2xl border border-zinc-800/50 transition-all",
-      onClick ? "cursor-pointer active:scale-[0.98]" : "",
-      className,
-    ].join(' ')}
-    {...props}
-  >
-    {children}
-  </div>
-);
+}) => {
+  const variantClass = variant ? miniVariants[variant] : "bg-zinc-900/30 border-zinc-800/50";
+
+  return (
+    <div
+      onClick={onClick}
+      className={[
+        "p-4 rounded-2xl border transition-all",
+        onClick ? "cursor-pointer active:scale-[0.98]" : "",
+        variantClass,
+        className,
+      ].join(' ')}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+};
 
 
 export const Slider = ({ value, min, max, onChange, label }: any) => (

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import {
   Settings, Download, Upload, Trash2, Moon, Sun,
   Bell, Database, Shield, Volume2, VolumeX,
@@ -81,11 +82,11 @@ const BugReportModal = ({
 }: BugReportModalProps) => {
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
         onClick={() => status === 'idle' && onClose()}
       />
 
@@ -300,7 +301,8 @@ const BugReportModal = ({
           )}
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -538,7 +540,7 @@ export const SettingsView = () => {
         timestamp: new Date().toISOString(),
         systemInfo,
         appStats,
-        version: 'v3.2.0',
+        version: 'v4.0.1',
       };
 
       const emailSubject = `[Orbit] ${bugReportData.category.toUpperCase()} - ${bugReportData.title}`;
@@ -553,7 +555,7 @@ export const SettingsView = () => {
         // @ts-ignore
         emailBody += `  ${k}: ${appStats[k]}\n`;
       });
-      emailBody += `\nVersion: v3.2.0\nTimestamp: ${payload.timestamp}`;
+      emailBody += `\nVersion: v4.0.1\nTimestamp: ${payload.timestamp}`;
 
       window.location.href = encodeMailto(emailSubject, emailBody);
 
@@ -923,7 +925,7 @@ export const SettingsView = () => {
           <div className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
             <Monitor size={16} className="text-zinc-500" />
             <span className="text-xs text-zinc-400 font-mono tracking-wider">
-              ORBIT v3.2.0
+              ORBIT v4.0.1
             </span>
             <div className="w-px h-4 bg-white/10"></div>
             <span className="text-xs text-zinc-500 font-mono">
