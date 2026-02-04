@@ -17,8 +17,7 @@ export default defineConfig(({ mode }) => {
         includeAssets: ['icon-192.png', 'icon-512.png'],
         manifest: false, // We're using public/manifest.json directly
         workbox: {
-          // Don't let Vite generate SW, we have our own
-          globPatterns: []
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}']
         }
       })
     ],

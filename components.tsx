@@ -11,6 +11,25 @@ export const GlassCard = ({ children, className = "", onClick }: { children: Rea
   </div>
 );
 
+// ============================================
+// Subject Color Coding System
+// Stable identity colors based on subject ID (NOT difficulty)
+// ============================================
+export const SUBJECT_COLORS = ['indigo', 'cyan', 'emerald', 'amber', 'rose', 'violet'] as const;
+export type SubjectColor = typeof SUBJECT_COLORS[number];
+
+export const getSubjectColor = (id: number): SubjectColor =>
+  SUBJECT_COLORS[id % SUBJECT_COLORS.length];
+
+export const SUBJECT_COLOR_CLASSES: Record<SubjectColor, { bg: string; border: string; text: string; bgLight: string; borderLight: string }> = {
+  indigo: { bg: 'bg-indigo-500', border: 'border-indigo-500/40', text: 'text-indigo-400', bgLight: 'bg-indigo-500/10', borderLight: 'border-indigo-500/20' },
+  cyan: { bg: 'bg-cyan-500', border: 'border-cyan-500/40', text: 'text-cyan-400', bgLight: 'bg-cyan-500/10', borderLight: 'border-cyan-500/20' },
+  emerald: { bg: 'bg-emerald-500', border: 'border-emerald-500/40', text: 'text-emerald-400', bgLight: 'bg-emerald-500/10', borderLight: 'border-emerald-500/20' },
+  amber: { bg: 'bg-amber-500', border: 'border-amber-500/40', text: 'text-amber-400', bgLight: 'bg-amber-500/10', borderLight: 'border-amber-500/20' },
+  rose: { bg: 'bg-rose-500', border: 'border-rose-500/40', text: 'text-rose-400', bgLight: 'bg-rose-500/10', borderLight: 'border-rose-500/20' },
+  violet: { bg: 'bg-violet-500', border: 'border-violet-500/40', text: 'text-violet-400', bgLight: 'bg-violet-500/10', borderLight: 'border-violet-500/20' },
+};
+
 export const Button = ({ children, onClick, disabled, variant = 'primary', className = "" }: any) => {
   const baseStyle = "w-full p-4 rounded-xl font-bold transition-colors flex items-center justify-center gap-2";
   const variants = {
@@ -43,6 +62,8 @@ const tileVariants = {
   amber: { border: "border-amber-500/20 hover:border-amber-500/50", bg: "from-amber-500/[0.10]" },
   yellow: { border: "border-yellow-500/20 hover:border-yellow-500/50", bg: "from-yellow-500/[0.10]" },
   red: { border: "border-red-500/20 hover:border-red-500/50", bg: "from-red-500/[0.10]" },
+  rose: { border: "border-rose-500/20 hover:border-rose-500/50", bg: "from-rose-500/[0.10]" },
+  violet: { border: "border-violet-500/20 hover:border-violet-500/50", bg: "from-violet-500/[0.10]" },
 };
 
 const miniVariants = {
@@ -54,6 +75,8 @@ const miniVariants = {
   amber: "bg-amber-500/5 hover:bg-amber-500/15 border-amber-500/10 hover:border-amber-500/30",
   yellow: "bg-yellow-500/5 hover:bg-yellow-500/15 border-yellow-500/10 hover:border-yellow-500/30",
   red: "bg-red-500/5 hover:bg-red-500/15 border-red-500/10 hover:border-red-500/30",
+  rose: "bg-rose-500/5 hover:bg-rose-500/15 border-rose-500/10 hover:border-rose-500/30",
+  violet: "bg-violet-500/5 hover:bg-violet-500/15 border-violet-500/10 hover:border-violet-500/30",
 };
 
 export const FrostedTile: React.FC<React.PropsWithChildren<FrostedProps>> = ({

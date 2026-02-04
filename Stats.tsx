@@ -9,7 +9,7 @@ import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
 import { EmptyStats } from './EmptyStates';
 import { useToast } from "./Toast";
-import { PageHeader, MetaText, FrostedTile } from "./components";
+import { PageHeader, MetaText, FrostedTile, getSubjectColor, SUBJECT_COLOR_CLASSES } from "./components";
 
 export const StatsView = ({
   logs,
@@ -422,6 +422,8 @@ export const StatsView = ({
               {subjectStats.map((stat, index) => {
                 const scoreColor = getFocusScoreColor(stat.focusScore);
                 const scoreLabel = getFocusScoreLabel(stat.focusScore);
+                const subjectColor = getSubjectColor(stat.id!);
+                const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
 
                 return (
                   <div
@@ -432,8 +434,8 @@ export const StatsView = ({
                   >
                     <div className="flex justify-between items-center mb-3 p-5 bg-zinc-900/40 rounded-2xl border border-zinc-800/50 hover:bg-zinc-900/50 hover:border-zinc-700 transition-all duration-300 min-h-[100px]">
                       <div className="flex items-center gap-5">
-                        <div className={`w-20 h-20 rounded-2xl ${scoreColor.replace('text-', 'bg-')}/20 flex items-center justify-center border-2 ${scoreColor.replace('text-', 'border-')}/40 transition-all duration-300 group-hover/item:scale-110`}>
-                          <span className={`text-3xl font-bold font-mono tabular-nums ${scoreColor}`}>
+                        <div className={`w-20 h-20 rounded-2xl ${colorClasses.bgLight} flex items-center justify-center border-2 ${colorClasses.borderLight} transition-all duration-300 group-hover/item:scale-110`}>
+                          <span className={`text-3xl font-bold font-mono tabular-nums ${colorClasses.text}`}>
                             {stat.focusScore}
                           </span>
                         </div>

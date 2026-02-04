@@ -31,7 +31,7 @@ import {
 import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
 import { DashboardInsights } from "./DashboardInsights";
-import { FrostedTile, FrostedMini } from "./components";
+import { FrostedTile, FrostedMini, getSubjectColor, SUBJECT_COLOR_CLASSES } from "./components";
 
 // ============================================
 // CONSTANTS
@@ -787,84 +787,92 @@ export const Dashboard = ({
         {/* LEFT COLUMN: NEXT MISSION CARD (fills column height) */}
         <div className="lg:col-span-8">
           {nextBlock ? (
-            <FrostedTile className="p-8 hover:border-indigo-500/30 relative overflow-hidden group">
-              {/* Background Decorative Element */}
-              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-600/10 to-purple-600/10 rounded-full blur-3xl opacity-50 group-hover:opacity-70 transition-opacity duration-500" />
+            (() => {
+              const subject = subjects.find(s => s.id === nextBlock.subjectId);
+              const subjectColor = subject ? getSubjectColor(subject.id!) : 'indigo';
+              const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
 
-              {/* Progress Ring */}
-              <div className="absolute top-8 right-8 w-28 h-28 opacity-20">
-                <svg className="transform -rotate-90" width="112" height="112">
-                  <circle cx="56" cy="56" r="50" stroke="currentColor" strokeWidth="6" fill="none" className="text-zinc-700" />
-                  <circle
-                    cx="56" cy="56" r="50" stroke="currentColor" strokeWidth="6" fill="none" className="text-indigo-400"
-                    strokeDasharray={`${2 * Math.PI * 50}`}
-                    strokeDashoffset={`${2 * Math.PI * 50 * (1 - animatedProgress / 100)}`}
-                    style={{ transition: "stroke-dashoffset 0.5s ease" }}
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-indigo-300 tabular-nums">
-                  {animatedProgress}%
-                </div>
-              </div>
+              return (
+                <FrostedTile variant={subjectColor} className="p-8 hover:-translate-y-1 relative overflow-hidden group">
+                  {/* Background Decorative Element */}
+                  <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-${subjectColor}-600/10 to-${subjectColor}-400/10 rounded-full blur-3xl opacity-50 group-hover:opacity-70 transition-opacity duration-500`} />
 
-              <div className="relative z-10 space-y-6">
-                {/* Header */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shadow-lg shadow-indigo-500/50" />
-                    <span className="text-xs font-bold tracking-[0.2em] text-indigo-400 uppercase">Next Mission</span>
-                  </div>
-
-                  <h2 className="text-4xl md:text-5xl font-bold leading-tight group-hover:text-indigo-100 transition-colors">
-                    {nextBlock.subjectName}
-                  </h2>
-
-                  <div className="flex items-center gap-4 text-zinc-400 flex-wrap">
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5">
-                      <Clock size={16} strokeWidth={2.5} />
-                      <span className="font-mono font-semibold tabular-nums">{nextBlock.duration} min</span>
+                  {/* Progress Ring */}
+                  <div className="absolute top-8 right-8 w-28 h-28 opacity-20">
+                    <svg className="transform -rotate-90" width="112" height="112">
+                      <circle cx="56" cy="56" r="50" stroke="currentColor" strokeWidth="6" fill="none" className="text-zinc-700" />
+                      <circle
+                        cx="56" cy="56" r="50" stroke="currentColor" strokeWidth="6" fill="none" className={colorClasses.text}
+                        strokeDasharray={`${2 * Math.PI * 50}`}
+                        strokeDashoffset={`${2 * Math.PI * 50 * (1 - animatedProgress / 100)}`}
+                        style={{ transition: "stroke-dashoffset 0.5s ease" }}
+                      />
+                    </svg>
+                    <div className={`absolute inset-0 flex items-center justify-center text-sm font-bold ${colorClasses.text} tabular-nums`}>
+                      {animatedProgress}%
                     </div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
-                    <span className="font-semibold uppercase tracking-wide text-sm">{nextBlock.type}</span>
                   </div>
-                </div>
 
-                {/* Tags */}
-                <div className="flex flex-wrap gap-2">
-                  {nextBlock.type === "assignment" && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/15 text-red-300 border border-red-500/25 text-xs font-bold">
-                      <Zap size={14} strokeWidth={2.5} />
-                      High Priority
-                    </span>
-                  )}
+                  <div className="relative z-10 space-y-6">
+                    {/* Header */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${colorClasses.bg} animate-pulse shadow-lg shadow-${subjectColor}-500/50`} />
+                        <span className={`text-xs font-bold tracking-[0.2em] ${colorClasses.text} uppercase`}>Next Mission</span>
+                      </div>
 
-                  {nextBlock.type === "review" && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/15 text-blue-300 border border-blue-500/25 text-xs font-bold">
-                      <TrendingUp size={14} strokeWidth={2.5} />
-                      Retention
-                    </span>
-                  )}
-                </div>
+                      <h2 className={`text-4xl md:text-5xl font-bold leading-tight group-hover:text-${subjectColor}-100 transition-colors`}>
+                        {nextBlock.subjectName}
+                      </h2>
 
-                {/* Assignment Progress */}
-                {nextBlock.type === "assignment" && nextBlock.assignmentId && (
-                  <AssignmentProgressBar
-                    assignmentId={String(nextBlock.assignmentId)}
-                    assignments={assignments}
-                  />
-                )}
+                      <div className="flex items-center gap-4 text-zinc-400 flex-wrap">
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5">
+                          <Clock size={16} strokeWidth={2.5} />
+                          <span className="font-mono font-semibold tabular-nums">{nextBlock.duration} min</span>
+                        </div>
+                        <div className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
+                        <span className="font-semibold uppercase tracking-wide text-sm">{nextBlock.type}</span>
+                      </div>
+                    </div>
 
-                {/* CTA Button */}
-                <button
-                  onClick={() => onStartFocus(nextBlock)}
-                  aria-label="Start focus session"
-                  className="w-full inline-flex items-center justify-center gap-3 px-8 py-5 bg-white text-black rounded-2xl font-bold text-lg hover:bg-indigo-500 hover:text-white hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/30 active:scale-[0.98] transition-all duration-300 group/btn min-h-[60px]"
-                >
-                  <Play size={20} fill="currentColor" className="group-hover/btn:animate-pulse" strokeWidth={0} />
-                  <span>Start Focus Session</span>
-                </button>
-              </div>
-            </FrostedTile>
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-2">
+                      {nextBlock.type === "assignment" && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/15 text-red-300 border border-red-500/25 text-xs font-bold">
+                          <Zap size={14} strokeWidth={2.5} />
+                          High Priority
+                        </span>
+                      )}
+
+                      {nextBlock.type === "review" && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/15 text-blue-300 border border-blue-500/25 text-xs font-bold">
+                          <TrendingUp size={14} strokeWidth={2.5} />
+                          Retention
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Assignment Progress */}
+                    {nextBlock.type === "assignment" && nextBlock.assignmentId && (
+                      <AssignmentProgressBar
+                        assignmentId={String(nextBlock.assignmentId)}
+                        assignments={assignments}
+                      />
+                    )}
+
+                    {/* CTA Button */}
+                    <button
+                      onClick={() => onStartFocus(nextBlock)}
+                      aria-label="Start focus session"
+                      className="w-full inline-flex items-center justify-center gap-3 px-8 py-5 bg-white text-black rounded-2xl font-bold text-lg hover:bg-indigo-500 hover:text-white hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/30 active:scale-[0.98] transition-all duration-300 group/btn min-h-[60px]"
+                    >
+                      <Play size={20} fill="currentColor" className="group-hover/btn:animate-pulse" strokeWidth={0} />
+                      <span>Start Focus Session</span>
+                    </button>
+                  </div>
+                </FrostedTile>
+              );
+            })()
           ) : (
             <FrostedTile className="p-12 flex flex-col items-center justify-center text-center min-h-[320px] h-full">
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/5 to-transparent" />

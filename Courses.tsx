@@ -13,7 +13,7 @@ import {
 } from './EmptyStates';
 import { getAllReadinessScores, SubjectReadiness } from './brain';
 import { useToast } from './Toast';
-import { FrostedTile, FrostedMini, PageHeader, MetaText } from './components';
+import { FrostedTile, FrostedMini, PageHeader, MetaText, getSubjectColor, SUBJECT_COLOR_CLASSES } from './components';
 
 // ✨ FIXED: Prediction Modal with proper styling
 const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
@@ -185,13 +185,7 @@ export default function CoursesView_v2() {
     }
   }, [selectedResource]);
 
-  const themes = [
-    { text: "text-indigo-400", bg: "bg-indigo-500", border: "border-indigo-500" },
-    { text: "text-emerald-400", bg: "bg-emerald-500", border: "border-emerald-500" },
-    { text: "text-amber-400", bg: "bg-amber-500", border: "border-amber-500" },
-    { text: "text-rose-400", bg: "bg-rose-500", border: "border-rose-500" },
-    { text: "text-cyan-400", bg: "bg-cyan-500", border: "border-cyan-500" },
-  ];
+
 
   const getInitials = (name: string) =>
     (name || "").split(" ").slice(0, 2).map((p) => (p && p[0]) || "").join("").toUpperCase();
@@ -398,8 +392,8 @@ export default function CoursesView_v2() {
 
   // STEP 2-4: Subject Detail – switch to inline/normal layout, remove modal/bg-black/floating X, add top back button
   if (selectedSubject) {
-    const subjectIndex = subjects.findIndex((s) => s.id === selectedSubject.id);
-    const theme = themes[subjectIndex % themes.length];
+    const subjectColor = getSubjectColor(selectedSubject.id!);
+    const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
     const gpa = calculateGPA(selectedSubject.grades || []);
 
     return (
@@ -413,7 +407,7 @@ export default function CoursesView_v2() {
 
         {/* Header */}
         <div className="flex items-center gap-4 md:gap-6">
-          <div className={`w-16 h-16 md:w-20 md:h-20 ${theme.bg} rounded-3xl flex items-center justify-center font-bold text-black text-xl md:text-2xl shadow-xl shrink-0`}>
+          <div className={`w-16 h-16 md:w-20 md:h-20 ${colorClasses.bg} rounded-3xl flex items-center justify-center font-bold text-black text-xl md:text-2xl shadow-xl shrink-0`}>
             {getInitials(selectedSubject.name)}
           </div>
           <div className="min-w-0">
@@ -816,7 +810,8 @@ export default function CoursesView_v2() {
       ) : (
         <div className="grid md:grid-cols-2 gap-6 md:gap-8">
           {filtered.map((s, i) => {
-            const t = themes[i % themes.length];
+            const subjectColor = getSubjectColor(s.id!);
+            const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
             const progress = computeProgress(s);
             const gpa = calculateGPA(s.grades || []);
             const readiness = readinessScores[s.id!];
@@ -832,7 +827,7 @@ export default function CoursesView_v2() {
                 <div className="relative z-10">
                   <div className="flex justify-between items-start mb-4 md:mb-6">
                     <div className="flex gap-4 md:gap-5 flex-1 min-w-0">
-                      <div className={`w-14 h-14 md:w-16 md:h-16 ${t.bg} rounded-2xl flex items-center justify-center font-bold text-black text-xl md:text-2xl shadow-xl shrink-0 group-hover:scale-110 transition-transform duration-300`}>
+                      <div className={`w-14 h-14 md:w-16 md:h-16 ${colorClasses.bg} rounded-2xl flex items-center justify-center font-bold text-black text-xl md:text-2xl shadow-xl shrink-0 group-hover:scale-110 transition-transform duration-300`}>
                         {getInitials(s.name)}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -846,7 +841,7 @@ export default function CoursesView_v2() {
                     </div>
 
                     <div className="flex flex-col items-end gap-2 md:gap-3 shrink-0 ml-4 md:ml-5">
-                      <div className={`text-3xl md:text-4xl font-bold font-mono tabular-nums ${t.text} group-hover:scale-110 transition-transform duration-300`}>
+                      <div className={`text-3xl md:text-4xl font-bold font-mono tabular-nums ${colorClasses.text} group-hover:scale-110 transition-transform duration-300`}>
                         {progress}%
                       </div>
                       {gpa && (
@@ -868,7 +863,7 @@ export default function CoursesView_v2() {
 
                   <div className="h-2 md:h-2.5 bg-white/5 rounded-full mb-4 md:mb-6 overflow-hidden shadow-inner">
                     <div
-                      className={`${t.bg} h-full transition-all duration-1000 ease-out shadow-lg`}
+                      className={`${colorClasses.bg} h-full transition-all duration-1000 ease-out shadow-lg`}
                       style={{ width: `${progress}%` }}
                     />
                   </div>
