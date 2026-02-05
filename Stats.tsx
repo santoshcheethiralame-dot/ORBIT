@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { StudyLog, Subject } from "./types";
 import {
   Clock, Check, TrendingUp, TrendingDown, Calendar, Target,
-  Award, Zap, BarChart3, Activity, Download, Eye, Brain,
-  Flame, Trophy, Star, ChevronRight, StickyNote, X, FileText
+  Download, Brain, Trophy, ChevronRight, StickyNote, X, FileText, Zap
 } from "lucide-react";
 import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
-import { EmptyStats } from './EmptyStates';
+import { EmptyStats } from "./EmptyStates";
 import { useToast } from "./Toast";
 import { PageHeader, MetaText, FrostedTile, getSubjectColor, SUBJECT_COLOR_CLASSES } from "./components";
 
@@ -21,17 +20,15 @@ export const StatsView = ({
   const [selectedSubjectNotes, setSelectedSubjectNotes] = useState<StudyLog[]>([]);
 
   const toast = useToast();
-  const projects = useLiveQuery(() => db.projects.toArray()) || [];
+  useLiveQuery(() => db.projects.toArray());
 
   // --- Upcoming Reviews Query ---
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split("T")[0];
-
   const sevenDaysLater = new Date(today);
   sevenDaysLater.setDate(today.getDate() + 7);
   const sevenDaysLaterStr = sevenDaysLater.toISOString().split("T")[0];
-
   const upcomingReviews = useLiveQuery(async () => {
     const topics = await db.topics
       .where('nextReview')
@@ -52,16 +49,10 @@ export const StatsView = ({
   if (timeRange === 'week') rangeStart.setDate(now.getDate() - 7);
   else if (timeRange === '10days') rangeStart.setDate(now.getDate() - 10);
   else rangeStart.setDate(now.getDate() - 30);
-
   rangeStart.setHours(0, 0, 0, 0);
   const rangeStartStr = rangeStart.toISOString().split('T')[0];
+  const filteredLogs = logs.filter((l) => l.date >= rangeStartStr);
 
-  const filteredLogs = logs.filter((l) => {
-    const isInRange = l.date >= rangeStartStr;
-    return isInRange;
-  });
-
-  // Early return for no data
   if (filteredLogs.length === 0) {
     return (
       <div className="pb-32 pt-8 px-4 lg:px-10 w-full max-w-[1400px] mx-auto">
@@ -138,36 +129,30 @@ export const StatsView = ({
   if (timeRange === 'week') prevRangeStart.setDate(rangeStart.getDate() - 7);
   else if (timeRange === '10days') prevRangeStart.setDate(rangeStart.getDate() - 10);
   else prevRangeStart.setDate(rangeStart.getDate() - 30);
-
   const prevRangeStartStr = prevRangeStart.toISOString().split('T')[0];
   const prevLogs = logs.filter(l => l.date >= prevRangeStartStr && l.date < rangeStartStr);
 
-  // Core Stats calculation
+  // Core statistics
   const totalMinutes = filteredLogs.reduce((acc, log) => acc + log.duration, 0);
   const totalHours = (totalMinutes / 60).toFixed(1);
   const totalSessions = filteredLogs.length;
   const avgSessionMinutes = totalSessions > 0 ? Math.round(totalMinutes / totalSessions) : 0;
-
   const prevMinutes = prevLogs.reduce((a, b) => a + b.duration, 0);
   const trend = prevMinutes > 0
     ? Math.round(((totalMinutes - prevMinutes) / prevMinutes) * 100)
     : totalMinutes > 0 ? 100 : 0;
 
-  // Calculate Focus Score logic (0-100)
+  // Focus Score logic (0-100)
   const calculateFocusScore = (subjectId: number) => {
     const subLogs = filteredLogs.filter(l => l.subjectId === subjectId);
     if (subLogs.length === 0) return 0;
-
     const daysInRange = timeRange === 'week' ? 7 : timeRange === '10days' ? 10 : 30;
     const uniqueDays = new Set(subLogs.map(l => l.date)).size;
     const consistencyScore = (uniqueDays / daysInRange) * 100;
-
     const avgDuration = subLogs.reduce((a, b) => a + b.duration, 0) / subLogs.length;
     const qualityScore = Math.min((avgDuration / 45) * 100, 100);
-
     const totalTime = subLogs.reduce((a, b) => a + b.duration, 0);
     const timeScore = Math.min((totalTime / 300) * 100, 100);
-
     const score = (consistencyScore * 0.4) + (qualityScore * 0.3) + (timeScore * 0.3);
     return Math.round(score);
   };
@@ -175,25 +160,16 @@ export const StatsView = ({
   // Subject stats aggregation
   const subjectStats = subjects
     .map((sub) => {
-      const mins = filteredLogs
-        .filter((l) => l.subjectId === sub.id)
-        .reduce((a, b) => a + b.duration, 0);
-
+      const mins = filteredLogs.filter(l => l.subjectId === sub.id).reduce((a, b) => a + b.duration, 0);
       const sessions = filteredLogs.filter(l => l.subjectId === sub.id).length;
       const focusScore = calculateFocusScore(sub.id!);
-
-      const prevMins = prevLogs
-        .filter(l => l.subjectId === sub.id)
-        .reduce((a, b) => a + b.duration, 0);
-
+      const prevMins = prevLogs.filter(l => l.subjectId === sub.id).reduce((a, b) => a + b.duration, 0);
       const trendPercent = prevMins > 0
         ? Math.round(((mins - prevMins) / prevMins) * 100)
         : mins > 0 ? 100 : 0;
-
       const notesCount = filteredLogs.filter(
         l => l.subjectId === sub.id && l.notes && l.notes.trim().length > 0
       ).length;
-
       return { ...sub, mins, sessions, focusScore, trend: trendPercent, notesCount };
     })
     .filter(s => s.mins > 0)
@@ -211,7 +187,6 @@ export const StatsView = ({
       d.setDate(now.getDate() - (29 - i));
       const dateStr = d.toISOString().split("T")[0];
       const dailyMins = logs.filter((l) => l.date === dateStr).reduce((sum, log) => sum + log.duration, 0);
-
       if (dailyMins === 0) return 0;
       if (dailyMins < 45) return 1;
       if (dailyMins < 120) return 2;
@@ -230,7 +205,6 @@ export const StatsView = ({
     const subjectLogs = logs
       .filter(l => l.subjectId === subjectId && l.notes && l.notes.trim().length > 0)
       .sort((a, b) => b.timestamp - a.timestamp);
-
     setSelectedSubjectNotes(subjectLogs);
     setShowNotesModal(true);
     const subject = subjects.find(s => s.id === subjectId);
@@ -281,8 +255,10 @@ export const StatsView = ({
     return 'Needs Focus';
   };
 
+  // --- Custom Tile Design (like AboutView.tsx line 257–294: icon in colorful square at top, then title, then text) ---
   return (
     <div className="pb-32 pt-8 px-4 lg:px-10 w-full max-w-[1400px] mx-auto space-y-10 animate-fade-in">
+
       <PageHeader
         title="Performance Analytics"
         meta={
@@ -305,9 +281,53 @@ export const StatsView = ({
         }
       />
 
-      {/* Upcoming Reviews */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Total Study Time */}
+        <FrostedTile variant="indigo" className="p-6 flex flex-col items-center">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 flex items-center justify-center mb-5 border border-indigo-500/30 shadow-lg shadow-indigo-500/10">
+            <Clock size={28} className="text-indigo-400" />
+          </div>
+          <h3 className="text-lg font-bold text-white mb-3">Total Study Time</h3>
+          <div className="text-4xl font-mono font-bold text-indigo-200 mb-2">{totalHours}h</div>
+          {trend !== 0 && (
+            <div className={`flex items-center gap-2 mt-2 text-base font-bold ${trend > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {trend > 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+              <span>{Math.abs(trend)}%</span>
+            </div>
+          )}
+        </FrostedTile>
+
+        {/* Sessions */}
+        <FrostedTile variant="emerald" className="p-6 flex flex-col items-center">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center mb-5 border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
+            <Check size={28} className="text-emerald-400" />
+          </div>
+          <h3 className="text-lg font-bold text-white mb-3">Sessions</h3>
+          <div className="text-4xl font-mono font-bold text-emerald-200 mb-2">{totalSessions}</div>
+        </FrostedTile>
+
+        {/* Avg Session */}
+        <FrostedTile variant="cyan" className="p-6 flex flex-col items-center">
+          <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 flex items-center justify-center mb-5 border border-cyan-500/30 shadow-lg shadow-cyan-500/10">
+            <Target size={28} className="text-cyan-400" />
+          </div>
+          <h3 className="text-lg font-bold text-white mb-3">Avg Session</h3>
+          <div className="text-4xl font-mono font-bold text-cyan-200 mb-2">{avgSessionMinutes}m</div>
+        </FrostedTile>
+
+        {/* Daily Average */}
+        <FrostedTile variant="purple" className="p-6 flex flex-col items-center">
+          <div className="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center mb-5 border border-purple-500/30 shadow-lg shadow-purple-500/10">
+            <Calendar size={28} className="text-purple-400" />
+          </div>
+          <h3 className="text-lg font-bold text-white mb-3">Daily Average</h3>
+          <div className="text-4xl font-mono font-bold text-purple-200 mb-2">{avgDailyHours}h</div>
+        </FrostedTile>
+      </div>
+
+      {/* --- Upcoming Reviews --- */}
       <div className="space-y-4">
-        <h3 className="text-xl font-bold flex items-center gap-3">
+        <h3 className="text-xl font-bold flex items-center gap-3 mb-2">
           <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
             <Brain size={24} className="text-purple-400" />
           </div>
@@ -337,68 +357,7 @@ export const StatsView = ({
         )}
       </div>
 
-      {/* Time Range Selector */}
-      <div className="flex gap-3">
-        {(['week', '10days', 'month'] as const).map(range => (
-          <button
-            key={range}
-            onClick={() => setTimeRange(range)}
-            className={`px-6 py-4 rounded-2xl text-sm font-bold uppercase tracking-wider transition-all duration-300 min-h-[64px] ${timeRange === range
-              ? 'bg-indigo-600 text-white shadow-2xl shadow-indigo-500/30 scale-105'
-              : 'bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 hover:scale-105'
-              }`}
-          >
-            {range === '10days' ? '10 Days' : range}
-          </button>
-        ))}
-      </div>
-
-      {/* Core Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Stats Card 1 */}
-        <FrostedTile variant="indigo" className="p-8 group min-h-[200px] flex flex-col">
-          <div className="relative z-10 flex-1 flex flex-col">
-            <Clock className="text-indigo-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
-            <div className="text-5xl font-mono font-bold mb-2 tabular-nums group-hover:text-indigo-100 transition-colors">{totalHours}h</div>
-            <div className="text-sm text-zinc-500 uppercase tracking-[0.15em] font-semibold">Total Study Time</div>
-            {trend !== 0 && (
-              <div className={`flex items-center gap-2 mt-4 text-sm font-bold ${trend > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {trend > 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                <span>{Math.abs(trend)}%</span>
-              </div>
-            )}
-          </div>
-        </FrostedTile>
-
-        {/* Stats Card 2 */}
-        <FrostedTile variant="emerald" className="p-8 group min-h-[200px] flex flex-col">
-          <div className="relative z-10 flex-1 flex flex-col">
-            <Check className="text-emerald-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
-            <div className="text-5xl font-mono font-bold mb-2 tabular-nums group-hover:text-emerald-100 transition-colors">{totalSessions}</div>
-            <div className="text-sm text-zinc-500 uppercase tracking-[0.15em] font-semibold">Sessions</div>
-          </div>
-        </FrostedTile>
-
-        {/* Stats Card 3 */}
-        <FrostedTile variant="cyan" className="p-8 group min-h-[200px] flex flex-col">
-          <div className="relative z-10 flex-1 flex flex-col">
-            <Target className="text-cyan-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
-            <div className="text-5xl font-mono font-bold mb-2 tabular-nums group-hover:text-cyan-100 transition-colors">{avgSessionMinutes}m</div>
-            <div className="text-sm text-zinc-500 uppercase tracking-[0.15em] font-semibold">Avg Session</div>
-          </div>
-        </FrostedTile>
-
-        {/* Stats Card 4 */}
-        <FrostedTile variant="purple" className="p-8 group min-h-[200px] flex flex-col">
-          <div className="relative z-10 flex-1 flex flex-col">
-            <Calendar className="text-purple-400 mb-4 group-hover:scale-110 transition-transform duration-500" size={28} />
-            <div className="text-5xl font-mono font-bold mb-2 tabular-nums group-hover:text-purple-100 transition-colors">{avgDailyHours}h</div>
-            <div className="text-sm text-zinc-500 uppercase tracking-[0.15em] font-semibold">Daily Average</div>
-          </div>
-        </FrostedTile>
-      </div>
-
-      {/* Focus Scores & Activity Mix */}
+      {/* --- Focus Scores & Activity Mix --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Subject Focus Scores */}
         <FrostedTile variant="indigo" className="lg:col-span-2 p-8 group relative overflow-hidden">
@@ -441,9 +400,7 @@ export const StatsView = ({
                         </div>
                         <div>
                           <div className="flex items-center gap-3 mb-2">
-                            <span className="text-zinc-200 group-hover/item:text-white transition-colors font-bold text-lg">
-                              {stat.code}
-                            </span>
+                            <span className="text-zinc-200 group-hover/item:text-white transition-colors font-bold text-lg">{stat.code}</span>
                             <span className={`text-sm px-3 py-1.5 rounded-xl ${scoreColor.replace('text-', 'bg-')}/20 ${scoreColor} font-bold border ${scoreColor.replace('text-', 'border-')}/30`}>
                               {scoreLabel}
                             </span>
@@ -521,52 +478,46 @@ export const StatsView = ({
         </FrostedTile>
 
         {/* Activity Mix */}
-        <FrostedTile variant="purple" className="p-8 group relative overflow-hidden">
-          <div className="relative z-10">
-            <h3 className="text-lg font-bold text-zinc-300 uppercase tracking-[0.15em] group-hover:text-purple-200 transition-colors mb-8 flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
-                <Zap size={24} className="text-purple-400" />
-              </div>
-              <span>Activity Mix</span>
-            </h3>
-
-            <div className="space-y-6">
-              {Object.entries(typeBreakdown)
-                .filter(([_, mins]) => mins > 0)
-                .sort(([_, a], [__, b]) => b - a)
-                .map(([type, mins], index) => {
-                  const percent = totalMinutes > 0 ? (mins / totalMinutes) * 100 : 0;
-                  const colors = {
-                    review: 'from-blue-500 to-blue-400',
-                    assignment: 'from-red-500 to-red-400',
-                    project: 'from-purple-500 to-purple-400',
-                    prep: 'from-cyan-500 to-cyan-400',
-                    recovery: 'from-emerald-500 to-emerald-400',
-                  };
-
-                  return (
-                    <div key={type} className="group/item hover:translate-x-1 transition-all duration-300">
-                      <div className="flex justify-between text-base mb-3">
-                        <span className="text-zinc-300 group-hover/item:text-white transition-colors font-semibold capitalize">
-                          {type}
-                        </span>
-                        <span className="font-mono text-zinc-400 group-hover/item:text-purple-300 transition-colors font-bold tabular-nums">
-                          {(mins / 60).toFixed(1)}h
-                        </span>
-                      </div>
-                      <div className="w-full bg-zinc-800 h-4 rounded-full overflow-hidden shadow-inner">
-                        <div
-                          className={`bg-gradient-to-r ${colors[type as keyof typeof colors]} h-full rounded-full transition-all duration-700 shadow-lg`}
-                          style={{
-                            width: `${percent}%`,
-                            transitionDelay: `${index * 50}ms`
-                          }}
-                        />
-                      </div>
+        <FrostedTile variant="purple" className="p-8 group relative overflow-hidden flex flex-col">
+          <div className="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center mb-5 border border-purple-500/30 shadow-lg shadow-purple-500/10">
+            <Zap size={28} className="text-purple-400" />
+          </div>
+          <h3 className="text-lg font-bold text-white mb-3">Activity Mix</h3>
+          <div className="space-y-6">
+            {Object.entries(typeBreakdown)
+              .filter(([_, mins]) => mins > 0)
+              .sort(([_, a], [__, b]) => b - a)
+              .map(([type, mins], index) => {
+                const percent = totalMinutes > 0 ? (mins / totalMinutes) * 100 : 0;
+                const colors = {
+                  review: 'from-blue-500 to-blue-400',
+                  assignment: 'from-red-500 to-red-400',
+                  project: 'from-purple-500 to-purple-400',
+                  prep: 'from-cyan-500 to-cyan-400',
+                  recovery: 'from-emerald-500 to-emerald-400',
+                };
+                return (
+                  <div key={type} className="group/item hover:translate-x-1 transition-all duration-300">
+                    <div className="flex justify-between text-base mb-1">
+                      <span className="text-zinc-300 group-hover/item:text-white transition-colors font-semibold capitalize">
+                        {type}
+                      </span>
+                      <span className="font-mono text-zinc-400 group-hover/item:text-purple-300 transition-colors font-bold tabular-nums">
+                        {(mins / 60).toFixed(1)}h
+                      </span>
                     </div>
-                  );
-                })}
-            </div>
+                    <div className="w-full bg-zinc-800 h-4 rounded-full overflow-hidden shadow-inner">
+                      <div
+                        className={`bg-gradient-to-r ${colors[type as keyof typeof colors]} h-full rounded-full transition-all duration-700 shadow-lg`}
+                        style={{
+                          width: `${percent}%`,
+                          transitionDelay: `${index * 50}ms`
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </FrostedTile>
       </div>
@@ -574,19 +525,15 @@ export const StatsView = ({
       {/* Heatmap */}
       <FrostedTile variant="indigo" className="p-8 group relative overflow-hidden">
         <div className="relative z-10">
-          <h3 className="text-lg font-bold text-zinc-300 uppercase tracking-[0.15em] group-hover:text-indigo-200 transition-colors mb-8 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center">
-              <Calendar size={24} className="text-indigo-400" />
-            </div>
-            <span>30-Day Activity Heatmap</span>
-          </h3>
-
+          <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 flex items-center justify-center mb-5 border border-indigo-500/30 shadow-lg shadow-indigo-500/10">
+            <Calendar size={28} className="text-indigo-400" />
+          </div>
+          <h3 className="text-lg font-bold text-white mb-6">30-Day Activity Heatmap</h3>
           <div className="flex flex-wrap gap-2">
             {heatmapData.map((intensity, i) => {
               const date = new Date();
               date.setDate(date.getDate() - (29 - i));
               const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
               return (
                 <div
                   key={i}
@@ -603,7 +550,6 @@ export const StatsView = ({
               );
             })}
           </div>
-
           <div className="flex items-center justify-between mt-6 text-sm text-zinc-500">
             <span className="font-semibold">Less</span>
             <div className="flex gap-2">
@@ -641,7 +587,6 @@ export const StatsView = ({
                 <X size={24} className="text-zinc-400 hover:text-white" />
               </button>
             </div>
-
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-10 space-y-5">
               {selectedSubjectNotes.map((log) => (
@@ -670,7 +615,6 @@ export const StatsView = ({
                 </div>
               ))}
             </div>
-
             {/* Footer */}
             <div className="px-10 py-6 border-t border-white/10 bg-zinc-950 flex items-center justify-between text-sm text-zinc-500">
               <span className="font-medium">{selectedSubjectNotes.length} note{selectedSubjectNotes.length !== 1 ? 's' : ''} found</span>

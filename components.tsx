@@ -50,7 +50,7 @@ export const Button = ({ children, onClick, disabled, variant = 'primary', class
 export interface FrostedProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
   hoverClassName?: string;
-  variant?: 'indigo' | 'purple' | 'cyan' | 'orange' | 'emerald' | 'amber' | 'yellow' | 'red';
+  variant?: 'indigo' | 'purple' | 'cyan' | 'orange' | 'emerald' | 'amber' | 'yellow' | 'red' | 'rose' | 'violet';
 }
 
 const tileVariants = {
