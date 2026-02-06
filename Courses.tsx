@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   BookOpen, Award, FileText, Upload, Trash2, X, Search, Target,
   Clock, Download, CheckSquare, Square, Calculator, TrendingUp,
-  Link, ExternalLink, Plus, Edit2, StickyNote
+  Link, ExternalLink, Plus, Edit2, StickyNote, Sparkles, Presentation
 } from "lucide-react";
 import { db } from "./db";
 import { ResourceType } from "./types";
@@ -15,12 +15,10 @@ import { getAllReadinessScores, SubjectReadiness } from './brain';
 import { useToast } from './Toast';
 import { FrostedTile, FrostedMini, PageHeader, MetaText, getSubjectColor, SUBJECT_COLOR_CLASSES } from './components';
 
-// ✨ FIXED: Prediction Modal with proper styling
+// ✨ Enhanced Prediction Modal
 const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300 p-6">
     <div className="w-full max-w-lg bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
-
-      {/* Header */}
       <div className="p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-indigo-500/10 to-transparent">
         <div>
           <h2 className="text-2xl font-bold text-white mb-1">📈 Readiness Predictor</h2>
@@ -34,28 +32,24 @@ const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
         </button>
       </div>
 
-      {/* Content */}
       <div className="p-6 space-y-6">
-
-        {/* Subject Name */}
         <div>
           <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2 font-bold">Subject</div>
           <div className="text-xl font-bold text-white">{subject?.name || 'Unknown'}</div>
         </div>
 
-        {/* Current Readiness */}
         <div className="p-5 bg-white/5 border border-white/10 rounded-xl">
           <div className="text-xs text-zinc-500 uppercase tracking-wider mb-3 font-bold">Current Readiness</div>
           <div className="flex items-end gap-4">
             <div className={`text-5xl font-bold font-mono tabular-nums ${currentReadiness?.status === 'critical' ? 'text-red-400' :
-              currentReadiness?.status === 'maintaining' ? 'text-yellow-400' :
-                'text-emerald-400'
+                currentReadiness?.status === 'maintaining' ? 'text-yellow-400' :
+                  'text-emerald-400'
               }`}>
               {currentReadiness?.score || 0}%
             </div>
             <div className={`text-xs mb-2 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider ${currentReadiness?.status === 'critical' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
-              currentReadiness?.status === 'maintaining' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
-                'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                currentReadiness?.status === 'maintaining' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
+                  'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
               }`}>
               {currentReadiness?.status || 'unknown'}
             </div>
@@ -68,7 +62,6 @@ const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
           )}
         </div>
 
-        {/* Prediction */}
         <div>
           <div className="text-sm font-bold text-zinc-300 flex items-center gap-2 mb-3">
             <TrendingUp size={16} className="text-emerald-400" />
@@ -84,7 +77,6 @@ const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
           </div>
         </div>
 
-        {/* Disclaimer */}
         <div className="text-xs text-zinc-500 italic p-4 bg-zinc-800/30 rounded-xl border border-white/5">
           💡 This is a simplified prediction. Actual results depend on comprehension, retention, and review quality.
         </div>
@@ -109,6 +101,9 @@ const base64ToBlobUrl = (dataUrl: string, mime: string) => {
 const isOfficeDoc = (type: string) =>
   type.includes("presentation") || type.includes("msword") || type.includes("officedocument");
 
+const isPowerPoint = (type: string) =>
+  type.includes("presentation") || type.includes("powerpoint") || type.includes(".ppt");
+
 export default function CoursesView_v2() {
   const subjects = useLiveQuery(() => db.subjects.toArray()) || [];
   const logs = useLiveQuery(() => db.logs.toArray()) || [];
@@ -119,7 +114,6 @@ export default function CoursesView_v2() {
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
   const [selectedResource, setSelectedResource] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [dragActive, setDragActive] = useState(false);
   const [newUnit, setNewUnit] = useState("");
   const [showGradeForm, setShowGradeForm] = useState(false);
   const [newGrade, setNewGrade] = useState({ type: "", score: "", maxScore: "100", date: "" });
@@ -136,25 +130,9 @@ export default function CoursesView_v2() {
     loadReadiness();
   }, []);
 
-  // 🔧 FIX: Ensure selectedSubject is properly found
   const selectedSubject = selectedSubjectId != null
     ? subjects.find((s) => s.id === selectedSubjectId)
     : null;
-
-  // 🔧 DEBUG: Log selected subject for debugging
-  useEffect(() => {
-    if (selectedSubjectId !== null) {
-      console.log('Selected Subject ID:', selectedSubjectId);
-      console.log('All Subjects:', subjects);
-      console.log('Found Subject:', selectedSubject);
-    }
-  }, [selectedSubjectId, subjects, selectedSubject]);
-
-  // ❌ STEP 1: Remove global scroll locking effect
-  // useEffect(() => {
-  //   document.body.style.overflow = selectedSubject || selectedResource ? "hidden" : "";
-  //   return () => { document.body.style.overflow = ""; };
-  // }, [selectedSubject, selectedResource]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -184,8 +162,6 @@ export default function CoursesView_v2() {
       setPreviewUrl(null);
     }
   }, [selectedResource]);
-
-
 
   const getInitials = (name: string) =>
     (name || "").split(" ").slice(0, 2).map((p) => (p && p[0]) || "").join("").toUpperCase();
@@ -301,6 +277,7 @@ export default function CoursesView_v2() {
       return;
     }
 
+    // Always download office documents (including PowerPoint)
     if (isOfficeDoc(r.fileType)) {
       const link = document.createElement("a");
       link.href = url;
@@ -340,48 +317,121 @@ export default function CoursesView_v2() {
     setNewUnit("");
   };
 
-  // Resource Viewer
+  // ✨ FIXED: Resource Viewer with fullscreen, auto-download PPT, and enhanced controls
   if (selectedResource && selectedResource.type !== 'link') {
-    const canPreview = selectedResource.fileType?.includes("pdf") ||
+    const isPPT = isPowerPoint(selectedResource.fileType);
+    const canPreview = !isPPT && (
+      selectedResource.fileType?.includes("pdf") ||
       selectedResource.fileType?.startsWith("image") ||
-      selectedResource.fileType?.startsWith("video");
+      selectedResource.fileType?.startsWith("video")
+    );
+
+    const [isFullscreen, setIsFullscreen] = React.useState(false);
+
+    const toggleFullscreen = () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    };
+
+    // Auto-download PPT files when opened
+    React.useEffect(() => {
+      if (isPPT && selectedResource) {
+        // Trigger download automatically
+        openExternally(selectedResource);
+      }
+    }, [isPPT, selectedResource?.id]);
 
     return (
-      <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center animate-in fade-in duration-300">
-        <button
-          onClick={() => setSelectedResource(null)}
-          className="fixed top-8 right-8 p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all hover:scale-110 active:scale-95 duration-300 min-h-[56px] min-w-[56px]"
-        >
-          <X size={24} />
-        </button>
-
-        <div className="w-full max-w-6xl h-[90vh] bg-zinc-900 rounded-3xl border border-white/10 flex flex-col shadow-2xl">
-          <div className="p-6 border-b border-white/10 flex justify-between items-center">
-            <div className="font-bold truncate text-lg">{selectedResource.title}</div>
-            <button
-              onClick={() => openExternally(selectedResource)}
-              className="px-6 py-3 bg-indigo-500/20 hover:bg-indigo-500/30 rounded-xl transition-all font-bold text-sm border border-indigo-500/30 hover:scale-105 active:scale-95 duration-300 min-h-[56px]"
-            >
-              Open in new tab
-            </button>
+      <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center animate-in fade-in duration-300 p-4 md:p-8">
+        {/* Floating Header with Controls */}
+        <div className="fixed top-4 md:top-8 left-4 md:left-8 right-4 md:right-8 z-[60] flex items-center justify-between gap-4">
+          {/* Filename Badge */}
+          <div className="flex items-center gap-3 bg-zinc-900/90 backdrop-blur-xl border border-white/10 rounded-2xl px-4 md:px-6 py-3 md:py-4 min-w-0 flex-1 shadow-xl">
+            {isPPT && <Presentation size={18} className="text-orange-400 flex-shrink-0" />}
+            <div className="font-bold truncate text-sm md:text-base text-white">{selectedResource.title}</div>
           </div>
 
-          <div className="flex-1 bg-zinc-950 p-6 rounded-b-3xl overflow-hidden">
-            {canPreview ? (
-              selectedResource.fileType.includes("pdf") ? (
-                <iframe src={previewUrl ?? ""} className="w-full h-full bg-white rounded-2xl" />
-              ) : selectedResource.fileType.startsWith("image") ? (
-                <img src={previewUrl ?? ""} className="max-w-full max-h-full mx-auto rounded-2xl" />
+          {/* Control Buttons */}
+          <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+            {/* Fullscreen Toggle */}
+            <button
+              onClick={toggleFullscreen}
+              className="p-3 md:p-4 bg-zinc-900/90 backdrop-blur-xl border border-white/10 rounded-2xl hover:bg-zinc-800 transition-all hover:scale-110 active:scale-95 duration-300 min-h-[48px] min-w-[48px] md:min-h-[56px] md:min-w-[56px] flex items-center justify-center text-zinc-300 hover:text-white shadow-xl"
+              title={isFullscreen ? "Exit Fullscreen (Esc)" : "Fullscreen"}
+            >
+              {isFullscreen ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+                </svg>
               ) : (
-                <video src={previewUrl ?? ""} controls className="w-full h-full rounded-2xl" />
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                </svg>
+              )}
+            </button>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedResource(null)}
+              className="p-3 md:p-4 bg-zinc-900/90 backdrop-blur-xl border border-white/10 rounded-2xl hover:bg-zinc-800 transition-all hover:scale-110 active:scale-95 duration-300 min-h-[48px] min-w-[48px] md:min-h-[56px] md:min-w-[56px] flex items-center justify-center text-zinc-300 hover:text-white shadow-xl"
+              title="Close (Esc)"
+            >
+              <X size={22} />
+            </button>
+          </div>
+        </div>
+
+        {/* Centered Content Container */}
+        <div className="w-full max-w-6xl h-[85vh] bg-zinc-900 rounded-3xl border border-white/10 flex flex-col shadow-2xl overflow-hidden my-auto">
+          {/* Content Area */}
+          <div className="flex-1 bg-zinc-950 p-4 md:p-6 rounded-3xl overflow-hidden flex items-center justify-center min-h-0">
+            {isPPT ? (
+              <div className="flex flex-col items-center justify-center text-center max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="w-24 h-24 md:w-28 md:h-28 rounded-3xl bg-gradient-to-br from-orange-500/20 to-orange-600/20 flex items-center justify-center mb-8 border border-orange-500/30 shadow-lg shadow-orange-500/20 animate-in zoom-in duration-700">
+                  <Presentation size={48} className="text-orange-400" />
+                </div>
+                <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">PowerPoint Presentation</h3>
+                <p className="text-sm md:text-base text-zinc-400 mb-8 leading-relaxed">
+                  Your download should start automatically. If it doesn't, click the button below to download.
+                </p>
+                <button
+                  onClick={() => openExternally(selectedResource)}
+                  className="px-8 md:px-10 py-4 md:py-5 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 rounded-2xl transition-all font-bold text-base md:text-lg border border-indigo-500/30 hover:scale-105 active:scale-95 duration-300 flex items-center justify-center gap-3 min-h-[64px] shadow-lg hover:shadow-indigo-500/20"
+                >
+                  <Download size={22} />
+                  Download Presentation
+                </button>
+                <div className="flex items-center gap-2 text-xs text-zinc-600 bg-zinc-900/50 px-5 py-3 rounded-xl border border-zinc-800 mt-8">
+                  <span className="font-mono">{selectedResource.fileType}</span>
+                </div>
+              </div>
+            ) : canPreview ? (
+              selectedResource.fileType.includes("pdf") ? (
+                <iframe src={previewUrl ?? ""} className="w-full h-full bg-white rounded-2xl shadow-2xl" />
+              ) : selectedResource.fileType.startsWith("image") ? (
+                <img src={previewUrl ?? ""} className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl" />
+              ) : (
+                <video src={previewUrl ?? ""} controls className="max-w-full max-h-full rounded-2xl shadow-2xl" />
               )
             ) : (
-              <div className="h-full flex items-center justify-center text-zinc-500 text-center">
-                <div>
-                  <FileText size={48} className="mx-auto mb-4 opacity-50" />
-                  <p>Preview not supported</p>
-                  <p className="text-sm mt-2">Use "Open in new tab"</p>
+              <div className="flex flex-col items-center justify-center text-center max-w-md">
+                <div className="w-24 h-24 md:w-28 md:h-28 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-8 shadow-lg">
+                  <FileText size={48} className="text-zinc-600" />
                 </div>
+                <h3 className="text-xl md:text-2xl font-bold text-white mb-3">Preview not supported</h3>
+                <p className="text-sm md:text-base text-zinc-500 mb-8 leading-relaxed">This file type cannot be previewed in the browser</p>
+                <button
+                  onClick={() => openExternally(selectedResource)}
+                  className="px-8 md:px-10 py-4 md:py-5 bg-indigo-500/20 hover:bg-indigo-500/30 rounded-2xl transition-all font-bold text-base border border-indigo-500/30 hover:scale-105 active:scale-95 duration-300 flex items-center justify-center gap-3 min-h-[64px]"
+                >
+                  <Download size={22} />
+                  Download File
+                </button>
               </div>
             )}
           </div>
@@ -390,7 +440,7 @@ export default function CoursesView_v2() {
     );
   }
 
-  // STEP 2-4: Subject Detail – switch to inline/normal layout, remove modal/bg-black/floating X, add top back button
+  // Subject Detail View
   if (selectedSubject) {
     const subjectColor = getSubjectColor(selectedSubject.id!);
     const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
@@ -406,7 +456,7 @@ export default function CoursesView_v2() {
         </button>
 
         {/* Header */}
-        <div className="flex items-center gap-4 md:gap-6">
+        <div className="flex items-center gap-4 md:gap-6 mb-8">
           <div className={`w-16 h-16 md:w-20 md:h-20 ${colorClasses.bg} rounded-3xl flex items-center justify-center font-bold text-black text-xl md:text-2xl shadow-xl shrink-0`}>
             {getInitials(selectedSubject.name)}
           </div>
@@ -420,44 +470,51 @@ export default function CoursesView_v2() {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mt-6 md:mt-10">
+        {/* ✨ Enhanced Stats Grid with Icon Tiles */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-10">
           {[
-            { label: "Progress", value: `${computeProgress(selectedSubject)}%`, color: "indigo" },
-            { label: "Study Time", value: `${getTotalHours(selectedSubject.id!)}h`, color: "emerald" },
-            { label: "Avg Score", value: gpa ? `${gpa}%` : '--', color: "amber" },
-            { label: "Resources", value: (selectedSubject.resources || []).length, color: "cyan" }
-          ].map((stat, i) => (
-            <FrostedTile key={i} className="p-4 md:p-6 group hover:border-indigo-500/30 hover:-translate-y-1">
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative z-10">
-                <div className="text-xs text-zinc-500 uppercase tracking-wider font-bold mb-2 md:mb-3">{stat.label}</div>
-                <div className={`text-3xl md:text-4xl lg:text-5xl font-bold font-mono tabular-nums text-${stat.color}-400 group-hover:scale-110 transition-transform duration-300`}>
-                  {stat.value}
+            { label: "Progress", value: `${computeProgress(selectedSubject)}%`, color: "indigo", icon: Target },
+            { label: "Study Time", value: `${getTotalHours(selectedSubject.id!)}h`, color: "emerald", icon: Clock },
+            { label: "Avg Score", value: gpa ? `${gpa}%` : '--', color: "amber", icon: TrendingUp },
+            { label: "Resources", value: (selectedSubject.resources || []).length, color: "cyan", icon: FileText }
+          ].map((stat, i) => {
+            const Icon = stat.icon;
+            return (
+              <FrostedTile key={i} className="p-4 md:p-6 group hover:border-indigo-500/30 hover:-translate-y-1">
+                <div className={`absolute inset-0 bg-gradient-to-br from-${stat.color}-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+                <div className="relative z-10">
+                  <div className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-${stat.color}-500/20 flex items-center justify-center mb-3 md:mb-4 text-${stat.color}-400 group-hover:scale-110 transition-transform duration-500 border border-${stat.color}-500/30 shadow-lg shadow-${stat.color}-500/10`}>
+                    <Icon size={20} className="md:hidden" />
+                    <Icon size={24} className="hidden md:block" />
+                  </div>
+                  <div className="text-xs text-zinc-500 uppercase tracking-wider font-bold mb-2">{stat.label}</div>
+                  <div className={`text-3xl md:text-4xl font-bold font-mono tabular-nums text-${stat.color}-400`}>
+                    {stat.value}
+                  </div>
                 </div>
-              </div>
-            </FrostedTile>
-          ))}
+              </FrostedTile>
+            );
+          })}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mt-8 md:mt-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
 
-          {/* Syllabus Section */}
+          {/* ✨ Enhanced Syllabus Section */}
           <FrostedTile className="p-6 md:p-8 hover:border-indigo-500/30 hover:-translate-y-1">
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="relative z-10">
-              <h3 className="font-bold text-lg md:text-xl mb-4 md:mb-6 flex items-center gap-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/20 flex items-center justify-center border border-indigo-500/30">
-                  <Target size={20} className="md:hidden text-indigo-400" />
-                  <Target size={22} className="hidden md:block text-indigo-400" />
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform duration-500 border border-indigo-500/30 shadow-lg shadow-indigo-500/10">
+                  <Target size={24} className="md:hidden" />
+                  <Target size={28} className="hidden md:block" />
                 </div>
-                <span>Syllabus</span>
-              </h3>
+                <h3 className="text-lg md:text-xl font-bold text-white">Syllabus</h3>
+              </div>
 
               {(selectedSubject.syllabus || []).length === 0 ? (
                 <EmptySyllabus />
               ) : (
-                <div className="space-y-2 mb-4 md:mb-6 max-h-[400px] overflow-y-auto">
+                <div className="space-y-2 mb-6 max-h-[400px] overflow-y-auto">
                   {(selectedSubject.syllabus || []).map((u: any) => (
                     <div
                       key={u.id}
@@ -498,18 +555,18 @@ export default function CoursesView_v2() {
             </div>
           </FrostedTile>
 
-          {/* Grades Section */}
+          {/* ✨ Enhanced Grades Section */}
           <FrostedTile className="p-6 md:p-8 hover:border-emerald-500/30 hover:-translate-y-1">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4 md:mb-6">
-                <h3 className="font-bold text-lg md:text-xl flex items-center gap-3">
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 flex items-center justify-center border border-emerald-500/30">
-                    <Calculator size={20} className="md:hidden text-emerald-400" />
-                    <Calculator size={22} className="hidden md:block text-emerald-400" />
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform duration-500 border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
+                    <Calculator size={24} className="md:hidden" />
+                    <Calculator size={28} className="hidden md:block" />
                   </div>
-                  <span>Grades</span>
-                </h3>
+                  <h3 className="text-lg md:text-xl font-bold text-white">Grades</h3>
+                </div>
                 <button
                   onClick={() => setShowGradeForm(!showGradeForm)}
                   className="p-2 md:p-3 hover:bg-white/10 rounded-2xl transition-all hover:scale-110 active:scale-95 duration-300 min-h-[44px] md:min-h-[56px] min-w-[44px] md:min-w-[56px] flex items-center justify-center"
@@ -519,7 +576,7 @@ export default function CoursesView_v2() {
               </div>
 
               {showGradeForm && (
-                <div className="mb-4 md:mb-6 p-4 md:p-6 bg-zinc-900/60 rounded-2xl space-y-3 md:space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 border border-zinc-800">
+                <div className="mb-6 p-4 md:p-6 bg-zinc-900/60 rounded-2xl space-y-3 md:space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 border border-zinc-800">
                   <input
                     placeholder="Type (e.g., ISA-1, Quiz 2)"
                     value={newGrade.type}
@@ -580,17 +637,17 @@ export default function CoursesView_v2() {
             </div>
           </FrostedTile>
 
-          {/* Resources Section */}
+          {/* ✨ Enhanced Resources Section */}
           <FrostedTile className="lg:col-span-2 p-6 md:p-8 hover:border-purple-500/30 hover:-translate-y-1">
             <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="relative z-10">
-              <h3 className="font-bold text-lg md:text-xl mb-4 md:mb-6 flex items-center gap-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-gradient-to-br from-purple-500/20 to-purple-600/20 flex items-center justify-center border border-purple-500/30">
-                  <FileText size={20} className="md:hidden text-purple-400" />
-                  <FileText size={22} className="hidden md:block text-purple-400" />
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform duration-500 border border-purple-500/30 shadow-lg shadow-purple-500/10">
+                  <FileText size={24} className="md:hidden" />
+                  <FileText size={28} className="hidden md:block" />
                 </div>
-                <span>Resources</span>
-              </h3>
+                <h3 className="text-lg md:text-xl font-bold text-white">Resources</h3>
+              </div>
 
               {(selectedSubject.resources || []).length === 0 ? (
                 <EmptyResources />
@@ -602,10 +659,13 @@ export default function CoursesView_v2() {
                         className="flex items-center gap-3 md:gap-4 flex-1 cursor-pointer min-w-0"
                         onClick={() => r.type === 'link' ? openExternally(r) : setSelectedResource(r)}
                       >
-                        {r.type === 'link' ?
-                          <Link size={20} className="text-cyan-400 shrink-0" /> :
+                        {r.type === 'link' ? (
+                          <Link size={20} className="text-cyan-400 shrink-0" />
+                        ) : isPowerPoint(r.fileType) ? (
+                          <Presentation size={20} className="text-orange-400 shrink-0" />
+                        ) : (
                           <FileText size={20} className="text-purple-400 shrink-0" />
-                        }
+                        )}
                         <span className="truncate text-sm md:text-base font-medium">{r.title}</span>
                       </div>
                       <div className="flex items-center gap-3 md:gap-4 shrink-0">
@@ -625,8 +685,7 @@ export default function CoursesView_v2() {
               )}
 
               <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
-                <label className={`flex-1 px-4 md:px-6 py-4 md:py-5 text-sm md:text-base text-center rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 font-semibold min-h-[56px] md:min-h-[64px] flex items-center justify-center gap-2 md:gap-3 ${dragActive ? "border-cyan-400 bg-cyan-500/20" : "border-white/10 hover:border-indigo-500/40"
-                  }`}>
+                <label className="flex-1 px-4 md:px-6 py-4 md:py-5 text-sm md:text-base text-center rounded-2xl border border-white/10 hover:border-indigo-500/40 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 font-semibold min-h-[56px] md:min-h-[64px] flex items-center justify-center gap-2 md:gap-3">
                   <input type="file" multiple hidden onChange={async (e: any) => {
                     const files = Array.from((e.target?.files || [])) as File[];
                     for (const f of files) await processAndSaveFile(f);
@@ -645,7 +704,7 @@ export default function CoursesView_v2() {
               </div>
 
               {showLinkForm && (
-                <div className="mt-4 md:mt-6 p-4 md:p-6 bg-zinc-900/60 rounded-2xl space-y-3 md:space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 border border-zinc-800">
+                <div className="mt-6 p-4 md:p-6 bg-zinc-900/60 rounded-2xl space-y-3 md:space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 border border-zinc-800">
                   <input
                     placeholder="Link title"
                     value={newLink.title}
@@ -669,17 +728,17 @@ export default function CoursesView_v2() {
             </div>
           </FrostedTile>
 
-          {/* Session Notes */}
+          {/* ✨ Enhanced Session Notes */}
           <FrostedTile className="lg:col-span-2 p-6 md:p-8 hover:border-amber-500/30 hover:-translate-y-1">
             <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="relative z-10">
-              <h3 className="font-bold text-lg md:text-xl mb-4 md:mb-6 flex items-center gap-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-600/20 flex items-center justify-center border border-amber-500/30">
-                  <StickyNote size={20} className="md:hidden text-amber-400" />
-                  <StickyNote size={22} className="hidden md:block text-amber-400" />
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform duration-500 border border-amber-500/30 shadow-lg shadow-amber-500/10">
+                  <StickyNote size={24} className="md:hidden" />
+                  <StickyNote size={28} className="hidden md:block" />
                 </div>
-                <span>Session Notes</span>
-              </h3>
+                <h3 className="text-lg md:text-xl font-bold text-white">Session Notes</h3>
+              </div>
 
               {(() => {
                 const subjectLogs = logs
@@ -809,12 +868,11 @@ export default function CoursesView_v2() {
         )
       ) : (
         <div className="grid md:grid-cols-2 gap-6 md:gap-8">
-          {filtered.map((s, i) => {
+          {filtered.map((s) => {
             const subjectColor = getSubjectColor(s.id!);
             const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
             const progress = computeProgress(s);
             const gpa = calculateGPA(s.grades || []);
-            const readiness = readinessScores[s.id!];
 
             return (
               <FrostedTile

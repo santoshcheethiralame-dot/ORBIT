@@ -63,6 +63,17 @@ export const FocusSession = ({
   const [sessionNotes, setSessionNotes] = useState("");
   const [wasSkipped, setWasSkipped] = useState(false);
 
+  // ✅ FIX: Prevent transition flicker on mount
+  const [transitionsEnabled, setTransitionsEnabled] = useState(false);
+
+  useEffect(() => {
+    // Enable smooth transitions only after component has mounted
+    const timer = setTimeout(() => {
+      setTransitionsEnabled(true);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
   // v2: Call this instead of onComplete directly (when session ends or finish early)
   const handleFocusComplete = useCallback(
     async (actualDuration?: number, sessionNotes?: string) => {
@@ -194,14 +205,20 @@ export const FocusSession = ({
       if (e.key === "Escape") {
         if (showNotes) {
           setShowNotes(false);
-        } else {
+        } else if (isActive) {
+          // ✨ UX IMPROVEMENT: Pause on Escape instead of doing nothing
           setIsActive(false);
         }
+      }
+      // ✨ UX IMPROVEMENT: Space bar to toggle timer (common pattern)
+      if (e.key === " " && !showNotes && e.target === document.body) {
+        e.preventDefault();
+        toggleTimer();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showNotes]);
+  }, [showNotes, isActive]);
 
   /* ---------------- Pause when opening notes ---------------- */
   useEffect(() => {
@@ -269,18 +286,6 @@ export const FocusSession = ({
     Math.max(0, (currentTotal - currentVal) / currentTotal)
   );
 
-  // Force-stabilize progress ring on mount
-  const isInitial = React.useRef(true);
-  const [hasStarted, setHasStarted] = useState(false);
-
-  useEffect(() => {
-    // Wait a frame to ensure all parent state (block duration) is resolved
-    const timer = setTimeout(() => {
-      isInitial.current = false;
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
-
   const dashOffset = CIRCUMFERENCE * (1 - progress);
 
   const strokeWidth = 12;
@@ -290,7 +295,7 @@ export const FocusSession = ({
 
   /* ---------------- Microinteractions ---------------- */
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive || !transitionsEnabled) return;
     const el = document.getElementById("progress-ring");
     if (!el) return;
     try {
@@ -299,7 +304,7 @@ export const FocusSession = ({
         { duration: 260, easing: "ease-out" }
       );
     } catch { }
-  }, [currentVal, isActive]);
+  }, [currentVal, isActive, transitionsEnabled]);
 
   useEffect(() => {
     if (!confirmFinish) return;
@@ -415,7 +420,11 @@ export const FocusSession = ({
                 strokeDashoffset={dashOffset}
                 strokeLinecap="round"
                 transform={`rotate(-90 ${SVG_SIZE / 2} ${SVG_SIZE / 2})`}
-                style={{ transition: isInitial.current ? "none" : "stroke-dashoffset 0.6s ease, stroke 0.3s ease" }}
+                style={{
+                  transition: transitionsEnabled && isActive
+                    ? "stroke-dashoffset 0.6s ease, stroke 0.3s ease"
+                    : "none"
+                }}
               />
             </g>
           </svg>
@@ -431,7 +440,7 @@ export const FocusSession = ({
         <div className="flex gap-4 w-full mb-6">
           <button
             onClick={toggleTimer}
-            className={`cta-button flex-1 h-16 rounded-2xl flex items-center justify-center gap-3 font-medium transition-transform duration-150 ${isActive
+            className={`cta-button flex-1 h-16 rounded-2xl flex items-center justify-center gap-3 font-medium transition-all duration-150 ${isActive
               ? "bg-zinc-800 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]"
               : "bg-white text-black shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 hover:shadow-[0_18px_50px_rgba(0,0,0,0.6)]"
               }`}
@@ -444,7 +453,7 @@ export const FocusSession = ({
 
           <button
             onClick={() => setShowNotes(true)}
-            className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition"
+            className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition-all"
             aria-label="Open notes"
           >
             <BookOpen size={20} />
@@ -455,7 +464,7 @@ export const FocusSession = ({
           {!isBreak ? (
             <button
               onClick={startBreak}
-              className="h-12 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center gap-2 transition"
+              className="h-12 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800/60 flex items-center justify-center gap-2 transition-all"
             >
               <Coffee size={16} />
               Take Break
@@ -468,7 +477,7 @@ export const FocusSession = ({
                 setBreakStartTime(null);
                 setIsActive(false);
               }}
-              className="h-12 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center gap-2 transition"
+              className="h-12 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800/60 flex items-center justify-center gap-2 transition-all"
             >
               <Coffee size={16} />
               End Break
@@ -478,7 +487,7 @@ export const FocusSession = ({
           <button
             id="finish-early"
             onClick={finishSessionEarly}
-            className={`h-12 rounded-lg border font-medium transition ${confirmFinish
+            className={`h-12 rounded-lg border font-medium transition-all ${confirmFinish
               ? "bg-amber-400 text-black border-amber-300 shadow-[0_6px_24px_rgba(250,204,21,0.12)]"
               : "bg-zinc-900 border-zinc-800 text-amber-400 hover:bg-zinc-800 hover:text-amber-300"
               }`}
@@ -499,6 +508,11 @@ export const FocusSession = ({
           <StopCircle size={12} />
           <span style={{ letterSpacing: "0.18em" }}>ABORT MISSION</span>
         </button>
+
+        {/* ✨ UX IMPROVEMENT: Keyboard shortcuts hint */}
+        <div className="mt-4 text-[10px] tracking-wider text-zinc-600 font-mono">
+          Press <span className="text-zinc-500">SPACE</span> to start/pause
+        </div>
       </div>
 
       {showNotes && (
@@ -671,4 +685,4 @@ export const FocusSession = ({
       )}
     </div>
   );
-};
+};  
