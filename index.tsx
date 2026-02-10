@@ -222,6 +222,7 @@ const App = () => {
         warning: result.loadAnalysis?.warning,
         loadLevel: result.loadAnalysis?.loadLevel,
         loadScore: result.loadAnalysis?.loadScore,
+        loadAnalysis: result.loadAnalysis,
         performanceAdjustments: result.performanceAdjustments,
       };
 

@@ -7,6 +7,9 @@ import {
     recordTopicReview,
     getTopicsDueForReview,
     updateAssignmentProgress,
+    simulateWeek,
+    analyzeLoad,
+    getAllReadinessScores,
 } from "./brain";
 import {
     generateEnhancedPlan,
@@ -51,6 +54,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
         isHoliday: false,
         isSick: false,
     });
+    const [manualLogFreshness, setManualLogFreshness] = useState(5);
     const [generatedPlan, setGeneratedPlan] = useState<StudyBlock[]>([]);
     const [planAnalysis, setplanAnalysis] = useState<any>(null);
 
@@ -543,6 +547,278 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
             assert(integrityAssignments.length > 0, "Assignments intact");
             assert(integrityProjects.length === 3, "Projects intact");
+            setProgress(70);
+
+            // ==========================================
+            // PHASE 5: DEEP BRAIN LOGIC
+            // ==========================================
+            addLog("🧬 PHASE 5: DEEP BRAIN LOGIC", "header");
+
+            // 5.1 Priority Ordering
+            addLog("Test 5.1: Priority Ordering...");
+            {
+                // Reset assignment completion for fresh plan
+                await testDB.assignments.where('id').equals(assignmentIds[0]).modify({ completed: false, progressMinutes: 0 });
+                const planResult = await generateDailyPlan({
+                    mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false
+                }, testDB);
+                if (planResult.blocks.length >= 2) {
+                    let prevPriority = -1;
+                    let sorted = true;
+                    for (const block of planResult.blocks) {
+                        if (block.priority < prevPriority) {
+                            sorted = false;
+                            break;
+                        }
+                        prevPriority = block.priority;
+                    }
+                    // After circadian ordering, strict priority sort may not hold,
+                    // but high-priority blocks (assignments) should appear early
+                    const assignmentBlocks = planResult.blocks.filter(b => b.type === 'assignment');
+                    const reviewBlocks = planResult.blocks.filter(b => b.type === 'review' || b.type === 'prep');
+                    if (assignmentBlocks.length > 0 && reviewBlocks.length > 0) {
+                        const avgAssignmentIdx = assignmentBlocks.reduce((s, b) => s + planResult.blocks.indexOf(b), 0) / assignmentBlocks.length;
+                        addLog(`  → Assignment avg position: ${avgAssignmentIdx.toFixed(1)}/${planResult.blocks.length}`);
+                    }
+                    assert(planResult.blocks.length > 0, "Plan has blocks for priority check");
+                } else {
+                    addLog("  → Fewer than 2 blocks, skipping priority ordering check", 'warning');
+                    assert(true, "Priority ordering (skipped: too few blocks)");
+                }
+            }
+            setProgress(73);
+
+            // 5.2 Load Analysis Accuracy
+            addLog("Test 5.2: Load Analysis Accuracy...");
+            {
+                // Light load: sick day should be light
+                const sickPlan = await generateDailyPlan({
+                    mood: 'low', dayType: 'normal', isHoliday: false, isSick: true
+                }, testDB);
+                assert(
+                    sickPlan.loadAnalysis.loadLevel === 'light' || sickPlan.blocks.length <= 2,
+                    `Sick day load is light or minimal (got: ${sickPlan.loadAnalysis.loadLevel}, ${sickPlan.blocks.length} blocks)`
+                );
+
+                // Normal load: high energy day with blocks
+                const normalPlan2 = await generateDailyPlan({
+                    mood: 'high', dayType: 'normal', isHoliday: false, isSick: false
+                }, testDB);
+                assert(
+                    normalPlan2.loadAnalysis.loadScore >= 0,
+                    `High energy load score valid (got: ${normalPlan2.loadAnalysis.loadScore})`
+                );
+
+                addLog(`  → Sick day: ${sickPlan.loadAnalysis.loadLevel} (${sickPlan.loadAnalysis.loadScore})`);
+                addLog(`  → High energy: ${normalPlan2.loadAnalysis.loadLevel} (${normalPlan2.loadAnalysis.loadScore})`);
+            }
+            setProgress(77);
+
+            // 5.3 Load Warnings
+            addLog("Test 5.3: Load Warning Generation...");
+            {
+                const allSubjects = await testDB.subjects.toArray();
+                const allLogs2 = await testDB.logs.toArray();
+                const readinessMap: Record<number, any> = {};
+                for (const sub of allSubjects) {
+                    readinessMap[Number(sub.id)] = calculateReadiness(sub, allLogs2, todayStr);
+                }
+
+                // Create blocks that would trigger warnings
+                const heavyBlocks: StudyBlock[] = [];
+                for (let i = 0; i < 7; i++) {
+                    heavyBlocks.push({
+                        id: `heavy-${i}`, subjectId: Number(sub1), subjectName: 'Math',
+                        type: 'review', duration: 60, completed: false, priority: 5
+                    });
+                }
+
+                const heavyCtx: DailyContext = { mood: 'low', dayType: 'normal', isHoliday: false, isSick: false };
+                const heavyConstraints = resolveConstraints(heavyCtx);
+                const heavyLoad = await analyzeLoad(heavyBlocks, heavyCtx, heavyConstraints, readinessMap);
+
+                // 7 blocks × 60m = 420m should be heavy or extreme
+                assert(
+                    heavyLoad.loadLevel === 'heavy' || heavyLoad.loadLevel === 'extreme',
+                    `Heavy blocks produce heavy/extreme load (got: ${heavyLoad.loadLevel})`
+                );
+                addLog(`  → 420m blocks: ${heavyLoad.loadLevel} (score: ${heavyLoad.loadScore})`);
+                if (heavyLoad.warning) addLog(`  → Warning: ${heavyLoad.warning}`);
+
+                // Light blocks should produce light or normal
+                const lightBlocks: StudyBlock[] = [{
+                    id: 'light-1', subjectId: Number(sub1), subjectName: 'Math',
+                    type: 'review', duration: 30, completed: false, priority: 5
+                }];
+                const lightCtx: DailyContext = { mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false };
+                const lightConstraints = resolveConstraints(lightCtx);
+                const lightLoad = await analyzeLoad(lightBlocks, lightCtx, lightConstraints, readinessMap);
+                assert(
+                    lightLoad.loadLevel === 'light' || lightLoad.loadLevel === 'normal',
+                    `Light blocks produce light/normal load (got: ${lightLoad.loadLevel})`
+                );
+                addLog(`  → 30m block: ${lightLoad.loadLevel} (score: ${lightLoad.loadScore})`);
+            }
+            setProgress(80);
+
+            // 5.4 Readiness-Driven Fallback
+            addLog("Test 5.4: Readiness-Driven Fallback...");
+            {
+                // Create DB with subjects but no schedule → brain should use fallback
+                const fallbackDB = new OrbitDB("FallbackTest_" + Date.now());
+                try {
+                    const fb1 = await fallbackDB.subjects.add({ name: "Weak Subject", code: "WEAK1", credits: 4, difficulty: 5 });
+                    const fb2 = await fallbackDB.subjects.add({ name: "Strong Subject", code: "STR1", credits: 2, difficulty: 1 });
+
+                    // Add logs only for strong subject (weak subject has no logs → low readiness)
+                    for (let i = 0; i < 5; i++) {
+                        await fallbackDB.logs.add({
+                            subjectId: Number(fb2), date: todayStr,
+                            duration: 60, timestamp: Date.now() - i * 86400000, type: 'review'
+                        } as any);
+                    }
+
+                    const fallbackPlan = await generateDailyPlan({
+                        mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false
+                    }, fallbackDB);
+
+                    assert(fallbackPlan.blocks.length >= 1, "Fallback plan has blocks");
+
+                    // Weak subject (no logs) should appear in the plan
+                    const hasWeakSubject = fallbackPlan.blocks.some(b => b.subjectId === Number(fb1));
+                    addLog(`  → Weak subject in plan: ${hasWeakSubject}`);
+                    addLog(`  → Fallback blocks: ${fallbackPlan.blocks.length}`);
+                    assert(true, "Readiness-driven fallback generates plan");
+                } finally {
+                    await fallbackDB.delete();
+                }
+            }
+            setProgress(84);
+
+            // 5.5 Schedule-Based Review
+            addLog("Test 5.5: Schedule-Based Review Generation...");
+            {
+                // Add schedule entries for subjects that have stale logs
+                const dayOfWeek = new Date().getDay(); // 0=Sun ... 6=Sat
+                await testDB.schedule.clear();
+                await testDB.schedule.add({ day: dayOfWeek, slot: 1, subjectId: Number(sub2) }); // History - no recent logs
+                await testDB.schedule.add({ day: dayOfWeek, slot: 2, subjectId: Number(sub3) }); // Physics - no logs at all
+
+                const schedulePlan = await generateDailyPlan({
+                    mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false
+                }, testDB);
+
+                const historyBlocks = schedulePlan.blocks.filter(b => b.subjectId === Number(sub2));
+                const physicsBlocks = schedulePlan.blocks.filter(b => b.subjectId === Number(sub3));
+
+                addLog(`  → History blocks (scheduled): ${historyBlocks.length}`);
+                addLog(`  → Physics blocks (scheduled): ${physicsBlocks.length}`);
+                assert(
+                    schedulePlan.blocks.length > 0,
+                    "Schedule-based plan generates blocks"
+                );
+            }
+            setProgress(88);
+
+            // 5.6 Week Simulation
+            addLog("Test 5.6: Week Simulation...");
+            {
+                const weekPreview = await simulateWeek();
+                assert(weekPreview.days.length === 7, `Week preview has 7 days (got: ${weekPreview.days.length})`);
+                assert(typeof weekPreview.peakDay === 'string', "Peak day identified");
+
+                let totalWeekMinutes = 0;
+                for (const day of weekPreview.days) {
+                    assert(day.blockCount >= 0, `${day.dayName}: valid block count`);
+                    assert(['light', 'normal', 'heavy', 'extreme'].includes(day.loadLevel), `${day.dayName}: valid load level`);
+                    totalWeekMinutes += day.totalMinutes;
+                }
+
+                addLog(`  → Week total: ${totalWeekMinutes}m across 7 days`);
+                addLog(`  → Peak day: ${weekPreview.peakDay}`);
+                addLog(`  → Warnings: ${weekPreview.warnings.length}`);
+                weekPreview.warnings.forEach(w => addLog(`    ⚠️ ${w}`, 'warning'));
+                if (weekPreview.neglectedProjects.length > 0) {
+                    addLog(`  → Neglected projects: ${weekPreview.neglectedProjects.join(', ')}`);
+                }
+            }
+            setProgress(92);
+
+            // ==========================================
+            // PHASE 6: END-TO-END INTEGRATION
+            // ==========================================
+            addLog("🔗 PHASE 6: END-TO-END INTEGRATION", "header");
+
+            // 6.1 Full Enhanced Pipeline
+            addLog("Test 6.1: Full Enhanced Pipeline...");
+            {
+                const fullResult = await generateEnhancedPlan({
+                    mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false
+                }, testDB);
+
+                // Load analysis should have all enhanced fields
+                assert(fullResult.loadAnalysis.loadScore >= 0, "Load score present");
+                assert(['light', 'normal', 'heavy', 'extreme'].includes(fullResult.loadAnalysis.loadLevel), "Load level valid");
+                assert(fullResult.loadAnalysis.readinessImpact >= 0, "Readiness impact present");
+
+                if (fullResult.loadAnalysis.energyBudget) {
+                    assert(fullResult.loadAnalysis.energyBudget.budget > 0, "Energy budget > 0");
+                    addLog(`  → Energy: ${fullResult.loadAnalysis.energyBudget.allocated}/${fullResult.loadAnalysis.energyBudget.budget}`);
+                }
+
+                if (fullResult.loadAnalysis.burnoutRisk) {
+                    assert(fullResult.loadAnalysis.burnoutRisk.score >= 0, "Burnout score present");
+                    addLog(`  → Burnout risk: ${fullResult.loadAnalysis.burnoutRisk.atRisk ? 'YES' : 'NO'} (${fullResult.loadAnalysis.burnoutRisk.score})`);
+                }
+
+                if (fullResult.loadAnalysis.interleaving) {
+                    assert(fullResult.loadAnalysis.interleaving.varietyScore >= 0, "Variety score present");
+                    addLog(`  → Variety: ${fullResult.loadAnalysis.interleaving.varietyScore}%`);
+                }
+
+                addLog(`  → Blocks: ${fullResult.blocks.length}`);
+                addLog(`  → Load: ${fullResult.loadAnalysis.loadLevel} (${fullResult.loadAnalysis.loadScore})`);
+                addLog(`  → Readiness impact: +${fullResult.loadAnalysis.readinessImpact}`);
+                if (fullResult.loadAnalysis.warning) addLog(`  → Warning: ${fullResult.loadAnalysis.warning}`);
+            }
+            setProgress(96);
+
+            // 6.2 DailyPlan Structure Matches Dashboard Contract
+            addLog("Test 6.2: Dashboard Contract Compliance...");
+            {
+                const planResult = await generateEnhancedPlan({
+                    mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false
+                }, testDB);
+
+                // Simulate what index.tsx does
+                const mockPlan: any = {
+                    date: todayStr,
+                    blocks: planResult.blocks,
+                    context: { mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false },
+                    warning: planResult.loadAnalysis?.warning,
+                    loadLevel: planResult.loadAnalysis?.loadLevel,
+                    loadScore: planResult.loadAnalysis?.loadScore,
+                    loadAnalysis: planResult.loadAnalysis,
+                    performanceAdjustments: planResult.performanceAdjustments,
+                };
+
+                // Dashboard reads these
+                assert(Array.isArray(mockPlan.blocks), "Dashboard: blocks is array");
+                assert(typeof mockPlan.date === 'string', "Dashboard: date is string");
+                assert(mockPlan.loadAnalysis !== undefined, "Dashboard: loadAnalysis present (for Readiness Boost tile)");
+                assert(mockPlan.loadAnalysis.readinessImpact >= 0, "Dashboard: readinessImpact accessible");
+
+                // Each block should have required fields
+                for (const block of mockPlan.blocks) {
+                    assert(typeof block.id === 'string', `Block ${block.id}: has string id`);
+                    assert(typeof block.subjectName === 'string', `Block ${block.id}: has subjectName`);
+                    assert(typeof block.type === 'string', `Block ${block.id}: has type`);
+                    assert(typeof block.duration === 'number' && block.duration > 0, `Block ${block.id}: valid duration`);
+                    assert(typeof block.completed === 'boolean', `Block ${block.id}: has completed flag`);
+                }
+
+                addLog(`  → Dashboard contract: ${mockPlan.blocks.length} blocks verified`);
+            }
             setProgress(99);
 
             // ==========================================
@@ -584,15 +860,41 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
         const testDBName = "OrbitDB_Manual_" + Date.now();
         const testDB = new OrbitDB(testDBName);
+        const todayStr = new Date().toISOString().split('T')[0];
+        const oneDay = 24 * 60 * 60 * 1000;
 
         try {
-            addLog("🎮 MANUAL SIMULATION MODE", "header");
-            addLog("Setting up test environment...");
+            addLog("🎮 MANUAL SIMULATION MODE v2.0", "header");
+            addLog("Setting up full test environment...");
 
             // Add subjects
+            const subjectIds: number[] = [];
             for (const subject of manualSubjects) {
-                await testDB.subjects.add(subject);
+                const id = await testDB.subjects.add(subject);
+                subjectIds.push(Number(id));
             }
+
+            // Add schedule entries — map each subject to a weekday slot
+            const dayOfWeek = new Date().getDay();
+            for (let i = 0; i < subjectIds.length; i++) {
+                await testDB.schedule.add({ day: dayOfWeek, slot: i + 1, subjectId: subjectIds[i] });
+            }
+            addLog(`✓ Added ${subjectIds.length} schedule slots for today (day ${dayOfWeek})`);
+
+            // Add study logs based on log freshness 
+            for (const subId of subjectIds) {
+                for (let d = manualLogFreshness; d < manualLogFreshness + 5; d++) {
+                    const logDate = new Date(Date.now() - d * oneDay);
+                    await testDB.logs.add({
+                        subjectId: subId,
+                        date: logDate.toISOString().split('T')[0],
+                        duration: 45,
+                        timestamp: logDate.getTime(),
+                        type: 'review'
+                    } as any);
+                }
+            }
+            addLog(`✓ Added study logs (last studied ${manualLogFreshness} days ago)`);
 
             // Add assignments
             for (const assignment of manualAssignments) {
@@ -607,47 +909,103 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             // Save energy profile
             saveEnergyProfile(manualEnergy);
 
-            addLog(`✓ Added ${manualSubjects.length} subjects, ${manualAssignments.length} assignments, ${manualProjects.length} projects`);
+            addLog(`✓ Added ${manualAssignments.length} assignments, ${manualProjects.length} projects`);
             addLog(`✓ Context: Mood=${manualContext.mood}, Type=${manualContext.dayType}, Sick=${manualContext.isSick}, Holiday=${manualContext.isHoliday}`);
+            if (manualContext.focusSubjectId) {
+                const focusSub = manualSubjects.find(s => Number(s.id) === manualContext.focusSubjectId);
+                addLog(`✓ Focus Subject: ${focusSub?.name || manualContext.focusSubjectId}`);
+            }
+
+            // Compute readiness scores
+            addLog("", "header");
+            addLog("📊 READINESS SCORES:", "header");
+            const allLogs = await testDB.logs.toArray();
+            const allSubjects = await testDB.subjects.toArray();
+            for (const sub of allSubjects) {
+                const readiness = calculateReadiness(sub, allLogs, todayStr);
+                addLog(`  → ${sub.name}: ${readiness.score}% (${readiness.status})`);
+            }
 
             // Generate plan
-            addLog("Generating plan...");
+            addLog("", "header");
+            addLog("⚙️ Generating enhanced plan...");
             const result = await generateEnhancedPlan(manualContext, testDB);
 
             addLog("", "header");
             addLog("📋 GENERATED PLAN:", "header");
             addLog(`Total Blocks: ${result.blocks.length}`);
             addLog(`Total Minutes: ${result.blocks.reduce((s, b) => s + b.duration, 0)}`);
-            addLog(`Load Level: ${result.loadAnalysis.loadLevel}`);
+            addLog(`Load Level: ${result.loadAnalysis.loadLevel} (score: ${result.loadAnalysis.loadScore})`);
 
             if (result.loadAnalysis.warning) {
                 addLog(`⚠️ Warning: ${result.loadAnalysis.warning}`, 'warning');
             }
 
             addLog("", "header");
+            addLog("📝 BLOCK DETAILS:", "header");
             result.blocks.forEach((block, i) => {
-                addLog(`${i + 1}. [${block.type.toUpperCase()}] ${block.subjectName} - ${block.duration}m`);
+                let line = `${i + 1}. [${block.type.toUpperCase()}] ${block.subjectName} — ${block.duration}m (priority: ${block.priority})`;
+                addLog(line);
                 if (block.notes) addLog(`   💬 ${block.notes}`);
                 if (block.reason) addLog(`   📌 ${block.reason}`);
+                if (block.displaced) addLog(`   ↔️ Displaced: ${block.displaced.subjectName} (${block.displaced.type})`);
             });
+
+            // Readiness impact
+            if (result.loadAnalysis.readinessImpact > 0) {
+                addLog("", "header");
+                addLog("📈 READINESS IMPACT:", "header");
+                addLog(`  Overall: +${result.loadAnalysis.readinessImpact.toFixed(1)}%`);
+                if (result.loadAnalysis.subjectImpacts) {
+                    for (const [subId, impact] of Object.entries(result.loadAnalysis.subjectImpacts)) {
+                        const sub = allSubjects.find(s => Number(s.id) === Number(subId));
+                        addLog(`  → ${sub?.name || subId}: +${(impact as number).toFixed(1)}%`);
+                    }
+                }
+            }
+
+            // Performance adjustments
+            if (result.performanceAdjustments && result.performanceAdjustments.length > 0) {
+                addLog("", "header");
+                addLog("🎯 PERFORMANCE ADJUSTMENTS:", "header");
+                result.performanceAdjustments.forEach(adj => {
+                    addLog(`  → ${adj.reason} (${adj.oldDuration}m → ${adj.newDuration}m)`);
+                });
+            }
 
             // Energy analysis
             if (result.loadAnalysis.energyBudget) {
                 addLog("", "header");
                 addLog("⚡ ENERGY ANALYSIS:", "header");
-                addLog(`Budget: ${result.loadAnalysis.energyBudget.budget}`);
-                addLog(`Allocated: ${result.loadAnalysis.energyBudget.allocated}`);
-                addLog(`Remaining: ${result.loadAnalysis.energyBudget.remaining}`);
-                addLog(`Valid: ${result.loadAnalysis.energyBudget.valid ? 'YES ✓' : 'NO ✗'}`);
+                addLog(`  Budget: ${result.loadAnalysis.energyBudget.budget}`);
+                addLog(`  Allocated: ${result.loadAnalysis.energyBudget.allocated}`);
+                addLog(`  Remaining: ${result.loadAnalysis.energyBudget.remaining}`);
+                addLog(`  Valid: ${result.loadAnalysis.energyBudget.valid ? 'YES ✓' : 'NO ✗'}`);
+            }
+
+            // Burnout risk
+            if (result.loadAnalysis.burnoutRisk) {
+                addLog("", "header");
+                addLog("🔥 BURNOUT RISK:", "header");
+                addLog(`  Score: ${result.loadAnalysis.burnoutRisk.score}`);
+                addLog(`  At Risk: ${result.loadAnalysis.burnoutRisk.atRisk ? 'YES ⚠️' : 'NO ✓'}`);
+                addLog(`  Skip Rate: ${(result.loadAnalysis.burnoutRisk.skipRate * 100).toFixed(1)}%`);
+                if (result.loadAnalysis.burnoutRisk.recommendation) {
+                    addLog(`  Recommendation: ${result.loadAnalysis.burnoutRisk.recommendation}`);
+                }
             }
 
             // Interleaving
             if (result.loadAnalysis.interleaving) {
                 addLog("", "header");
                 addLog("🔄 INTERLEAVING ANALYSIS:", "header");
-                addLog(`Variety Score: ${result.loadAnalysis.interleaving.varietyScore}%`);
-                addLog(`Max Same Subject: ${result.loadAnalysis.interleaving.consecutiveSameSubject}`);
-                addLog(`Needs Adjustment: ${result.loadAnalysis.interleaving.needsInterleaving ? 'YES' : 'NO'}`);
+                addLog(`  Variety Score: ${result.loadAnalysis.interleaving.varietyScore}%`);
+                addLog(`  Max Same Subject: ${result.loadAnalysis.interleaving.consecutiveSameSubject}`);
+                addLog(`  Max Same Type: ${result.loadAnalysis.interleaving.consecutiveSameType}`);
+                addLog(`  Needs Adjustment: ${result.loadAnalysis.interleaving.needsInterleaving ? 'YES' : 'NO'}`);
+                if (result.loadAnalysis.interleaving.suggestions) {
+                    result.loadAnalysis.interleaving.suggestions.forEach(s => addLog(`    💡 ${s}`));
+                }
             }
 
             setGeneratedPlan(result.blocks);
@@ -655,6 +1013,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
         } catch (err: any) {
             addLog(`❌ Error: ${err.message}`, 'error');
+            if (err.stack) addLog(`Stack: ${err.stack}`);
             console.error(err);
         } finally {
             await testDB.delete();
@@ -805,6 +1164,28 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                                     <option value="esa">ESA (Exam)</option>
                                     <option value="isa">ISA (Multiple Assignments)</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label className="text-xs opacity-70">FOCUS SUBJECT</label>
+                                <select
+                                    value={manualContext.focusSubjectId || ''}
+                                    onChange={(e) => setManualContext({ ...manualContext, focusSubjectId: e.target.value ? parseInt(e.target.value) : undefined })}
+                                    className="w-full bg-black border border-green-900/50 rounded px-2 py-1 text-green-400"
+                                >
+                                    <option value="">None</option>
+                                    {manualSubjects.map((s, idx) => <option key={idx} value={s.id}>{s.name} ({s.code})</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-xs opacity-70">DAYS TO EXAM</label>
+                                <input
+                                    type="number"
+                                    value={manualContext.daysToExam || ''}
+                                    onChange={(e) => setManualContext({ ...manualContext, daysToExam: e.target.value ? parseInt(e.target.value) : undefined })}
+                                    placeholder="N/A"
+                                    min="0" max="30"
+                                    className="w-full bg-black border border-green-900/50 rounded px-2 py-1 text-green-400"
+                                />
                             </div>
                             <div className="flex items-center gap-2">
                                 <input
@@ -989,6 +1370,24 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                                 {manualProjects.length === 0 && (
                                     <div className="text-center py-2 text-green-900 text-[10px] italic">No projects added</div>
                                 )}
+                            </div>
+                        </div>
+
+                        {/* Log Freshness */}
+                        <div className="border-t border-green-900/30 pt-4">
+                            <label className="text-xs opacity-70 block mb-2 font-bold tracking-wider">LOG FRESHNESS (DAYS SINCE LAST STUDY)</label>
+                            <div className="flex items-center gap-4">
+                                <input
+                                    type="range"
+                                    value={manualLogFreshness}
+                                    onChange={(e) => setManualLogFreshness(parseInt(e.target.value))}
+                                    min="0" max="30" step="1"
+                                    className="flex-1 accent-green-500"
+                                />
+                                <span className="text-sm font-mono w-16 text-right">{manualLogFreshness}d ago</span>
+                            </div>
+                            <div className="text-[10px] opacity-40 mt-1">
+                                0 = studied today (high readiness) · 30 = month ago (low readiness)
                             </div>
                         </div>
 

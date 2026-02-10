@@ -12,6 +12,145 @@ import {
 } from "./types";
 import { getISTEffectiveDate } from "./utils/time";
 
+// --------------------
+// Pure brain engine contract (fact-only)
+// --------------------
+
+export interface BrainDailyFacts {
+  focusMinutes: number;
+  loadScore: number;
+  backlogCount: number;
+  readinessScore: number;
+}
+
+export interface BrainWeeklyFacts {
+  loadTrend: number[];
+  forecastRisk: number;
+}
+
+export interface RawBrainAlert {
+  id: string;
+  type: "subject" | "schedule";
+  subjectId?: string;
+  readinessScore?: number;
+  reasonCode: "LOW_READINESS" | "MISSED_BLOCKS" | "OVERLOAD";
+}
+
+export interface BrainOutput {
+  dailyFacts: BrainDailyFacts;
+  weeklyFacts: BrainWeeklyFacts;
+  alerts: RawBrainAlert[];
+}
+
+export interface BrainInput {
+  studyLogs: {
+    minutes: number;
+    timestamp: number;
+  }[];
+  plannedMinutesToday: number;
+  backlogBlocks: number;
+  weeklyLoadHistory: number[];
+  subjectReadiness: {
+    subjectId: string;
+    readinessScore: number;
+  }[];
+}
+
+export function runBrain(input: BrainInput): BrainOutput {
+  const dailyFacts = computeDailyFacts(input);
+  const weeklyFacts = computeWeeklyFacts(input);
+  const alerts = computeAlerts(input, dailyFacts);
+
+  return {
+    dailyFacts,
+    weeklyFacts,
+    alerts,
+  };
+}
+
+function computeDailyFacts(input: BrainInput): BrainDailyFacts {
+  const focusMinutes = sum(input.studyLogs.map(l => l.minutes));
+  const loadScore = clamp(
+    Math.round((focusMinutes / Math.max(input.plannedMinutesToday, 1)) * 100),
+    0,
+    100
+  );
+  const readinessScore = computeRunBrainReadiness(input.subjectReadiness);
+
+  return {
+    focusMinutes,
+    loadScore,
+    backlogCount: input.backlogBlocks,
+    readinessScore,
+  };
+}
+
+function computeWeeklyFacts(input: BrainInput): BrainWeeklyFacts {
+  const loadTrend = normalizeWeeklyTrend(input.weeklyLoadHistory);
+  const forecastRisk = clamp(average(loadTrend.slice(-3)) / 100, 0, 1);
+  return { loadTrend, forecastRisk };
+}
+
+function computeAlerts(input: BrainInput, dailyFacts: BrainDailyFacts): RawBrainAlert[] {
+  const alerts: RawBrainAlert[] = [];
+
+  for (const subject of input.subjectReadiness) {
+    if (subject.readinessScore < 0.35) {
+      alerts.push({
+        id: `subject-${subject.subjectId}`,
+        type: "subject",
+        subjectId: subject.subjectId,
+        readinessScore: subject.readinessScore,
+        reasonCode: "LOW_READINESS",
+      });
+    }
+  }
+
+  if (dailyFacts.loadScore > 90) {
+    alerts.push({
+      id: "schedule-overload",
+      type: "schedule",
+      reasonCode: "OVERLOAD",
+    });
+  }
+
+  if (dailyFacts.backlogCount > 0 && dailyFacts.focusMinutes === 0) {
+    alerts.push({
+      id: "missed-blocks",
+      type: "schedule",
+      reasonCode: "MISSED_BLOCKS",
+    });
+  }
+
+  return alerts;
+}
+
+function computeRunBrainReadiness(readinessList: { readinessScore: number }[]): number {
+  if (readinessList.length === 0) return 1;
+  return clamp(average(readinessList.map(r => r.readinessScore)), 0, 1);
+}
+
+function normalizeWeeklyTrend(history: number[]): number[] {
+  if (history.length === 7) return history.map(v => clamp(v, 0, 100));
+  const padded = [...history];
+  while (padded.length < 7) padded.unshift(0);
+  return padded.slice(-7).map(v => clamp(v, 0, 100));
+}
+
+// Helper functions for pure brain logic
+function sum(values: number[]): number {
+  return values.reduce((a, b) => a + b, 0);
+}
+
+function average(values: number[]): number {
+  if (values.length === 0) return 0;
+  return sum(values) / values.length;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
 /* ======================================================
   TYPES
 ====================================================== */
@@ -1191,7 +1330,7 @@ export async function analyzeLoad(
   // Generate warnings
   let warning: string | undefined;
 
-  if (loadLevel === 'extreme' && !context.dayType.match(/esa|isa/)) {
+  if (loadLevel === 'extreme' && !['esa', 'isa'].includes(context.dayType)) {
     warning = "Very high load — consider breaking into 2 days";
   } else if (loadLevel === 'heavy') {
     if (context.mood === "low") {
