@@ -18,7 +18,6 @@ import { db } from "./db"; // <-- Adjust if db import path differs
 
 // You will need these functions for topic review tracking
 import { recordTopicReview, getISTEffectiveDate } from "./tracking";
-import { ComprehensionRatingModal } from "./SpacedRepetition";
 import { QualityRatingModal } from "./QualityRatingModal";
 import { recordBlockOutcome } from "./brain-enhanced-integration";
 
@@ -105,29 +104,42 @@ export const FocusSession = ({
         }
       }
 
-      // If it's a review block, ask for comprehension rating first
-      // THEN ask for quality rating for ALL blocks
-      if (block.type === 'review') {
-        setShowComprehensionRating(true);
-        // Store these for after comprehension is done
-        setCompletedDuration(durationToLog);
-        setSessionNotes(sessionNotes || "");
-      } else {
-        // For non-review blocks, go straight to quality rating
-        setCompletedDuration(durationToLog);
-        setSessionNotes(sessionNotes || "");
-        setShowQualityModal(true);
-      }
+
+      // For any block, go straight to quality rating
+      // If it's a review block, the modal will show the topic input
+      setCompletedDuration(durationToLog);
+      setSessionNotes(sessionNotes || "");
+      setShowQualityModal(true);
     },
     [block, onComplete]
   );
 
-  const handleQualityRating = async (rating: 1 | 2 | 3 | 4 | 5) => {
+  const handleQualityRating = async (rating: 1 | 2 | 3 | 4 | 5, topic?: string) => {
+    // 1. Log to Brain (Standard 1-5 scale)
     await recordBlockOutcome(block, {
       actualDuration: completedDuration,
       completionQuality: rating,
       skipped: wasSkipped,
     });
+
+    // 2. If Review, Log to Spaced Repetition (Mapped 1-3 scale)
+    if (block.type === 'review' && topic && topic.trim()) {
+      // Map 5-star rating to SR difficulty (1=Hard, 2=Good, 3=Easy)
+      // 1-2 Stars -> Hard (1)
+      // 3 Stars -> Good (2)
+      // 4-5 Stars -> Easy (3)
+      let srRating: 1 | 2 | 3 = 2; // Default Good
+      if (rating <= 2) srRating = 1;
+      else if (rating >= 4) srRating = 3;
+
+      await recordTopicReview(
+        block.subjectId,
+        topic.trim(),
+        srRating,
+        block.duration,
+        getISTEffectiveDate()
+      );
+    }
 
     setShowQualityModal(false);
     onComplete(completedDuration, sessionNotes);
@@ -647,38 +659,15 @@ export const FocusSession = ({
         </div>
       )}
 
-      {/* Comprehension rating modal */}
-      <ComprehensionRatingModal
-        isOpen={showComprehensionRating}
-        topicName={topicName}
-        onRate={async (rating, selectedTopic) => {
-          const finalTopic = selectedTopic || topicName;
-          if (finalTopic.trim()) {
-            await recordTopicReview(
-              block.subjectId,
-              finalTopic.trim(),
-              rating,
-              block.duration,
-              getISTEffectiveDate()
-            );
-          }
-          setShowComprehensionRating(false);
-          setTopicName("");
-          // After comprehension, show quality rating
-          setShowQualityModal(true);
-        }}
-        onSkip={() => {
-          setShowComprehensionRating(false);
-          setTopicName("");
-          // After skipping comprehension, still show quality rating
-          setShowQualityModal(true);
-        }}
-      />
-
-      {/* Quality Rating Modal */}
+      {/* Quality Rating Modal (Consolidated) */}
       {showQualityModal && (
         <QualityRatingModal
           block={block}
+          initialTopic={
+            block.type === 'review'
+              ? (block.topicId?.replace(/-/g, ' ') || block.notes || "")
+              : undefined
+          }
           onRate={handleQualityRating}
           onClose={() => handleQualityRating(3)} // Default to OK if closed
         />

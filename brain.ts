@@ -1133,7 +1133,7 @@ export const generateDailyPlan = async (
     }
 
     const ordered = await orderBlocksCircadian(blocks, subjects);
-    const loadAnalysis = await analyzeLoad(ordered, context, constraints, readinessMap);
+    const loadAnalysis = await analyzeLoad(ordered, context, constraints, readinessMap, dbInstance);
 
     console.log(`🎯 Final plan: ${ordered.length} blocks, ${usedMinutes.value} minutes`);
 
@@ -1249,9 +1249,10 @@ export async function analyzeLoad(
   blocks: StudyBlock[],
   context: DailyContext,
   constraints: DayConstraints,
-  precomputedReadinessMap?: Record<number, SubjectReadiness>
+  precomputedReadinessMap?: Record<number, SubjectReadiness>,
+  dbInstance: OrbitDB = db
 ): Promise<LoadAnalysis> {
-  const subjects = await db.subjects.toArray();
+  const subjects = await dbInstance.subjects.toArray();
   const subjectMap = new Map(subjects.map(s => [s.id!, s]));
 
   // Get readiness map if not provided

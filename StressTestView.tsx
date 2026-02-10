@@ -635,7 +635,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
                 const heavyCtx: DailyContext = { mood: 'low', dayType: 'normal', isHoliday: false, isSick: false };
                 const heavyConstraints = resolveConstraints(heavyCtx);
-                const heavyLoad = await analyzeLoad(heavyBlocks, heavyCtx, heavyConstraints, readinessMap);
+                const heavyLoad = await analyzeLoad(heavyBlocks, heavyCtx, heavyConstraints, readinessMap, testDB);
 
                 // 7 blocks × 60m = 420m should be heavy or extreme
                 assert(
@@ -652,7 +652,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                 }];
                 const lightCtx: DailyContext = { mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false };
                 const lightConstraints = resolveConstraints(lightCtx);
-                const lightLoad = await analyzeLoad(lightBlocks, lightCtx, lightConstraints, readinessMap);
+                const lightLoad = await analyzeLoad(lightBlocks, lightCtx, lightConstraints, readinessMap, testDB);
                 assert(
                     lightLoad.loadLevel === 'light' || lightLoad.loadLevel === 'normal',
                     `Light blocks produce light/normal load (got: ${lightLoad.loadLevel})`

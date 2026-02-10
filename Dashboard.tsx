@@ -27,6 +27,7 @@ import {
   Brain,
   ChevronDown,
   ChevronUp,
+  Activity,
 } from "lucide-react";
 import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -151,24 +152,24 @@ const BacklogItem = React.memo(({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={{ transform: `translateX(${swipeOffset}px)`, transition: isDragging ? 'none' : 'transform 0.3s ease-out' }}
-        className="group flex items-center gap-4 p-4 hover:border-yellow-500/30 hover:bg-zinc-800/40 relative z-10"
+        className="group flex items-center justify-between p-4 hover:border-yellow-500/30 hover:bg-zinc-800/40 relative z-10 cursor-pointer"
+        onClick={() => onAdd(block)}
       >
-        <div className="flex-1 min-w-0">
-          <div className="font-semibold text-zinc-100 truncate group-hover:text-white transition-colors text-base">
+        <div className="flex-1 min-w-0 pr-4">
+          <div className="font-semibold text-zinc-100 truncate group-hover:text-white transition-colors text-base flex items-center gap-2">
             {block.subjectName}
+            <ArrowRight size={14} className="text-zinc-600 group-hover:text-yellow-400 transition-colors opacity-0 group-hover:opacity-100 -ml-1 group-hover:ml-0 duration-300" strokeWidth={2.5} />
           </div>
-          <div className="text-xs text-zinc-500 uppercase tracking-wide mt-1 font-medium">
-            {block.type} • {block.duration}m
+          <div className="text-xs text-zinc-500 uppercase tracking-wide mt-1 font-medium flex items-center gap-1.5">
+            <span>{block.type}</span>
+            <span className="text-zinc-700">•</span>
+            <span>{block.duration}m</span>
           </div>
         </div>
-        <button
-          onClick={() => onAdd(block)}
-          aria-label="Add to today's plan"
-          className="flex items-center justify-center gap-2 px-5 py-3 bg-yellow-500/15 hover:bg-yellow-500/25 text-yellow-300 rounded-xl transition-all font-semibold text-sm hover:scale-105 active:scale-95 shadow-lg shadow-yellow-500/5 min-h-[44px] min-w-[44px] border border-yellow-500/20"
-        >
+
+        <div className="w-8 h-8 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500 group-hover:bg-yellow-500 group-hover:text-black transition-all">
           <PlusCircle size={18} strokeWidth={2.5} />
-          <span className="hidden sm:inline">Add to Today</span>
-        </button>
+        </div>
       </FrostedMini>
     </div>
   );
@@ -712,13 +713,13 @@ export const Dashboard = ({
       {/* TOP ALERTS / ADJUSTMENTS - tiled layout so they can sit beside each other */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2">
 
-        {/* AI Efficiency Adjustments */}
-        {plan.performanceAdjustments && plan.performanceAdjustments.length > 0 && (
-          <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5 animate-in slide-in-from-top-2 fade-in duration-500 backdrop-blur-sm">
-            <h4 className="font-bold text-blue-300 mb-3 text-sm uppercase tracking-wider flex items-center gap-2">
-              <Zap size={16} strokeWidth={2.5} />
-              AI Efficiency Adjustments
-            </h4>
+        {/* AI Efficiency Adjustments - Always Show */}
+        <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5 animate-in slide-in-from-top-2 fade-in duration-500 backdrop-blur-sm">
+          <h4 className="font-bold text-blue-300 mb-3 text-sm uppercase tracking-wider flex items-center gap-2">
+            <Zap size={16} strokeWidth={2.5} />
+            AI Efficiency
+          </h4>
+          {plan.performanceAdjustments && plan.performanceAdjustments.length > 0 ? (
             <div className="space-y-2 text-sm">
               {plan.performanceAdjustments.map((adj, i) => {
                 const subject = subjects.find(s => s.id === adj.subjectId);
@@ -736,51 +737,84 @@ export const Dashboard = ({
                 );
               })}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="flex items-center gap-3 text-blue-200/60 text-sm h-full pb-2">
+              <CheckCircle size={18} className="text-blue-400/50" />
+              <span>System optimized. No duration adjustments needed.</span>
+            </div>
+          )}
+        </div>
 
-        {/* Light / Load warning tile */}
-        {plan.warning && (
-          <div className={`rounded-2xl border p-5 backdrop-blur-sm
-            ${plan.loadLevel === 'extreme'
-              ? 'bg-red-500/10 border-red-500/30'
-              : plan.loadLevel === 'heavy'
-                ? 'bg-orange-500/10 border-orange-500/30'
+        {/* Workload Status - Always Show */}
+        <div className={`rounded-2xl border p-5 backdrop-blur-sm
+          ${plan.loadLevel === 'extreme'
+            ? 'bg-red-500/10 border-red-500/30'
+            : plan.loadLevel === 'heavy'
+              ? 'bg-orange-500/10 border-orange-500/30'
+              : plan.loadAnalysis?.loadLevel === 'light'
+                ? 'bg-emerald-500/10 border-emerald-500/30'
                 : 'bg-blue-500/10 border-blue-500/30'
-            } animate-in slide-in-from-top-2 fade-in duration-500`}>
-            <div className="flex items-start gap-4">
-              <AlertCircle size={24} className="shrink-0 mt-0.5" strokeWidth={2.5} />
-              <div className="flex-1 space-y-2">
-                <div className="font-bold text-base">
-                  {plan.loadLevel === 'extreme' ? '⚠️ Extreme Workload Detected' :
-                    plan.loadLevel === 'heavy' ? '⚡ Heavy Day Ahead' :
-                      '💡 Light Schedule Today'}
-                </div>
-                <div className="text-sm opacity-90 leading-relaxed">{plan.warning}</div>
-                {plan.loadScore !== undefined && (
-                  <div className="text-xs opacity-70 font-mono pt-1">
-                    Load Score: {plan.loadScore}/100
-                  </div>
+          } animate-in slide-in-from-top-2 fade-in duration-500`}>
+          <div className="flex items-start gap-4">
+            <div className="mt-0.5">
+              {plan.loadLevel === 'extreme' ? <AlertCircle size={24} className="text-red-400" strokeWidth={2.5} /> :
+                plan.loadLevel === 'heavy' ? <AlertCircle size={24} className="text-orange-400" strokeWidth={2.5} /> :
+                  plan.loadAnalysis?.loadLevel === 'light' ? <Coffee size={24} className="text-emerald-400" strokeWidth={2.5} /> :
+                    <Activity size={24} className="text-blue-400" strokeWidth={2.5} />}
+            </div>
+            <div className="flex-1 space-y-2">
+              <div className="font-bold text-base">
+                {plan.loadLevel === 'extreme' ? '⚠️ Extreme Workload' :
+                  plan.loadLevel === 'heavy' ? '⚡ Heavy Load' :
+                    plan.loadAnalysis?.loadLevel === 'light' ? '🌱 Light Schedule' :
+                      '✅ Balanced Load'}
+              </div>
+              <div className="text-sm opacity-90 leading-relaxed">
+                {plan.warning || (
+                  plan.loadLevel === 'normal' ? "Schedule is balanced and sustainable." :
+                    "Good day for recovery or backlog clearing."
                 )}
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Critical subjects */}
-        {criticalSubjects.length > 0 && (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5 animate-in slide-in-from-top-2 fade-in duration-500 backdrop-blur-sm">
-            <div className="flex items-start gap-4">
-              <AlertTriangle size={24} className="text-red-400 shrink-0 mt-0.5" strokeWidth={2.5} />
-              <div className="flex-1 space-y-1">
-                <div className="font-bold text-base text-red-300">⚠️ Critical Subjects Need Attention</div>
-                <div className="text-sm text-red-200/80 leading-relaxed">
-                  {criticalSubjects.join(', ')} require urgent review (readiness {"<"}35%)
+              {plan.loadScore !== undefined && (
+                <div className="text-xs opacity-70 font-mono pt-1">
+                  Load Score: {plan.loadScore}/100
                 </div>
-              </div>
+              )}
             </div>
           </div>
-        )}
+        </div>
+
+        {/* System Status / Critical Subjects - Always Show */}
+        <div className={`rounded-2xl border p-5 animate-in slide-in-from-top-2 fade-in duration-500 backdrop-blur-sm
+          ${criticalSubjects.length > 0
+            ? 'border-red-500/30 bg-red-500/10'
+            : 'border-emerald-500/30 bg-emerald-500/10'
+          }`}>
+          <div className="flex items-start gap-4">
+            <div className="mt-0.5">
+              {criticalSubjects.length > 0
+                ? <AlertTriangle size={24} className="text-red-400" strokeWidth={2.5} />
+                : <CheckCircle size={24} className="text-emerald-400" strokeWidth={2.5} />
+              }
+            </div>
+            <div className="flex-1 space-y-1">
+              <div className={`font-bold text-base ${criticalSubjects.length > 0 ? 'text-red-300' : 'text-emerald-300'}`}>
+                {criticalSubjects.length > 0 ? '⚠️ Critical Attention' : '🚀 All Systems Go'}
+              </div>
+              <div className={`text-sm leading-relaxed ${criticalSubjects.length > 0 ? 'text-red-200/80' : 'text-emerald-200/80'}`}>
+                {criticalSubjects.length > 0
+                  ? `${criticalSubjects.length} subjects require urgent review (readiness <35%)`
+                  : "No critical items. Readiness levels are healthy across all subjects."
+                }
+              </div>
+              {criticalSubjects.length > 0 && (
+                <div className="mt-2 text-xs text-red-300/60 font-mono">
+                  {criticalSubjects.slice(0, 3).join(', ')}{criticalSubjects.length > 3 ? '...' : ''}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
       {/* ---------- end: replace top warnings/alerts area ---------- */}
 
@@ -877,11 +911,10 @@ export const Dashboard = ({
                 <div className="w-24 h-24 rounded-full bg-emerald-500/15 flex items-center justify-center mb-4 animate-pulse mx-auto border border-emerald-500/30">
                   <CheckCircle size={48} className="text-emerald-400" strokeWidth={2} />
                 </div>
-                <h2 className="text-3xl font-bold">Mission Complete</h2>
-                <p className="text-zinc-400 text-base max-w-md">
-                  All blocks cleared for today. Time to recharge and prepare for tomorrow.
-                </p>
-                <div className="text-7xl animate-bounce">🎉</div>
+                <h2 className="text-3xl font-bold mb-2">Mission Complete</h2>
+                <div className="text-zinc-400 text-base max-w-md">
+                  Way to go Captain! All blocks cleared.
+                </div>
               </div>
             </FrostedTile>
           )}
@@ -1066,38 +1099,51 @@ export const Dashboard = ({
         </div>
       </div>
 
-      {/* BACKLOG SECTION */}
+      {/* BACKLOG MODAL */}
       {showBacklog && (
-        <div className="max-w-7xl mx-auto p-8 space-y-12 pb-32">
-          <FrostedTile className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold flex items-center gap-3">
-                <Inbox size={22} className="text-yellow-400" strokeWidth={2.5} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowBacklog(false)}
+          />
+          <div className="relative w-full max-w-2xl bg-zinc-900/90 border border-yellow-500/20 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5">
+              <h3 className="text-xl font-bold flex items-center gap-3 text-yellow-100">
+                <Inbox size={24} className="text-yellow-400" strokeWidth={2.5} />
                 <span>Backlog Items</span>
               </h3>
               <button
                 onClick={() => setShowBacklog(false)}
-                className="p-2.5 hover:bg-zinc-800 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="p-2 hover:bg-white/10 rounded-full transition-colors text-zinc-400 hover:text-white"
               >
-                <X size={20} strokeWidth={2.5} />
+                <X size={24} strokeWidth={2.5} />
               </button>
             </div>
 
-            {backlog.length === 0 ? (
-              <EmptyBacklog />
-            ) : (
-              <div className="space-y-3">
-                {backlog.map((b) => (
-                  <BacklogItem
-                    key={b.id}
-                    block={b}
-                    onAdd={addToToday}
-                    onDelete={deleteFromBacklog}
-                  />
-                ))}
-              </div>
-            )}
-          </FrostedTile>
+            {/* Modal Content */}
+            <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              {backlog.length === 0 ? (
+                <EmptyBacklog />
+              ) : (
+                <div className="space-y-3">
+                  {backlog.map((b) => (
+                    <BacklogItem
+                      key={b.id}
+                      block={b}
+                      onAdd={addToToday}
+                      onDelete={deleteFromBacklog}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-zinc-950/50 border-t border-white/5 text-center text-xs text-zinc-500 font-medium uppercase tracking-wider">
+              Swipe to remove • Tap + to schedule
+            </div>
+          </div>
         </div>
       )}
 
@@ -1108,8 +1154,32 @@ export const Dashboard = ({
             <Calendar size={22} className="text-indigo-400" strokeWidth={2.5} />
             <span>Today's Schedule</span>
           </h3>
-          <div className="text-sm text-zinc-500 font-mono tabular-nums font-semibold">
-            {completedCount}/{totalCount} complete
+          <div className="flex items-center gap-4 text-sm font-mono font-semibold">
+            {/* Finish By Metric */}
+            <div className="flex items-center gap-1.5 text-indigo-300 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">
+              <Clock size={14} className="text-indigo-400" strokeWidth={2.5} />
+              {(() => {
+                const remainingMinutes = plan.blocks.reduce((acc, b) => !b.completed ? acc + b.duration : acc, 0);
+                const now = new Date();
+                const finishTime = new Date(now.getTime() + remainingMinutes * 60000);
+
+                // Format time as HH:MM
+                const timeString = finishTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                // Check if it's tomorrow
+                const isTomorrow = finishTime.getDate() !== now.getDate();
+
+                return (
+                  <span>
+                    Finish by {timeString} {isTomorrow ? '(+1d)' : ''}
+                  </span>
+                );
+              })()}
+            </div>
+
+            <div className="text-zinc-500 tabular-nums">
+              {completedCount}/{totalCount} complete
+            </div>
           </div>
         </div>
 
