@@ -23,6 +23,8 @@ Most planners reset at midnight—breaking your flow. Orbit features a **configu
 
 Orbit utilizes a **Local-First Architecture**, ensuring 100% offline functionality and zero-latency interactions by keeping the entire database on the client side.
 
+> 📘 **[Read the full Engineering Deep Dive (BRAIN.md)](./BRAIN.md)**
+
 ```mermaid
 graph TD
     User[User Interface] -->|Context Input| Engine[Daily Context Engine]
@@ -63,6 +65,12 @@ A tactile, distraction-free environment for execution.
 *   **State Preservation**: Pause and resume without losing progress.
 *   **Microinteractions**: Woodblock tap audio (300Hz) and glass chime success alerts.
 *   **Session Reflections**: Integrated glass-morphism notes for immediate feedback capture.
+
+### 4. Enhanced Intelligence Layer (v3)
+The new `Brain v3` update introduces human-centric optimizations:
+*   **Dynamic Difficulty Adjustment (DDA)**: Detects if subjects are too easy/hard and auto-tunes block durations.
+*   **Energy Budgeting**: Prevents burnout by matching task intensity to your daily energy profile.
+*   **Burnout Protection**: Silently monitors skip rates and mood streaks to suggest recovery days.
 
 ---
 
