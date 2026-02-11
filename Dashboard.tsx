@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { DailyPlan, StudyBlock, Subject, StudyLog } from "./types";
 import { WeekPreviewModal } from "./WeekPreviewModal";
 import { BlockReason, PageHeader, MetaText, HeaderChip } from "./components";
@@ -28,6 +28,8 @@ import {
   ChevronDown,
   ChevronUp,
   Activity,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -138,47 +140,175 @@ const BacklogItem = React.memo(({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-xl">
-      {/* Swipe Action Hints */}
-      <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-yellow-500/20 to-transparent flex items-center justify-start pl-4 pointer-events-none">
-        <ArrowRight className="text-yellow-400" size={20} strokeWidth={2.5} />
+    <div className="relative overflow-hidden rounded-2xl">
+      {/* Swipe Action Hints - Cleaner */}
+      <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-yellow-500/15 to-transparent flex items-center justify-start pl-5 pointer-events-none">
+        <div className="w-8 h-8 rounded-xl bg-yellow-500/20 flex items-center justify-center border border-yellow-500/30">
+          <ArrowRight className="text-yellow-400" size={18} strokeWidth={2.5} />
+        </div>
       </div>
-      <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-red-500/20 to-transparent flex items-center justify-end pr-4 pointer-events-none">
-        <X className="text-red-400" size={20} strokeWidth={2.5} />
+      <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-red-500/15 to-transparent flex items-center justify-end pr-5 pointer-events-none">
+        <div className="w-8 h-8 rounded-xl bg-red-500/20 flex items-center justify-center border border-red-500/30">
+          <X className="text-red-400" size={18} strokeWidth={2.5} />
+        </div>
       </div>
 
-      <FrostedMini
+      {/* Main Card - Cleaner Design */}
+      <div
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={{ transform: `translateX(${swipeOffset}px)`, transition: isDragging ? 'none' : 'transform 0.3s ease-out' }}
-        className="group flex items-center justify-between p-4 hover:border-yellow-500/30 hover:bg-zinc-800/40 relative z-10 cursor-pointer"
+        style={{ 
+          transform: `translateX(${swipeOffset}px)`, 
+          transition: isDragging ? 'none' : 'transform 0.3s ease-out' 
+        }}
+        className="group flex items-center justify-between p-4 bg-zinc-900/50 hover:bg-zinc-800/50 border border-zinc-800/50 hover:border-zinc-700/50 rounded-2xl relative z-10 cursor-pointer transition-all"
         onClick={() => onAdd(block)}
       >
         <div className="flex-1 min-w-0 pr-4">
-          <div className="font-semibold text-zinc-100 truncate group-hover:text-white transition-colors text-base flex items-center gap-2">
+          <div className="font-semibold text-white text-base truncate group-hover:text-yellow-300 transition-colors flex items-center gap-2">
             {block.subjectName}
-            <ArrowRight size={14} className="text-zinc-600 group-hover:text-yellow-400 transition-colors opacity-0 group-hover:opacity-100 -ml-1 group-hover:ml-0 duration-300" strokeWidth={2.5} />
+            <ArrowRight 
+              size={14} 
+              className="text-zinc-600 group-hover:text-yellow-400 transition-all opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0" 
+              strokeWidth={2.5} 
+            />
           </div>
-          <div className="text-xs text-zinc-500 uppercase tracking-wide mt-1 font-medium flex items-center gap-1.5">
+          <div className="text-xs text-zinc-500 uppercase tracking-wider mt-1 font-medium flex items-center gap-2">
             <span>{block.type}</span>
             <span className="text-zinc-700">•</span>
             <span>{block.duration}m</span>
           </div>
         </div>
 
-        <div className="w-8 h-8 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500 group-hover:bg-yellow-500 group-hover:text-black transition-all">
+        <div className="w-9 h-9 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-yellow-400 group-hover:bg-yellow-500 group-hover:text-black group-hover:border-yellow-500 transition-all">
           <PlusCircle size={18} strokeWidth={2.5} />
         </div>
-      </FrostedMini>
+      </div>
     </div>
   );
 });
 
 BacklogItem.displayName = 'BacklogItem';
 
+// PERFECTED INFINITE HORIZONTAL MESSAGE CAROUSEL
+// - Smooth constant scrolling
+// - True infinite loop
+// - Mobile: 1 tile, Desktop: 3 tiles
 // ============================================
-// HELPER: Greeting & Badges
+const MessageCarousel = ({ tiles }: { tiles: React.ReactElement[] }) => {
+  const [offset, setOffset] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const animationRef = useRef<number | undefined>(undefined);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Create infinite loop by tripling the tiles
+  const infiniteTiles = useMemo(() => {
+    if (tiles.length === 0) return [];
+    return [...tiles, ...tiles, ...tiles];
+  }, [tiles]) as React.ReactElement[];
+
+  const tilesPerView = isMobile ? 1 : 3;
+
+  // Constant movement animation
+  useEffect(() => {
+    if (isPaused || tiles.length === 0) return;
+
+    // Faster speeds for better UX - mobile even faster since 1 tile
+    const speed = isMobile ? 0.2 : 0.06; 
+
+    const animate = () => {
+      setOffset((prev) => {
+        const newOffset = prev + speed;
+        // Reset when we've scrolled through one set of tiles
+        const resetPoint = (tiles.length / tilesPerView) * 100;
+        if (newOffset >= resetPoint) {
+          return newOffset - resetPoint;
+        }
+        return newOffset;
+      });
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [isPaused, tiles.length, tilesPerView, isMobile]);
+
+  if (tiles.length === 0) return null;
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative overflow-hidden px-4 lg:px-0"
+      onMouseEnter={() => !isMobile && setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={() => setIsPaused(true)}
+      onTouchEnd={() => setTimeout(() => setIsPaused(false), 2000)}
+    >
+      <div
+        className="flex gap-4"
+        style={{
+          transform: `translateX(-${offset}%)`,
+          transition: 'none',
+        }}
+      >
+        {infiniteTiles.map((tile, idx) => (
+          <div
+            key={`tile-${idx}`}
+            className={isMobile ? 'w-full flex-shrink-0' : 'w-[calc(33.333%-10.67px)] flex-shrink-0'}
+          >
+            {tile}
+          </div>
+        ))}
+      </div>
+
+      {/* Pause indicator */}
+      {isPaused && !isMobile && (
+        <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs text-white/70 font-medium pointer-events-none z-10">
+          Paused
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// SIMPLE SIDEBAR - JUST 3 TILES, NO CAROUSEL
+// Shows top 3 priority tiles
+// ============================================
+const SidebarTiles = ({ tiles }: { tiles: React.ReactElement[] }) => {
+  if (tiles.length === 0) return null;
+
+  // Always show top 3 tiles
+  const displayTiles = tiles.slice(0, 3);
+
+  return (
+    <div className="space-y-4">
+      {displayTiles.map((tile, idx) => (
+        <div key={`sidebar-tile-${idx}`}>
+          {tile}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ============================================
+// HELPER: Greeting
 // ============================================
 
 const getGreeting = () => {
@@ -331,6 +461,547 @@ export const Dashboard = ({
 
   const visibleBlocks = showAllBlocks ? plan.blocks : plan.blocks.slice(0, VISIBLE_BLOCKS_DEFAULT);
   const hasMoreBlocks = plan.blocks.length > VISIBLE_BLOCKS_DEFAULT;
+
+  // ============================================
+  // MESSAGE TILES
+  // ============================================
+
+  interface MessageTile {
+    priority: number;
+    type: 'critical' | 'workload' | 'adjustments' | 'status' | 'insight';
+    content: React.ReactElement;
+  }
+
+  const messageTiles = useMemo(() => {
+    const tiles: MessageTile[] = [];
+
+    const score = plan.loadAnalysis?.loadScore ?? plan.loadScore ?? 45;
+    const level = plan.loadAnalysis?.loadLevel ?? plan.loadLevel ?? 'normal';
+    const isExtremeLoad = level === 'extreme' || score > 70;
+    const isHeavyLoad = level === 'heavy' || score > 50;
+    const isLightLoad = level === 'light' || score < 30;
+    const readinessImpact = plan.loadAnalysis?.readinessImpact ?? 0;
+    const hasAdjustments = plan.performanceAdjustments?.length > 0;
+
+    // TILE 1: CRITICAL STATUS
+    if (criticalSubjects.length > 0) {
+      tiles.push({
+        priority: 10,
+        type: 'critical',
+        content: (
+          <div className="rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-500/5 to-transparent p-5 backdrop-blur-sm hover:border-red-400/50 transition-all duration-300 cursor-default group h-full">
+            <div className="flex items-start gap-3 h-full">
+              <div className="p-2.5 rounded-xl bg-red-500/20 border border-red-500/30 group-hover:bg-red-500/25 transition-colors shrink-0">
+                <AlertTriangle size={20} className="text-red-400" strokeWidth={2.5} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-base text-red-300 mb-1.5">⚠️ Critical Attention Required</div>
+                <div className="text-sm text-red-200/70 leading-relaxed">
+                  {criticalSubjects.length} {criticalSubjects.length === 1 ? 'subject needs' : 'subjects need'} urgent review to prevent knowledge decay
+                </div>
+                <div className="text-xs text-red-400/50 mt-2 font-medium">
+                  📚 {criticalSubjects.slice(0, 2).join(', ')}{criticalSubjects.length > 2 ? ` +${criticalSubjects.length - 2} more` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      });
+    }
+
+    // TILE 2: WORKLOAD STATUS
+    if (isExtremeLoad) {
+      tiles.push({
+        priority: 9,
+        type: 'workload',
+        content: (
+          <div className="rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-500/5 to-transparent p-5 backdrop-blur-sm hover:border-red-400/50 transition-all duration-300 cursor-default group h-full">
+            <div className="flex items-start gap-3 h-full">
+              <div className="p-2.5 rounded-xl bg-red-500/20 border border-red-500/30 group-hover:bg-red-500/25 transition-colors shrink-0">
+                <Flame size={20} className="text-red-400" strokeWidth={2.5} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-base text-red-300 flex items-center gap-2 mb-1.5">
+                  🔥 High-Intensity Day
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-red-500/20 font-mono">{score}</span>
+                </div>
+                <div className="text-sm text-red-200/70 leading-relaxed">
+                  Demanding schedule ahead - pace yourself and take strategic breaks
+                </div>
+                <div className="text-xs text-red-400/50 mt-2 font-medium">
+                  💪 Focus on high-priority tasks first
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      });
+    } else if (isHeavyLoad) {
+      tiles.push({
+        priority: 7,
+        type: 'workload',
+        content: (
+          <div className="rounded-2xl border border-orange-500/30 bg-gradient-to-br from-orange-500/5 to-transparent p-5 backdrop-blur-sm hover:border-orange-400/50 transition-all duration-300 cursor-default group h-full">
+            <div className="flex items-start gap-3 h-full">
+              <div className="p-2.5 rounded-xl bg-orange-500/20 border border-orange-500/30 group-hover:bg-orange-500/25 transition-colors shrink-0">
+                <Activity size={20} className="text-orange-400" strokeWidth={2.5} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-base text-orange-300 flex items-center gap-2 mb-1.5">
+                  📊 Active Day
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-orange-500/20 font-mono">{score}</span>
+                </div>
+                <div className="text-sm text-orange-200/70 leading-relaxed">
+                  Full schedule planned - maintain steady pace throughout the day
+                </div>
+                <div className="text-xs text-orange-400/50 mt-2 font-medium">
+                  ⏱️ {totalCount} blocks • Est. {plan.blocks.reduce((sum, b) => sum + b.duration, 0)}min total
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      });
+    } else if (isLightLoad) {
+      tiles.push({
+        priority: 5,
+        type: 'workload',
+        content: (
+          <div className="rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-500/5 to-transparent p-5 backdrop-blur-sm hover:border-sky-400/50 transition-all duration-300 cursor-default group h-full">
+            <div className="flex items-start gap-3 h-full">
+              <div className="p-2.5 rounded-xl bg-sky-500/20 border border-sky-500/30 group-hover:bg-sky-500/25 transition-colors shrink-0">
+                <Coffee size={20} className="text-sky-400" strokeWidth={2.5} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-base text-sky-300 flex items-center gap-2 mb-1.5">
+                  🌤️ Recovery Day
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-sky-500/20 font-mono">{score}</span>
+                </div>
+                <div className="text-sm text-sky-200/70 leading-relaxed">
+                  Light workload scheduled - perfect for deep focus and quality learning
+                </div>
+                <div className="text-xs text-sky-400/50 mt-2 font-medium">
+                  ✨ Use extra time for review or exploration
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      });
+    } else {
+      tiles.push({
+        priority: 6,
+        type: 'workload',
+        content: (
+          <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-500/5 to-transparent p-5 backdrop-blur-sm hover:border-indigo-400/50 transition-all duration-300 cursor-default group h-full">
+            <div className="flex items-start gap-3 h-full">
+              <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-500/30 group-hover:bg-indigo-500/25 transition-colors shrink-0">
+                <CheckCircle size={20} className="text-indigo-400" strokeWidth={2.5} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-base text-indigo-300 flex items-center gap-2 mb-1.5">
+                  ✨ Balanced Load
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-500/20 font-mono">{score}</span>
+                </div>
+                <div className="text-sm text-indigo-200/70 leading-relaxed">
+                  Optimal conditions for progress - steady workload with good distribution
+                </div>
+                <div className="text-xs text-indigo-400/50 mt-2 font-medium">
+                  🎯 {totalCount} focused sessions planned
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      });
+    }
+
+    // TILE 3: SMART ADJUSTMENTS
+    if (hasAdjustments) {
+      const count = plan.performanceAdjustments!.length;
+      tiles.push({
+        priority: 8,
+        type: 'adjustments',
+        content: (
+          <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 to-transparent p-5 backdrop-blur-sm hover:border-cyan-400/50 transition-all duration-300 cursor-default group h-full">
+            <div className="flex items-start gap-3 h-full">
+              <div className="p-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500/30 group-hover:bg-cyan-500/25 transition-colors shrink-0">
+                <Zap size={20} className="text-cyan-400" strokeWidth={2.5} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-base text-cyan-300 mb-1.5">⚡ Smart Adjustments Applied</div>
+                <div className="text-sm text-cyan-200/70 leading-relaxed">
+                  {count} {count === 1 ? 'optimization' : 'optimizations'} made based on your recent performance patterns
+                </div>
+                <div className="text-xs text-cyan-400/50 mt-2 font-medium">
+                  🧠 AI-powered scheduling active
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      });
+    }
+
+    // Make sure we always have exactly 3 tiles for smooth carousel
+    // Track which tiles we've added using unique identifiers
+    const tileIds = new Set<string>();
+    
+    // Only add extra tiles if we have less than 3
+    while (tiles.length < 3) {
+      // TILE: ASSIGNMENT FOCUS
+      const assignmentBlocks = plan.blocks.filter(b => b.type === 'assignment').length;
+      
+      if (assignmentBlocks > 0 && !tileIds.has('assignment')) {
+        tiles.push({
+          priority: 6,
+          type: 'status',
+          content: (
+            <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/5 to-transparent p-5 backdrop-blur-sm hover:border-purple-400/50 transition-all duration-300 cursor-default group h-full">
+              <div className="flex items-start gap-3 h-full">
+                <div className="p-2.5 rounded-xl bg-purple-500/20 border border-purple-500/30 group-hover:bg-purple-500/25 transition-colors shrink-0">
+                  <Target size={20} className="text-purple-400" strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-base text-purple-300 mb-1.5">📝 Assignment Work Scheduled</div>
+                  <div className="text-sm text-purple-200/70 leading-relaxed">
+                    {assignmentBlocks} {assignmentBlocks === 1 ? 'assignment session' : 'assignment sessions'} planned to maintain steady progress
+                  </div>
+                  <div className="text-xs text-purple-400/50 mt-2 font-medium">
+                    📌 Stay on track with deadlines
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        });
+        tileIds.add('assignment');
+        continue;
+      }
+
+      // TILE: STUDY SESSIONS
+      if (!tileIds.has('study')) {
+        tiles.push({
+          priority: 4,
+          type: 'status',
+          content: (
+            <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-transparent p-5 backdrop-blur-sm hover:border-blue-400/50 transition-all duration-300 cursor-default group h-full">
+              <div className="flex items-start gap-3 h-full">
+                <div className="p-2.5 rounded-xl bg-blue-500/20 border border-blue-500/30 group-hover:bg-blue-500/25 transition-colors shrink-0">
+                  <Brain size={20} className="text-blue-400" strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-base text-blue-300 mb-1.5">🧠 Study Sessions Planned</div>
+                  <div className="text-sm text-blue-200/70 leading-relaxed">
+                    {plan.blocks.length} focused blocks covering {subjects.filter(s => plan.blocks.some(b => b.subjectId === s.id)).length} subjects
+                  </div>
+                  <div className="text-xs text-blue-400/50 mt-2 font-medium">
+                    🎓 Comprehensive learning schedule
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        });
+        tileIds.add('study');
+        continue;
+      }
+
+      // TILE: UPCOMING REVIEWS
+      if (upcomingReviews.length > 0 && !tileIds.has('reviews')) {
+        tiles.push({
+          priority: 5,
+          type: 'status',
+          content: (
+            <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent p-5 backdrop-blur-sm hover:border-amber-400/50 transition-all duration-300 cursor-default group h-full">
+              <div className="flex items-start gap-3 h-full">
+                <div className="p-2.5 rounded-xl bg-amber-500/20 border border-amber-500/30 group-hover:bg-amber-500/25 transition-colors shrink-0">
+                  <Clock size={20} className="text-amber-400" strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-base text-amber-300 mb-1.5">⏰ Reviews Coming Up</div>
+                  <div className="text-sm text-amber-200/70 leading-relaxed">
+                    {upcomingReviews.length} topics scheduled for review in the next 7 days
+                  </div>
+                  <div className="text-xs text-amber-400/50 mt-2 font-medium">
+                    📅 {dueToday.length} due today
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        });
+        tileIds.add('reviews');
+        continue;
+      }
+
+      // Fallback: Generic ready tile
+      if (!tileIds.has('ready')) {
+        tiles.push({
+          priority: 1,
+          type: 'status',
+          content: (
+            <div className="rounded-2xl border border-zinc-700/30 bg-gradient-to-br from-zinc-700/5 to-transparent p-5 backdrop-blur-sm hover:border-zinc-600/50 transition-all duration-300 cursor-default group h-full">
+              <div className="flex items-start gap-3 h-full">
+                <div className="p-2.5 rounded-xl bg-zinc-700/20 border border-zinc-700/30 group-hover:bg-zinc-700/25 transition-colors shrink-0">
+                  <CheckCircle size={20} className="text-zinc-400" strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-base text-zinc-300 mb-1.5">✅ Ready to Begin</div>
+                  <div className="text-sm text-zinc-400 leading-relaxed">
+                    Your study plan is optimized and ready for action
+                  </div>
+                  <div className="text-xs text-zinc-500 mt-2 font-medium">
+                    🚀 Let's get started!
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        });
+        tileIds.add('ready');
+      }
+    }
+
+    return tiles.sort((a, b) => b.priority - a.priority).slice(0, 3); // Always exactly 3 tiles
+  }, [plan, criticalSubjects, subjects, totalCount, upcomingReviews, dueToday]);
+
+  // ============================================
+  // SIDEBAR TILES
+  // ============================================
+
+  interface SidebarTile {
+    priority: number;
+    content: React.ReactElement;
+  }
+
+  const sidebarTiles = useMemo(() => {
+    const tiles: SidebarTile[] = [];
+
+    // 1. Reviews Due
+    if (dueToday.length > 0) {
+      tiles.push({
+        priority: 10,
+        content: (
+          <FrostedTile key="reviews" className="p-4 hover:border-purple-500/30 hover:shadow-lg hover:shadow-purple-500/10 transition-all group h-full">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-purple-500/15 border border-purple-500/25 group-hover:bg-purple-500/20 transition-colors">
+                  <Brain size={16} className="text-purple-400" strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400">
+                  Reviews Due
+                </span>
+              </div>
+              <span className="text-2xl font-mono font-bold text-purple-200 tabular-nums">
+                {dueToday.length}
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {dueToday.slice(0, 2).map(topic => {
+                const subject = subjects.find(s => s.id === topic.subjectId);
+                return (
+                  <FrostedMini
+                    key={topic.id}
+                    onClick={() => {
+                      if (!subject) return;
+                      const reviewBlock: StudyBlock = {
+                        id: `review-${Date.now()}`,
+                        subjectId: topic.subjectId,
+                        subjectName: subject.name,
+                        type: 'review',
+                        duration: 30,
+                        completed: false,
+                        priority: 0,
+                        notes: `📖 ${topic.name}`,
+                        topicId: topic.name.toLowerCase().replace(/\s+/g, '-'),
+                        reviewNumber: topic.reviewCount,
+                      };
+                      onStartFocus(reviewBlock);
+                    }}
+                    className="p-2 bg-purple-500/10 border-purple-500/20 cursor-pointer hover:bg-purple-500/20 hover:scale-[1.02] transition-all"
+                  >
+                    <div className="text-[10px] text-purple-300 font-bold">{topic.subjectName}</div>
+                    <div className="text-xs text-white font-medium truncate">{topic.name}</div>
+                  </FrostedMini>
+                );
+              })}
+            </div>
+          </FrostedTile>
+        )
+      });
+    }
+
+    // 2. Daily Goal
+    tiles.push({
+      priority: 8,
+      content: (
+        <FrostedTile key="goal" className="p-4 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/10 transition-all group h-full">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/25 group-hover:bg-indigo-500/20 transition-colors">
+                <Target size={16} className="text-indigo-400" strokeWidth={2.5} />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">
+                Daily Goal
+              </span>
+            </div>
+            <span className="text-2xl font-mono font-bold text-indigo-200 tabular-nums">
+              {animatedProgress}%
+            </span>
+          </div>
+          <div className="relative w-full h-2.5 bg-zinc-900/50 rounded-full overflow-hidden border border-zinc-800 mb-1.5">
+            <div
+              className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-600 to-cyan-500 transition-all duration-700 ease-out rounded-full"
+              style={{ width: `${animatedProgress}%` }}
+            />
+          </div>
+          <div className="text-[10px] text-indigo-400/60 font-medium">
+            {completedCount}/{totalCount} blocks
+          </div>
+        </FrostedTile>
+      )
+    });
+
+    // 3. Streak
+    tiles.push({
+      priority: 7,
+      content: (
+        <FrostedTile key="streak" className="p-4 hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/10 transition-all group h-full">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-orange-500/15 border border-orange-500/25 group-hover:bg-orange-500/20 transition-colors">
+                <Flame size={16} className="text-orange-400" strokeWidth={2.5} />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400">
+                Streak
+              </span>
+            </div>
+            <span className="text-2xl font-mono font-bold text-orange-200 tabular-nums">
+              {animatedStreak}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 mb-1.5">
+            {[...Array(7)].map((_, i) => (
+              <div
+                key={i}
+                className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${i < Math.min(animatedStreak, 7) ? "bg-orange-500 shadow-sm shadow-orange-500/50" : "bg-zinc-800"
+                  }`}
+              />
+            ))}
+          </div>
+          <div className="text-[10px] text-orange-400/60 font-medium">
+            {animatedStreak > 0 ? `${animatedStreak} days` : 'Start today!'}
+          </div>
+        </FrostedTile>
+      )
+    });
+
+    // 4. In Progress Assignments
+    if (inProgressAssignments.length > 0) {
+      tiles.push({
+        priority: 9,
+        content: (
+          <FrostedTile key="progress" className="p-4 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/10 transition-all group h-full">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-amber-500/15 border border-amber-500/25 group-hover:bg-amber-500/20 transition-colors">
+                  <Clock size={16} className="text-amber-400" strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400">
+                  In Progress
+                </span>
+              </div>
+              <span className="text-2xl font-mono font-bold text-amber-200 tabular-nums">
+                {inProgressAssignments.length}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {inProgressAssignments.slice(0, 2).map(a => {
+                const percent = Math.round(
+                  ((a.progressMinutes || 0) / (a.estimatedEffort || 120)) * 100
+                );
+                return (
+                  <div key={a.id} className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-zinc-300 truncate pr-2 font-medium">{a.title}</span>
+                      <span className="text-[10px] text-amber-400 font-mono font-bold tabular-nums">{percent}%</span>
+                    </div>
+                    <div className="h-1 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
+                      <div
+                        className="h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(percent, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </FrostedTile>
+        )
+      });
+    }
+
+    // 5. Readiness Impact - ONLY IF NO BACKLOG (to maintain exactly 3 tiles)
+    if (backlog.length === 0 && plan.loadAnalysis?.readinessImpact && plan.loadAnalysis.readinessImpact > 0) {
+      tiles.push({
+        priority: 6,
+        content: (
+          <FrostedTile key="readiness" className="p-4 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/10 transition-all group h-full">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/25 group-hover:bg-emerald-500/20 transition-colors">
+                  <TrendingUp size={16} className="text-emerald-400" strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
+                  Readiness
+                </span>
+              </div>
+              <span className="text-2xl font-mono font-bold text-emerald-200 tabular-nums">
+                +{plan.loadAnalysis.readinessImpact.toFixed(1)}%
+              </span>
+            </div>
+            <div className="text-[10px] text-emerald-500/70 uppercase tracking-wide font-medium">
+              Today's impact
+            </div>
+          </FrostedTile>
+        )
+      });
+    }
+
+    // 6. Backlog - ALWAYS INCLUDED
+    tiles.push({
+      priority: backlog.length > 0 ? 5 : 1,
+      content: (
+        <FrostedTile
+          key="backlog"
+          onClick={() => backlog.length > 0 && setShowBacklog(!showBacklog)}
+          className={`p-4 hover:border-yellow-500/30 hover:shadow-lg hover:shadow-yellow-500/10 transition-all group h-full ${backlog.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className={`p-1.5 rounded-lg ${backlog.length > 0 ? 'bg-yellow-500/15 border border-yellow-500/25 group-hover:bg-yellow-500/20' : 'bg-zinc-800 border border-zinc-700'} transition-colors`}>
+                <Inbox size={16} className={backlog.length > 0 ? "text-yellow-400" : "text-zinc-600"} strokeWidth={2.5} />
+              </div>
+              <span className={`text-[10px] font-bold uppercase tracking-widest ${backlog.length > 0 ? 'text-yellow-400' : 'text-zinc-600'}`}>
+                Backlog
+              </span>
+            </div>
+            <span className={`text-2xl font-mono font-bold tabular-nums ${backlog.length > 0 ? 'text-yellow-200' : 'text-zinc-600'
+              }`}>
+              {backlog.length}
+            </span>
+          </div>
+          <div className={`text-[10px] uppercase tracking-wide font-medium ${backlog.length > 0 ? 'text-yellow-500/70' : 'text-zinc-600'
+            }`}>
+            {backlog.length > 0 ? 'Tap to manage' : 'All clear!'}
+          </div>
+        </FrostedTile>
+      )
+    });
+
+    return tiles.sort((a, b) => b.priority - a.priority);
+  }, [dueToday, animatedProgress, animatedStreak, inProgressAssignments, backlog, plan, subjects, onStartFocus, completedCount, totalCount, showBacklog]);
 
   // ============================================
   // EFFECTS
@@ -679,9 +1350,7 @@ export const Dashboard = ({
         </div>
       )}
 
-      {/* ============================================ */}
-      {/* HEADER SECTION */}
-      {/* ============================================ */}
+      {/* HEADER */}
       <PageHeader
         title={<>{getGreeting()}, <span className="text-indigo-400">Commander</span></>}
         meta={
@@ -709,128 +1378,23 @@ export const Dashboard = ({
         }
       />
 
-      {/* ---------- Replace the top warnings/alerts area with a responsive grid ---------- */}
-      {/* TOP ALERTS / ADJUSTMENTS - tiled layout so they can sit beside each other */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2">
+      {/* MESSAGE TILES WITH PERFECTED HORIZONTAL CAROUSEL */}
+      <MessageCarousel tiles={messageTiles.map((tile, idx) => (
+        <React.Fragment key={`msg-${idx}`}>{tile.content}</React.Fragment>
+      ))} />
 
-        {/* AI Efficiency Adjustments - Always Show */}
-        <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5 animate-in slide-in-from-top-2 fade-in duration-500 backdrop-blur-sm">
-          <h4 className="font-bold text-blue-300 mb-3 text-sm uppercase tracking-wider flex items-center gap-2">
-            <Zap size={16} strokeWidth={2.5} />
-            AI Efficiency
-          </h4>
-          {plan.performanceAdjustments && plan.performanceAdjustments.length > 0 ? (
-            <div className="space-y-2 text-sm">
-              {plan.performanceAdjustments.map((adj, i) => {
-                const subject = subjects.find(s => s.id === adj.subjectId);
-                return (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
-                    <div>
-                      <span className="text-blue-200 font-medium">{subject?.name}</span>
-                      <span className="text-blue-300/70 ml-2 font-mono text-xs">
-                        {adj.oldDuration}m → {adj.newDuration}m
-                      </span>
-                      <div className="text-xs text-blue-400/60 mt-0.5">{adj.reason}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 text-blue-200/60 text-sm h-full pb-2">
-              <CheckCircle size={18} className="text-blue-400/50" />
-              <span>System optimized. No duration adjustments needed.</span>
-            </div>
-          )}
-        </div>
+      {/* DASHBOARD INSIGHTS */}
+      <DashboardInsights />
 
-        {/* Workload Status - Always Show */}
-        <div className={`rounded-2xl border p-5 backdrop-blur-sm
-          ${plan.loadLevel === 'extreme'
-            ? 'bg-red-500/10 border-red-500/30'
-            : plan.loadLevel === 'heavy'
-              ? 'bg-orange-500/10 border-orange-500/30'
-              : plan.loadAnalysis?.loadLevel === 'light'
-                ? 'bg-emerald-500/10 border-emerald-500/30'
-                : 'bg-blue-500/10 border-blue-500/30'
-          } animate-in slide-in-from-top-2 fade-in duration-500`}>
-          <div className="flex items-start gap-4">
-            <div className="mt-0.5">
-              {plan.loadLevel === 'extreme' ? <AlertCircle size={24} className="text-red-400" strokeWidth={2.5} /> :
-                plan.loadLevel === 'heavy' ? <AlertCircle size={24} className="text-orange-400" strokeWidth={2.5} /> :
-                  plan.loadAnalysis?.loadLevel === 'light' ? <Coffee size={24} className="text-emerald-400" strokeWidth={2.5} /> :
-                    <Activity size={24} className="text-blue-400" strokeWidth={2.5} />}
-            </div>
-            <div className="flex-1 space-y-2">
-              <div className="font-bold text-base">
-                {plan.loadLevel === 'extreme' ? '⚠️ Extreme Workload' :
-                  plan.loadLevel === 'heavy' ? '⚡ Heavy Load' :
-                    plan.loadAnalysis?.loadLevel === 'light' ? '🌱 Light Schedule' :
-                      '✅ Balanced Load'}
-              </div>
-              <div className="text-sm opacity-90 leading-relaxed">
-                {plan.warning || (
-                  plan.loadLevel === 'normal' ? "Schedule is balanced and sustainable." :
-                    "Good day for recovery or backlog clearing."
-                )}
-              </div>
-              {plan.loadScore !== undefined && (
-                <div className="text-xs opacity-70 font-mono pt-1">
-                  Load Score: {plan.loadScore}/100
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* System Status / Critical Subjects - Always Show */}
-        <div className={`rounded-2xl border p-5 animate-in slide-in-from-top-2 fade-in duration-500 backdrop-blur-sm
-          ${criticalSubjects.length > 0
-            ? 'border-red-500/30 bg-red-500/10'
-            : 'border-emerald-500/30 bg-emerald-500/10'
-          }`}>
-          <div className="flex items-start gap-4">
-            <div className="mt-0.5">
-              {criticalSubjects.length > 0
-                ? <AlertTriangle size={24} className="text-red-400" strokeWidth={2.5} />
-                : <CheckCircle size={24} className="text-emerald-400" strokeWidth={2.5} />
-              }
-            </div>
-            <div className="flex-1 space-y-1">
-              <div className={`font-bold text-base ${criticalSubjects.length > 0 ? 'text-red-300' : 'text-emerald-300'}`}>
-                {criticalSubjects.length > 0 ? '⚠️ Critical Attention' : '🚀 All Systems Go'}
-              </div>
-              <div className={`text-sm leading-relaxed ${criticalSubjects.length > 0 ? 'text-red-200/80' : 'text-emerald-200/80'}`}>
-                {criticalSubjects.length > 0
-                  ? `${criticalSubjects.length} subjects require urgent review (readiness <35%)`
-                  : "No critical items. Readiness levels are healthy across all subjects."
-                }
-              </div>
-              {criticalSubjects.length > 0 && (
-                <div className="mt-2 text-xs text-red-300/60 font-mono">
-                  {criticalSubjects.slice(0, 3).join(', ')}{criticalSubjects.length > 3 ? '...' : ''}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-      {/* ---------- end: replace top warnings/alerts area ---------- */}
-
-      {/* ============================================ */}
       {/* MAIN CONTENT GRID */}
-      {/* ============================================ */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-        {/* LEFT COLUMN: NEXT MISSION CARD (fills column height) */}
+        {/* LEFT: NEXT MISSION */}
         <div className="lg:col-span-8">
           {nextBlock ? (
-            <FrostedTile variant={nextColor} className="p-8 hover:-translate-y-1 relative overflow-hidden group">
-              {/* Background Decorative Element */}
+            <FrostedTile variant={nextColor} className="p-8 hover:-translate-y-1 relative overflow-hidden group transition-all duration-300">
               <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-${nextColor}-600/10 to-${nextColor}-400/10 rounded-full blur-3xl opacity-50 group-hover:opacity-70 transition-opacity duration-500`} />
 
-              {/* Progress Ring */}
               <div className="absolute top-8 right-8 w-28 h-28 opacity-20">
                 <svg className="transform -rotate-90" width="112" height="112">
                   <circle cx="56" cy="56" r="50" stroke="currentColor" strokeWidth="6" fill="none" className="text-zinc-700" />
@@ -847,7 +1411,6 @@ export const Dashboard = ({
               </div>
 
               <div className="relative z-10 space-y-6">
-                {/* Header */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${nextClasses.bg} animate-pulse shadow-lg shadow-${nextColor}-500/50`} />
@@ -868,7 +1431,6 @@ export const Dashboard = ({
                   </div>
                 </div>
 
-                {/* Tags */}
                 <div className="flex flex-wrap gap-2">
                   {nextBlock.type === "assignment" && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/15 text-red-300 border border-red-500/25 text-xs font-bold">
@@ -885,7 +1447,6 @@ export const Dashboard = ({
                   )}
                 </div>
 
-                {/* Assignment Progress */}
                 {nextBlock.type === "assignment" && nextBlock.assignmentId && (
                   <AssignmentProgressBar
                     assignmentId={String(nextBlock.assignmentId)}
@@ -893,7 +1454,6 @@ export const Dashboard = ({
                   />
                 )}
 
-                {/* CTA Button */}
                 <button
                   onClick={() => onStartFocus(nextBlock)}
                   aria-label="Start focus session"
@@ -920,211 +1480,61 @@ export const Dashboard = ({
           )}
         </div>
 
-        {/* RIGHT COLUMN: STATS & INFO CARDS */}
-        <div className="lg:col-span-4 space-y-4">
-          {/* Reviews Due Widget */}
-          {dueToday.length > 0 && (
-            <FrostedTile className="p-5 hover:border-purple-500/30">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Brain size={18} className="text-purple-400" strokeWidth={2.5} />
-                  <span className="text-xs font-bold uppercase tracking-widest text-purple-400">
-                    Reviews Due
-                  </span>
-                </div>
-                <span className="text-3xl font-mono font-bold text-purple-200 tabular-nums">
-                  {dueToday.length}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {dueToday.slice(0, 3).map(topic => {
-                  const subject = subjects.find(s => s.id === topic.subjectId);
-                  return (
-                    <FrostedMini
-                      key={topic.id}
-                      onClick={() => {
-                        if (!subject) return;
-                        const reviewBlock: StudyBlock = {
-                          id: `review-${Date.now()}`,
-                          subjectId: topic.subjectId,
-                          subjectName: subject.name,
-                          type: 'review',
-                          duration: 30,
-                          completed: false,
-                          priority: 0,
-                          notes: `📖 ${topic.name}`,
-                          topicId: topic.name.toLowerCase().replace(/\s+/g, '-'),
-                          reviewNumber: topic.reviewCount,
-                        };
-                        onStartFocus(reviewBlock);
-                      }}
-                      className="p-3 bg-purple-500/10 border-purple-500/20 cursor-pointer hover:bg-purple-500/20"
-                    >
-                      <div className="text-xs text-purple-300 font-bold">{topic.subjectName}</div>
-                      <div className="text-sm text-white font-medium">{topic.name}</div>
-                    </FrostedMini>
-                  );
-                })}
-              </div>
-            </FrostedTile>
-          )}
-
-          {/* Daily Goal Card */}
-          <FrostedTile className="p-5 hover:border-indigo-500/30">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Target size={18} className="text-indigo-400" strokeWidth={2.5} />
-                <span className="text-xs font-bold uppercase tracking-widest text-indigo-400">
-                  Daily Goal
-                </span>
-              </div>
-              <span className="text-3xl font-mono font-bold text-indigo-200 tabular-nums">
-                {animatedProgress}%
-              </span>
-            </div>
-            <div className="relative w-full h-3 bg-zinc-900/50 rounded-full overflow-hidden border border-zinc-800">
-              <div
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-600 to-cyan-500 transition-all duration-700 ease-out rounded-full"
-                style={{ width: `${animatedProgress}%` }}
-              />
-            </div>
-          </FrostedTile>
-
-          {/* Streak Card */}
-          <FrostedTile className="p-5 hover:border-orange-500/30">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Flame size={18} className="text-orange-400" strokeWidth={2.5} />
-                <span className="text-xs font-bold uppercase tracking-widest text-orange-400">
-                  Streak
-                </span>
-              </div>
-              <span className="text-3xl font-mono font-bold text-orange-200 tabular-nums">
-                {animatedStreak}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              {[...Array(7)].map((_, i) => (
-                <div
-                  key={i}
-                  className={`h-2 flex-1 rounded-full transition-all duration-300 ${i < Math.min(animatedStreak, 7) ? "bg-orange-500 shadow-sm shadow-orange-500/50" : "bg-zinc-800"
-                    }`}
-                />
-              ))}
-            </div>
-          </FrostedTile>
-
-          {/* In Progress Assignments */}
-          {inProgressAssignments.length > 0 && (
-            <FrostedTile className="p-5 hover:border-amber-500/30">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Clock size={18} className="text-amber-400" strokeWidth={2.5} />
-                  <span className="text-xs font-bold uppercase tracking-widest text-amber-400">
-                    In Progress
-                  </span>
-                </div>
-                <span className="text-3xl font-mono font-bold text-amber-200 tabular-nums">
-                  {inProgressAssignments.length}
-                </span>
-              </div>
-              <div className="space-y-3">
-                {inProgressAssignments.slice(0, 3).map(a => {
-                  const percent = Math.round(
-                    ((a.progressMinutes || 0) / (a.estimatedEffort || 120)) * 100
-                  );
-                  return (
-                    <div key={a.id} className="space-y-1.5">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-zinc-300 truncate pr-2 font-medium">{a.title}</span>
-                        <span className="text-xs text-amber-400 font-mono font-bold tabular-nums">{percent}%</span>
-                      </div>
-                      <div className="h-1.5 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
-                        <div
-                          className="h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full transition-all duration-500"
-                          style={{ width: `${Math.min(percent, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </FrostedTile>
-          )}
-
-          {/* Readiness Impact */}
-          {plan.loadAnalysis?.readinessImpact && plan.loadAnalysis.readinessImpact > 0 && (
-            <FrostedTile className="p-5 hover:border-emerald-500/30">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <TrendingUp size={18} className="text-emerald-400" strokeWidth={2.5} />
-                  <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">
-                    Readiness Boost
-                  </span>
-                </div>
-                <span className="text-3xl font-mono font-bold text-emerald-200 tabular-nums">
-                  +{plan.loadAnalysis.readinessImpact.toFixed(1)}%
-                </span>
-              </div>
-              <div className="text-xs text-emerald-500/70 uppercase tracking-wide font-medium">
-                Today's Plan Impact
-              </div>
-            </FrostedTile>
-          )}
-
-          {/* Backlog Card - ALWAYS SHOW */}
-          <FrostedTile
-            onClick={() => backlog.length > 0 && setShowBacklog(!showBacklog)}
-            className={`p-5 hover:border-yellow-500/30 ${backlog.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Inbox size={18} className="text-yellow-400" strokeWidth={2.5} />
-                <span className="text-xs font-bold uppercase tracking-widest text-yellow-400">
-                  Backlog
-                </span>
-              </div>
-              <span className={`text-3xl font-mono font-bold tabular-nums transition-colors ${backlog.length > 0 ? 'text-yellow-200' : 'text-zinc-600'
-                }`}>
-                {backlog.length}
-              </span>
-            </div>
-            <div className={`text-xs uppercase tracking-wide font-medium transition-colors ${backlog.length > 0
-              ? 'text-yellow-500/70'
-              : 'text-zinc-600'
-              }`}>
-              {backlog.length > 0 ? 'Tap to view • Swipe to manage' : 'All caught up!'}
-            </div>
-          </FrostedTile>
+        {/* RIGHT: SIDEBAR WITH PERFECTED VERTICAL CAROUSEL */}
+        <div className="lg:col-span-4">
+          <SidebarTiles tiles={sidebarTiles.map((tile, idx) => (
+            <React.Fragment key={`sidebar-${idx}`}>{tile.content}</React.Fragment>
+          ))} />
         </div>
       </div>
 
-      {/* BACKLOG MODAL */}
+
+
       {showBacklog && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowBacklog(false)}
-          />
-          <div className="relative w-full max-w-2xl bg-zinc-900/90 border border-yellow-500/20 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5">
-              <h3 className="text-xl font-bold flex items-center gap-3 text-yellow-100">
-                <Inbox size={24} className="text-yellow-400" strokeWidth={2.5} />
-                <span>Backlog Items</span>
-              </h3>
+        <div
+          className="fixed inset-0 z-[100] flex items-end md:items-center justify-center"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowBacklog(false);
+          }}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+
+          {/* Modal */}
+          <div className="relative w-full md:max-w-2xl bg-zinc-950/95 backdrop-blur-xl rounded-t-3xl md:rounded-3xl shadow-2xl border border-zinc-800/50 overflow-hidden max-h-[90vh] md:max-h-[85vh] flex flex-col animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0 fade-in duration-300">
+
+            {/* Header - Clean & Minimal */}
+            <div className="flex items-center justify-between p-6 md:p-7 border-b border-zinc-800/70 bg-zinc-950/80 backdrop-blur-sm flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                  <Inbox size={20} className="text-yellow-400" strokeWidth={2.5} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Backlog</h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">{backlog.length} {backlog.length === 1 ? 'item' : 'items'} pending</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowBacklog(false)}
-                className="p-2 hover:bg-white/10 rounded-full transition-colors text-zinc-400 hover:text-white"
+                className="p-2.5 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-white active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                aria-label="Close"
               >
-                <X size={24} strokeWidth={2.5} />
+                <X size={20} strokeWidth={2.5} />
               </button>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+            {/* Content - Clean Scrollable Area */}
+            <div className="flex-1 overflow-y-auto p-6 md:p-7">
               {backlog.length === 0 ? (
-                <EmptyBacklog />
+                <div className="flex flex-col items-center justify-center py-16 px-4">
+                  <div className="w-20 h-20 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4 border border-emerald-500/20">
+                    <CheckCircle size={32} className="text-emerald-400" strokeWidth={2} />
+                  </div>
+                  <h4 className="text-xl font-bold text-white mb-2">All Clear!</h4>
+                  <p className="text-sm text-zinc-400 text-center max-w-xs">
+                    Your backlog is empty. Great job staying on top of everything!
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {backlog.map((b) => (
@@ -1139,10 +1549,25 @@ export const Dashboard = ({
               )}
             </div>
 
-            {/* Modal Footer */}
-            <div className="p-4 bg-zinc-950/50 border-t border-white/5 text-center text-xs text-zinc-500 font-medium uppercase tracking-wider">
-              Swipe to remove • Tap + to schedule
-            </div>
+            {/* Footer - Clean Instructions */}
+            {backlog.length > 0 && (
+              <div className="p-5 md:p-6 border-t border-zinc-800/70 bg-zinc-950/80 backdrop-blur-sm flex-shrink-0">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
+                  <div className="flex items-center gap-2.5 text-xs text-zinc-400">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                      <ArrowRight size={16} strokeWidth={2.5} className="text-yellow-400" />
+                    </div>
+                    <span className="font-medium">Swipe right to add</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-xs text-zinc-400">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20">
+                      <X size={16} strokeWidth={2.5} className="text-red-400" />
+                    </div>
+                    <span className="font-medium">Swipe left to remove</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1155,20 +1580,14 @@ export const Dashboard = ({
             <span>Today's Schedule</span>
           </h3>
           <div className="flex items-center gap-4 text-sm font-mono font-semibold">
-            {/* Finish By Metric */}
             <div className="flex items-center gap-1.5 text-indigo-300 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">
               <Clock size={14} className="text-indigo-400" strokeWidth={2.5} />
               {(() => {
                 const remainingMinutes = plan.blocks.reduce((acc, b) => !b.completed ? acc + b.duration : acc, 0);
                 const now = new Date();
                 const finishTime = new Date(now.getTime() + remainingMinutes * 60000);
-
-                // Format time as HH:MM
                 const timeString = finishTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                // Check if it's tomorrow
                 const isTomorrow = finishTime.getDate() !== now.getDate();
-
                 return (
                   <span>
                     Finish by {timeString} {isTomorrow ? '(+1d)' : ''}
@@ -1203,9 +1622,8 @@ export const Dashboard = ({
                         : "hover:border-zinc-700 hover:bg-zinc-900/40"
                       }`}
                   >
-                    {/* Number/Check Badge */}
                     <div
-                      className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center font-bold text-base ${isCompleted
+                      className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center font-bold text-base transition-all ${isCompleted
                         ? "bg-zinc-800 text-zinc-600"
                         : isNext
                           ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
@@ -1215,7 +1633,6 @@ export const Dashboard = ({
                       {isCompleted ? <Check size={20} strokeWidth={3} /> : i + 1}
                     </div>
 
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className={`font-semibold text-base truncate ${isCompleted ? "line-through text-zinc-600" : "text-zinc-100"}`}>
                         {b.subjectName}
@@ -1224,7 +1641,6 @@ export const Dashboard = ({
                         {b.type} • {b.duration}m
                       </div>
 
-                      {/* Assignment Progress */}
                       {b.type === 'assignment' && b.assignmentId && (
                         <AssignmentProgressBar
                           assignmentId={String(b.assignmentId)}
@@ -1233,13 +1649,12 @@ export const Dashboard = ({
                       )}
                     </div>
 
-                    {/* Actions */}
                     {!isCompleted && (
                       <div className="flex items-center gap-2">
                         {hasExplanation && (
                           <button
                             onClick={() => toggleBlockExplanation(b.id)}
-                            className={`px-3 py-2 rounded-xl text-xs font-bold uppercase transition-all min-h-[44px] ${isExpanded
+                            className={`px-3 py-2 rounded-xl text-xs font-bold uppercase transition-all min-h-[44px] hover:scale-105 active:scale-95 ${isExpanded
                               ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
                               : "bg-zinc-900 text-zinc-500 border border-zinc-800 hover:bg-zinc-800"
                               }`}
@@ -1260,7 +1675,7 @@ export const Dashboard = ({
                           onClick={async () => {
                             if (confirm("Mark as complete?")) await markComplete(b.id);
                           }}
-                          className="p-2.5 hover:bg-emerald-500/10 text-emerald-400 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                          className="p-2.5 hover:bg-emerald-500/10 text-emerald-400 rounded-xl transition-all hover:scale-110 active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
                         >
                           <CheckCircle size={20} strokeWidth={2.5} />
                         </button>
@@ -1269,7 +1684,7 @@ export const Dashboard = ({
                           onClick={async () => {
                             if (confirm("Move to tomorrow?")) await snoozeBlock(b.id);
                           }}
-                          className="p-2.5 hover:bg-yellow-500/10 text-yellow-400 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                          className="p-2.5 hover:bg-yellow-500/10 text-yellow-400 rounded-xl transition-all hover:scale-110 active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
                         >
                           <ArrowRight size={20} strokeWidth={2.5} />
                         </button>
@@ -1283,7 +1698,6 @@ export const Dashboard = ({
                     )}
                   </FrostedMini>
 
-                  {/* Block Reason Explanation */}
                   {isExpanded && !isCompleted && hasExplanation && (
                     <div className="animate-in slide-in-from-top-2 fade-in duration-300 pl-16 pr-2">
                       <BlockReason block={b} />
@@ -1293,11 +1707,10 @@ export const Dashboard = ({
               );
             })}
 
-            {/* Show More/Less Button */}
             {hasMoreBlocks && (
               <button
                 onClick={() => setShowAllBlocks(!showAllBlocks)}
-                className="w-full flex items-center justify-center gap-2 py-4 mt-2 rounded-xl bg-zinc-900/40 border border-zinc-800/50 hover:bg-zinc-800/40 hover:border-zinc-700 transition-all font-semibold text-sm text-zinc-300 hover:text-white min-h-[44px]"
+                className="w-full flex items-center justify-center gap-2 py-4 mt-2 rounded-xl bg-zinc-900/40 border border-zinc-800/50 hover:bg-zinc-800/40 hover:border-zinc-700 hover:scale-[1.01] active:scale-[0.99] transition-all font-semibold text-sm text-zinc-300 hover:text-white min-h-[44px]"
               >
                 {showAllBlocks ? (
                   <>
@@ -1318,21 +1731,19 @@ export const Dashboard = ({
 
       {/* FOOTER TIP */}
       <div className="flex justify-center pt-4">
-        <div className="flex items-center gap-3 px-5 py-3 rounded-full bg-white/[0.03] border border-white/5 text-zinc-500 text-sm backdrop-blur-sm">
+        <div className="flex items-center gap-3 px-5 py-3 rounded-full bg-white/[0.03] border border-white/5 text-zinc-500 text-sm backdrop-blur-sm hover:bg-white/[0.05] hover:border-white/10 transition-all">
           <Coffee size={18} strokeWidth={2.5} />
           <span className="font-medium">Take a 5-minute break between missions</span>
         </div>
       </div>
 
       {/* MODALS */}
-      {
-        showWeekPreview && weekPreview && (
-          <WeekPreviewModal
-            weekPreview={weekPreview}
-            onClose={() => setShowWeekPreview(false)}
-          />
-        )
-      }
-    </div >
+      {showWeekPreview && weekPreview && (
+        <WeekPreviewModal
+          weekPreview={weekPreview}
+          onClose={() => setShowWeekPreview(false)}
+        />
+      )}
+    </div>
   );
 };
