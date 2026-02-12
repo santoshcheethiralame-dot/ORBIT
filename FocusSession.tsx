@@ -62,16 +62,26 @@ export const FocusSession = ({
   const [sessionNotes, setSessionNotes] = useState("");
   const [wasSkipped, setWasSkipped] = useState(false);
 
-  // ✅ FIX: Prevent transition flicker on mount
+  // ✅ FIX: Prevent transition flicker on mount - use double RAF for paint timing
   const [transitionsEnabled, setTransitionsEnabled] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
 
   useEffect(() => {
-    // Enable smooth transitions only after component has mounted
-    const timer = setTimeout(() => {
-      setTransitionsEnabled(true);
-    }, 100);
-    return () => clearTimeout(timer);
+    // Enable smooth transitions only after component has fully painted
+    // Double RAF ensures we're past initial layout and paint
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTransitionsEnabled(true);
+      });
+    });
   }, []);
+
+  // Track if timer has been started at least once
+  useEffect(() => {
+    if (isActive) {
+      setHasStarted(true);
+    }
+  }, [isActive]);
 
   // v2: Call this instead of onComplete directly (when session ends or finish early)
   const handleFocusComplete = useCallback(
@@ -157,9 +167,6 @@ export const FocusSession = ({
   /* ---------------- FIXED TIMER LOOP (no drift) ---------------- */
   useEffect(() => {
     if (!isActive) {
-      if (pausedAt === null && !isBreak) {
-        setPausedAt(Date.now());
-      }
       return;
     }
 
@@ -260,7 +267,31 @@ export const FocusSession = ({
     try {
       if (navigator && (navigator as any).vibrate) (navigator as any).vibrate(8);
     } catch { }
-    setIsActive((v) => !v);
+
+    // If currently inactive -> start
+    if (!isActive) {
+      // If we were paused, account for paused duration immediately
+      if (pausedAt) {
+        setTotalPausedTime(prev => prev + (Date.now() - pausedAt));
+        setPausedAt(null);
+      }
+
+      // Compute an immediate, precise remaining time so UI doesn't wait for RAF tick
+      const totalSeconds = block.duration * 60;
+      const totalElapsed = Date.now() - sessionStartTime - (pausedAt ? (Date.now() - pausedAt) : 0) - totalPausedTime;
+      const remaining = Math.max(0, totalSeconds - Math.floor(totalElapsed / 1000));
+      setTimeLeft(remaining);
+
+      // Mark started and activate; transitions will be enabled only if your
+      // transitionsEnabled && hasStarted && isActive condition is met.
+      setTimeout(() => setHasStarted(true), 20);
+      setIsActive(true);
+      return;
+    }
+
+    // If currently active -> pause
+    setPausedAt(Date.now());
+    setIsActive(false);
   };
 
   const startBreak = () => {
@@ -433,7 +464,8 @@ export const FocusSession = ({
                 strokeLinecap="round"
                 transform={`rotate(-90 ${SVG_SIZE / 2} ${SVG_SIZE / 2})`}
                 style={{
-                  transition: transitionsEnabled && isActive
+                  // ✅ FIX: Only enable transitions after mount AND after first start
+                  transition: transitionsEnabled && hasStarted && isActive
                     ? "stroke-dashoffset 0.6s ease, stroke 0.3s ease"
                     : "none"
                 }}
@@ -674,4 +706,4 @@ export const FocusSession = ({
       )}
     </div>
   );
-};  
+};
