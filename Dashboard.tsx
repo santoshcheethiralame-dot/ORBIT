@@ -653,6 +653,30 @@ export const Dashboard = ({
       });
     }
 
+    // TILE 4: DATA BACKUP SUGGESTION (NEW)
+    tiles.push({
+      priority: 7,
+      type: 'status',
+      content: (
+        <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-transparent p-5 backdrop-blur-sm hover:border-emerald-400/50 transition-all duration-300 cursor-default group h-full">
+          <div className="flex items-start gap-3 h-full">
+            <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 group-hover:bg-emerald-500/25 transition-colors shrink-0">
+              <RefreshCw size={20} className="text-emerald-400" strokeWidth={2.5} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-base text-emerald-300 mb-1.5">💾 Data Governance</div>
+              <div className="text-sm text-emerald-200/70 leading-relaxed">
+                Protect your progress! Make a manual backup every 2-3 days to ensure your data is safe.
+              </div>
+              <div className="text-xs text-emerald-400/50 mt-2 font-medium">
+                🛡️ Visit Settings {'>'} Data Governance
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    });
+
     // Make sure we always have exactly 3 tiles for smooth carousel
     // Track which tiles we've added using unique identifiers
     const tileIds = new Set<string>();

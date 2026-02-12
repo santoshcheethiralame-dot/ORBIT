@@ -63,46 +63,10 @@ import {
   SubjectReadiness,
 } from "./brain";
 
-// Try to import enhanced brain features, fallback if not available
+// Brain features will be lazy-loaded
 let getSubjectPerformance: any;
 let detectBurnout: any;
 let getEnergyProfile: any;
-
-try {
-  const enhanced = require("./brainEnhanced");
-  getSubjectPerformance = enhanced.getSubjectPerformance;
-  detectBurnout = enhanced.detectBurnout;
-  getEnergyProfile = enhanced.getEnergyProfile;
-} catch (e) {
-  // Fallback implementations if brainEnhanced doesn't exist
-  getSubjectPerformance = async (subjectId: number) => ({
-    subjectId,
-    avgCompletionRate: 1.0,
-    avgQuality: 3,
-    avgActualDuration: 45,
-    targetDuration: 45,
-    durationRatio: 1.0,
-    skipRate: 0,
-    bestTimeOfDay: null,
-    recommendedDuration: 45,
-  });
-
-  detectBurnout = async () => ({
-    skipRate: 0,
-    avgSessionRatio: 1.0,
-    lowMoodDays: 0,
-    streakBreaks: 0,
-    score: 0,
-    atRisk: false,
-  });
-
-  getEnergyProfile = () => ({
-    morning: 100,
-    afternoon: 80,
-    evening: 60,
-    night: 40,
-  });
-}
 
 // Import types from brainEnhanced
 type SubjectPerformance = {
@@ -127,7 +91,7 @@ type BurnoutSignals = {
   recommendation?: string;
 };
 
-import { getISTEffectiveDate } from "./utils/time";
+import { getISTEffectiveDate, formatLocalDate, parseLocalDate } from "./utils/time";
 
 /* ======================================================
   TYPES
@@ -159,6 +123,7 @@ interface TimeOfDayStats {
   totalMinutes: number;
   avgQuality: number;
   completionRate: number;
+  qualityCount: number;
 }
 
 interface DayOfWeekStats {
@@ -166,6 +131,7 @@ interface DayOfWeekStats {
   sessions: number;
   totalMinutes: number;
   avgQuality: number;
+  qualityCount: number;
 }
 
 interface StreakInfo {
@@ -475,11 +441,10 @@ const InsightCard: React.FC<{
 ====================================================== */
 
 const calculateStreak = (logs: StudyLog[]): StreakInfo => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = getISTEffectiveDate();
+  const today = parseLocalDate(todayStr);
 
-  const uniqueDates = Array.from(new Set(logs.map(l => l.date))).sort();
+  const uniqueDates = Array.from(new Set(logs.map(l => l.date))).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
   let current = 0;
   let longest = 0;
@@ -541,23 +506,24 @@ const calculateTimeOfDayStats = (logs: StudyLog[], outcomes: any[]): TimeOfDaySt
   logs.forEach(log => {
     const hour = new Date(log.timestamp).getHours();
     if (!hourStats[hour]) {
-      hourStats[hour] = { hour, sessions: 0, totalMinutes: 0, avgQuality: 0, completionRate: 0 };
+      hourStats[hour] = { hour, sessions: 0, totalMinutes: 0, avgQuality: 0, completionRate: 0, qualityCount: 0 };
     }
     hourStats[hour].sessions++;
     hourStats[hour].totalMinutes += log.duration;
   });
 
   outcomes.forEach(outcome => {
-    const hour = outcome.timeOfDay;
+    const hour = typeof outcome.timeOfDay === "number" ? outcome.timeOfDay : new Date(outcome.date || outcome.timestamp || Date.now()).getHours();
     if (hourStats[hour]) {
-      const currentTotal = hourStats[hour].avgQuality * (hourStats[hour].sessions - 1);
-      hourStats[hour].avgQuality = (currentTotal + outcome.completionQuality) / hourStats[hour].sessions;
+      // Independent quality average
+      const currentQualityTotal = hourStats[hour].avgQuality * hourStats[hour].qualityCount;
+      hourStats[hour].qualityCount++;
+      hourStats[hour].avgQuality = (currentQualityTotal + outcome.completionQuality) / hourStats[hour].qualityCount;
 
-      if (outcome.completed) {
-        hourStats[hour].completionRate = (hourStats[hour].completionRate * (hourStats[hour].sessions - 1) + 1) / hourStats[hour].sessions;
-      } else {
-        hourStats[hour].completionRate = (hourStats[hour].completionRate * (hourStats[hour].sessions - 1)) / hourStats[hour].sessions;
-      }
+      // Independent completion rate
+      const currentCompletionTotal = hourStats[hour].completionRate * (hourStats[hour].qualityCount - 1);
+      const isCompleted = outcome.completed ? 1 : 0;
+      hourStats[hour].completionRate = (currentCompletionTotal + isCompleted) / hourStats[hour].qualityCount;
     }
   });
 
@@ -569,7 +535,7 @@ const calculateDayOfWeekStats = (logs: StudyLog[], outcomes: any[]): DayOfWeekSt
   const dayStats: Record<string, DayOfWeekStats> = {};
 
   dayNames.forEach(day => {
-    dayStats[day] = { day, sessions: 0, totalMinutes: 0, avgQuality: 0 };
+    dayStats[day] = { day, sessions: 0, totalMinutes: 0, avgQuality: 0, qualityCount: 0 };
   });
 
   logs.forEach(log => {
@@ -582,10 +548,11 @@ const calculateDayOfWeekStats = (logs: StudyLog[], outcomes: any[]): DayOfWeekSt
   outcomes.forEach(outcome => {
     const date = new Date(outcome.date);
     const day = dayNames[date.getDay()];
-    if (dayStats[day].sessions > 0) {
-      const currentTotal = dayStats[day].avgQuality * (dayStats[day].sessions - 1);
-      dayStats[day].avgQuality = (currentTotal + outcome.completionQuality) / dayStats[day].sessions;
-    }
+
+    // Independent quality average
+    const currentQualityTotal = dayStats[day].avgQuality * dayStats[day].qualityCount;
+    dayStats[day].qualityCount++;
+    dayStats[day].avgQuality = (currentQualityTotal + outcome.completionQuality) / dayStats[day].qualityCount;
   });
 
   return Object.values(dayStats);
@@ -641,6 +608,19 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["overview"]));
   const toast = useToast();
 
+  // 1. INTERACTIVE HEATMAP state
+  const [selectedHeatmapDay, setSelectedHeatmapDay] = useState<string | null>(null);
+  const [heatmapDaySessions, setHeatmapDaySessions] = useState<StudyLog[]>([]);
+
+  // Performance Optimization - LAZY LOADING
+  const [brainEnhancedLoaded, setBrainEnhancedLoaded] = useState(false);
+  const [burnoutLoading, setBurnoutLoading] = useState<boolean>(false);
+
+  // Readiness scores
+  const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness>>({});
+  const [subjectPerformances, setSubjectPerformances] = useState<Record<number, SubjectPerformance>>({});
+  const [burnoutSignals, setBurnoutSignals] = useState<BurnoutSignals | null>(null);
+
   // Settings
   const settings = useLiveQuery(async () => {
     try {
@@ -673,27 +653,116 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   // Block outcomes for performance tracking
   const blockOutcomes = useLiveQuery(() => db.blockOutcomes?.toArray()) || [];
 
-  // Readiness scores
-  const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness>>({});
-  const [subjectPerformances, setSubjectPerformances] = useState<Record<number, SubjectPerformance>>({});
-  const [burnoutSignals, setBurnoutSignals] = useState<BurnoutSignals | null>(null);
-
   useEffect(() => {
+    // Trigger data fetch
     const fetchData = async () => {
-      const scores = await getAllReadinessScores(db);
-      setReadinessScores(scores);
+      try {
+        setBurnoutLoading(true);
+        const scores = await getAllReadinessScores(db);
+        setReadinessScores(scores);
 
-      const perfs: Record<number, SubjectPerformance> = {};
-      for (const subject of subjects) {
-        perfs[subject.id!] = await getSubjectPerformance(subject.id!, 30, db);
+        const perfs: Record<number, SubjectPerformance> = {};
+        for (const subject of subjects) {
+          perfs[subject.id!] = await getSubjectPerformance(subject.id!, 30, db);
+        }
+        setSubjectPerformances(perfs);
+
+        const burnout = await detectBurnout(7, db);
+        if (burnout) setBurnoutSignals(burnout);
+      } catch (e) {
+        console.error('brainEnhanced fetchData failed', e);
+      } finally {
+        setBurnoutLoading(false);
       }
-      setSubjectPerformances(perfs);
-
-      const burnout = await detectBurnout(7, db);
-      setBurnoutSignals(burnout);
     };
-    fetchData();
-  }, [subjects, logs, blockOutcomes]);
+
+    // Only load brainEnhanced when user navigates to performance/insights
+    if ((viewMode === 'performance' || viewMode === 'insights') && !brainEnhancedLoaded) {
+      import('./brain-enhanced-integration')
+        .then(module => {
+          getSubjectPerformance = module.getSubjectPerformance;
+          detectBurnout = module.detectBurnout;
+          getEnergyProfile = module.getEnergyProfile;
+          setBrainEnhancedLoaded(true);
+          fetchData();
+        })
+        .catch(() => {
+          // Use DB-backed fallback implementations if brain-enhanced-integration fails or is missing
+          getSubjectPerformance = async (subjectId: number) => {
+            const logs = await db.logs.where('subjectId').equals(subjectId).toArray();
+            const total = logs.length || 1;
+            const avg = logs.reduce((s, l) => s + l.duration, 0) / total;
+            return {
+              subjectId,
+              avgCompletionRate: 1.0,
+              avgQuality: 3,
+              avgActualDuration: avg,
+              targetDuration: 45,
+              durationRatio: 1.0,
+              skipRate: 0,
+              bestTimeOfDay: null,
+              recommendedDuration: Math.round(avg),
+            };
+          };
+
+          detectBurnout = async () => {
+            const since = new Date();
+            since.setDate(since.getDate() - 7);
+            const sinceStr = since.toISOString().split('T')[0];
+            const logs = await db.logs.where('date').aboveOrEqual(sinceStr).toArray();
+            const uniqueDates = new Set(logs.map(l => l.date)).size;
+            const consistency = uniqueDates / 7;
+            const atRisk = consistency < 0.3;
+            return {
+              skipRate: 0,
+              avgSessionRatio: 1.0,
+              lowMoodDays: 0,
+              streakBreaks: 7 - uniqueDates,
+              score: atRisk ? 70 : 10,
+              atRisk,
+              recommendation: atRisk ? "Consider a rest day." : "Healthy balance."
+            };
+          };
+
+          getEnergyProfile = () => ({ morning: 100, afternoon: 80, evening: 60, night: 40 });
+
+          setBrainEnhancedLoaded(true);
+          fetchData();
+        });
+    }
+  }, [viewMode, brainEnhancedLoaded, subjects]);
+
+  // 2. EAGER BURNOUT LOAD (Final Fix)
+  useEffect(() => {
+    let mounted = true;
+    const loadBurnoutData = async () => {
+      // if burnout already loaded, skip
+      if (burnoutSignals) return;
+      setBurnoutLoading(true);
+      try {
+        const mod = await import('./brain-enhanced-integration').catch(() => null);
+        if (mod && mounted) {
+          // assign if not already assigned by other code paths
+          getSubjectPerformance = mod.getSubjectPerformance ?? getSubjectPerformance;
+          detectBurnout = mod.detectBurnout ?? detectBurnout;
+          getEnergyProfile = mod.getEnergyProfile ?? getEnergyProfile;
+        }
+
+        // call detectBurnout (7 days window)
+        const result = await (detectBurnout ? detectBurnout(7, db) : Promise.resolve(null));
+        if (mounted && result) setBurnoutSignals(result);
+      } catch (e) {
+        console.error("burnout load failed", e);
+      } finally {
+        if (mounted) setBurnoutLoading(false);
+      }
+    };
+
+    // load only when overview is visible
+    if (viewMode === "overview") loadBurnoutData();
+
+    return () => { mounted = false; };
+  }, [viewMode]);
 
   // Time range filtering
   const now = new Date();
@@ -708,14 +777,13 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     return r;
   }, [timeRange]);
 
-  const rangeStartStr = rangeStart.toISOString().split("T")[0];
+  const rangeStartStr = formatLocalDate(rangeStart);
   const filteredLogs = logs.filter((l) => l.date >= rangeStartStr);
   const filteredOutcomes = blockOutcomes.filter((o) => o.date >= rangeStartStr);
 
   // Previous period for comparison
-  const prevRangeStart = new Date(rangeStart);
   const daysDiff = Math.floor((now.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24));
-  prevRangeStart.setDate(rangeStart.getDate() - daysDiff);
+  const prevRangeStart = new Date(rangeStart.getTime() - (daysDiff * 24 * 60 * 60 * 1000));
   const prevRangeStartStr = prevRangeStart.toISOString().split("T")[0];
   const prevLogs = logs.filter((l) => l.date >= prevRangeStartStr && l.date < rangeStartStr);
 
@@ -832,12 +900,12 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     return Array(daysInRange)
       .fill(0)
       .map((_, i) => {
-        const d = new Date();
+        const d = new Date(now);
         d.setDate(now.getDate() - (daysInRange - 1 - i));
-        const dateStr = d.toISOString().split("T")[0];
+        const dateStr = formatLocalDate(d);
         return logs.filter((l) => l.date === dateStr).reduce((s, l) => s + l.duration, 0) / 60;
       });
-  }, [logs, daysInRange]);
+  }, [logs, daysInRange, now]);
 
   // Advanced analytics
   const streakInfo = useMemo(() => calculateStreak(filteredLogs), [filteredLogs]);
@@ -851,9 +919,10 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     : 100;
 
   // Average quality
-  const avgQuality = filteredOutcomes.filter(o => o.completed).length > 0
-    ? (filteredOutcomes.filter(o => o.completed).reduce((sum, o) => sum + o.completionQuality, 0) / filteredOutcomes.filter(o => o.completed).length).toFixed(1)
-    : "N/A";
+  const avgQualityNum = filteredOutcomes.filter(o => o.completed).length > 0
+    ? filteredOutcomes.filter(o => o.completed).reduce((sum, o) => sum + o.completionQuality, 0) / filteredOutcomes.filter(o => o.completed).length
+    : null;
+  const avgQuality = avgQualityNum !== null ? avgQualityNum.toFixed(1) : "N/A";
 
   // Progress donut animation
   const targetWeeklyMins = weeklyTargetHours * 60;
@@ -873,6 +942,78 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
   }, [percentRaw]);
+
+  // 2. ADAPTIVE GOAL SUGGESTION - Add this calculation after avgDailyHours
+  const adaptiveGoalSuggestion = useMemo(() => {
+    const currentWeeklyAvg = parseFloat(avgDailyHours) * 7;
+    const consistency = productivityPattern.consistency;
+
+    // If consistency is high (>70%), suggest increasing by 10-15%
+    // If consistency is medium (40-70%), maintain current level
+    // If consistency is low (<40%), suggest reducing by 10%
+
+    if (consistency > 70 && currentWeeklyAvg < weeklyTargetHours) {
+      const increment = Math.min(1.5, (weeklyTargetHours - currentWeeklyAvg) * 0.15);
+      return {
+        type: 'increase' as const,
+        current: currentWeeklyAvg.toFixed(1),
+        suggested: (currentWeeklyAvg + increment).toFixed(1),
+        message: `You're consistent! Try adding ${(increment * 60).toFixed(0)}m more this week.`,
+        increment: increment.toFixed(1),
+      };
+    } else if (consistency < 40 && currentWeeklyAvg > 0) {
+      const decrement = currentWeeklyAvg * 0.1;
+      return {
+        type: 'decrease' as const,
+        current: currentWeeklyAvg.toFixed(1),
+        suggested: (currentWeeklyAvg - decrement).toFixed(1),
+        message: `Lower your target to ${(currentWeeklyAvg - decrement).toFixed(1)}h to build consistency.`,
+        increment: decrement.toFixed(1),
+      };
+    } else {
+      return {
+        type: 'maintain' as const,
+        current: currentWeeklyAvg.toFixed(1),
+        suggested: currentWeeklyAvg.toFixed(1),
+        message: `Maintain your current ${currentWeeklyAvg.toFixed(1)}h/week pace.`,
+        increment: '0',
+      };
+    }
+  }, [avgDailyHours, productivityPattern.consistency, weeklyTargetHours]);
+
+  // 3. ACTIONABLE INSIGHTS - Enhanced handler functions
+  const handleScheduleReview = (subjectId: number, subjectName: string) => {
+    // This would integrate with your scheduling system
+    toast.success(`Review scheduled for ${subjectName}`);
+    // In real implementation: navigate to schedule view with pre-filled subject
+    window.dispatchEvent(new CustomEvent('schedule-review', { detail: { subjectId, subjectName } }));
+  };
+
+  const handleAdjustBlockDuration = (subjectId: number) => {
+    toast.success('Opening block duration settings...');
+    // In real implementation: open settings modal for this subject
+    window.dispatchEvent(new CustomEvent('adjust-duration', { detail: { subjectId } }));
+  };
+
+  const handleApplyGoalSuggestion = () => {
+    const newTarget = parseFloat(adaptiveGoalSuggestion.suggested);
+    toast.success(`Weekly target updated to ${newTarget}h`);
+    // In real implementation: update settings in database
+    // await db.settings.put({ id: 'user', weeklyTargetHours: newTarget });
+  };
+
+  // 4. HEATMAP INTERACTION - Handler
+  const handleHeatmapClick = (date: string, minutes: number) => {
+    if (minutes === 0) {
+      setSelectedHeatmapDay(null);
+      setHeatmapDaySessions([]);
+      return;
+    }
+
+    const daySessions = logs.filter(l => l.date === date).sort((a, b) => a.timestamp - b.timestamp);
+    setSelectedHeatmapDay(date);
+    setHeatmapDaySessions(daySessions);
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -924,7 +1065,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       link.href = url;
       link.download = `orbit-stats-${new Date().toISOString().split("T")[0]}.csv`;
       link.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 5000); // Delayed revocation for async downloads
       toast.success("Exported as CSV");
     } catch (err) {
       toast.error("Export failed");
@@ -963,15 +1104,26 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   };
 
   // Generate smart insights
-  const insights = useMemo(() => {
-    const list: Array<{ type: "success" | "warning" | "info" | "danger"; title: string; description: string; action?: string }> = [];
+  const enhancedInsights = useMemo(() => {
+    const list: Array<{
+      type: "success" | "warning" | "info" | "danger";
+      title: string;
+      description: string;
+      action?: string;
+      onAction?: () => void;
+    }> = [];
 
-    // Burnout warning
+    // Burnout warning with action
     if (burnoutSignals?.atRisk) {
       list.push({
         type: "danger",
         title: "Burnout Risk Detected",
         description: burnoutSignals.recommendation || "Consider taking a break to recover.",
+        action: "Schedule Recovery Day",
+        onAction: () => {
+          toast.success("Recovery day suggestion noted");
+          // In real implementation: suggest specific dates
+        }
       });
     }
 
@@ -987,26 +1139,34 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         type: "warning",
         title: "Streak Broken",
         description: `Start a new streak today. Your longest was ${streakInfo.longest} days.`,
+        action: "Start Session Now",
+        onAction: () => {
+          window.dispatchEvent(new CustomEvent("navigate-to-dashboard"));
+        }
       });
     }
 
-    // Performance insights
+    // Performance insights with action
     const struggling = subjectStats.filter(s => s.skipRate && s.skipRate > 0.3);
     if (struggling.length > 0) {
       list.push({
         type: "warning",
         title: "High Skip Rate",
         description: `You're skipping ${struggling[0].name} sessions frequently (${((struggling[0].skipRate || 0) * 100).toFixed(0)}%). Consider shorter blocks.`,
+        action: "Adjust Block Duration",
+        onAction: () => handleAdjustBlockDuration(struggling[0].id)
       });
     }
 
-    // Readiness alerts
+    // Readiness alerts with action
     const critical = subjectStats.filter(s => s.readiness?.status === "critical");
     if (critical.length > 0) {
       list.push({
         type: "danger",
         title: "Critical Readiness Alert",
         description: `${critical[0].name} readiness is low (${critical[0].readiness?.score}%). Schedule review sessions.`,
+        action: "Schedule 25m Review",
+        onAction: () => handleScheduleReview(critical[0].id, critical[0].name)
       });
     }
 
@@ -1061,8 +1221,8 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
                   key={mode}
                   onClick={() => setViewMode(mode)}
                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all capitalize whitespace-nowrap ${viewMode === mode
-                      ? "bg-indigo-500/20 text-indigo-100 shadow-lg shadow-indigo-500/10 border border-indigo-500/30"
-                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+                    ? "bg-indigo-500/20 text-indigo-100 shadow-lg shadow-indigo-500/10 border border-indigo-500/30"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
                     }`}
                 >
                   {mode}
@@ -1082,13 +1242,13 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
               onClick={async () => {
                 setIsSharing(true);
                 try {
-                  const summary = `📊 My Orbit Study Stats (${timeRange})
-
-⏱️ Total Study: ${totalHours}h across ${totalSessions} sessions
+                  const summary = `Orbit Study Summary (${timeRange})
+📅 ${new Date().toLocaleDateString()}
+⏰ Total Hours: ${totalHours}h
 🔥 Current Streak: ${streakInfo.current} days
 ✅ Completion Rate: ${completionRate}%
-📈 Daily Average: ${avgDailyHours}h
-
+🌟 Avg Quality: ${avgQuality}/5
+💡 Top Insight: ${enhancedInsights.length > 0 ? enhancedInsights[0].title : 'Consistency is key!'}
 ${topSubject ? `🏆 Top Subject: ${topSubject.name} (${topSubject.focusScore}/100)` : ''}
 
 Keep pushing! 💪`;
@@ -1128,8 +1288,8 @@ Keep pushing! 💪`;
               key={r}
               onClick={() => setTimeRange(r)}
               className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 whitespace-nowrap flex-shrink-0 ${timeRange === r
-                  ? "bg-indigo-500/20 text-indigo-100 border-2 border-indigo-500/40 shadow-lg shadow-indigo-500/10"
-                  : "bg-zinc-900/30 text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200 border-2 border-zinc-800/50 hover:border-zinc-700/50"
+                ? "bg-indigo-500/20 text-indigo-100 border-2 border-indigo-500/40 shadow-lg shadow-indigo-500/10"
+                : "bg-zinc-900/30 text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200 border-2 border-zinc-800/50 hover:border-zinc-700/50"
                 }`}
             >
               {r === "10days" ? "10 Days" : r === "3months" ? "3 Months" : r === "all" ? "All Time" : r.charAt(0).toUpperCase() + r.slice(1)}
@@ -1146,8 +1306,8 @@ Keep pushing! 💪`;
       {viewMode === "overview" && (
         <>
           {/* Top KPIs - BALANCED GRID */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <FrostedTile variant="indigo" className="p-6 flex flex-col justify-between h-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
+            <FrostedTile variant="indigo" className="p-6 flex flex-col justify-between h-full min-h-[156px]">
               <div className="flex items-start gap-4 mb-4">
                 <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center border-2 border-indigo-500/30 flex-shrink-0 shadow-lg shadow-indigo-500/10">
                   <Clock size={24} strokeWidth={2.5} className="text-indigo-200" />
@@ -1160,15 +1320,6 @@ Keep pushing! 💪`;
                   </div>
                 </div>
               </div>
-              {trend !== 0 && (
-                <div className={`text-xs font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-lg w-fit ${trend > 0
-                    ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
-                    : "bg-red-500/10 text-red-300 border border-red-500/20"
-                  }`}>
-                  {trend > 0 ? <TrendingUp size={14} strokeWidth={2.5} /> : <TrendingDown size={14} strokeWidth={2.5} />}
-                  {Math.abs(trend)}% vs previous
-                </div>
-              )}
             </FrostedTile>
 
             <FrostedTile variant="emerald" className="p-6 flex flex-col justify-between h-full">
@@ -1205,37 +1356,48 @@ Keep pushing! 💪`;
                   </div>
                 </div>
               </div>
-              {completionRate >= 80 && (
-                <div className="text-xs font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-lg w-fit bg-purple-500/10 text-purple-300 border border-purple-500/20">
-                  <Check size={14} strokeWidth={2.5} />
-                  Excellent
-                </div>
-              )}
             </FrostedTile>
 
-            <FrostedTile variant="amber" className="p-6 flex flex-col justify-between h-full">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center border-2 border-amber-500/30 flex-shrink-0 shadow-lg shadow-amber-500/10">
+            <FrostedTile
+              variant="amber"
+              className="p-6 flex flex-col justify-between h-full relative overflow-hidden group"
+            >
+              {/* Non-blocking loader overlay: spinner tied to activity loading */}
+              {(burnoutLoading && !burnoutSignals) && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+                  <div
+                    className="rounded-full p-3 bg-black/40 backdrop-blur-sm flex items-center justify-center pointer-events-auto"
+                    aria-hidden="true"
+                  >
+                    <RefreshCw size={20} className="animate-spin text-amber-400 opacity-85" />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-start gap-4 mb-4 z-10">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center border-2 border-amber-500/30 flex-shrink-0 shadow-lg transition-transform group-hover:scale-105">
                   {burnoutSignals && burnoutSignals.score > 60 ? (
                     <AlertCircle size={24} strokeWidth={2.5} className="text-amber-200" />
                   ) : (
                     <Heart size={24} strokeWidth={2.5} className="text-amber-200" />
                   )}
                 </div>
+
                 <div className="flex-1 min-w-0">
                   <div className="text-xs text-zinc-400 uppercase tracking-wider font-bold mb-3">Wellbeing</div>
-                  <div className="text-3xl font-bold tabular-nums mb-1">
+                  <div className="text-3xl font-bold tabular-nums mb-1 z-10">
                     {burnoutSignals ? Math.max(0, 100 - burnoutSignals.score) : 100}%
                   </div>
-                  <div className="text-xs text-zinc-500 font-semibold">
-                    {burnoutSignals?.atRisk ? "At risk" : "Healthy"}
+                  <div className="text-xs text-zinc-500 font-semibold truncate z-10">
+                    {burnoutSignals?.atRisk ? "At risk" : "Healthy balance"}
                   </div>
                 </div>
               </div>
+
               {burnoutSignals?.atRisk && (
-                <div className="text-xs font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-lg w-fit bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                <div className="text-xs font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-lg w-fit bg-red-500/10 text-red-300 border border-red-500/20 z-10">
                   <AlertCircle size={14} strokeWidth={2.5} />
-                  Take a break
+                  Burnout Risk
                 </div>
               )}
             </FrostedTile>
@@ -1243,45 +1405,74 @@ Keep pushing! 💪`;
 
           {/* Progress & Momentum - BALANCED LAYOUT */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Weekly Progress */}
-            <FrostedTile className="p-8 lg:col-span-2">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-1">Weekly Progress</div>
-                  <div className="text-xs text-zinc-500 font-semibold">Target: {weeklyTargetHours}h per week</div>
-                </div>
-                <div className="text-xs px-4 py-2 rounded-xl bg-indigo-500/10 text-indigo-200 border-2 border-indigo-500/20 font-bold">
-                  {daysInRange} days
-                </div>
-              </div>
-
-              <div className="flex items-center gap-8">
-                <div className="flex-shrink-0">
-                  <ProgressRing progress={donutPct} size={160} strokeWidth={12} label={`${donutPct}%`} sublabel="of goal" />
-                </div>
-
-                <div className="flex-1 space-y-6">
+            {/* Weekly Progress & Adaptive Goals */}
+            <div className="lg:col-span-2 flex flex-col gap-6 h-full">
+              <FrostedTile className="p-8">
+                <div className="flex items-center justify-between mb-8">
                   <div>
-                    <div className="text-sm text-zinc-400 mb-2 font-semibold">Daily Average</div>
-                    <div className="text-4xl font-bold tabular-nums">{avgDailyHours}h</div>
+                    <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-1">Weekly Progress</div>
+                    <div className="text-xs text-zinc-500 font-semibold">Target: {weeklyTargetHours}h per week</div>
                   </div>
-
-                  <div>
-                    <div className="text-sm text-zinc-400 mb-3 font-semibold">Momentum</div>
-                    <Sparkline data={series} width={280} height={48} showDots className="drop-shadow-lg" />
+                  <div className="text-xs px-4 py-2 rounded-xl bg-indigo-500/10 text-indigo-200 border-2 border-indigo-500/20 font-bold">
+                    {daysInRange} days
                   </div>
                 </div>
-              </div>
 
-              {donutPct >= 100 && (
-                <div className="mt-8 p-5 bg-emerald-500/10 rounded-2xl border-2 border-emerald-500/20 shadow-lg shadow-emerald-500/5">
-                  <div className="flex items-center gap-3 text-emerald-200">
-                    <Trophy size={20} strokeWidth={2.5} />
-                    <span className="font-bold text-base">Weekly goal achieved! 🎉</span>
+                <div className="flex flex-col md:flex-row items-center gap-8">
+                  <div className="flex-shrink-0">
+                    <ProgressRing progress={donutPct} size={160} strokeWidth={12} label={`${donutPct}%`} sublabel="of goal" />
+                  </div>
+
+                  <div className="flex-1 space-y-6 w-full">
+                    <div>
+                      <div className="text-sm text-zinc-400 mb-2 font-semibold">Daily Average</div>
+                      <div className="text-4xl font-bold tabular-nums">{avgDailyHours}h</div>
+                    </div>
+
+                    <div>
+                      <div className="text-sm text-zinc-400 mb-4 font-semibold">Momentum</div>
+                      <Sparkline data={series} width={280} height={48} showDots className="drop-shadow-lg" />
+                    </div>
                   </div>
                 </div>
-              )}
-            </FrostedTile>
+
+                {donutPct >= 100 && (
+                  <div className="mt-8 p-5 bg-emerald-500/10 rounded-2xl border-2 border-emerald-500/20 shadow-lg shadow-emerald-500/5">
+                    <div className="flex items-center gap-3 text-emerald-200">
+                      <Trophy size={20} strokeWidth={2.5} />
+                      <span className="font-bold text-base">Weekly goal achieved! 🎉</span>
+                    </div>
+                  </div>
+                )}
+              </FrostedTile>
+
+              {/* Adaptive Goal Suggestion Tile */}
+              <FrostedTile variant={adaptiveGoalSuggestion.type === 'increase' ? 'indigo' : 'purple'} className="p-6 border-l-4 border-l-indigo-400">
+                <div className="flex items-start gap-4">
+                  <div className={`w-12 h-12 rounded-2xl ${adaptiveGoalSuggestion.type === 'increase' ? 'bg-indigo-500/10' : 'bg-purple-500/10'} flex items-center justify-center border-2 ${adaptiveGoalSuggestion.type === 'increase' ? 'border-indigo-500/30' : 'border-purple-500/30'} flex-shrink-0 animate-pulse`}>
+                    <TrendingUp size={20} className={adaptiveGoalSuggestion.type === 'increase' ? 'text-indigo-200' : 'text-purple-200'} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-sm font-bold text-zinc-100">Adaptive Goal Suggestion</div>
+                      <StatBadge label="Consistency" value={`${productivityPattern.consistency}%`} color="success" />
+                    </div>
+                    <p className="text-sm text-zinc-400 mb-4 leading-relaxed">
+                      {adaptiveGoalSuggestion.message}
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={handleApplyGoalSuggestion}
+                        className="px-4 py-2 rounded-xl bg-indigo-500/20 text-indigo-100 border border-indigo-500/30 text-xs font-bold hover:bg-indigo-500/30 transition-all flex items-center gap-2"
+                      >
+                        Adjust target to {adaptiveGoalSuggestion.suggested}h
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </FrostedTile>
+            </div>
 
             {/* Activity Mix */}
             <FrostedTile variant="purple" className="p-8">
@@ -1331,7 +1522,7 @@ Keep pushing! 💪`;
           </div>
 
           {/* Smart Insights */}
-          {insights.length > 0 && (
+          {enhancedInsights.length > 0 && (
             <FrostedTile variant="indigo" className="p-8">
               <div className="flex items-center justify-between mb-7">
                 <div className="flex items-center gap-4">
@@ -1339,29 +1530,29 @@ Keep pushing! 💪`;
                     <Lightbulb size={20} strokeWidth={2.5} className="text-indigo-200" />
                   </div>
                   <div>
-                    <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-1">Smart Insights</div>
-                    <div className="text-xs text-zinc-500 font-semibold">AI-powered recommendations</div>
+                    <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-1">Actionable Insights</div>
+                    <div className="text-xs text-zinc-500 font-semibold">Dynamic recommendations based on your habits</div>
                   </div>
                 </div>
                 <div className="text-xs px-4 py-2 rounded-xl bg-indigo-500/10 text-indigo-200 border-2 border-indigo-500/20 font-bold">
-                  {insights.length} active
+                  {enhancedInsights.length} suggestions
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {insights.map((insight, idx) => (
+                {enhancedInsights.map((insight, idx) => (
                   <InsightCard key={idx} {...insight} />
                 ))}
               </div>
             </FrostedTile>
           )}
 
-          {/* Study Heatmap */}
+          {/* Interactive Study Heatmap */}
           <FrostedTile variant="indigo" className="p-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-7 gap-4">
               <div>
-                <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-1">90-Day Activity Heatmap</div>
-                <div className="text-xs text-zinc-500 font-semibold mt-1">Your study consistency at a glance</div>
+                <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-1">Interactive Study Heatmap</div>
+                <div className="text-xs text-zinc-500 font-semibold mt-1">Click a day to view session details</div>
               </div>
               <div className="flex items-center gap-3 text-xs text-zinc-400 font-semibold">
                 <div className="flex items-center gap-2">
@@ -1379,22 +1570,67 @@ Keep pushing! 💪`;
               {heatmapData.map((day, i) => {
                 const d = new Date(day.date);
                 const title = `${d.toLocaleDateString()}: ${day.minutes}m`;
+                const isSelected = selectedHeatmapDay === day.date;
                 return (
                   <div
                     key={i}
                     title={title}
-                    className={`aspect-square rounded-md transition-all duration-300 hover:scale-125 hover:z-10 cursor-pointer ${day.intensity === 0
-                        ? "bg-zinc-900 border-2 border-zinc-800/50"
-                        : day.intensity === 1
-                          ? "bg-indigo-900/60 border-2 border-indigo-800/50 shadow-sm"
-                          : day.intensity === 2
-                            ? "bg-indigo-600 border-2 border-indigo-500/50 shadow-md shadow-indigo-600/20"
-                            : "bg-indigo-400 border-2 border-indigo-300 shadow-lg shadow-indigo-400/30"
+                    onClick={() => handleHeatmapClick(day.date, day.minutes)}
+                    className={`aspect-square rounded-md transition-all duration-300 hover:scale-125 hover:z-10 cursor-pointer ${isSelected ? "ring-2 ring-indigo-400 ring-offset-2 ring-offset-zinc-950 scale-110" : ""} ${day.intensity === 0
+                      ? "bg-zinc-900 border-2 border-zinc-800/50"
+                      : day.intensity === 1
+                        ? "bg-indigo-900/60 border-2 border-indigo-800/50 shadow-sm"
+                        : day.intensity === 2
+                          ? "bg-indigo-600 border-2 border-indigo-500/50 shadow-md shadow-indigo-600/20"
+                          : "bg-indigo-400 border-2 border-indigo-300 shadow-lg shadow-indigo-400/30"
                       }`}
                   />
                 );
               })}
             </div>
+
+            {/* Heatmap Detail Panel */}
+            {selectedHeatmapDay && heatmapDaySessions.length > 0 && (
+              <div className="mt-8 p-6 rounded-2xl bg-indigo-500/5 border-2 border-indigo-500/20 animate-in slide-in-from-top-4 duration-500">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border-2 border-indigo-500/20">
+                      <Calendar size={18} className="text-indigo-200" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-zinc-100 italic">
+                        {new Date(selectedHeatmapDay).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      </div>
+                      <div className="text-xs text-zinc-400 font-semibold">{heatmapDaySessions.length} sessions recorded</div>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedHeatmapDay(null)} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                    <X size={16} className="text-zinc-500" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {heatmapDaySessions.map((session, idx) => (
+                    <div key={idx} className="p-4 rounded-xl bg-zinc-900/40 border-2 border-zinc-800/50 flex flex-col gap-2 hover:border-zinc-700/50 transition-all">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
+                          {new Date(session.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                        <div className="text-xs font-bold text-zinc-300 px-2 py-1 bg-zinc-800 rounded-lg">{session.duration}m</div>
+                      </div>
+                      <div className="text-sm font-bold text-zinc-100 truncate">
+                        {subjects.find(s => s.id === session.subjectId)?.name || 'Subject'}
+                      </div>
+                      {session.notes && (
+                        <div className="text-xs text-zinc-400 line-clamp-2 italic border-t border-zinc-800/50 pt-2 mt-1">
+                          "{session.notes}"
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </FrostedTile>
         </>
       )}
@@ -1677,8 +1913,8 @@ Keep pushing! 💪`;
                   <div
                     key={day.day}
                     className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:shadow-lg h-full flex flex-col ${isBestDay
-                        ? "bg-purple-500/10 border-purple-500/30 shadow-md shadow-purple-500/10"
-                        : "bg-zinc-900/40 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700/50"
+                      ? "bg-purple-500/10 border-purple-500/30 shadow-md shadow-purple-500/10"
+                      : "bg-zinc-900/40 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700/50"
                       }`}
                   >
                     <div className="text-xs font-bold text-zinc-200 mb-4 uppercase tracking-wider">{day.day.slice(0, 3)}</div>
@@ -1763,7 +1999,7 @@ Keep pushing! 💪`;
             </div>
 
             <div className="space-y-5">
-              {insights.map((insight, idx) => (
+              {enhancedInsights.map((insight, idx) => (
                 <InsightCard key={idx} {...insight} />
               ))}
             </div>

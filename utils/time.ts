@@ -34,7 +34,7 @@ function getDayStartHour(): number {
  * Format a Date object into YYYY-MM-DD using LOCAL calendar fields
  * (Never use toISOString for logical dates)
  */
-function formatLocalDate(d: Date): string {
+export function formatLocalDate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
@@ -44,7 +44,7 @@ function formatLocalDate(d: Date): string {
 /**
  * Parse YYYY-MM-DD into a LOCAL Date at midnight
  */
-function parseLocalDate(dateStr: string): Date {
+export function parseLocalDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number);
   return new Date(y, m - 1, d, 0, 0, 0, 0);
 }

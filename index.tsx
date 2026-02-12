@@ -27,6 +27,7 @@ import { AboutView } from "./AboutView";
 import { SettingsView } from "./SettingsView";
 import { SoundManager } from "./utils/sounds";
 import { NotificationManager } from "./utils/notifications";
+import { getSubjectIntelligence, SubjectIntelligence } from "./utils/subjectIntelligence";
 
 // ✨ NEW: Import Toast System
 import { ToastProvider, useToast } from "./Toast";
@@ -70,6 +71,7 @@ const App = () => {
   const [needsContext, setNeedsContext] = useState(false);
   const [activeBlock, setActiveBlock] = useState<StudyBlock | null>(null);
   const [showRolloverModal, setShowRolloverModal] = useState(false);
+  const [subjectIntelligence, setSubjectIntelligence] = useState<SubjectIntelligence | undefined>();
 
   // ✨ NEW: Access toast from context
   const toast = useToast();
@@ -81,6 +83,27 @@ const App = () => {
       SoundManager.setEnabled(enabled);
     } catch (e) { }
   }, []);
+
+  // 🔍 Load subject intelligence whenever a focus block starts
+  useEffect(() => {
+    let cancelled = false;
+
+    if (activeBlock) {
+      getSubjectIntelligence(activeBlock.subjectId)
+        .then((intel) => {
+          if (!cancelled) setSubjectIntelligence(intel);
+        })
+        .catch(() => {
+          if (!cancelled) setSubjectIntelligence(undefined);
+        });
+    } else {
+      setSubjectIntelligence(undefined);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeBlock]);
 
   // ✨ NEW: PWA Install Logic
   useEffect(() => {
@@ -384,6 +407,7 @@ const App = () => {
         block={activeBlock}
         onComplete={handleFocusComplete}
         onExit={() => setView(activeTab as any)}
+        subjectIntelligence={subjectIntelligence}
       />
     );
   }
