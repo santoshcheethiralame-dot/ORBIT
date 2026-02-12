@@ -370,24 +370,12 @@ const App = () => {
 
   if (view === "onboarding")
     return (
-      <>
-        <header className="flex items-center justify-between px-8 py-4 border-b border-white/10 bg-white/[0.02] backdrop-blur-2xl sticky top-0 z-50">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center font-bold text-black">
-              O
-            </div>
-            <h1 className="text-xl font-display font-bold text-white">
-              Orbit
-            </h1>
-          </div>
-        </header>
-        <Onboarding
-          onComplete={() => {
-            setView("dashboard");
-            void loadData();
-          }}
-        />
-      </>
+      <Onboarding
+        onComplete={() => {
+          setView("dashboard");
+          void loadData();
+        }}
+      />
     );
 
   if (view === "focus" && activeBlock) {

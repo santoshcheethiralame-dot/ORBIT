@@ -96,6 +96,9 @@ const BacklogItem = React.memo(({
   const [isDragging, setIsDragging] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
 
+  const subjectColor = useMemo(() => getSubjectColor(block.subjectId || 0), [block.subjectId]);
+  const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
+
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.targetTouches[0].clientX);
     setTouchEnd(e.targetTouches[0].clientX);
@@ -141,48 +144,55 @@ const BacklogItem = React.memo(({
 
   return (
     <div className="relative overflow-hidden rounded-2xl">
-      {/* Swipe Action Hints - Cleaner */}
-      <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-yellow-500/15 to-transparent flex items-center justify-start pl-5 pointer-events-none">
-        <div className="w-8 h-8 rounded-xl bg-yellow-500/20 flex items-center justify-center border border-yellow-500/30">
-          <ArrowRight className="text-yellow-400" size={18} strokeWidth={2.5} />
+      {/* Swipe Action Hints - Background only, no overlap */}
+      <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-emerald-500/15 to-transparent flex items-center justify-start pl-5 pointer-events-none">
+        <div className={`w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30 transition-transform duration-300 ${swipeOffset > 10 ? 'scale-110' : 'scale-100'}`}>
+          <ArrowRight className="text-emerald-400" size={18} strokeWidth={2.5} />
         </div>
       </div>
+
       <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-red-500/15 to-transparent flex items-center justify-end pr-5 pointer-events-none">
-        <div className="w-8 h-8 rounded-xl bg-red-500/20 flex items-center justify-center border border-red-500/30">
+        <div className={`w-9 h-9 rounded-xl bg-red-500/20 flex items-center justify-center border border-red-500/30 transition-transform duration-300 ${swipeOffset < -10 ? 'scale-110 rotate-90' : 'scale-100'}`}>
           <X className="text-red-400" size={18} strokeWidth={2.5} />
         </div>
       </div>
 
-      {/* Main Card - Cleaner Design */}
+      {/* Main Card - Clean, no extra buttons */}
       <div
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={{ 
-          transform: `translateX(${swipeOffset}px)`, 
-          transition: isDragging ? 'none' : 'transform 0.3s ease-out' 
+        style={{
+          transform: `translateX(${swipeOffset}px)`,
+          transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
         }}
-        className="group flex items-center justify-between p-4 bg-zinc-900/50 hover:bg-zinc-800/50 border border-zinc-800/50 hover:border-zinc-700/50 rounded-2xl relative z-10 cursor-pointer transition-all"
-        onClick={() => onAdd(block)}
+        className={`
+          relative group cursor-pointer
+          flex items-center gap-3 p-4
+          bg-zinc-900/60 hover:bg-zinc-800/60
+          border-2 ${colorClasses.borderLight}
+          rounded-2xl
+          transition-all duration-300
+        `}
+        onClick={() => !isDragging && onAdd(block)}
       >
-        <div className="flex-1 min-w-0 pr-4">
-          <div className="font-semibold text-white text-base truncate group-hover:text-yellow-300 transition-colors flex items-center gap-2">
-            {block.subjectName}
-            <ArrowRight 
-              size={14} 
-              className="text-zinc-600 group-hover:text-yellow-400 transition-all opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0" 
-              strokeWidth={2.5} 
-            />
-          </div>
-          <div className="text-xs text-zinc-500 uppercase tracking-wider mt-1 font-medium flex items-center gap-2">
-            <span>{block.type}</span>
-            <span className="text-zinc-700">•</span>
-            <span>{block.duration}m</span>
-          </div>
-        </div>
+        {/* Color Indicator - Left */}
+        <div className={`w-1 h-12 rounded-full ${colorClasses.bg}`} />
 
-        <div className="w-9 h-9 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-yellow-400 group-hover:bg-yellow-500 group-hover:text-black group-hover:border-yellow-500 transition-all">
-          <PlusCircle size={18} strokeWidth={2.5} />
+        {/* Content - Full width, no buttons */}
+        <div className="flex-1 min-w-0">
+          <div className={`text-base font-semibold ${colorClasses.text} truncate mb-1`}>
+            {block.subjectName}
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-zinc-500">
+            <span className="uppercase tracking-wide font-medium">{block.type}</span>
+            <span>•</span>
+            <span className="flex items-center gap-1">
+              <Clock size={12} />
+              {block.duration}m
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -224,7 +234,7 @@ const MessageCarousel = ({ tiles }: { tiles: React.ReactElement[] }) => {
     if (isPaused || tiles.length === 0) return;
 
     // Faster speeds for better UX - mobile even faster since 1 tile
-    const speed = isMobile ? 0.2 : 0.06; 
+    const speed = isMobile ? 0.17 : 0.06;
 
     const animate = () => {
       setOffset((prev) => {
@@ -646,12 +656,12 @@ export const Dashboard = ({
     // Make sure we always have exactly 3 tiles for smooth carousel
     // Track which tiles we've added using unique identifiers
     const tileIds = new Set<string>();
-    
+
     // Only add extra tiles if we have less than 3
     while (tiles.length < 3) {
       // TILE: ASSIGNMENT FOCUS
       const assignmentBlocks = plan.blocks.filter(b => b.type === 'assignment').length;
-      
+
       if (assignmentBlocks > 0 && !tileIds.has('assignment')) {
         tiles.push({
           priority: 6,
@@ -1491,85 +1501,96 @@ export const Dashboard = ({
 
 
       {showBacklog && (
-        <div
-          className="fixed inset-0 z-[100] flex items-end md:items-center justify-center"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowBacklog(false);
-          }}
-        >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+        <>
+          {/* Lock body scroll */}
+          <style>{`
+            body { 
+              overflow: hidden !important;
+              position: fixed !important;
+              width: 100% !important;
+            }
+          `}</style>
 
-          {/* Modal */}
-          <div className="relative w-full md:max-w-2xl bg-zinc-950/95 backdrop-blur-xl rounded-t-3xl md:rounded-3xl shadow-2xl border border-zinc-800/50 overflow-hidden max-h-[90vh] md:max-h-[85vh] flex flex-col animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0 fade-in duration-300">
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowBacklog(false);
+            }}
+          >
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
 
-            {/* Header - Clean & Minimal */}
-            <div className="flex items-center justify-between p-6 md:p-7 border-b border-zinc-800/70 bg-zinc-950/80 backdrop-blur-sm flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
-                  <Inbox size={20} className="text-yellow-400" strokeWidth={2.5} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white">Backlog</h3>
-                  <p className="text-xs text-zinc-500 mt-0.5">{backlog.length} {backlog.length === 1 ? 'item' : 'items'} pending</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowBacklog(false)}
-                className="p-2.5 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-white active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                aria-label="Close"
-              >
-                <X size={20} strokeWidth={2.5} />
-              </button>
-            </div>
+            {/* Modal - Always centered in viewport */}
+            <div className="relative w-full max-w-2xl bg-zinc-950/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-zinc-800/50 overflow-hidden max-h-[85vh] flex flex-col animate-in zoom-in-95 fade-in duration-300">
 
-            {/* Content - Clean Scrollable Area */}
-            <div className="flex-1 overflow-y-auto p-6 md:p-7">
-              {backlog.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 px-4">
-                  <div className="w-20 h-20 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4 border border-emerald-500/20">
-                    <CheckCircle size={32} className="text-emerald-400" strokeWidth={2} />
+              {/* Header - Clean & Minimal */}
+              <div className="flex items-center justify-between p-6 md:p-7 border-b border-zinc-800/70 bg-zinc-950/80 backdrop-blur-sm flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                    <Inbox size={20} className="text-yellow-400" strokeWidth={2.5} />
                   </div>
-                  <h4 className="text-xl font-bold text-white mb-2">All Clear!</h4>
-                  <p className="text-sm text-zinc-400 text-center max-w-xs">
-                    Your backlog is empty. Great job staying on top of everything!
-                  </p>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">Backlog</h3>
+                    <p className="text-xs text-zinc-500 mt-0.5">{backlog.length} {backlog.length === 1 ? 'item' : 'items'} pending</p>
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {backlog.map((b) => (
-                    <BacklogItem
-                      key={b.id}
-                      block={b}
-                      onAdd={addToToday}
-                      onDelete={deleteFromBacklog}
-                    />
-                  ))}
+                <button
+                  onClick={() => setShowBacklog(false)}
+                  className="p-2.5 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-white active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  aria-label="Close"
+                >
+                  <X size={20} strokeWidth={2.5} />
+                </button>
+              </div>
+
+              {/* Content - Clean Scrollable Area */}
+              <div className="flex-1 overflow-y-auto p-6 md:p-7">
+                {backlog.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 px-4">
+                    <div className="w-20 h-20 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4 border border-emerald-500/20">
+                      <CheckCircle size={32} className="text-emerald-400" strokeWidth={2} />
+                    </div>
+                    <h4 className="text-xl font-bold text-white mb-2">All Clear!</h4>
+                    <p className="text-sm text-zinc-400 text-center max-w-xs">
+                      Your backlog is empty. Great job staying on top of everything!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {backlog.map((b) => (
+                      <BacklogItem
+                        key={b.id}
+                        block={b}
+                        onAdd={addToToday}
+                        onDelete={deleteFromBacklog}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer - Clean Instructions */}
+              {backlog.length > 0 && (
+                <div className="p-5 md:p-6 border-t border-zinc-800/70 bg-zinc-950/80 backdrop-blur-sm flex-shrink-0">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
+                    <div className="flex items-center gap-2.5 text-xs text-zinc-400">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <ArrowRight size={16} strokeWidth={2.5} className="text-emerald-400" />
+                      </div>
+                      <span className="font-medium">Swipe right to add</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-xs text-zinc-400">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20">
+                        <X size={16} strokeWidth={2.5} className="text-red-400" />
+                      </div>
+                      <span className="font-medium">Swipe left to remove</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-
-            {/* Footer - Clean Instructions */}
-            {backlog.length > 0 && (
-              <div className="p-5 md:p-6 border-t border-zinc-800/70 bg-zinc-950/80 backdrop-blur-sm flex-shrink-0">
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
-                  <div className="flex items-center gap-2.5 text-xs text-zinc-400">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-                      <ArrowRight size={16} strokeWidth={2.5} className="text-yellow-400" />
-                    </div>
-                    <span className="font-medium">Swipe right to add</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-xs text-zinc-400">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20">
-                      <X size={16} strokeWidth={2.5} className="text-red-400" />
-                    </div>
-                    <span className="font-medium">Swipe left to remove</span>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
+        </>
       )}
 
       {/* TODAY'S SCHEDULE */}
