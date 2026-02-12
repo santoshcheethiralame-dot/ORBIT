@@ -1,630 +1,1031 @@
 /* ======================================================
   🚀 ENHANCED BRAIN INTEGRATION
-  
-  This file adds the 5 Quick Wins to your existing brain.ts
+
+  This file adds enhanced study session outcome tracking and analytics,
+  including performance feedback for adaptive planning.
   Import this alongside your current brain functions.
 ====================================================== */
 
 import { db, OrbitDB } from "./db";
-import { StudyBlock, Subject, DailyContext, BlockOutcome, SubjectPerformance, EnergyProfile, EnergyBudget, BurnoutSignals, InterleavingAnalysis, DailyPlan, EnhancedLoadAnalysis } from "./types";
+import {
+  StudyBlock,
+  Subject,
+  DailyContext,
+  BlockOutcome,
+  SubjectPerformance,
+  EnergyProfile,
+  EnergyBudget,
+  BurnoutSignals,
+  InterleavingAnalysis,
+  DailyPlan,
+  EnhancedLoadAnalysis
+} from "./types";
 import { getISTEffectiveDate } from "./utils/time";
-import { generateDailyPlan as originalGeneratePlan } from "./brain";
+import { generateDailyPlan as originalGeneratePlan, analyzeLoad as coreAnalyzeLoad, SubjectReadiness } from "./brain";
 
 /* ======================================================
-  CONSTANTS
+  QUALITY RATING OPTIONS & HELPERS
 ====================================================== */
 
-const ENERGY_COST = {
-    DIFFICULTY_WEIGHT: 10,
-    DURATION_WEIGHT: 20,
-    ASSIGNMENT_BONUS: 30,
-    REVIEW_BONUS: 10,
-    PROJECT_BONUS: 20,
-};
+export interface QualityRatingOption {
+  value: 1 | 2 | 3 | 4 | 5;
+  label: string;
+  emoji: string;
+  description: string;
+  color: string;
+}
 
-const BURNOUT_THRESHOLDS = {
-    SKIP_RATE: 0.3,
-    SESSION_RATIO: 0.6,
-    LOW_MOOD_DAYS: 4,
-    STREAK_BREAKS: 3,
-    RISK_SCORE: 60,
-};
+/**
+ * Get available quality rating options for session feedback
+ */
+export function getQualityRatingOptions(): QualityRatingOption[] {
+  return [
+    {
+      value: 1,
+      label: "Poor",
+      emoji: "😕",
+      description: "Struggled significantly, didn't understand much",
+      color: "#ef4444", // red-500
+    },
+    {
+      value: 2,
+      label: "Below Average",
+      emoji: "😐",
+      description: "Had difficulty, understood some parts",
+      color: "#f97316", // orange-500
+    },
+    {
+      value: 3,
+      label: "Good",
+      emoji: "🙂",
+      description: "Made progress, understood most concepts",
+      color: "#eab308", // yellow-500
+    },
+    {
+      value: 4,
+      label: "Very Good",
+      emoji: "😊",
+      description: "Strong session, clear understanding",
+      color: "#22c55e", // green-500
+    },
+    {
+      value: 5,
+      label: "Excellent",
+      emoji: "🤩",
+      description: "Exceptional focus and comprehension",
+      color: "#3b82f6", // blue-500
+    },
+  ];
+}
 
-const INTERLEAVING = {
-    MAX_SAME_SUBJECT: 2,
-    MAX_SAME_TYPE: 3,
-    MIN_VARIETY_SCORE: 40,
-};
+/**
+ * Get quality rating details by value
+ */
+export function getQualityRatingByValue(value: number): QualityRatingOption | null {
+  const options = getQualityRatingOptions();
+  return options.find(opt => opt.value === value) || null;
+}
+
+/**
+ * Get quality rating emoji by value
+ */
+export function getQualityEmoji(quality: number): string {
+  const rating = getQualityRatingByValue(quality);
+  return rating?.emoji || "⭐";
+}
+
+/**
+ * Get quality rating color by value
+ */
+export function getQualityColor(quality: number): string {
+  const rating = getQualityRatingByValue(quality);
+  return rating?.color || "#6b7280"; // gray-500
+}
+
+/* ======================================================
+  ENERGY PROFILE MANAGEMENT
+====================================================== */
 
 const DEFAULT_ENERGY_PROFILE: EnergyProfile = {
-    morning: 100,
-    afternoon: 80,
-    evening: 60,
-    night: 40,
+  morning: 100,
+  afternoon: 80,
+  evening: 60,
+  night: 40,
 };
 
+/**
+ * Get user's energy profile from localStorage
+ */
+export function getEnergyProfile(): EnergyProfile {
+  try {
+    const saved = localStorage.getItem('orbit-energy-profile');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (err) {
+    console.error('Failed to load energy profile:', err);
+  }
+  return DEFAULT_ENERGY_PROFILE;
+}
+
+/**
+ * Save user's energy profile to localStorage
+ */
+export function saveEnergyProfile(profile: EnergyProfile): void {
+  try {
+    localStorage.setItem('orbit-energy-profile', JSON.stringify(profile));
+  } catch (err) {
+    console.error('Failed to save energy profile:', err);
+  }
+}
+
+/**
+ * Validate if blocks fit within energy budget
+ */
+export function validateEnergyBudget(
+  blocks: StudyBlock[],
+  subjects: Subject[]
+): {
+  budget: number;
+  allocated: number;
+  remaining: number;
+  valid: boolean;
+} {
+  const profile = getEnergyProfile();
+  const subjectMap = new Map(subjects.map(s => [s.id!, s]));
+  
+  // Calculate total available energy (simplified: average across day)
+  const avgEnergy = (profile.morning + profile.afternoon + profile.evening + profile.night) / 4;
+  const budget = avgEnergy * 3; // Budget in "energy points"
+  
+  // Calculate allocated energy
+  let allocated = 0;
+  blocks.forEach(block => {
+    const subject = subjectMap.get(block.subjectId);
+    if (!subject) return;
+    
+    // Energy cost = duration × difficulty factor
+    const difficultyCost = 1 + ((subject.difficulty - 1) * 0.25);
+    allocated += block.duration * difficultyCost;
+  });
+  
+  return {
+    budget,
+    allocated,
+    remaining: Math.max(0, budget - allocated),
+    valid: allocated <= budget,
+  };
+}
+
 /* ======================================================
-  🆕 QUICK WIN 1: COMPLETION QUALITY TRACKING
+  RECORD STUDY SESSION OUTCOME
 ====================================================== */
 
 /**
- * Record outcome after completing/skipping a block
- * Call this from FocusSession when user finishes or skips
+ * Record the outcome of a completed study block
+ * This feeds into the performance analytics and adaptive planning
  */
 export async function recordBlockOutcome(
-    block: StudyBlock,
-    outcome: {
-        actualDuration: number;
-        completionQuality?: 1 | 2 | 3 | 4 | 5;
-        skipped?: boolean;
-    },
-    dbInstance: OrbitDB = db
+  block: StudyBlock,
+  outcome: {
+    actualDuration: number;
+    completionQuality: 1 | 2 | 3 | 4 | 5;
+    skipped?: boolean;
+    notes?: string;
+  },
+  dbInstance: OrbitDB = db
 ): Promise<void> {
-    try {
-        const now = new Date();
-        const timeOfDay = now.getHours();
+  try {
+    const now = Date.now();
+    const date = new Date(now).toISOString().split('T')[0];
+    const timeOfDay = new Date(now).getHours();
 
-        // Get current context mood
-        let mood = 'normal';
-        try {
-            const planStr = localStorage.getItem('orbit-current-plan');
-            if (planStr) {
-                const plan = JSON.parse(planStr);
-                mood = plan.context?.mood || 'normal';
-            }
-        } catch (e) {
-            // Use default
-        }
+    const blockOutcome: BlockOutcome = {
+      blockId: block.id,
+      subjectId: block.subjectId,
+      type: block.type,
+      plannedDuration: block.duration,
+      actualDuration: outcome.actualDuration,
+      completionQuality: outcome.completionQuality,
+      timeOfDay,
+      mood: "normal", // Placeholder for future mood tracking
+      completed: !outcome.skipped,
+      skipped: outcome.skipped || false,
+      date,
+      timestamp: now,
+    };
 
-        const blockOutcome: BlockOutcome = {
-            blockId: block.id,
-            subjectId: block.subjectId,
-            type: block.type,
-            plannedDuration: block.duration,
-            actualDuration: outcome.actualDuration,
-            completionQuality: outcome.completionQuality || 3,
-            timeOfDay,
-            mood,
-            completed: !outcome.skipped,
-            skipped: outcome.skipped || false,
-            date: getISTEffectiveDate(),
-            timestamp: Date.now(),
-        };
+    await dbInstance.blockOutcomes.add(blockOutcome);
 
-        // Cast to any since Dexie might not have updated type definition immediately available in strict mode during hot reload
-        await dbInstance.blockOutcomes.add(blockOutcome as any);
-
-        console.log('✅ Block outcome recorded:', {
-            subject: block.subjectName,
-            quality: blockOutcome.completionQuality,
-            actual: outcome.actualDuration,
-            planned: block.duration,
-        });
-    } catch (err) {
-        console.error('❌ Failed to record block outcome:', err);
-    }
-}
-
-/**
- * Get quality rating options for UI
- */
-export function getQualityRatingOptions() {
-    return [
-        { rating: 1 as const, label: "Terrible", emoji: "😫" },
-        { rating: 2 as const, label: "Poor", emoji: "😕" },
-        { rating: 3 as const, label: "OK", emoji: "😐" },
-        { rating: 4 as const, label: "Good", emoji: "😊" },
-        { rating: 5 as const, label: "Excellent", emoji: "🔥" },
-    ];
+    console.log(
+      `📊 Block outcome recorded: ${block.subjectName} (${outcome.completionQuality}/5 ${getQualityEmoji(outcome.completionQuality)})`
+    );
+  } catch (err) {
+    console.error("Failed to record block outcome:", err);
+  }
 }
 
 /* ======================================================
-  🆕 QUICK WIN 2: DYNAMIC DIFFICULTY ADJUSTMENT
+  PERFORMANCE ANALYTICS
 ====================================================== */
 
 /**
- * Get performance metrics for a subject
+ * Get performance analytics for a subject
  */
 export async function getSubjectPerformance(
-    subjectId: number,
-    daysBack: number = 30,
-    dbInstance: OrbitDB = db
-): Promise<SubjectPerformance> {
+  subjectId: number,
+  days: number = 30,
+  dbInstance: OrbitDB = db
+): Promise<{
+  avgCompletionRate: number;
+  avgQuality: number;
+  avgActualDuration: number;
+  recommendedDuration: number;
+  totalSessions: number;
+  recentTrend: "improving" | "stable" | "declining";
+  skipRate: number;
+  targetDuration: number;
+}> {
+  try {
     const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+    cutoffDate.setDate(cutoffDate.getDate() - days);
     const cutoffTimestamp = cutoffDate.getTime();
 
     const outcomes = await dbInstance.blockOutcomes
-        .where('subjectId')
-        .equals(subjectId)
-        .and(o => o.timestamp >= cutoffTimestamp)
-        .toArray();
+      .where("subjectId")
+      .equals(subjectId)
+      .and((o: BlockOutcome) => o.timestamp >= cutoffTimestamp)
+      .toArray();
 
     if (outcomes.length === 0) {
-        return {
-            subjectId,
-            avgCompletionRate: 1.0,
-            avgQuality: 3,
-            avgActualDuration: 45,
-            targetDuration: 45,
-            durationRatio: 1.0,
-            skipRate: 0,
-            bestTimeOfDay: null,
-            recommendedDuration: 45,
-        };
+      return {
+        avgCompletionRate: 1,
+        avgQuality: 3,
+        avgActualDuration: 45,
+        recommendedDuration: 45,
+        totalSessions: 0,
+        recentTrend: "stable",
+        skipRate: 0,
+        targetDuration: 45,
+      };
     }
 
-    const completed = outcomes.filter(o => o.completed);
-    const skipped = outcomes.filter(o => o.skipped);
-
-    const avgCompletionRate = completed.length / outcomes.length;
-    const avgQuality = completed.length > 0
-        ? completed.reduce((sum, o) => sum + o.completionQuality, 0) / completed.length
+    const completedOutcomes = outcomes.filter(o => o.completed);
+    const skippedOutcomes = outcomes.filter(o => o.skipped);
+    
+    const avgCompletionRate = completedOutcomes.length / outcomes.length;
+    const skipRate = skippedOutcomes.length / outcomes.length;
+    
+    const avgQuality =
+      completedOutcomes.length > 0
+        ? completedOutcomes.reduce((sum, o) => sum + o.completionQuality, 0) /
+          completedOutcomes.length
         : 3;
-
-    const avgActualDuration = completed.length > 0
-        ? completed.reduce((sum, o) => sum + o.actualDuration, 0) / completed.length
+        
+    const avgActualDuration =
+      completedOutcomes.length > 0
+        ? completedOutcomes.reduce((sum, o) => sum + o.actualDuration, 0) /
+          completedOutcomes.length
         : 45;
 
-    const targetDuration = outcomes.length > 0
-        ? outcomes.reduce((sum, o) => sum + o.plannedDuration, 0) / outcomes.length
-        : 45;
+    // Calculate recent trend (last 7 days vs previous 7 days)
+    const recentTrend = calculateQualityTrend(outcomes);
 
-    const durationRatio = targetDuration > 0 ? avgActualDuration / targetDuration : 1.0;
-    const skipRate = skipped.length / outcomes.length;
-
-    // Find best time of day
-    const timeQuality: Record<number, { total: number; count: number }> = {};
-    completed.forEach(o => {
-        if (!timeQuality[o.timeOfDay]) {
-            timeQuality[o.timeOfDay] = { total: 0, count: 0 };
-        }
-        timeQuality[o.timeOfDay].total += o.completionQuality;
-        timeQuality[o.timeOfDay].count += 1;
-    });
-
-    let bestTimeOfDay: number | null = null;
-    let bestAvgQuality = 0;
-    Object.entries(timeQuality).forEach(([hour, stats]) => {
-        const avg = stats.total / stats.count;
-        if (avg > bestAvgQuality && stats.count >= 2) {
-            bestAvgQuality = avg;
-            bestTimeOfDay = Number(hour);
-        }
-    });
-
-    // 🎯 DYNAMIC ADJUSTMENT
-    let recommendedDuration = targetDuration;
-
-    if (avgCompletionRate < 0.7 || avgQuality < 2.5) {
-        recommendedDuration = Math.round(targetDuration * 0.8);
-    } else if (durationRatio < 0.7) {
-        recommendedDuration = Math.round(avgActualDuration * 1.1);
-    } else if (avgQuality >= 4 && avgCompletionRate >= 0.9) {
-        recommendedDuration = Math.round(targetDuration * 1.15);
+    // Recommend duration based on actual performance and quality
+    let recommendedDuration = Math.round(avgActualDuration);
+    if (avgQuality >= 4) {
+      // High quality - can handle longer sessions
+      recommendedDuration = Math.min(60, recommendedDuration + 5);
+    } else if (avgQuality <= 2) {
+      // Low quality - suggest shorter sessions
+      recommendedDuration = Math.max(20, recommendedDuration - 10);
     }
-
-    recommendedDuration = Math.max(20, Math.min(90, recommendedDuration));
 
     return {
-        subjectId,
-        avgCompletionRate,
-        avgQuality,
-        avgActualDuration,
-        targetDuration,
-        durationRatio,
-        skipRate,
-        bestTimeOfDay,
-        recommendedDuration,
+      avgCompletionRate,
+      avgQuality,
+      avgActualDuration,
+      recommendedDuration,
+      totalSessions: outcomes.length,
+      recentTrend,
+      skipRate,
+      targetDuration: Math.round(avgActualDuration),
     };
+  } catch (err) {
+    console.error("Failed to get subject performance:", err);
+    return {
+      avgCompletionRate: 1,
+      avgQuality: 3,
+      avgActualDuration: 45,
+      recommendedDuration: 45,
+      totalSessions: 0,
+      recentTrend: "stable",
+      skipRate: 0,
+      targetDuration: 45,
+    };
+  }
 }
 
 /**
- * Apply performance adjustments to block
+ * Calculate quality trend from outcomes
  */
-export async function applyPerformanceAdjustments(
-    block: StudyBlock,
-    dbInstance: OrbitDB = db
-): Promise<{ adjusted: boolean; oldDuration: number; newDuration: number; reason: string }> {
-    const perf = await getSubjectPerformance(block.subjectId, 30, dbInstance);
+function calculateQualityTrend(
+  outcomes: BlockOutcome[]
+): "improving" | "stable" | "declining" {
+  if (outcomes.length < 4) return "stable";
 
-    const oldDuration = block.duration;
-    const newDuration = perf.recommendedDuration;
+  // Sort by timestamp
+  const sorted = outcomes.sort((a, b) => a.timestamp - b.timestamp);
+  
+  // Split into two halves
+  const midpoint = Math.floor(sorted.length / 2);
+  const firstHalf = sorted.slice(0, midpoint);
+  const secondHalf = sorted.slice(midpoint);
 
-    if (Math.abs(newDuration - oldDuration) >= 5) {
-        let reason = '';
-        if (perf.avgQuality < 2.5) {
-            reason = `Low quality (${perf.avgQuality.toFixed(1)}/5) - reducing load`;
-        } else if (perf.skipRate > 0.2) {
-            reason = `High skip rate (${(perf.skipRate * 100).toFixed(0)}%) - making easier`;
-        } else if (perf.durationRatio < 0.7) {
-            reason = `Finishing early - optimizing`;
-        } else if (perf.avgQuality >= 4) {
-            reason = `Excellent performance - increasing challenge`;
-        }
+  const firstAvg =
+    firstHalf.reduce((sum, o) => sum + o.completionQuality, 0) / firstHalf.length;
+  const secondAvg =
+    secondHalf.reduce((sum, o) => sum + o.completionQuality, 0) / secondHalf.length;
 
-        return { adjusted: true, oldDuration, newDuration, reason };
-    }
+  const diff = secondAvg - firstAvg;
 
-    return { adjusted: false, oldDuration, newDuration: oldDuration, reason: '' };
+  if (diff >= 0.5) return "improving";
+  if (diff <= -0.5) return "declining";
+  return "stable";
 }
 
 /* ======================================================
-  🆕 QUICK WIN 3: ENERGY BUDGET SYSTEM
+  BURNOUT DETECTION
 ====================================================== */
 
-export function getEnergyProfile(): EnergyProfile {
-    try {
-        const saved = localStorage.getItem('orbit-energy-profile');
-        if (saved) {
-            return JSON.parse(saved);
-        }
-    } catch (e) { }
-    return { ...DEFAULT_ENERGY_PROFILE };
-}
-
-export function saveEnergyProfile(profile: EnergyProfile): void {
-    localStorage.setItem('orbit-energy-profile', JSON.stringify(profile));
-}
-
-export function calculateEnergyCost(block: StudyBlock, subject: Subject): number {
-    let cost = 0;
-    cost += subject.difficulty * ENERGY_COST.DIFFICULTY_WEIGHT;
-    cost += (block.duration / 60) * ENERGY_COST.DURATION_WEIGHT;
-
-    if (block.type === 'assignment') cost += ENERGY_COST.ASSIGNMENT_BONUS;
-    else if (block.type === 'review') cost += ENERGY_COST.REVIEW_BONUS;
-    else if (block.type === 'project') cost += ENERGY_COST.PROJECT_BONUS;
-
-    return Math.round(cost);
-}
-
-export function getEnergyBudget(timeOfDay?: number): number {
-    const profile = getEnergyProfile();
-    const hour = timeOfDay ?? new Date().getHours();
-
-    if (hour >= 6 && hour < 12) return profile.morning;
-    if (hour >= 12 && hour < 18) return profile.afternoon;
-    if (hour >= 18 && hour < 22) return profile.evening;
-    return profile.night;
-}
-
-export function validateEnergyBudget(blocks: StudyBlock[], subjects: Subject[]): EnergyBudget {
-    const subjectMap = new Map(subjects.map(s => [s.id!, s]));
-    const budget = getEnergyBudget();
-
-    let allocated = 0;
-    blocks.forEach(block => {
-        const subject = subjectMap.get(block.subjectId);
-        if (subject) {
-            allocated += calculateEnergyCost(block, subject);
-        }
-    });
-
-    return {
-        allocated,
-        used: 0,
-        remaining: Math.max(0, budget - allocated),
-        budget,
-        valid: allocated <= budget,
-    };
-}
-
-export function getEnergyWarning(energyBudget: EnergyBudget): string | undefined {
-    const percent = (energyBudget.allocated / energyBudget.budget) * 100;
-
-    if (percent > 120) return `⚡ Extreme energy load (${percent.toFixed(0)}%) - expect fatigue`;
-    if (percent > 100) return `⚠️ Over budget (${percent.toFixed(0)}%) - remove harder blocks`;
-    if (percent > 85) return `💪 Near capacity (${percent.toFixed(0)}%) - schedule recovery`;
-
-    return undefined;
-}
-
-/* ======================================================
-  🆕 QUICK WIN 4: BURNOUT DETECTION
-====================================================== */
-
-export async function detectBurnout(daysBack: number = 7, dbInstance: OrbitDB = db): Promise<BurnoutSignals> {
+/**
+ * Detect burnout risk based on recent session patterns
+ */
+export async function detectBurnout(
+  days: number = 7,
+  dbInstance: OrbitDB = db
+): Promise<{
+  score: number;
+  atRisk: boolean;
+  skipRate: number;
+  recommendation: string;
+}> {
+  try {
     const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+    cutoffDate.setDate(cutoffDate.getDate() - days);
     const cutoffTimestamp = cutoffDate.getTime();
 
     const outcomes = await dbInstance.blockOutcomes
-        .where('timestamp')
-        .above(cutoffTimestamp)
-        .toArray();
+      .where("timestamp")
+      .above(cutoffTimestamp)
+      .toArray();
 
     if (outcomes.length === 0) {
-        return {
-            skipRate: 0,
-            avgSessionRatio: 1.0,
-            lowMoodDays: 0,
-            streakBreaks: 0,
-            score: 0,
-            atRisk: false,
-        };
+      return {
+        score: 0,
+        atRisk: false,
+        skipRate: 0,
+        recommendation: "No recent data",
+      };
     }
 
-    const skipped = outcomes.filter(o => o.skipped);
-    const skipRate = skipped.length / outcomes.length;
+    const skipped = outcomes.filter(o => o.skipped).length;
+    const skipRate = skipped / outcomes.length;
+    
+    const lowQuality = outcomes.filter(o => o.completed && o.completionQuality <= 2).length;
+    const lowQualityRate = outcomes.filter(o => o.completed).length > 0
+      ? lowQuality / outcomes.filter(o => o.completed).length
+      : 0;
 
-    const completed = outcomes.filter(o => o.completed);
-    const avgSessionRatio = completed.length > 0
-        ? completed.reduce((sum, o) => {
-            const ratio = o.plannedDuration > 0 ? o.actualDuration / o.plannedDuration : 1;
-            return sum + ratio;
-        }, 0) / completed.length
-        : 1.0;
-
-    const lowMoodDays = new Set(
-        outcomes.filter(o => o.mood === 'low').map(o => o.date)
-    ).size;
-
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const logs = await dbInstance.logs
-        .where('timestamp')
-        .above(thirtyDaysAgo.getTime())
-        .toArray();
-
-    const daysWithActivity = new Set(logs.map(l => l.date));
-    let streakBreaks = 0;
-    for (let i = 0; i < 30; i++) {
-        const checkDate = new Date();
-        checkDate.setDate(checkDate.getDate() - i);
-        const dateStr = checkDate.toISOString().split('T')[0];
-        if (!daysWithActivity.has(dateStr)) streakBreaks++;
-    }
-
+    // Calculate burnout score (0-100)
     let score = 0;
-    if (skipRate > BURNOUT_THRESHOLDS.SKIP_RATE) {
-        score += 30 * Math.min(1, skipRate / BURNOUT_THRESHOLDS.SKIP_RATE);
-    }
-    if (avgSessionRatio < BURNOUT_THRESHOLDS.SESSION_RATIO) {
-        score += 25 * (1 - avgSessionRatio / BURNOUT_THRESHOLDS.SESSION_RATIO);
-    }
-    if (lowMoodDays >= BURNOUT_THRESHOLDS.LOW_MOOD_DAYS) {
-        score += 25 * Math.min(1, lowMoodDays / 7);
-    }
-    if (streakBreaks >= BURNOUT_THRESHOLDS.STREAK_BREAKS) {
-        score += 20 * Math.min(1, streakBreaks / 10);
-    }
-
+    score += skipRate * 50; // Skipping is a major indicator
+    score += lowQualityRate * 30; // Low quality work
+    
+    // Check for consecutive skipped days
+    const dateMap = new Map<string, BlockOutcome[]>();
+    outcomes.forEach(o => {
+      if (!dateMap.has(o.date)) {
+        dateMap.set(o.date, []);
+      }
+      dateMap.get(o.date)!.push(o);
+    });
+    
+    let consecutiveSkipDays = 0;
+    let maxConsecutiveSkips = 0;
+    const sortedDates = Array.from(dateMap.keys()).sort();
+    
+    sortedDates.forEach(date => {
+      const dayOutcomes = dateMap.get(date)!;
+      const allSkipped = dayOutcomes.every(o => o.skipped);
+      
+      if (allSkipped) {
+        consecutiveSkipDays++;
+        maxConsecutiveSkips = Math.max(maxConsecutiveSkips, consecutiveSkipDays);
+      } else {
+        consecutiveSkipDays = 0;
+      }
+    });
+    
+    score += maxConsecutiveSkips * 10;
     score = Math.min(100, Math.round(score));
-    const atRisk = score >= BURNOUT_THRESHOLDS.RISK_SCORE;
 
-    let recommendation: string | undefined;
+    const atRisk = score >= 50;
+    
+    let recommendation = "";
     if (atRisk) {
-        if (skipRate > 0.4) {
-            recommendation = "🛑 High skip rate. Take a rest day or reduce load by 50%.";
-        } else if (lowMoodDays >= 5) {
-            recommendation = "😔 Multiple low-mood days. Prioritize self-care this week.";
-        } else if (avgSessionRatio < 0.5) {
-            recommendation = "⚠️ Under-performing planned time. Reduce block durations.";
-        } else {
-            recommendation = "🔄 Burnout risk detected. Take 2-3 days off to recover.";
-        }
+      if (skipRate > 0.5) {
+        recommendation = "Take a rest day or reduce daily load by 50%";
+      } else if (lowQualityRate > 0.5) {
+        recommendation = "Focus on quality over quantity — reduce session duration";
+      } else {
+        recommendation = "Consider lighter subjects or more breaks between blocks";
+      }
+    } else {
+      recommendation = "Healthy study pattern — keep it up!";
     }
 
     return {
-        skipRate,
-        avgSessionRatio,
-        lowMoodDays,
-        streakBreaks,
-        score,
-        atRisk,
-        recommendation,
+      score,
+      atRisk,
+      skipRate,
+      recommendation,
     };
+  } catch (err) {
+    console.error("Failed to detect burnout:", err);
+    return {
+      score: 0,
+      atRisk: false,
+      skipRate: 0,
+      recommendation: "Error analyzing burnout",
+    };
+  }
 }
 
 /* ======================================================
-  🆕 QUICK WIN 5: INTERLEAVING RULES
+  INTERLEAVING ANALYSIS
 ====================================================== */
 
-export function analyzeInterleaving(blocks: StudyBlock[]): InterleavingAnalysis {
-    if (blocks.length <= 1) {
-        return {
-            consecutiveSameSubject: blocks.length,
-            consecutiveSameType: blocks.length,
-            varietyScore: 100,
-            needsInterleaving: false,
-        };
-    }
-
-    let maxSameSubject = 1;
-    let maxSameType = 1;
-    let currentSameSubject = 1;
-    let currentSameType = 1;
-
-    for (let i = 1; i < blocks.length; i++) {
-        if (blocks[i].subjectId === blocks[i - 1].subjectId) {
-            currentSameSubject++;
-            maxSameSubject = Math.max(maxSameSubject, currentSameSubject);
-        } else {
-            currentSameSubject = 1;
-        }
-
-        if (blocks[i].type === blocks[i - 1].type) {
-            currentSameType++;
-            maxSameType = Math.max(maxSameType, currentSameType);
-        } else {
-            currentSameType = 1;
-        }
-    }
-
-    const uniqueSubjects = new Set(blocks.map(b => b.subjectId)).size;
-    const uniqueTypes = new Set(blocks.map(b => b.type)).size;
-
-    const subjectVariety = (uniqueSubjects / blocks.length) * 100;
-    const typeVariety = (uniqueTypes / blocks.length) * 100;
-    const penalty = Math.min(30, maxSameSubject * 10 + maxSameType * 5);
-
-    const varietyScore = Math.max(0, Math.round(
-        (subjectVariety * 0.6 + typeVariety * 0.4) - penalty
-    ));
-
-    const needsInterleaving =
-        maxSameSubject > INTERLEAVING.MAX_SAME_SUBJECT ||
-        maxSameType > INTERLEAVING.MAX_SAME_TYPE ||
-        varietyScore < INTERLEAVING.MIN_VARIETY_SCORE;
-
-    const suggestions: string[] = [];
-    if (maxSameSubject > INTERLEAVING.MAX_SAME_SUBJECT) {
-        suggestions.push(`Break up ${maxSameSubject} consecutive same-subject blocks`);
-    }
-    if (maxSameType > INTERLEAVING.MAX_SAME_TYPE) {
-        suggestions.push(`Mix activity types (${maxSameType} consecutive ${blocks[0].type})`);
-    }
-    if (uniqueSubjects < 2 && blocks.length >= 4) {
-        suggestions.push('Add variety - one subject all day reduces retention');
-    }
-
+/**
+ * Analyze variety and interleaving in a block schedule
+ */
+export function analyzeInterleaving(blocks: StudyBlock[]): {
+  varietyScore: number;
+  consecutiveSameSubject: number;
+  consecutiveSameType: number;
+  needsInterleaving: boolean;
+  suggestions: string[];
+} {
+  if (blocks.length <= 1) {
     return {
-        consecutiveSameSubject: maxSameSubject,
-        consecutiveSameType: maxSameType,
-        varietyScore,
-        needsInterleaving,
-        suggestions: suggestions.length > 0 ? suggestions : undefined,
+      varietyScore: 100,
+      consecutiveSameSubject: 0,
+      consecutiveSameType: 0,
+      needsInterleaving: false,
+      suggestions: [],
     };
+  }
+
+  let maxConsecutiveSameSubject = 1;
+  let currentConsecutiveSubject = 1;
+  let maxConsecutiveSameType = 1;
+  let currentConsecutiveType = 1;
+
+  const uniqueSubjects = new Set(blocks.map(b => b.subjectId));
+  const uniqueTypes = new Set(blocks.map(b => b.type));
+
+  for (let i = 1; i < blocks.length; i++) {
+    // Check subject variety
+    if (blocks[i].subjectId === blocks[i - 1].subjectId) {
+      currentConsecutiveSubject++;
+      maxConsecutiveSameSubject = Math.max(maxConsecutiveSameSubject, currentConsecutiveSubject);
+    } else {
+      currentConsecutiveSubject = 1;
+    }
+
+    // Check type variety
+    if (blocks[i].type === blocks[i - 1].type) {
+      currentConsecutiveType++;
+      maxConsecutiveSameType = Math.max(maxConsecutiveSameType, currentConsecutiveType);
+    } else {
+      currentConsecutiveType = 1;
+    }
+  }
+
+  // Calculate variety score
+  const subjectVariety = (uniqueSubjects.size / blocks.length) * 100;
+  const typeVariety = (uniqueTypes.size / blocks.length) * 100;
+  const varietyScore = Math.round((subjectVariety + typeVariety) / 2);
+
+  const needsInterleaving = maxConsecutiveSameSubject >= 3 || varietyScore < 40;
+
+  const suggestions: string[] = [];
+  if (maxConsecutiveSameSubject >= 3) {
+    suggestions.push(`Break up ${maxConsecutiveSameSubject} consecutive blocks of same subject`);
+  }
+  if (maxConsecutiveSameType >= 4) {
+    suggestions.push(`Mix different activity types (review, assignment, project)`);
+  }
+  if (uniqueSubjects.size === 1 && blocks.length >= 3) {
+    suggestions.push("Consider adding blocks from other subjects for better retention");
+  }
+
+  return {
+    varietyScore,
+    consecutiveSameSubject: maxConsecutiveSameSubject,
+    consecutiveSameType: maxConsecutiveSameType,
+    needsInterleaving,
+    suggestions,
+  };
 }
 
+/**
+ * Apply interleaving to improve variety
+ */
 export function applyInterleaving(blocks: StudyBlock[]): StudyBlock[] {
-    if (blocks.length <= 2) return blocks;
+  if (blocks.length <= 2) return blocks;
 
-    const analysis = analyzeInterleaving(blocks);
-    if (!analysis.needsInterleaving) return blocks;
+  const analysis = analyzeInterleaving(blocks);
+  if (!analysis.needsInterleaving) return blocks;
 
-    const urgent = blocks.filter(b => (b.priority ?? 99) <= 2);
-    const normal = blocks.filter(b => (b.priority ?? 99) > 2 && (b.priority ?? 99) < 90);
-    const fallback = blocks.filter(b => (b.priority ?? 99) >= 90);
-
-    const interleaved: StudyBlock[] = [];
-    const remaining = [...normal];
-
-    while (remaining.length > 0) {
-        const block = remaining.shift()!;
-        interleaved.push(block);
-
-        const nextDifferent = remaining.findIndex(b => b.subjectId !== block.subjectId);
-        if (nextDifferent > 0) {
-            [remaining[0], remaining[nextDifferent]] = [remaining[nextDifferent], remaining[0]];
-        }
+  // Group by subject
+  const bySubject = new Map<number, StudyBlock[]>();
+  blocks.forEach(block => {
+    if (!bySubject.has(block.subjectId)) {
+      bySubject.set(block.subjectId, []);
     }
+    bySubject.get(block.subjectId)!.push(block);
+  });
 
-    return [...urgent, ...interleaved, ...fallback];
+  // Interleave: alternate between subjects
+  const result: StudyBlock[] = [];
+  const subjects = Array.from(bySubject.keys());
+  
+  let subjectIndex = 0;
+  while (result.length < blocks.length) {
+    const currentSubject = subjects[subjectIndex % subjects.length];
+    const subjectBlocks = bySubject.get(currentSubject)!;
+    
+    if (subjectBlocks.length > 0) {
+      result.push(subjectBlocks.shift()!);
+    }
+    
+    subjectIndex++;
+    
+    // Remove empty subjects
+    if (subjectBlocks.length === 0) {
+      bySubject.delete(currentSubject);
+      const idx = subjects.indexOf(currentSubject);
+      if (idx > -1) subjects.splice(idx, 1);
+    }
+  }
+
+  return result;
 }
 
 /* ======================================================
-  ENHANCED PLAN GENERATOR
+  ENHANCED PLAN GENERATION
 ====================================================== */
 
-export async function generateEnhancedPlan(context: DailyContext, dbInstance: OrbitDB = db): Promise<{
-    blocks: StudyBlock[];
-    loadAnalysis: EnhancedLoadAnalysis;
-    performanceAdjustments?: Array<{
-        subjectId: number;
-        reason: string;
-        oldDuration: number;
-        newDuration: number;
-    }>;
+/**
+ * Generate enhanced daily plan with all intelligence layers
+ */
+export async function generateEnhancedPlan(
+  context: DailyContext,
+  dbInstance: OrbitDB = db
+): Promise<{
+  blocks: StudyBlock[];
+  loadAnalysis: any;
+  performanceAdjustments?: Array<{
+    subjectId: number;
+    reason: string;
+    oldDuration: number;
+    newDuration: number;
+  }>;
 }> {
-    // 1. Generate base plan
-    let result = await originalGeneratePlan(context, dbInstance);
-    let { blocks, loadAnalysis } = result;
+  // Generate base plan
+  const basePlan = await originalGeneratePlan(context, dbInstance);
+  
+  let blocks = basePlan.blocks;
+  const performanceAdjustments: Array<{
+    subjectId: number;
+    reason: string;
+    oldDuration: number;
+    newDuration: number;
+  }> = [];
 
-    // 2. Apply performance adjustments
-    const adjustments = [];
-    for (const block of blocks) {
-        const adj = await applyPerformanceAdjustments(block, dbInstance);
-        if (adj.adjusted) {
-            block.duration = adj.newDuration;
-            adjustments.push({
-                subjectId: block.subjectId,
-                reason: adj.reason,
-                oldDuration: adj.oldDuration,
-                newDuration: adj.newDuration,
-            });
-        }
+  // Apply performance-based adjustments
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    const performance = await getSubjectPerformance(block.subjectId, 30, dbInstance);
+    
+    if (performance.totalSessions >= 3) {
+      const oldDuration = block.duration;
+      let newDuration = oldDuration;
+      
+      // Adjust based on quality
+      if (performance.avgQuality >= 4 && performance.skipRate < 0.2) {
+        // High performer - can handle slightly longer
+        newDuration = Math.min(oldDuration + 10, 60);
+      } else if (performance.avgQuality <= 2 || performance.skipRate > 0.4) {
+        // Struggling - reduce duration
+        newDuration = Math.max(oldDuration - 15, 20);
+      }
+      
+      if (newDuration !== oldDuration) {
+        blocks[i] = { ...block, duration: newDuration };
+        performanceAdjustments.push({
+          subjectId: block.subjectId,
+          reason: performance.avgQuality <= 2 
+            ? `Low quality sessions (${performance.avgQuality.toFixed(1)}/5) — reduced duration`
+            : `High performance (${performance.avgQuality.toFixed(1)}/5) — increased duration`,
+          oldDuration,
+          newDuration,
+        });
+      }
     }
+  }
 
-    // 3. Apply interleaving
-    blocks = applyInterleaving(blocks);
+  // Enhance load analysis with additional metrics
+  const subjects = await dbInstance.subjects.toArray();
+  const burnout = await detectBurnout(7, dbInstance);
+  const interleaving = analyzeInterleaving(blocks);
+  const energyBudget = validateEnergyBudget(blocks, subjects);
 
-    // 4. Enhanced analysis
-    const subjects = await dbInstance.subjects.toArray();
-    const energyBudget = validateEnergyBudget(blocks, subjects);
-    const burnoutRisk = await detectBurnout(7, dbInstance);
-    const interleaving = analyzeInterleaving(blocks);
+  const enhancedLoadAnalysis = {
+    ...basePlan.loadAnalysis,
+    burnoutRisk: burnout,
+    interleaving,
+    energyBudget,
+  };
 
-    // 5. Update warning if needed
-    let warning = loadAnalysis.warning;
-    const energyWarning = getEnergyWarning(energyBudget);
-
-    if (burnoutRisk.atRisk && burnoutRisk.recommendation) {
-        warning = burnoutRisk.recommendation;
-    } else if (energyWarning) {
-        warning = energyWarning;
-    } else if (interleaving.needsInterleaving && interleaving.suggestions) {
-        warning = `Monotonous schedule (variety: ${interleaving.varietyScore}%) - ${interleaving.suggestions[0]}`;
-    }
-
-    return {
-        blocks,
-        loadAnalysis: {
-            ...loadAnalysis,
-            warning,
-            energyBudget,
-            burnoutRisk,
-            interleaving
-        },
-        performanceAdjustments: adjustments.length > 0 ? adjustments : undefined,
-    };
+  return {
+    blocks,
+    loadAnalysis: enhancedLoadAnalysis,
+    performanceAdjustments: performanceAdjustments.length > 0 ? performanceAdjustments : undefined,
+  };
 }
 
 /* ======================================================
   DASHBOARD INSIGHTS
 ====================================================== */
 
-export async function getDashboardInsights(dbInstance: OrbitDB = db) {
-    const burnout = await detectBurnout(7, dbInstance);
+/**
+ * Get comprehensive dashboard insights
+ */
+export async function getDashboardInsights(
+  dbInstance: OrbitDB = db
+): Promise<{
+  burnout: {
+    score: number;
+    atRisk: boolean;
+    skipRate: number;
+    recommendation: string;
+  };
+  topPerformers: Array<{ subjectId: number; subjectName: string; avgQuality: number }>;
+  strugglingSubjects: Array<{ subjectId: number; subjectName: string; avgQuality: number }>;
+  weeklyTrend: {
+    totalMinutes: number;
+    avgQualityThisWeek: number;
+    avgQualityLastWeek: number;
+  };
+}> {
+  try {
     const subjects = await dbInstance.subjects.toArray();
-
+    const burnout = await detectBurnout(7, dbInstance);
+    
+    // Get performance for all subjects
     const performances = await Promise.all(
-        subjects.map(s => getSubjectPerformance(s.id!, 30, dbInstance))
+      subjects.map(async s => ({
+        subjectId: s.id!,
+        subjectName: s.name,
+        performance: await getSubjectPerformance(s.id!, 30, dbInstance),
+      }))
     );
 
-    const topPerformers = performances
-        .filter(p => p.avgQuality >= 4)
-        .sort((a, b) => b.avgQuality - a.avgQuality)
-        .slice(0, 3);
+    // Filter subjects with enough data
+    const withData = performances.filter(p => p.performance.totalSessions >= 3);
+    
+    // Top performers (high quality, low skip rate)
+    const topPerformers = withData
+      .filter(p => p.performance.avgQuality >= 4 && p.performance.skipRate < 0.3)
+      .sort((a, b) => b.performance.avgQuality - a.performance.avgQuality)
+      .slice(0, 3)
+      .map(p => ({
+        subjectId: p.subjectId,
+        subjectName: p.subjectName,
+        avgQuality: p.performance.avgQuality,
+      }));
 
-    const strugglingSubjects = performances
-        .filter(p => p.avgQuality < 3 || p.skipRate > 0.2)
-        .sort((a, b) => a.avgQuality - b.avgQuality)
-        .slice(0, 3);
+    // Struggling subjects (low quality or high skip rate)
+    const strugglingSubjects = withData
+      .filter(p => p.performance.avgQuality <= 2.5 || p.performance.skipRate > 0.4)
+      .sort((a, b) => a.performance.avgQuality - b.performance.avgQuality)
+      .slice(0, 3)
+      .map(p => ({
+        subjectId: p.subjectId,
+        subjectName: p.subjectName,
+        avgQuality: p.performance.avgQuality,
+      }));
+
+    // Weekly trend
+    const thisWeekCutoff = new Date();
+    thisWeekCutoff.setDate(thisWeekCutoff.getDate() - 7);
+    const lastWeekCutoff = new Date();
+    lastWeekCutoff.setDate(lastWeekCutoff.getDate() - 14);
+
+    const thisWeekOutcomes = await dbInstance.blockOutcomes
+      .where("timestamp")
+      .above(thisWeekCutoff.getTime())
+      .toArray();
+    
+    const lastWeekOutcomes = await dbInstance.blockOutcomes
+      .where("timestamp")
+      .between(lastWeekCutoff.getTime(), thisWeekCutoff.getTime())
+      .toArray();
+
+    const totalMinutes = thisWeekOutcomes.reduce((sum, o) => sum + o.actualDuration, 0);
+    const avgQualityThisWeek = thisWeekOutcomes.filter(o => o.completed).length > 0
+      ? thisWeekOutcomes.filter(o => o.completed).reduce((sum, o) => sum + o.completionQuality, 0) /
+        thisWeekOutcomes.filter(o => o.completed).length
+      : 0;
+    const avgQualityLastWeek = lastWeekOutcomes.filter(o => o.completed).length > 0
+      ? lastWeekOutcomes.filter(o => o.completed).reduce((sum, o) => sum + o.completionQuality, 0) /
+        lastWeekOutcomes.filter(o => o.completed).length
+      : 0;
 
     return {
-        burnout,
-        topPerformers,
-        strugglingSubjects,
-        energyProfile: getEnergyProfile(),
+      burnout,
+      topPerformers,
+      strugglingSubjects,
+      weeklyTrend: {
+        totalMinutes,
+        avgQualityThisWeek,
+        avgQualityLastWeek,
+      },
     };
+  } catch (err) {
+    console.error("Failed to get dashboard insights:", err);
+    return {
+      burnout: { score: 0, atRisk: false, skipRate: 0, recommendation: "" },
+      topPerformers: [],
+      strugglingSubjects: [],
+      weeklyTrend: { totalMinutes: 0, avgQualityThisWeek: 0, avgQualityLastWeek: 0 },
+    };
+  }
 }
 
+/* ======================================================
+  ADDITIONAL UTILITY FUNCTIONS
+====================================================== */
+
+/**
+ * Get recent outcomes for a subject
+ */
+export async function getRecentOutcomes(
+  subjectId: number,
+  limit: number = 10,
+  dbInstance: OrbitDB = db
+): Promise<BlockOutcome[]> {
+  try {
+    const outcomes = await dbInstance.blockOutcomes
+      .where("subjectId")
+      .equals(subjectId)
+      .reverse()
+      .limit(limit)
+      .toArray();
+
+    return outcomes;
+  } catch (err) {
+    console.error("Failed to get recent outcomes:", err);
+    return [];
+  }
+}
+
+/**
+ * Get quality distribution for a subject
+ */
+export async function getQualityDistribution(
+  subjectId: number,
+  days: number = 30,
+  dbInstance: OrbitDB = db
+): Promise<Record<number, number>> {
+  try {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffTimestamp = cutoffDate.getTime();
+
+    const outcomes = await dbInstance.blockOutcomes
+      .where("subjectId")
+      .equals(subjectId)
+      .and((o: BlockOutcome) => o.timestamp >= cutoffTimestamp && o.completed)
+      .toArray();
+
+    const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    
+    outcomes.forEach(outcome => {
+      distribution[outcome.completionQuality] = 
+        (distribution[outcome.completionQuality] || 0) + 1;
+    });
+
+    return distribution;
+  } catch (err) {
+    console.error("Failed to get quality distribution:", err);
+    return { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  }
+}
+
+/**
+ * Get study streak for a subject
+ */
+export async function getStudyStreak(
+  subjectId: number,
+  dbInstance: OrbitDB = db
+): Promise<{
+  currentStreak: number;
+  longestStreak: number;
+  lastStudiedDate: string | null;
+}> {
+  try {
+    const outcomes = await dbInstance.blockOutcomes
+      .where("subjectId")
+      .equals(subjectId)
+      .and((o: BlockOutcome) => o.completed)
+      .reverse()
+      .toArray();
+
+    if (outcomes.length === 0) {
+      return { currentStreak: 0, longestStreak: 0, lastStudiedDate: null };
+    }
+
+    const dates = [...new Set(outcomes.map(o => o.date))].sort();
+    
+    let currentStreak = 0;
+    let longestStreak = 0;
+    let tempStreak = 1;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+    if (dates[dates.length - 1] === today || dates[dates.length - 1] === yesterday) {
+      currentStreak = 1;
+      for (let i = dates.length - 2; i >= 0; i--) {
+        const currentDate = new Date(dates[i + 1]);
+        const previousDate = new Date(dates[i]);
+        const diffDays = Math.floor((currentDate.getTime() - previousDate.getTime()) / 86400000);
+        
+        if (diffDays === 1) {
+          currentStreak++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    for (let i = 1; i < dates.length; i++) {
+      const currentDate = new Date(dates[i]);
+      const previousDate = new Date(dates[i - 1]);
+      const diffDays = Math.floor((currentDate.getTime() - previousDate.getTime()) / 86400000);
+      
+      if (diffDays === 1) {
+        tempStreak++;
+        longestStreak = Math.max(longestStreak, tempStreak);
+      } else {
+        tempStreak = 1;
+      }
+    }
+    longestStreak = Math.max(longestStreak, tempStreak);
+
+    return {
+      currentStreak,
+      longestStreak,
+      lastStudiedDate: dates[dates.length - 1],
+    };
+  } catch (err) {
+    console.error("Failed to get study streak:", err);
+    return { currentStreak: 0, longestStreak: 0, lastStudiedDate: null };
+  }
+}
+
+/**
+ * Delete old outcomes (data cleanup)
+ */
+export async function deleteOldOutcomes(
+  daysToKeep: number = 90,
+  dbInstance: OrbitDB = db
+): Promise<number> {
+  try {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+    const cutoffTimestamp = cutoffDate.getTime();
+
+    const oldOutcomes = await dbInstance.blockOutcomes
+      .where("timestamp")
+      .below(cutoffTimestamp)
+      .toArray();
+
+    await dbInstance.blockOutcomes
+      .where("timestamp")
+      .below(cutoffTimestamp)
+      .delete();
+
+    console.log(`🗑️ Deleted ${oldOutcomes.length} old outcomes`);
+    return oldOutcomes.length;
+  } catch (err) {
+    console.error("Failed to delete old outcomes:", err);
+    return 0;
+  }
+}
+
+/**
+ * Get all-time statistics
+ */
+export async function getAllTimeStats(
+  dbInstance: OrbitDB = db
+): Promise<{
+  totalSessions: number;
+  totalMinutes: number;
+  avgQuality: number;
+  completionRate: number;
+}> {
+  try {
+    const allOutcomes = await dbInstance.blockOutcomes.toArray();
+
+    if (allOutcomes.length === 0) {
+      return {
+        totalSessions: 0,
+        totalMinutes: 0,
+        avgQuality: 0,
+        completionRate: 0,
+      };
+    }
+
+    const completedOutcomes = allOutcomes.filter(o => o.completed);
+    const totalMinutes = completedOutcomes.reduce((sum, o) => sum + o.actualDuration, 0);
+    const avgQuality = 
+      completedOutcomes.length > 0
+        ? completedOutcomes.reduce((sum, o) => sum + o.completionQuality, 0) / completedOutcomes.length
+        : 0;
+    const completionRate = completedOutcomes.length / allOutcomes.length;
+
+    return {
+      totalSessions: allOutcomes.length,
+      totalMinutes,
+      avgQuality,
+      completionRate,
+    };
+  } catch (err) {
+    console.error("Failed to get all-time stats:", err);
+    return {
+      totalSessions: 0,
+      totalMinutes: 0,
+      avgQuality: 0,
+      completionRate: 0,
+    };
+  }
+}
+
+/* ======================================================
+  EXPORTS
+====================================================== */
+
 export default {
-    recordBlockOutcome,
-    getQualityRatingOptions,
-    getSubjectPerformance,
-    applyPerformanceAdjustments,
-    getEnergyProfile,
-    saveEnergyProfile,
-    calculateEnergyCost,
-    getEnergyBudget,
-    validateEnergyBudget,
-    getEnergyWarning,
-    detectBurnout,
-    analyzeInterleaving,
-    applyInterleaving,
-    generateEnhancedPlan,
-    getDashboardInsights,
+  // Quality Rating
+  getQualityRatingOptions,
+  getQualityRatingByValue,
+  getQualityEmoji,
+  getQualityColor,
+  
+  // Energy Management
+  getEnergyProfile,
+  saveEnergyProfile,
+  validateEnergyBudget,
+  
+  // Recording Outcomes
+  recordBlockOutcome,
+  
+  // Performance Analytics
+  getSubjectPerformance,
+  getRecentOutcomes,
+  getQualityDistribution,
+  
+  // Burnout & Wellness
+  detectBurnout,
+  
+  // Interleaving
+  analyzeInterleaving,
+  applyInterleaving,
+  
+  // Enhanced Planning
+  generateEnhancedPlan,
+  
+  // Dashboard
+  getDashboardInsights,
+  
+  // Streaks & Consistency
+  getStudyStreak,
+  
+  // Utilities
+  deleteOldOutcomes,
+  getAllTimeStats,
 };
