@@ -1,11 +1,4 @@
-/* ======================================================
-  🚀 ENHANCED BRAIN INTEGRATION
-
-  This file adds enhanced study session outcome tracking and analytics,
-  including performance feedback for adaptive planning.
-  Import this alongside your current brain functions.
-====================================================== */
-
+// Enhanced brain integration: tracks block outcomes, energy, and richer load analysis for planning.
 import { db, OrbitDB } from "./db";
 import {
   StudyBlock,

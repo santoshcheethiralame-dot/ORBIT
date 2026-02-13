@@ -1,13 +1,13 @@
-// SettingsView.tsx - ENHANCED WITH REAL-TIME INTEGRATION
-// All settings changes are now immediately applied to their respective systems
+// SettingsView.tsx - PERFECTED UI/UX EDITION
+// Premium design with smooth interactions, better hierarchy, and delightful details
 
 import React, { useEffect, useState } from "react";
 import {
-  Bell, BellOff, Clock, Database, Download, Upload, Trash2, 
-  RotateCcw, Check, X, AlertCircle, Info, Save, Volume2, VolumeX,
-  Target, Coffee, Shield, Sparkles, RefreshCw, Zap, Activity,
-  BarChart3, HelpCircle, Archive, FileJson, Settings as SettingsIcon,
-  Brain, Sunrise, Moon, ChevronDown, CheckCircle, AlertTriangle
+  Bell, BellOff, Clock, Database, Download, Upload, Trash2,
+  RotateCcw, Check, X, AlertCircle, Info, Volume2, VolumeX,
+  Target, Coffee, Shield, Sparkles, Zap, Activity,
+  ChevronDown, CheckCircle, AlertTriangle, Sunrise, Brain,
+  Settings as SettingsIcon, FileJson, Archive, Moon, Sun
 } from 'lucide-react';
 import { db } from './db';
 import { FrostedTile, FrostedMini, PageHeader, MetaText } from './components';
@@ -18,7 +18,6 @@ import { NotificationManager } from './utils/notifications';
 
 export const SettingsView = () => {
   const { settings, updateSetting, resetSettings } = useSettings();
-  const [hasChanges, setHasChanges] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -57,35 +56,6 @@ export const SettingsView = () => {
     settings.audio.milestoneSound
   ]);
 
-  // Request notification permission
-  const requestNotificationPermission = async () => {
-    if (!NotificationManager.isSupported()) {
-      toast.error('Notifications not supported in this browser');
-      return;
-    }
-
-    try {
-      const granted = await NotificationManager.requestPermission();
-      
-      updateSetting('notifications.permission', Notification.permission);
-      updateSetting('notifications.enabled', granted);
-
-      if (granted) {
-        toast.success('Notifications enabled successfully');
-        // Send test notification
-        NotificationManager.send(
-          'Orbit Notifications Enabled',
-          'You\'ll now receive study reminders and alerts'
-        );
-      } else {
-        toast.error('Notification permission denied');
-      }
-    } catch (err) {
-      console.error('Notification permission error:', err);
-      toast.error('Failed to request notification permission');
-    }
-  };
-
   // Export data
   const exportData = async () => {
     try {
@@ -93,7 +63,7 @@ export const SettingsView = () => {
       const logs = await db.logs.toArray();
       const assignments = await db.assignments.toArray();
       const plans = await db.plans.toArray();
-      
+
       const exportData = {
         version: '4.0.1',
         exportDate: new Date().toISOString(),
@@ -129,27 +99,16 @@ export const SettingsView = () => {
         throw new Error('Invalid backup file');
       }
 
-      // Clear existing data
       await db.subjects.clear();
       await db.logs.clear();
       await db.assignments.clear();
       await db.plans.clear();
 
-      // Import new data
-      if (imported.data.subjects?.length) {
-        await db.subjects.bulkAdd(imported.data.subjects);
-      }
-      if (imported.data.logs?.length) {
-        await db.logs.bulkAdd(imported.data.logs);
-      }
-      if (imported.data.assignments?.length) {
-        await db.assignments.bulkAdd(imported.data.assignments);
-      }
-      if (imported.data.plans?.length) {
-        await db.plans.bulkAdd(imported.data.plans);
-      }
+      if (imported.data.subjects?.length) await db.subjects.bulkAdd(imported.data.subjects);
+      if (imported.data.logs?.length) await db.logs.bulkAdd(imported.data.logs);
+      if (imported.data.assignments?.length) await db.assignments.bulkAdd(imported.data.assignments);
+      if (imported.data.plans?.length) await db.plans.bulkAdd(imported.data.plans);
 
-      // Import settings
       if (imported.settings) {
         Object.entries(imported.settings).forEach(([category, values]: [string, any]) => {
           Object.entries(values).forEach(([key, value]) => {
@@ -160,10 +119,7 @@ export const SettingsView = () => {
 
       toast.success('Data imported successfully');
       setShowImportModal(false);
-      
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      setTimeout(() => window.location.reload(), 1000);
     } catch (err) {
       console.error('Import failed:', err);
       toast.error('Failed to import data. Check file format.');
@@ -180,15 +136,11 @@ export const SettingsView = () => {
       await db.topics.clear();
       await db.blockOutcomes.clear();
       await db.studyBlocks.clear();
-      
       localStorage.clear();
-      
+
       toast.success('All data cleared successfully');
       setShowDeleteModal(false);
-      
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      setTimeout(() => window.location.reload(), 1000);
     } catch (err) {
       console.error('Failed to clear data:', err);
       toast.error('Failed to clear data');
@@ -199,264 +151,423 @@ export const SettingsView = () => {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
-  const SettingSection = ({ 
-    id, 
-    title, 
-    icon: Icon, 
-    variant, 
-    children 
-  }: { 
+  // Improved Setting Section with better animations
+  const SettingSection = ({
+    id,
+    title,
+    subtitle,
+    icon: Icon,
+    variant,
+    children
+  }: {
     id: string;
-    title: string; 
-    icon: any; 
+    title: string;
+    subtitle?: string;
+    icon: any;
     variant: 'indigo' | 'emerald' | 'purple' | 'cyan' | 'amber';
     children: React.ReactNode;
   }) => {
     const isExpanded = expandedSection === id;
-    
-    return (
-      <FrostedTile variant={variant} className="overflow-hidden">
-        <button
-          onClick={() => toggleSection(id)}
-          className="w-full p-4 md:p-6 flex items-center justify-between hover:bg-white/[0.01] transition-all"
-        >
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-${variant}-500/10 md:bg-${variant}-500/15 flex items-center justify-center border border-${variant}-500/20 md:border-${variant}-500/25 transition-transform duration-300 ${isExpanded ? 'scale-105' : ''}`}>
-              <Icon size={20} className={`md:hidden text-${variant}-400`} />
-              <Icon size={24} className={`hidden md:block text-${variant}-400`} />
-            </div>
-            <div className="text-left">
-              <h3 className="text-base md:text-lg font-bold text-white">{title}</h3>
-              <MetaText className="mt-0.5 text-[9px] md:text-[10px]">
-                {isExpanded ? 'TAP TO COLLAPSE' : 'TAP TO EXPAND'}
-              </MetaText>
-            </div>
-          </div>
-          <ChevronDown 
-            size={18} 
-            className={`text-zinc-500 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
-          />
-        </button>
 
-        {isExpanded && (
-          <div className="px-4 md:px-6 pb-4 md:pb-6 space-y-3 md:space-y-4 animate-in slide-in-from-top-2 fade-in duration-300">
-            {children}
-          </div>
-        )}
-      </FrostedTile>
+    const colors = {
+      indigo: { bg: 'bg-indigo-500', border: 'border-indigo-500', text: 'text-indigo-400' },
+      emerald: { bg: 'bg-emerald-500', border: 'border-emerald-500', text: 'text-emerald-400' },
+      purple: { bg: 'bg-purple-500', border: 'border-purple-500', text: 'text-purple-400' },
+      cyan: { bg: 'bg-cyan-500', border: 'border-cyan-500', text: 'text-cyan-400' },
+      amber: { bg: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-400' },
+    };
+
+    return (
+      <div className="group">
+        <FrostedTile
+          variant={variant}
+          className={`overflow-hidden transition-all duration-500 ${isExpanded ? 'ring-2 ring-offset-2 ring-offset-zinc-950 ' + colors[variant].border + '/30' : ''}`}
+        >
+          <button
+            onClick={() => toggleSection(id)}
+            className="w-full p-3.5 md:p-5 lg:p-6 flex items-center justify-between hover:bg-white/[0.02] active:bg-white/[0.04] transition-all group/btn"
+          >
+            <div className="flex items-center gap-2.5 md:gap-3 lg:gap-4">
+              <div className={`relative w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-xl md:rounded-2xl ${colors[variant].bg}/10 flex items-center justify-center border ${colors[variant].border}/20 transition-all duration-500 ${isExpanded ? 'scale-110 ' + colors[variant].bg + '/20 ' + colors[variant].border + '/40 rotate-[360deg]' : 'group-hover/btn:scale-105'}`}>
+                <Icon size={18} className={`${colors[variant].text} transition-all duration-500 ${isExpanded ? 'scale-110' : ''} md:hidden`} />
+                <Icon size={22} className={`${colors[variant].text} transition-all duration-500 ${isExpanded ? 'scale-110' : ''} hidden md:block lg:hidden`} />
+                <Icon size={24} className={`${colors[variant].text} transition-all duration-500 ${isExpanded ? 'scale-110' : ''} hidden lg:block`} />
+
+                {/* Pulse ring on expanded */}
+                {isExpanded && (
+                  <div className={`absolute inset-0 rounded-xl md:rounded-2xl ${colors[variant].bg}/20 animate-ping`} />
+                )}
+              </div>
+
+              <div className="text-left">
+                <h3 className="text-sm md:text-lg lg:text-xl font-bold text-white flex items-center gap-2 group-hover/btn:translate-x-1 transition-transform">
+                  {title}
+                  {isExpanded && (
+                    <span className={`text-[9px] md:text-xs ${colors[variant].text} font-normal animate-in fade-in slide-in-from-left-2 duration-300`}>
+                      ACTIVE
+                    </span>
+                  )}
+                </h3>
+                {subtitle && (
+                  <MetaText className="mt-0.5 md:mt-1 text-[8px] md:text-[10px] lg:text-xs">
+                    {subtitle}
+                  </MetaText>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 md:gap-3">
+              {isExpanded && (
+                <span className="hidden md:block text-xs text-zinc-500 animate-in fade-in slide-in-from-right-2 duration-300">
+                  TAP TO CLOSE
+                </span>
+              )}
+              <ChevronDown
+                size={16}
+                className={`text-zinc-400 transition-all duration-500 ${isExpanded ? 'rotate-180 ' + colors[variant].text : 'group-hover/btn:text-zinc-200'} md:hidden`}
+              />
+              <ChevronDown
+                size={20}
+                className={`text-zinc-400 transition-all duration-500 ${isExpanded ? 'rotate-180 ' + colors[variant].text : 'group-hover/btn:text-zinc-200'} hidden md:block`}
+              />
+            </div>
+          </button>
+
+          {isExpanded && (
+            <div className="px-3.5 md:px-5 lg:px-6 pb-3.5 md:pb-5 lg:pb-6 space-y-2.5 md:space-y-3 lg:space-y-4 animate-in slide-in-from-top-4 fade-in duration-500">
+              {children}
+            </div>
+          )}
+        </FrostedTile>
+      </div>
+    );
+  };
+
+  // Premium Toggle Switch Component
+  const ToggleSwitch = ({
+    checked,
+    onChange,
+    variant = 'indigo',
+    size = 'md'
+  }: {
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+    variant?: 'indigo' | 'emerald' | 'purple' | 'cyan' | 'amber';
+    size?: 'sm' | 'md' | 'lg';
+  }) => {
+    const sizes = {
+      sm: { container: 'w-11 h-6', thumb: 'w-5 h-5', translate: 'translate-x-5' },
+      md: { container: 'w-14 h-7', thumb: 'w-6 h-6', translate: 'translate-x-7' },
+      lg: { container: 'w-16 h-8', thumb: 'w-7 h-7', translate: 'translate-x-8' },
+    };
+
+    const colors = {
+      indigo: 'bg-indigo-500',
+      emerald: 'bg-emerald-500',
+      purple: 'bg-purple-500',
+      cyan: 'bg-cyan-500',
+      amber: 'bg-amber-500',
+    };
+
+    const s = sizes[size];
+
+    return (
+      <button
+        onClick={() => onChange(!checked)}
+        className={`relative ${s.container} rounded-full transition-all duration-300 ${checked
+            ? colors[variant] + ' shadow-lg shadow-' + variant + '-500/30'
+            : 'bg-zinc-800 border-2 border-zinc-700'
+          } hover:scale-105 active:scale-95`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 ${s.thumb} bg-white rounded-full shadow-lg transition-transform duration-300 flex items-center justify-center ${checked ? s.translate : 'translate-x-0'
+            }`}
+        >
+          {checked && (
+            <Check size={size === 'sm' ? 12 : size === 'md' ? 14 : 16} className="text-zinc-900 animate-in zoom-in duration-200" />
+          )}
+        </span>
+      </button>
     );
   };
 
   return (
-    <div className="pb-24 md:pb-32 pt-4 md:pt-6 px-3 md:px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-4 md:space-y-6">
-      
-      <PageHeader
-        title="Settings"
-        meta={<MetaText>CONFIGURE YOUR ORBIT EXPERIENCE</MetaText>}
-      />
+    <div className="pb-24 md:pb-32 pt-4 md:pt-6 px-3 md:px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-5 md:space-y-7">
 
-      {/* Data Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-        <FrostedTile variant="indigo" className="p-4 md:p-5 hover:-translate-y-0.5 md:hover:-translate-y-1 transition-all duration-300">
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-4">
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
-                <Database size={16} className="text-indigo-400 md:hidden" />
-                <Database size={20} className="text-indigo-400 hidden md:block" />
-              </div>
-              <MetaText className="text-[10px] md:text-xs">SUBJECTS</MetaText>
-            </div>
-            <div className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tabular-nums">
-              {stats.subjects}
-            </div>
-          </div>
-        </FrostedTile>
+      {/* Enhanced Header */}
+      <div className="relative">
+        <PageHeader
+          title="Settings"
+          meta={<MetaText>CONFIGURE YOUR ORBIT EXPERIENCE</MetaText>}
+        />
 
-        <FrostedTile variant="emerald" className="p-4 md:p-5 hover:-translate-y-0.5 md:hover:-translate-y-1 transition-all duration-300">
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-4">
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
-                <Activity size={16} className="text-emerald-400 md:hidden" />
-                <Activity size={20} className="text-emerald-400 hidden md:block" />
-              </div>
-              <MetaText className="text-[10px] md:text-xs">SESSIONS</MetaText>
-            </div>
-            <div className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tabular-nums">
-              {stats.logs}
-            </div>
-          </div>
-        </FrostedTile>
-
-        <FrostedTile variant="amber" className="p-4 md:p-5 hover:-translate-y-0.5 md:hover:-translate-y-1 transition-all duration-300">
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-4">
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
-                <Clock size={16} className="text-amber-400 md:hidden" />
-                <Clock size={20} className="text-amber-400 hidden md:block" />
-              </div>
-              <MetaText className="text-[10px] md:text-xs">TOTAL HOURS</MetaText>
-            </div>
-            <div className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tabular-nums">
-              {stats.totalHours}h
-            </div>
-          </div>
-        </FrostedTile>
+        {/* Decorative element */}
+        <div className="absolute -top-4 -right-4 w-24 h-24 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-3xl animate-pulse" />
       </div>
 
-      {/* Quick Actions */}
-      <FrostedTile variant="indigo" className="p-6 md:p-7 hover:-translate-y-1 transition-all duration-300">
+      {/* Enhanced Data Overview - Compact for mobile */}
+      <div className="grid grid-cols-3 gap-2 md:gap-4">
+        {[
+          { label: 'SUBJECTS', value: stats.subjects, icon: Database, variant: 'indigo' as const, suffix: '' },
+          { label: 'SESSIONS', value: stats.logs, icon: Activity, variant: 'emerald' as const, suffix: '' },
+          { label: 'HOURS', value: stats.totalHours, icon: Clock, variant: 'amber' as const, suffix: 'h' },
+        ].map((stat, i) => (
+          <FrostedTile
+            key={stat.label}
+            variant={stat.variant}
+            className="p-3 md:p-5 lg:p-6 hover:-translate-y-1 transition-all duration-300 group cursor-default"
+            style={{ animationDelay: `${i * 100}ms` }}
+          >
+            <div className="relative z-10">
+              <div className="flex flex-col md:flex-row items-start md:items-center md:justify-between mb-2 md:mb-4 gap-2">
+                <div className={`w-8 h-8 md:w-11 md:h-11 lg:w-12 lg:h-12 rounded-lg md:rounded-xl bg-${stat.variant}-500/20 flex items-center justify-center border border-${stat.variant}-500/30 group-hover:scale-110 transition-transform duration-300`}>
+                  <stat.icon size={16} className={`text-${stat.variant}-400 md:hidden`} />
+                  <stat.icon size={20} className={`text-${stat.variant}-400 hidden md:block lg:hidden`} />
+                  <stat.icon size={22} className={`text-${stat.variant}-400 hidden lg:block`} />
+                </div>
+                <MetaText className="text-[8px] md:text-[9px] lg:text-[10px]">{stat.label}</MetaText>
+              </div>
+              <div className={`text-xl md:text-3xl lg:text-4xl xl:text-5xl font-black text-white tabular-nums group-hover:scale-105 transition-transform duration-300 origin-left`}>
+                {stat.value}{stat.suffix}
+              </div>
+            </div>
+          </FrostedTile>
+        ))}
+      </div>
+
+      {/* Enhanced Quick Actions - More compact for mobile */}
+      <FrostedTile variant="indigo" className="p-4 md:p-6 lg:p-8 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500">
         <div className="relative z-10">
-          <div className="flex items-center gap-3 md:gap-4 mb-6">
-            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
-              <Zap size={24} className="text-indigo-400 md:hidden" />
-              <Zap size={28} className="text-indigo-400 hidden md:block" />
+          <div className="flex items-center gap-3 md:gap-4 mb-4 md:mb-6 lg:mb-7">
+            <div className="w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-xl md:rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center border border-indigo-500/30 shadow-lg shadow-indigo-500/20">
+              <Zap size={20} className="text-indigo-400 md:hidden" />
+              <Zap size={24} className="text-indigo-400 hidden md:block lg:hidden" />
+              <Zap size={28} className="text-indigo-400 hidden lg:block" />
             </div>
             <div>
-              <h3 className="text-lg md:text-xl font-bold text-white">Quick Actions</h3>
-              <MetaText className="mt-0.5">DATA MANAGEMENT</MetaText>
+              <h3 className="text-base md:text-xl lg:text-2xl font-bold text-white">Quick Actions</h3>
+              <MetaText className="mt-0.5 md:mt-1 text-[9px] md:text-[10px]">MANAGE YOUR DATA</MetaText>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-            <button
-              onClick={() => setShowExportModal(true)}
-              className="group"
-            >
-              <FrostedMini className="h-full p-4 md:p-5 flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all duration-300">
-                <Download size={20} className="text-zinc-400 group-hover:text-white group-hover:scale-110 transition-all" />
-                <div className="text-xs md:text-sm font-bold text-white">Export</div>
-                <div className="text-[10px] text-zinc-500">Backup data</div>
-              </FrostedMini>
-            </button>
-
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="group"
-            >
-              <FrostedMini className="h-full p-4 md:p-5 flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all duration-300">
-                <Upload size={20} className="text-zinc-400 group-hover:text-white group-hover:scale-110 transition-all" />
-                <div className="text-xs md:text-sm font-bold text-white">Import</div>
-                <div className="text-[10px] text-zinc-500">Restore</div>
-              </FrostedMini>
-            </button>
-
-            <button
-              onClick={() => {
-                resetSettings();
-                SoundManager.refreshSettings();
-                toast.success('Settings reset to defaults');
-              }}
-              className="group"
-            >
-              <FrostedMini className="h-full p-4 md:p-5 flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all duration-300">
-                <RotateCcw size={20} className="text-zinc-400 group-hover:text-white group-hover:scale-110 transition-all" />
-                <div className="text-xs md:text-sm font-bold text-white">Reset</div>
-                <div className="text-[10px] text-zinc-500">Defaults</div>
-              </FrostedMini>
-            </button>
-
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              className="group"
-            >
-              <FrostedMini className="h-full p-4 md:p-5 flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all duration-300 bg-zinc-900/50 border-zinc-700/50 hover:bg-red-500/10 hover:border-red-500/30">
-                <Trash2 size={20} className="text-zinc-500 group-hover:text-red-400 group-hover:scale-110 transition-all" />
-                <div className="text-xs md:text-sm font-bold text-white">Clear</div>
-                <div className="text-[10px] text-zinc-500">Delete all</div>
-              </FrostedMini>
-            </button>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
+            {[
+              { icon: Download, label: 'Export', desc: 'Backup', onClick: () => setShowExportModal(true), variant: 'indigo' },
+              { icon: Upload, label: 'Import', desc: 'Restore', onClick: () => setShowImportModal(true), variant: 'purple' },
+              { icon: RotateCcw, label: 'Reset', desc: 'Defaults', onClick: () => { resetSettings(); SoundManager.refreshSettings(); toast.success('Settings reset'); }, variant: 'cyan' },
+              { icon: Trash2, label: 'Clear', desc: 'Delete', onClick: () => setShowDeleteModal(true), variant: 'red', danger: true },
+            ].map((action, i) => (
+              <button
+                key={action.label}
+                onClick={action.onClick}
+                className="group/action"
+                style={{ animationDelay: `${i * 50}ms` }}
+              >
+                <FrostedMini className={`h-full p-3 md:p-4 lg:p-5 flex flex-col items-center justify-center gap-2 md:gap-3 hover:scale-[1.03] active:scale-95 transition-all duration-300 ${action.danger ? 'hover:bg-red-500/10 hover:border-red-500/30' : ''}`}>
+                  <div className={`w-9 h-9 md:w-11 md:h-11 lg:w-12 lg:h-12 rounded-lg md:rounded-xl ${action.danger ? 'bg-red-500/10 border border-red-500/20' : 'bg-white/5 border border-white/10'} flex items-center justify-center group-hover/action:scale-110 group-active/action:scale-90 transition-all duration-300`}>
+                    <action.icon size={18} className={`${action.danger ? 'text-red-400' : 'text-zinc-400'} group-hover/action:text-white transition-colors md:hidden`} />
+                    <action.icon size={20} className={`${action.danger ? 'text-red-400' : 'text-zinc-400'} group-hover/action:text-white transition-colors hidden md:block lg:hidden`} />
+                    <action.icon size={22} className={`${action.danger ? 'text-red-400' : 'text-zinc-400'} group-hover/action:text-white transition-colors hidden lg:block`} />
+                  </div>
+                  <div>
+                    <div className="text-xs md:text-sm lg:text-base font-bold text-white mb-0.5 md:mb-1">{action.label}</div>
+                    <div className="text-[9px] md:text-[10px] lg:text-xs text-zinc-500">{action.desc}</div>
+                  </div>
+                </FrostedMini>
+              </button>
+            ))}
           </div>
         </div>
       </FrostedTile>
 
       {/* Settings Sections */}
-      <div className="space-y-4 md:space-y-6">
-        
-        {/* Notifications */}
-        <SettingSection id="notifications" title="Notifications" icon={Bell} variant="indigo">
-          <FrostedMini variant="indigo" className="p-5">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="font-bold text-white mb-1">Enable Notifications</div>
-                <div className="text-sm text-zinc-500">
-                  {settings.notifications.permission === 'granted' ? '✓ Notifications enabled' :
-                   settings.notifications.permission === 'denied' ? '⚠️ Blocked - Reset in browser settings (click site icon in URL bar)' :
-                   'Click button to enable notifications'}
+      <div className="space-y-5 md:space-y-6">
+
+        {/* Notifications Section - FIXED */}
+        <SettingSection
+          id="notifications"
+          title="Notifications"
+          subtitle="ALERTS & REMINDERS"
+          icon={Bell}
+          variant="indigo"
+        >
+          <FrostedMini variant="indigo" className="p-3.5 md:p-5 lg:p-6">
+            <div className="flex items-center justify-between gap-3 md:gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-white text-sm md:text-base lg:text-lg mb-1 md:mb-2">Enable Notifications</div>
+                <div className="text-xs md:text-sm text-zinc-400 truncate">
+                  {settings.notifications.permission === 'granted' ? (
+                    <span className="flex items-center gap-1.5 md:gap-2 text-emerald-400">
+                      <CheckCircle size={14} className="md:hidden flex-shrink-0" />
+                      <CheckCircle size={16} className="hidden md:block flex-shrink-0" />
+                      <span className="truncate">Active</span>
+                    </span>
+                  ) : settings.notifications.permission === 'denied' ? (
+                    <span className="flex items-center gap-1.5 md:gap-2 text-red-400">
+                      <AlertTriangle size={14} className="md:hidden flex-shrink-0" />
+                      <AlertTriangle size={16} className="hidden md:block flex-shrink-0" />
+                      <span className="truncate">Blocked</span>
+                    </span>
+                  ) : (
+                    'Tap to enable'
+                  )}
                 </div>
               </div>
+
               <button
-                onClick={requestNotificationPermission}
+                onClick={async (e) => {
+                  e.stopPropagation();
+
+                  if (!('Notification' in window)) {
+                    toast.error('Notifications not supported');
+                    return;
+                  }
+
+                  if (Notification.permission === 'denied') {
+                    toast.error('Please reset notification permission in browser settings');
+                    return;
+                  }
+
+                  if (Notification.permission === 'granted' && settings.notifications.enabled) {
+                    updateSetting('notifications.enabled', false);
+                    toast.info('Notifications disabled');
+                    return;
+                  }
+
+                  if (Notification.permission === 'granted' && !settings.notifications.enabled) {
+                    updateSetting('notifications.enabled', true);
+                    toast.success('Notifications re-enabled');
+                    new Notification('Orbit', {
+                      body: 'Notifications are now active!',
+                      icon: '/orbit-icon.png'
+                    });
+                    return;
+                  }
+
+                  try {
+                    const permission = await Notification.requestPermission();
+                    updateSetting('notifications.permission', permission);
+
+                    if (permission === 'granted') {
+                      updateSetting('notifications.enabled', true);
+                      toast.success('Notifications enabled!');
+                      new Notification('Orbit Notifications Active', {
+                        body: 'You\'ll now receive study reminders and alerts',
+                        icon: '/orbit-icon.png',
+                        tag: 'welcome'
+                      });
+                    } else if (permission === 'denied') {
+                      updateSetting('notifications.enabled', false);
+                      toast.error('Notification permission denied');
+                    } else {
+                      toast.info('Notification request cancelled');
+                    }
+                  } catch (err) {
+                    console.error('Notification error:', err);
+                    toast.error('Could not request permission');
+                  }
+                }}
                 disabled={settings.notifications.permission === 'denied'}
-                className={`p-3 rounded-xl transition-all min-h-[48px] min-w-[48px] flex items-center justify-center ${
-                  settings.notifications.enabled 
-                    ? 'bg-indigo-500/20 text-indigo-400 border-2 border-indigo-500/30' 
+                className={`p-3 md:p-3.5 lg:p-4 rounded-lg md:rounded-xl transition-all duration-300 min-h-[48px] min-w-[48px] md:min-h-[52px] md:min-w-[52px] lg:min-h-[56px] lg:min-w-[56px] flex items-center justify-center flex-shrink-0 ${settings.notifications.enabled
+                    ? 'bg-indigo-500/20 text-indigo-400 border-2 border-indigo-500/40 shadow-lg shadow-indigo-500/20 hover:bg-indigo-500/30 hover:scale-110'
                     : settings.notifications.permission === 'denied'
-                    ? 'bg-red-500/10 text-red-400 border-2 border-red-500/30 cursor-not-allowed opacity-50'
-                    : 'bg-zinc-800/50 text-zinc-400 border-2 border-zinc-700 hover:border-indigo-500/50 hover:bg-indigo-500/10'
-                } hover:scale-110 active:scale-95 disabled:hover:scale-100`}
+                      ? 'bg-red-500/10 text-red-400 border-2 border-red-500/30 cursor-not-allowed opacity-50'
+                      : 'bg-zinc-800/50 text-zinc-400 border-2 border-zinc-700 hover:border-indigo-500/50 hover:bg-indigo-500/10 hover:scale-110'
+                  } active:scale-95 disabled:hover:scale-100`}
               >
-                {settings.notifications.enabled ? <Bell size={20} /> : <BellOff size={20} />}
+                <Bell size={20} className="md:hidden" />
+                <Bell size={22} className="hidden md:block lg:hidden" />
+                <Bell size={24} className="hidden lg:block" />
               </button>
             </div>
           </FrostedMini>
 
-          {settings.notifications.enabled && (
-            <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+          {settings.notifications.permission === 'denied' && (
+            <FrostedMini variant="indigo" className="p-3.5 md:p-4 lg:p-5 bg-red-500/5 border-red-500/20 animate-in slide-in-from-top-2 fade-in duration-500">
+              <div className="flex gap-2.5 md:gap-3 lg:gap-4">
+                <div className="flex-shrink-0 w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 rounded-lg md:rounded-xl bg-red-500/10 flex items-center justify-center border border-red-500/20">
+                  <AlertCircle size={16} className="text-red-400 md:hidden" />
+                  <AlertCircle size={18} className="text-red-400 hidden md:block lg:hidden" />
+                  <AlertCircle size={20} className="text-red-400 hidden lg:block" />
+                </div>
+                <div className="text-xs md:text-sm text-zinc-300 min-w-0">
+                  <p className="font-bold mb-1.5 md:mb-2">How to unblock:</p>
+                  <ol className="text-zinc-400 space-y-1 md:space-y-1.5 list-decimal list-inside text-[11px] md:text-xs">
+                    <li className="truncate md:whitespace-normal">Click <strong>🔒</strong> in address bar</li>
+                    <li className="truncate md:whitespace-normal">Change to "Allow"</li>
+                    <li className="truncate md:whitespace-normal">Refresh page</li>
+                  </ol>
+                </div>
+              </div>
+            </FrostedMini>
+          )}
+
+          {settings.notifications.enabled && settings.notifications.permission === 'granted' && (
+            <div className="space-y-2 md:space-y-2.5 lg:space-y-3 animate-in slide-in-from-top-4 fade-in duration-500">
               {[
-                { key: 'sessionReminders', label: 'Session Reminders', desc: 'Get notified when it\'s time to study' },
-                { key: 'dailyGoals', label: 'Daily Goals', desc: 'Daily study goal achievements' },
-                { key: 'examAlerts', label: 'Exam Alerts', desc: 'Reminders for upcoming exams' },
-                { key: 'breakReminders', label: 'Break Reminders', desc: 'Nudges to take breaks' },
-              ].map((item) => (
-                <FrostedMini key={item.key} variant="indigo">
-                  <label className="flex items-center justify-between cursor-pointer p-3 md:p-4">
-                    <div className="flex-1 mr-2">
-                      <div className="font-semibold text-white text-xs md:text-sm">{item.label}</div>
-                      <div className="text-[10px] md:text-xs text-zinc-500 mt-0.5">{item.desc}</div>
+                { key: 'sessionReminders', label: 'Session Reminders', desc: 'Study time alerts', icon: Clock },
+                { key: 'dailyGoals', label: 'Daily Goals', desc: 'Goal achievements', icon: Target },
+                { key: 'examAlerts', label: 'Exam Alerts', desc: 'Upcoming exams', icon: AlertCircle },
+                { key: 'breakReminders', label: 'Break Reminders', desc: 'Break nudges', icon: Coffee },
+              ].map((item, i) => (
+                <FrostedMini key={item.key} variant="indigo" style={{ animationDelay: `${i * 50}ms` }}>
+                  <label className="flex items-center justify-between cursor-pointer p-3 md:p-3.5 lg:p-4 group/toggle hover:bg-white/[0.01] transition-all">
+                    <div className="flex items-center gap-2 md:gap-2.5 lg:gap-3 flex-1 min-w-0">
+                      <div className="w-7 h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 group-hover/toggle:scale-110 transition-transform flex-shrink-0">
+                        <item.icon size={14} className="text-indigo-400 md:hidden" />
+                        <item.icon size={16} className="text-indigo-400 hidden md:block lg:hidden" />
+                        <item.icon size={18} className="text-indigo-400 hidden lg:block" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-white text-xs md:text-sm lg:text-base truncate">{item.label}</div>
+                        <div className="text-[10px] md:text-xs text-zinc-500 mt-0.5 truncate">{item.desc}</div>
+                      </div>
                     </div>
-                    <input
-                      type="checkbox"
+                    <ToggleSwitch
                       checked={(settings.notifications as any)[item.key]}
-                      onChange={(e) => updateSetting(`notifications.${item.key}`, e.target.checked)}
-                      className="w-4 h-4 md:w-5 md:h-5 rounded accent-indigo-500 flex-shrink-0"
+                      onChange={(checked) => updateSetting(`notifications.${item.key}`, checked)}
+                      variant="indigo"
+                      size="sm"
                     />
                   </label>
                 </FrostedMini>
               ))}
             </div>
           )}
-
-          {settings.notifications.permission === 'denied' && (
-            <FrostedMini variant="indigo" className="p-4 bg-amber-500/5 border-amber-500/20">
-              <div className="flex gap-3">
-                <Info size={18} className="text-amber-400 flex-shrink-0 mt-0.5" />
-                <div className="text-xs md:text-sm text-zinc-300">
-                  <p className="font-semibold mb-1">How to unblock notifications:</p>
-                  <ol className="text-zinc-400 space-y-1 list-decimal list-inside">
-                    <li>Click the site icon (🔒 or ⓘ) in your browser's address bar</li>
-                    <li>Find "Notifications" in the permissions list</li>
-                    <li>Change from "Block" to "Allow"</li>
-                    <li>Refresh this page</li>
-                  </ol>
-                </div>
-              </div>
-            </FrostedMini>
-          )}
         </SettingSection>
 
         {/* Study Preferences */}
-        <SettingSection id="study" title="Study Preferences" icon={Brain} variant="emerald">
-          <div className="space-y-4">
-            <FrostedMini variant="emerald" className="p-5">
+        <SettingSection
+          id="study"
+          title="Study Preferences"
+          subtitle="CUSTOMIZE YOUR WORKFLOW"
+          icon={Brain}
+          variant="emerald"
+        >
+          <div className="space-y-3 md:space-y-3.5 lg:space-y-4">
+            {/* Day Start Time with visual time indicator */}
+            <FrostedMini variant="emerald" className="p-3.5 md:p-4 lg:p-5 xl:p-6">
               <label className="block">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Sunrise size={18} className="text-emerald-400" />
-                    <span className="font-bold text-white">Day Start Time</span>
+                <div className="flex items-center justify-between mb-3 md:mb-3.5 lg:mb-4">
+                  <div className="flex items-center gap-2 md:gap-2.5 lg:gap-3">
+                    <div className="w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 rounded-lg md:rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+                      <Sunrise size={16} className="text-emerald-400 md:hidden" />
+                      <Sunrise size={18} className="text-emerald-400 hidden md:block lg:hidden" />
+                      <Sunrise size={20} className="text-emerald-400 hidden lg:block" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-bold text-white text-xs md:text-sm lg:text-base block truncate">Day Start Time</span>
+                      <div className="text-[10px] md:text-xs text-zinc-500 mt-0.5 truncate">When day begins</div>
+                    </div>
                   </div>
-                  <span className="text-sm font-mono text-emerald-400 tabular-nums">
-                    {settings.study.dayStartHour.toString().padStart(2, '0')}:00
-                  </span>
+                  <div className="flex items-center gap-1.5 md:gap-2 bg-emerald-500/10 px-2.5 md:px-3 lg:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl border border-emerald-500/20 flex-shrink-0">
+                    {settings.study.dayStartHour < 12 ? <Sunrise size={14} className="text-emerald-400 md:hidden" /> : settings.study.dayStartHour < 18 ? <Sun size={14} className="text-amber-400 md:hidden" /> : <Moon size={14} className="text-indigo-400 md:hidden" />}
+                    {settings.study.dayStartHour < 12 ? <Sunrise size={16} className="text-emerald-400 hidden md:block lg:hidden" /> : settings.study.dayStartHour < 18 ? <Sun size={16} className="text-amber-400 hidden md:block lg:hidden" /> : <Moon size={16} className="text-indigo-400 hidden md:block lg:hidden" />}
+                    {settings.study.dayStartHour < 12 ? <Sunrise size={18} className="text-emerald-400 hidden lg:block" /> : settings.study.dayStartHour < 18 ? <Sun size={18} className="text-amber-400 hidden lg:block" /> : <Moon size={18} className="text-indigo-400 hidden lg:block" />}
+                    <span className="text-sm md:text-base lg:text-lg font-mono font-bold text-white tabular-nums">
+                      {settings.study.dayStartHour.toString().padStart(2, '0')}:00
+                    </span>
+                  </div>
                 </div>
                 <input
                   type="range"
@@ -465,24 +576,38 @@ export const SettingsView = () => {
                   value={settings.study.dayStartHour}
                   onChange={(e) => {
                     updateSetting('study.dayStartHour', parseInt(e.target.value));
-                    // Show toast to inform user
-                    toast.info('Day start time updated. Effect applies to next day.');
+                    toast.info('Day start time updated');
                   }}
-                  className="w-full accent-emerald-500"
+                  className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  style={{
+                    background: `linear-gradient(to right, rgb(16 185 129 / 0.3) 0%, rgb(16 185 129 / 0.3) ${(settings.study.dayStartHour / 23) * 100}%, rgb(39 39 42) ${(settings.study.dayStartHour / 23) * 100}%, rgb(39 39 42) 100%)`
+                  }}
                 />
-                <div className="text-xs text-zinc-500 mt-2">Study day resets at this hour (affects plan generation)</div>
+                <div className="flex justify-between text-[10px] md:text-xs text-zinc-600 mt-1.5 md:mt-2">
+                  <span>00:00</span>
+                  <span>12:00</span>
+                  <span>23:00</span>
+                </div>
               </label>
             </FrostedMini>
 
-            <FrostedMini variant="emerald" className="p-5">
+            {/* Focus Duration */}
+            <FrostedMini variant="emerald" className="p-3.5 md:p-4 lg:p-5 xl:p-6">
               <label className="block">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Target size={18} className="text-emerald-400" />
-                    <span className="font-bold text-white">Default Focus Duration</span>
+                <div className="flex items-center justify-between mb-3 md:mb-3.5 lg:mb-4">
+                  <div className="flex items-center gap-2 md:gap-2.5 lg:gap-3">
+                    <div className="w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 rounded-lg md:rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+                      <Target size={16} className="text-emerald-400 md:hidden" />
+                      <Target size={18} className="text-emerald-400 hidden md:block lg:hidden" />
+                      <Target size={20} className="text-emerald-400 hidden lg:block" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-bold text-white text-xs md:text-sm lg:text-base block truncate">Focus Duration</span>
+                      <div className="text-[10px] md:text-xs text-zinc-500 mt-0.5 truncate">Session length</div>
+                    </div>
                   </div>
-                  <span className="text-sm font-mono text-emerald-400 tabular-nums">
-                    {settings.study.defaultFocusDuration}m
+                  <span className="text-lg md:text-xl lg:text-2xl font-bold font-mono text-emerald-400 tabular-nums flex-shrink-0">
+                    {settings.study.defaultFocusDuration}<span className="text-xs md:text-sm text-zinc-500">m</span>
                   </span>
                 </div>
                 <input
@@ -492,21 +617,37 @@ export const SettingsView = () => {
                   step="5"
                   value={settings.study.defaultFocusDuration}
                   onChange={(e) => updateSetting('study.defaultFocusDuration', parseInt(e.target.value))}
-                  className="w-full accent-emerald-500"
+                  className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  style={{
+                    background: `linear-gradient(to right, rgb(16 185 129 / 0.3) 0%, rgb(16 185 129 / 0.3) ${((settings.study.defaultFocusDuration - 15) / 75) * 100}%, rgb(39 39 42) ${((settings.study.defaultFocusDuration - 15) / 75) * 100}%, rgb(39 39 42) 100%)`
+                  }}
                 />
-                <div className="text-xs text-zinc-500 mt-2">Default study session length (used in plan generation)</div>
+                <div className="flex justify-between text-[10px] md:text-xs text-zinc-600 mt-1.5 md:mt-2">
+                  <span>15</span>
+                  <span>25</span>
+                  <span>50</span>
+                  <span>90</span>
+                </div>
               </label>
             </FrostedMini>
 
-            <FrostedMini variant="emerald" className="p-5">
+            {/* Break Duration */}
+            <FrostedMini variant="emerald" className="p-3.5 md:p-4 lg:p-5 xl:p-6">
               <label className="block">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Coffee size={18} className="text-emerald-400" />
-                    <span className="font-bold text-white">Break Duration</span>
+                <div className="flex items-center justify-between mb-3 md:mb-3.5 lg:mb-4">
+                  <div className="flex items-center gap-2 md:gap-2.5 lg:gap-3">
+                    <div className="w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 rounded-lg md:rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+                      <Coffee size={16} className="text-emerald-400 md:hidden" />
+                      <Coffee size={18} className="text-emerald-400 hidden md:block lg:hidden" />
+                      <Coffee size={20} className="text-emerald-400 hidden lg:block" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-bold text-white text-xs md:text-sm lg:text-base block truncate">Break Duration</span>
+                      <div className="text-[10px] md:text-xs text-zinc-500 mt-0.5 truncate">Rest time</div>
+                    </div>
                   </div>
-                  <span className="text-sm font-mono text-emerald-400 tabular-nums">
-                    {settings.study.breakDuration}m
+                  <span className="text-lg md:text-xl lg:text-2xl font-bold font-mono text-emerald-400 tabular-nums flex-shrink-0">
+                    {settings.study.breakDuration}<span className="text-xs md:text-sm text-zinc-500">m</span>
                   </span>
                 </div>
                 <input
@@ -516,76 +657,96 @@ export const SettingsView = () => {
                   step="5"
                   value={settings.study.breakDuration}
                   onChange={(e) => updateSetting('study.breakDuration', parseInt(e.target.value))}
-                  className="w-full accent-emerald-500"
-                />
-                <div className="text-xs text-zinc-500 mt-2">Rest between sessions (timer default)</div>
-              </label>
-            </FrostedMini>
-
-            <FrostedMini variant="emerald">
-              <label className="flex items-center justify-between cursor-pointer p-4">
-                <div>
-                  <div className="font-bold text-white mb-1">Auto-Start Breaks</div>
-                  <div className="text-xs text-zinc-500">Start breaks automatically after focus sessions</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={settings.study.autoStartBreaks}
-                  onChange={(e) => updateSetting('study.autoStartBreaks', e.target.checked)}
-                  className="w-5 h-5 rounded accent-emerald-500"
+                  className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  style={{
+                    background: `linear-gradient(to right, rgb(16 185 129 / 0.3) 0%, rgb(16 185 129 / 0.3) ${((settings.study.breakDuration - 5) / 25) * 100}%, rgb(39 39 42) ${((settings.study.breakDuration - 5) / 25) * 100}%, rgb(39 39 42) 100%)`
+                  }}
                 />
               </label>
             </FrostedMini>
 
-            <FrostedMini variant="emerald">
-              <label className="flex items-center justify-between cursor-pointer p-4">
-                <div>
-                  <div className="font-bold text-white mb-1">Strict Mode by Default</div>
-                  <div className="text-xs text-zinc-500">Start sessions in monk mode (no pause/skip)</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={settings.study.strictModeDefault}
-                  onChange={(e) => updateSetting('study.strictModeDefault', e.target.checked)}
-                  className="w-5 h-5 rounded accent-emerald-500"
-                />
-              </label>
-            </FrostedMini>
+            {/* Toggle Options */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-2.5 lg:gap-3">
+              <FrostedMini variant="emerald">
+                <label className="flex items-center justify-between cursor-pointer p-3 md:p-3.5 lg:p-4 group/toggle hover:bg-white/[0.01] transition-all">
+                  <div className="flex-1 min-w-0 mr-2">
+                    <div className="font-bold text-white text-xs md:text-sm lg:text-base mb-0.5 md:mb-1 truncate">Auto-Start Breaks</div>
+                    <div className="text-[10px] md:text-xs text-zinc-500 truncate">Auto break timers</div>
+                  </div>
+                  <ToggleSwitch
+                    checked={settings.study.autoStartBreaks}
+                    onChange={(checked) => updateSetting('study.autoStartBreaks', checked)}
+                    variant="emerald"
+                    size="sm"
+                  />
+                </label>
+              </FrostedMini>
+
+              <FrostedMini variant="emerald">
+                <label className="flex items-center justify-between cursor-pointer p-3 md:p-3.5 lg:p-4 group/toggle hover:bg-white/[0.01] transition-all">
+                  <div className="flex-1 min-w-0 mr-2">
+                    <div className="font-bold text-white text-xs md:text-sm lg:text-base mb-0.5 md:mb-1 truncate">Strict Mode</div>
+                    <div className="text-[10px] md:text-xs text-zinc-500 truncate">Lock by default</div>
+                  </div>
+                  <ToggleSwitch
+                    checked={settings.study.strictModeDefault}
+                    onChange={(checked) => updateSetting('study.strictModeDefault', checked)}
+                    variant="emerald"
+                    size="sm"
+                  />
+                </label>
+              </FrostedMini>
+            </div>
           </div>
         </SettingSection>
 
         {/* Audio Settings */}
-        <SettingSection id="audio" title="Audio Settings" icon={Volume2} variant="purple">
-          <FrostedMini variant="purple" className="p-5 mb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-bold text-white mb-1">Enable Audio</div>
-                <div className="text-xs text-zinc-500">Sound effects and feedback</div>
+        <SettingSection
+          id="audio"
+          title="Audio Settings"
+          subtitle="SOUNDS & FEEDBACK"
+          icon={Volume2}
+          variant="purple"
+        >
+          {/* Master Audio Toggle */}
+          <FrostedMini variant="purple" className="p-5 md:p-6 mb-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
+                  {settings.audio.enabled ? <Volume2 size={24} className="text-purple-400" /> : <VolumeX size={24} className="text-zinc-500" />}
+                </div>
+                <div>
+                  <div className="font-bold text-white text-base md:text-lg mb-1">Enable Audio</div>
+                  <div className="text-sm text-zinc-400">Sound effects and feedback</div>
+                </div>
               </div>
-              <button
-                onClick={() => {
-                  const newValue = !settings.audio.enabled;
-                  updateSetting('audio.enabled', newValue);
-                  if (newValue) SoundManager.playClick();
+              <ToggleSwitch
+                checked={settings.audio.enabled}
+                onChange={(checked) => {
+                  updateSetting('audio.enabled', checked);
+                  if (checked) SoundManager.playClick();
                 }}
-                className={`p-3 rounded-xl transition-all min-h-[48px] min-w-[48px] flex items-center justify-center ${
-                  settings.audio.enabled 
-                    ? 'bg-purple-500/20 text-purple-400 border-2 border-purple-500/30' 
-                    : 'bg-zinc-800/50 text-zinc-500 border-2 border-zinc-700'
-                } hover:scale-110 active:scale-95`}
-              >
-                {settings.audio.enabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-              </button>
+                variant="purple"
+                size="lg"
+              />
             </div>
           </FrostedMini>
 
           {settings.audio.enabled && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-              <FrostedMini variant="purple" className="p-5">
+            <div className="space-y-4 animate-in slide-in-from-top-4 fade-in duration-500">
+              {/* Volume Slider */}
+              <FrostedMini variant="purple" className="p-5 md:p-6">
                 <label className="block">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="font-bold text-white">Volume</span>
-                    <span className="text-sm font-mono text-purple-400">{settings.audio.volume}%</span>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
+                        <Volume2 size={20} className="text-purple-400" />
+                      </div>
+                      <span className="font-bold text-white text-base">Volume</span>
+                    </div>
+                    <span className="text-2xl font-bold font-mono text-purple-400 tabular-nums">
+                      {settings.audio.volume}<span className="text-sm text-zinc-500">%</span>
+                    </span>
                   </div>
                   <input
                     type="range"
@@ -595,74 +756,82 @@ export const SettingsView = () => {
                     onChange={(e) => {
                       const newVolume = parseInt(e.target.value);
                       updateSetting('audio.volume', newVolume);
-                      // Play test sound at new volume
                       if (newVolume > 0) {
                         setTimeout(() => SoundManager.playClick(), 100);
                       }
                     }}
-                    className="w-full accent-purple-500"
+                    className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                    style={{
+                      background: `linear-gradient(to right, rgb(168 85 247 / 0.3) 0%, rgb(168 85 247 / 0.3) ${settings.audio.volume}%, rgb(39 39 42) ${settings.audio.volume}%, rgb(39 39 42) 100%)`
+                    }}
                   />
                 </label>
               </FrostedMini>
 
-              {[
-                { key: 'tickSound', label: 'Tick Sound', desc: 'Timer ticking sound (every second)' },
-                { key: 'completionSound', label: 'Completion Sound', desc: 'Session complete alert' },
-                { key: 'milestoneSound', label: 'Milestone Sound', desc: 'Progress milestone chimes' },
-              ].map((item) => (
-                <FrostedMini key={item.key} variant="purple">
-                  <label className="flex items-center justify-between cursor-pointer p-4">
-                    <div>
-                      <div className="font-semibold text-white text-sm">{item.label}</div>
-                      <div className="text-xs text-zinc-500 mt-0.5">{item.desc}</div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={(settings.audio as any)[item.key]}
-                      onChange={(e) => {
-                        updateSetting(`audio.${item.key}`, e.target.checked);
-                        // Play test sound if enabling
-                        if (e.target.checked) {
-                          setTimeout(() => {
-                            if (item.key === 'completionSound') SoundManager.playSuccess();
-                            else if (item.key === 'milestoneSound') SoundManager.playMilestone();
-                            else SoundManager.playTick();
-                          }, 100);
-                        }
-                      }}
-                      className="w-5 h-5 rounded accent-purple-500"
-                    />
-                  </label>
-                </FrostedMini>
-              ))}
+              {/* Sound Toggles */}
+              <div className="space-y-3">
+                {[
+                  { key: 'tickSound', label: 'Tick Sound', desc: 'Timer ticking (every second)', testSound: 'tick' },
+                  { key: 'completionSound', label: 'Completion Sound', desc: 'Session complete alert', testSound: 'success' },
+                  { key: 'milestoneSound', label: 'Milestone Sound', desc: 'Progress achievements', testSound: 'milestone' },
+                ].map((item, i) => (
+                  <FrostedMini key={item.key} variant="purple" style={{ animationDelay: `${i * 50}ms` }}>
+                    <label className="flex items-center justify-between cursor-pointer p-4 md:p-5 group/toggle hover:bg-white/[0.01] transition-all">
+                      <div className="flex-1">
+                        <div className="font-semibold text-white text-sm md:text-base">{item.label}</div>
+                        <div className="text-xs text-zinc-500 mt-0.5">{item.desc}</div>
+                      </div>
+                      <ToggleSwitch
+                        checked={(settings.audio as any)[item.key]}
+                        onChange={(checked) => {
+                          updateSetting(`audio.${item.key}`, checked);
+                          if (checked) {
+                            setTimeout(() => {
+                              if (item.testSound === 'success') SoundManager.playSuccess();
+                              else if (item.testSound === 'milestone') SoundManager.playMilestone();
+                              else SoundManager.playTick();
+                            }, 100);
+                          }
+                        }}
+                        variant="purple"
+                      />
+                    </label>
+                  </FrostedMini>
+                ))}
+              </div>
             </div>
           )}
         </SettingSection>
 
         {/* Display Settings */}
-        <SettingSection id="display" title="Display Settings" icon={Sparkles} variant="cyan">
+        <SettingSection
+          id="display"
+          title="Display Settings"
+          subtitle="VISUAL PREFERENCES"
+          icon={Sparkles}
+          variant="cyan"
+        >
           <div className="space-y-3">
             {[
               { key: 'compactMode', label: 'Compact Mode', desc: 'Reduce spacing for more content' },
               { key: 'animationsEnabled', label: 'Animations', desc: 'Enable smooth transitions' },
               { key: 'showProgressPercentage', label: 'Show Progress %', desc: 'Display percentage in progress bars' },
-            ].map((item) => (
-              <FrostedMini key={item.key} variant="cyan">
-                <label className="flex items-center justify-between cursor-pointer p-4">
-                  <div>
-                    <div className="font-semibold text-white text-sm">{item.label}</div>
+            ].map((item, i) => (
+              <FrostedMini key={item.key} variant="cyan" style={{ animationDelay: `${i * 50}ms` }}>
+                <label className="flex items-center justify-between cursor-pointer p-4 md:p-5 group/toggle hover:bg-white/[0.01] transition-all">
+                  <div className="flex-1">
+                    <div className="font-semibold text-white text-sm md:text-base">{item.label}</div>
                     <div className="text-xs text-zinc-500 mt-0.5">{item.desc}</div>
                   </div>
-                  <input
-                    type="checkbox"
+                  <ToggleSwitch
                     checked={(settings.display as any)[item.key]}
-                    onChange={(e) => {
-                      updateSetting(`display.${item.key}`, e.target.checked);
+                    onChange={(checked) => {
+                      updateSetting(`display.${item.key}`, checked);
                       if (item.key === 'animationsEnabled') {
-                        toast.info(e.target.checked ? 'Animations enabled' : 'Animations disabled');
+                        toast.info(checked ? 'Animations enabled' : 'Animations disabled');
                       }
                     }}
-                    className="w-5 h-5 rounded accent-cyan-500"
+                    variant="cyan"
                   />
                 </label>
               </FrostedMini>
@@ -671,34 +840,40 @@ export const SettingsView = () => {
         </SettingSection>
 
         {/* Privacy Settings */}
-        <SettingSection id="privacy" title="Privacy & Data" icon={Shield} variant="amber">
-          <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl mb-4">
-            <div className="flex gap-3">
-              <Info size={18} className="text-amber-400 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-zinc-400">
-                <p className="font-semibold text-zinc-300 mb-1">Local-First Privacy</p>
-                <p>All your data stays on your device. We don't collect or store any personal information.</p>
+        <SettingSection
+          id="privacy"
+          title="Privacy & Data"
+          subtitle="YOUR DATA STAYS LOCAL"
+          icon={Shield}
+          variant="amber"
+        >
+          <FrostedMini variant="amber" className="p-5 bg-amber-500/5 border-amber-500/20 mb-4">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
+                <Shield size={24} className="text-amber-400" />
+              </div>
+              <div className="text-sm text-zinc-300">
+                <p className="font-bold text-base mb-2">Local-First Privacy</p>
+                <p className="text-zinc-400">All your data stays on your device. We don't collect, track, or store any personal information on external servers.</p>
               </div>
             </div>
-          </div>
+          </FrostedMini>
 
           <div className="space-y-3">
             {[
               { key: 'analytics', label: 'Usage Analytics', desc: 'Help improve Orbit (currently disabled)' },
               { key: 'crashReports', label: 'Crash Reports', desc: 'Send anonymous error reports' },
-            ].map((item) => (
-              <FrostedMini key={item.key} variant="amber">
-                <label className="flex items-center justify-between cursor-pointer p-4 opacity-50">
-                  <div>
-                    <div className="font-semibold text-white text-sm">{item.label}</div>
+            ].map((item, i) => (
+              <FrostedMini key={item.key} variant="amber" className="opacity-50" style={{ animationDelay: `${i * 50}ms` }}>
+                <label className="flex items-center justify-between cursor-not-allowed p-4 md:p-5">
+                  <div className="flex-1">
+                    <div className="font-semibold text-white text-sm md:text-base">{item.label}</div>
                     <div className="text-xs text-zinc-500 mt-0.5">{item.desc}</div>
                   </div>
-                  <input
-                    type="checkbox"
+                  <ToggleSwitch
                     checked={(settings.privacy as any)[item.key]}
-                    onChange={(e) => updateSetting(`privacy.${item.key}`, e.target.checked)}
-                    className="w-5 h-5 rounded accent-amber-500"
-                    disabled
+                    onChange={(checked) => updateSetting(`privacy.${item.key}`, checked)}
+                    variant="amber"
                   />
                 </label>
               </FrostedMini>
@@ -707,37 +882,37 @@ export const SettingsView = () => {
         </SettingSection>
       </div>
 
-      {/* MODALS - Same as before */}
+      {/* MODALS - Enhanced with better animations and styling */}
       {showExportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300 p-4">
-          <div className="w-full max-w-md">
-            <FrostedTile variant="cyan" className="p-6 md:p-8">
+          <div className="w-full max-w-md animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+            <FrostedTile variant="cyan" className="p-7 md:p-9 shadow-2xl">
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center border border-cyan-500/30">
-                      <Download size={24} className="text-cyan-400" />
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 flex items-center justify-center border border-cyan-500/30 shadow-lg shadow-cyan-500/20">
+                      <Download size={26} className="text-cyan-400" />
                     </div>
-                    <h3 className="text-xl font-bold text-white">Export Data</h3>
+                    <h3 className="text-2xl font-bold text-white">Export Data</h3>
                   </div>
                   <button
                     onClick={() => setShowExportModal(false)}
-                    className="p-2 hover:bg-white/10 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    className="p-2.5 hover:bg-white/10 active:bg-white/5 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center group"
                   >
-                    <X size={20} />
+                    <X size={22} className="text-zinc-400 group-hover:text-white transition-colors" />
                   </button>
                 </div>
 
-                <div className="space-y-4 mb-6">
-                  <p className="text-zinc-300">This will export all your data including:</p>
-                  <div className="space-y-2">
+                <div className="space-y-4 mb-7">
+                  <p className="text-zinc-300 text-base">This will export all your data including:</p>
+                  <div className="space-y-2.5">
                     {[
-                      { icon: CheckCircle, text: `${stats.subjects} subjects with resources`, color: 'cyan' },
-                      { icon: CheckCircle, text: `${stats.logs} study sessions`, color: 'cyan' },
-                      { icon: CheckCircle, text: 'All settings and preferences', color: 'cyan' },
+                      { text: `${stats.subjects} subjects with resources`, count: stats.subjects },
+                      { text: `${stats.logs} study sessions`, count: stats.logs },
+                      { text: 'All settings and preferences', count: '✓' },
                     ].map((item, i) => (
-                      <div key={i} className="flex items-center gap-2 text-sm text-zinc-400">
-                        <item.icon size={16} className="text-cyan-400" />
+                      <div key={i} className="flex items-center gap-3 text-sm text-zinc-300 p-3 bg-white/[0.02] rounded-lg border border-white/5" style={{ animationDelay: `${i * 50}ms` }}>
+                        <CheckCircle size={18} className="text-cyan-400 flex-shrink-0" />
                         <span>{item.text}</span>
                       </div>
                     ))}
@@ -747,13 +922,13 @@ export const SettingsView = () => {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowExportModal(false)}
-                    className="flex-1 py-3 bg-zinc-800/50 hover:bg-zinc-800 rounded-xl transition-all font-semibold border border-zinc-700 min-h-[48px]"
+                    className="flex-1 py-3.5 bg-zinc-800/50 hover:bg-zinc-800 active:bg-zinc-800/70 rounded-xl transition-all font-semibold border border-zinc-700 min-h-[52px] hover:scale-[1.02] active:scale-95"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={exportData}
-                    className="flex-1 py-3 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-xl transition-all font-bold border border-cyan-500/30 min-h-[48px]"
+                    className="flex-1 py-3.5 bg-cyan-500/20 hover:bg-cyan-500/30 active:bg-cyan-500/40 rounded-xl transition-all font-bold border border-cyan-500/40 min-h-[52px] hover:scale-[1.02] active:scale-95 shadow-lg shadow-cyan-500/10"
                   >
                     Export
                   </button>
@@ -767,37 +942,37 @@ export const SettingsView = () => {
       {/* Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300 p-4">
-          <div className="w-full max-w-md">
-            <FrostedTile variant="purple" className="p-6 md:p-8">
+          <div className="w-full max-w-md animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+            <FrostedTile variant="purple" className="p-7 md:p-9 shadow-2xl">
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
-                      <Upload size={24} className="text-purple-400" />
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center border border-purple-500/30 shadow-lg shadow-purple-500/20">
+                      <Upload size={26} className="text-purple-400" />
                     </div>
-                    <h3 className="text-xl font-bold text-white">Import Data</h3>
+                    <h3 className="text-2xl font-bold text-white">Import Data</h3>
                   </div>
                   <button
                     onClick={() => setShowImportModal(false)}
-                    className="p-2 hover:bg-white/10 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    className="p-2.5 hover:bg-white/10 active:bg-white/5 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center group"
                   >
-                    <X size={20} />
+                    <X size={22} className="text-zinc-400 group-hover:text-white transition-colors" />
                   </button>
                 </div>
 
                 <div className="space-y-4 mb-6">
-                  <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-                    <div className="flex gap-3">
-                      <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="p-5 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                    <div className="flex gap-4">
+                      <AlertTriangle size={22} className="text-amber-400 flex-shrink-0 mt-0.5" />
                       <div className="text-sm text-zinc-300">
-                        <p className="font-bold mb-1">Warning</p>
+                        <p className="font-bold text-base mb-2">Warning</p>
                         <p className="text-zinc-400">This will replace ALL existing data. Export a backup first if needed.</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <label className="block mb-3">
+                <label className="block mb-4">
                   <input
                     type="file"
                     accept=".json"
@@ -807,14 +982,15 @@ export const SettingsView = () => {
                     }}
                     className="hidden"
                   />
-                  <div className="w-full py-3 bg-purple-500/20 hover:bg-purple-500/30 rounded-xl transition-all font-bold border border-purple-500/30 text-center cursor-pointer min-h-[48px] flex items-center justify-center">
+                  <div className="w-full py-4 bg-purple-500/20 hover:bg-purple-500/30 active:bg-purple-500/40 rounded-xl transition-all font-bold border border-purple-500/40 text-center cursor-pointer min-h-[56px] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 shadow-lg shadow-purple-500/10">
+                    <FileJson size={20} />
                     Choose Backup File
                   </div>
                 </label>
 
                 <button
                   onClick={() => setShowImportModal(false)}
-                  className="w-full py-3 bg-zinc-800/50 hover:bg-zinc-800 rounded-xl transition-all font-semibold border border-zinc-700 min-h-[48px]"
+                  className="w-full py-3.5 bg-zinc-800/50 hover:bg-zinc-800 active:bg-zinc-800/70 rounded-xl transition-all font-semibold border border-zinc-700 min-h-[52px] hover:scale-[1.02] active:scale-95"
                 >
                   Cancel
                 </button>
@@ -827,30 +1003,30 @@ export const SettingsView = () => {
       {/* Delete Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300 p-4">
-          <div className="w-full max-w-md">
-            <FrostedTile variant="indigo" className="p-6 md:p-8">
+          <div className="w-full max-w-md animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+            <FrostedTile variant="indigo" className="p-7 md:p-9 shadow-2xl border-2 border-red-500/20">
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center border border-red-500/30">
-                      <Trash2 size={24} className="text-red-400" />
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center border border-red-500/30 shadow-lg shadow-red-500/20">
+                      <Trash2 size={26} className="text-red-400" />
                     </div>
-                    <h3 className="text-xl font-bold text-white">Clear All Data</h3>
+                    <h3 className="text-2xl font-bold text-white">Clear All Data</h3>
                   </div>
                   <button
                     onClick={() => setShowDeleteModal(false)}
-                    className="p-2 hover:bg-white/10 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    className="p-2.5 hover:bg-white/10 active:bg-white/5 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center group"
                   >
-                    <X size={20} />
+                    <X size={22} className="text-zinc-400 group-hover:text-white transition-colors" />
                   </button>
                 </div>
 
-                <div className="space-y-4 mb-6">
-                  <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
-                    <div className="flex gap-3">
-                      <AlertCircle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-4 mb-7">
+                  <div className="p-5 bg-red-500/10 border border-red-500/30 rounded-xl">
+                    <div className="flex gap-4">
+                      <AlertCircle size={22} className="text-red-400 flex-shrink-0 mt-0.5" />
                       <div className="text-sm text-zinc-300">
-                        <p className="font-bold mb-1">This action cannot be undone</p>
+                        <p className="font-bold text-base mb-2">This action cannot be undone</p>
                         <p className="text-zinc-400">All subjects, study logs, and settings will be permanently deleted.</p>
                       </div>
                     </div>
@@ -860,13 +1036,13 @@ export const SettingsView = () => {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowDeleteModal(false)}
-                    className="flex-1 py-3 bg-zinc-800/50 hover:bg-zinc-800 rounded-xl transition-all font-semibold border border-zinc-700 min-h-[48px]"
+                    className="flex-1 py-3.5 bg-zinc-800/50 hover:bg-zinc-800 active:bg-zinc-800/70 rounded-xl transition-all font-semibold border border-zinc-700 min-h-[52px] hover:scale-[1.02] active:scale-95"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={clearAllData}
-                    className="flex-1 py-3 bg-red-500/20 hover:bg-red-500/30 rounded-xl transition-all font-bold border border-red-500/30 text-red-400 min-h-[48px]"
+                    className="flex-1 py-3.5 bg-red-500/20 hover:bg-red-500/30 active:bg-red-500/40 rounded-xl transition-all font-bold border border-red-500/40 text-red-400 min-h-[52px] hover:scale-[1.02] active:scale-95 shadow-lg shadow-red-500/10"
                   >
                     Delete Everything
                   </button>

@@ -1,3 +1,4 @@
+// Central Dexie database schema and migrations for Orbit.
 import Dexie, { Table } from "dexie";
 import {
   Semester, Subject, ScheduleSlot, DailyPlan,
@@ -20,7 +21,6 @@ export class OrbitDB extends Dexie {
   constructor(name: string = "OrbitDB") {
     super(name);
 
-    // Single version with complete, clean schema
     this.version(9).stores({
       semesters: "++id",
       subjects: "++id, name, code",
@@ -34,19 +34,15 @@ export class OrbitDB extends Dexie {
       studyBlocks: "id, date, completed, subjectId, type",
     }).upgrade(async tx => {
       try {
-        // Backfill logs with missing fields
         await tx.table("logs").toCollection().modify(log => {
-          // Ensure timestamp exists
           if (typeof log.timestamp !== "number") {
             log.timestamp = log.date ? new Date(log.date).getTime() : Date.now();
           }
-          // Ensure spaced repetition fields exist
           if (typeof log.comprehensionRating !== "number") log.comprehensionRating = 2;
           if (typeof log.easeFactor !== "number") log.easeFactor = 1.8;
           if (typeof log.reviewNumber !== "number") log.reviewNumber = 0;
         });
 
-        // Ensure assignments have required fields
         await tx.table("assignments").toCollection().modify(a => {
           if (typeof a.progressMinutes !== "number") a.progressMinutes = 0;
           if (typeof a.estimatedEffort !== "number") a.estimatedEffort = 120;

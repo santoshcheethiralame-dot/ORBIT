@@ -1,10 +1,4 @@
-// FocusSession_Enhanced_v2.tsx – ABOUTVIEW DESIGN LANGUAGE APPLIED ✨
-// 🎨 Consistent FrostedTile/FrostedMini usage
-// 🎯 Proper variant system throughout
-// 💫 Buttery smooth interactions
-// 📱 Perfect mobile + desktop layouts
-// 🔥 Zero inconsistencies
-
+// FocusSession handles the in-session timer, controls, and AI help for a single study block.
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   Play,
@@ -40,7 +34,6 @@ import { FrostedTile, FrostedMini, PageHeader, MetaText } from "./components";
 import { useSettings } from "./SettingsContext";
 import { SoundManager } from "./utils/sounds";
 
-// Get break duration from settings
 const getBreakDuration = (): number => {
   try {
     const saved = localStorage.getItem("orbit-settings-v2");

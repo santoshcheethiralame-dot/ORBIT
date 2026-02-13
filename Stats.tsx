@@ -1,50 +1,13 @@
-// Stats.tsx - Ultimate Analytics Dashboard (Enhanced Edition)
+// StatsView: Presents detailed study analytics, readiness trends, and advanced performance breakdowns.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StudyLog, Subject } from "./types";
 import {
-  Clock,
-  Check,
-  TrendingUp,
-  TrendingDown,
-  Calendar,
-  Target,
-  Download,
-  Brain,
-  Trophy,
-  ChevronRight,
-  StickyNote,
-  X,
-  FileText,
-  Zap,
-  Share2,
-  Activity,
-  AlertCircle,
-  Award,
-  BarChart3,
-  Flame,
-  Heart,
-  Lightbulb,
-  Moon,
-  Sun,
-  Sunrise,
-  Sunset,
-  Timer,
-  Users,
-  Eye,
-  ChevronDown,
-  ChevronUp,
-  Info,
-  Filter,
-  ArrowUpRight,
-  ArrowDownRight,
-  Minus,
-  Coffee,
-  Battery,
-  BatteryCharging,
-  Sparkles,
-  BookOpen,
-  Percent,
-  RefreshCw,
+  Clock, Check, TrendingUp, TrendingDown, Calendar, Target, Download, Brain,
+  Trophy, ChevronRight, StickyNote, X, FileText, Zap, Share2, Activity,
+  AlertCircle, Award, BarChart3, Flame, Heart, Lightbulb, Moon, Sun, Sunrise,
+  Sunset, Timer, Users, Eye, ChevronDown, ChevronUp, Info, Filter, ArrowUpRight,
+  ArrowDownRight, Minus, Coffee, Battery, BatteryCharging, Sparkles, BookOpen,
+  Percent, RefreshCw,
 } from "lucide-react";
 import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -62,13 +25,10 @@ import {
   getAllReadinessScores,
   SubjectReadiness,
 } from "./brain";
-
-// Brain features will be lazy-loaded
 let getSubjectPerformance: any;
 let detectBurnout: any;
 let getEnergyProfile: any;
 
-// Import types from brainEnhanced
 type SubjectPerformance = {
   subjectId: number;
   avgCompletionRate: number;
@@ -92,10 +52,6 @@ type BurnoutSignals = {
 };
 
 import { getISTEffectiveDate, formatLocalDate, parseLocalDate } from "./utils/time";
-
-/* ======================================================
-  TYPES
-====================================================== */
 
 type TimeRange = "week" | "10days" | "month" | "3months" | "all";
 type ViewMode = "overview" | "subjects" | "performance" | "insights" | "habits";
@@ -148,10 +104,6 @@ interface ProductivityPattern {
   consistency: number;
 }
 
-/* ======================================================
-  ENHANCED HELPER COMPONENTS
-====================================================== */
-
 const Sparkline: React.FC<{
   data: number[];
   width?: number;
@@ -167,65 +119,65 @@ const Sparkline: React.FC<{
   showDots = false,
   className = "",
 }) => {
-    const max = Math.max(...data, 1);
-    const points = data.map((v, i) => {
-      const x = (i / (data.length - 1 || 1)) * width;
-      const y = height - (v / max) * (height - 6) - 3;
-      return [x, y];
-    });
-    const d = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p[0]} ${p[1]}`).join(" ");
+  const max = Math.max(...data, 1);
+  const points = data.map((v, i) => {
+    const x = (i / (data.length - 1 || 1)) * width;
+    const y = height - (v / max) * (height - 6) - 3;
+    return [x, y];
+  });
+  const d = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p[0]} ${p[1]}`).join(" ");
 
-    return (
-      <svg
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        className={`inline-block ${className}`}
-      >
-        <defs>
-          <linearGradient id="spark" x1="0" x2="1">
-            <stop offset="0" stopColor="#7dd3fc" />
-            <stop offset="1" stopColor="#c084fc" />
-          </linearGradient>
-          <linearGradient id="sparkGreen" x1="0" x2="1">
-            <stop offset="0" stopColor="#34d399" />
-            <stop offset="1" stopColor="#10b981" />
-          </linearGradient>
-          <linearGradient id="sparkRed" x1="0" x2="1">
-            <stop offset="0" stopColor="#f87171" />
-            <stop offset="1" stopColor="#ef4444" />
-          </linearGradient>
-          <linearGradient id="sparkAmber" x1="0" x2="1">
-            <stop offset="0" stopColor="#fbbf24" />
-            <stop offset="1" stopColor="#f59e0b" />
-          </linearGradient>
-          <linearGradient id="sparkPurple" x1="0" x2="1">
-            <stop offset="0" stopColor="#a78bfa" />
-            <stop offset="1" stopColor="#8b5cf6" />
-          </linearGradient>
-        </defs>
-        <path
-          d={d}
-          fill="none"
-          stroke={color}
-          strokeWidth={2.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="drop-shadow-[0_2px_8px_rgba(139,92,246,0.3)]"
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className={`inline-block ${className}`}
+    >
+      <defs>
+        <linearGradient id="spark" x1="0" x2="1">
+          <stop offset="0" stopColor="#7dd3fc" />
+          <stop offset="1" stopColor="#c084fc" />
+        </linearGradient>
+        <linearGradient id="sparkGreen" x1="0" x2="1">
+          <stop offset="0" stopColor="#34d399" />
+          <stop offset="1" stopColor="#10b981" />
+        </linearGradient>
+        <linearGradient id="sparkRed" x1="0" x2="1">
+          <stop offset="0" stopColor="#f87171" />
+          <stop offset="1" stopColor="#ef4444" />
+        </linearGradient>
+        <linearGradient id="sparkAmber" x1="0" x2="1">
+          <stop offset="0" stopColor="#fbbf24" />
+          <stop offset="1" stopColor="#f59e0b" />
+        </linearGradient>
+        <linearGradient id="sparkPurple" x1="0" x2="1">
+          <stop offset="0" stopColor="#a78bfa" />
+          <stop offset="1" stopColor="#8b5cf6" />
+        </linearGradient>
+      </defs>
+      <path
+        d={d}
+        fill="none"
+        stroke={color}
+        strokeWidth={2.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="drop-shadow-[0_2px_8px_rgba(139,92,246,0.3)]"
+      />
+      {showDots && points.map((p, i) => (
+        <circle
+          key={i}
+          cx={p[0]}
+          cy={p[1]}
+          r={2.5}
+          fill={color === "url(#spark)" ? "#c084fc" : color}
+          className="opacity-90 drop-shadow-[0_0_6px_rgba(192,132,252,0.6)]"
         />
-        {showDots && points.map((p, i) => (
-          <circle
-            key={i}
-            cx={p[0]}
-            cy={p[1]}
-            r={2.5}
-            fill={color === "url(#spark)" ? "#c084fc" : color}
-            className="opacity-90 drop-shadow-[0_0_6px_rgba(192,132,252,0.6)]"
-          />
-        ))}
-      </svg>
-    );
-  };
+      ))}
+    </svg>
+  );
+};
 
 const MiniChart: React.FC<{
   data: number[];
@@ -235,45 +187,23 @@ const MiniChart: React.FC<{
 }> = ({ data, label, color, icon }) => {
   const colorMap = {
     blue: {
-      bg: "bg-blue-500/5",
-      text: "text-blue-300",
-      gradient: "url(#spark)",
-      border: "border-blue-500/10",
-      glow: "shadow-blue-500/5"
+      bg: "bg-blue-500/5", text: "text-blue-300", gradient: "url(#spark)", border: "border-blue-500/10", glow: "shadow-blue-500/5"
     },
     green: {
-      bg: "bg-emerald-500/5",
-      text: "text-emerald-300",
-      gradient: "url(#sparkGreen)",
-      border: "border-emerald-500/10",
-      glow: "shadow-emerald-500/5"
+      bg: "bg-emerald-500/5", text: "text-emerald-300", gradient: "url(#sparkGreen)", border: "border-emerald-500/10", glow: "shadow-emerald-500/5"
     },
     red: {
-      bg: "bg-red-500/5",
-      text: "text-red-300",
-      gradient: "url(#sparkRed)",
-      border: "border-red-500/10",
-      glow: "shadow-red-500/5"
+      bg: "bg-red-500/5", text: "text-red-300", gradient: "url(#sparkRed)", border: "border-red-500/10", glow: "shadow-red-500/5"
     },
     purple: {
-      bg: "bg-purple-500/5",
-      text: "text-purple-300",
-      gradient: "url(#sparkPurple)",
-      border: "border-purple-500/10",
-      glow: "shadow-purple-500/5"
+      bg: "bg-purple-500/5", text: "text-purple-300", gradient: "url(#sparkPurple)", border: "border-purple-500/10", glow: "shadow-purple-500/5"
     },
     amber: {
-      bg: "bg-amber-500/5",
-      text: "text-amber-300",
-      gradient: "url(#sparkAmber)",
-      border: "border-amber-500/10",
-      glow: "shadow-amber-500/5"
+      bg: "bg-amber-500/5", text: "text-amber-300", gradient: "url(#sparkAmber)", border: "border-amber-500/10", glow: "shadow-amber-500/5"
     },
   };
-
   const style = colorMap[color];
   const avg = data.length > 0 ? (data.reduce((a, b) => a + b, 0) / data.length).toFixed(1) : "0";
-
   return (
     <div className={`${style.bg} rounded-2xl p-4 border ${style.border} hover:shadow-lg ${style.glow} transition-all duration-300 group`}>
       <div className="flex items-center gap-2 mb-3">
@@ -303,7 +233,6 @@ const StatBadge: React.FC<{
     warning: "bg-amber-500/5 text-amber-200 border-amber-500/10",
     danger: "bg-red-500/5 text-red-200 border-red-500/10",
   };
-
   return (
     <div className={`${colorStyles[color]} rounded-2xl p-4 border transition-all duration-300 hover:scale-[1.02]`}>
       <div className="flex items-center justify-between mb-2">
@@ -334,7 +263,6 @@ const ProgressRing: React.FC<{
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (progress / 100) * circumference;
-
   return (
     <div className="relative inline-flex items-center justify-center">
       <svg width={size} height={size} className="transform -rotate-90">
@@ -411,9 +339,7 @@ const InsightCard: React.FC<{
       glow: "hover:shadow-red-500/10"
     },
   };
-
   const style = styles[type];
-
   return (
     <div className={`${style.bg} border ${style.border} rounded-2xl p-5 transition-all duration-300 hover:scale-[1.01] ${style.glow} hover:shadow-lg`}>
       <div className="flex items-start gap-4">
@@ -436,31 +362,17 @@ const InsightCard: React.FC<{
   );
 };
 
-/* ======================================================
-  ANALYTICS FUNCTIONS
-====================================================== */
-
 const calculateStreak = (logs: StudyLog[]): StreakInfo => {
   const todayStr = getISTEffectiveDate();
   const today = parseLocalDate(todayStr);
-
   const uniqueDates = Array.from(new Set(logs.map(l => l.date))).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-
-  let current = 0;
-  let longest = 0;
-  let temp = 0;
-  let thisWeek = 0;
-  let broken = false;
-
-  // Check this week
+  let current = 0, longest = 0, temp = 0, thisWeek = 0, broken = false;
   for (let i = 0; i < 7; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
     const dateStr = d.toISOString().split("T")[0];
     if (uniqueDates.includes(dateStr)) thisWeek++;
   }
-
-  // Calculate streaks
   let checkDate = new Date(today);
   while (true) {
     const dateStr = checkDate.toISOString().split("T")[0];
@@ -469,7 +381,6 @@ const calculateStreak = (logs: StudyLog[]): StreakInfo => {
       checkDate.setDate(checkDate.getDate() - 1);
     } else {
       if (dateStr === todayStr) {
-        // Today hasn't started yet
         checkDate.setDate(checkDate.getDate() - 1);
         continue;
       }
@@ -477,32 +388,23 @@ const calculateStreak = (logs: StudyLog[]): StreakInfo => {
       break;
     }
   }
-
-  // Find longest streak
   temp = 0;
   for (let i = 0; i < uniqueDates.length; i++) {
-    if (i === 0) {
-      temp = 1;
-    } else {
+    if (i === 0) temp = 1;
+    else {
       const prev = new Date(uniqueDates[i - 1]);
       const curr = new Date(uniqueDates[i]);
       const diffDays = Math.floor((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays === 1) {
-        temp++;
-      } else {
-        longest = Math.max(longest, temp);
-        temp = 1;
-      }
+      if (diffDays === 1) temp++;
+      else { longest = Math.max(longest, temp); temp = 1; }
     }
   }
   longest = Math.max(longest, temp, current);
-
   return { current, longest, thisWeek, broken };
 };
 
 const calculateTimeOfDayStats = (logs: StudyLog[], outcomes: any[]): TimeOfDayStats[] => {
   const hourStats: Record<number, TimeOfDayStats> = {};
-
   logs.forEach(log => {
     const hour = new Date(log.timestamp).getHours();
     if (!hourStats[hour]) {
@@ -511,50 +413,37 @@ const calculateTimeOfDayStats = (logs: StudyLog[], outcomes: any[]): TimeOfDaySt
     hourStats[hour].sessions++;
     hourStats[hour].totalMinutes += log.duration;
   });
-
   outcomes.forEach(outcome => {
     const hour = typeof outcome.timeOfDay === "number" ? outcome.timeOfDay : new Date(outcome.date || outcome.timestamp || Date.now()).getHours();
     if (hourStats[hour]) {
-      // Independent quality average
       const currentQualityTotal = hourStats[hour].avgQuality * hourStats[hour].qualityCount;
       hourStats[hour].qualityCount++;
       hourStats[hour].avgQuality = (currentQualityTotal + outcome.completionQuality) / hourStats[hour].qualityCount;
-
-      // Independent completion rate
       const currentCompletionTotal = hourStats[hour].completionRate * (hourStats[hour].qualityCount - 1);
       const isCompleted = outcome.completed ? 1 : 0;
       hourStats[hour].completionRate = (currentCompletionTotal + isCompleted) / hourStats[hour].qualityCount;
     }
   });
-
   return Object.values(hourStats).sort((a, b) => a.hour - b.hour);
 };
 
 const calculateDayOfWeekStats = (logs: StudyLog[], outcomes: any[]): DayOfWeekStats[] => {
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const dayStats: Record<string, DayOfWeekStats> = {};
-
-  dayNames.forEach(day => {
-    dayStats[day] = { day, sessions: 0, totalMinutes: 0, avgQuality: 0, qualityCount: 0 };
-  });
-
+  dayNames.forEach(day => { dayStats[day] = { day, sessions: 0, totalMinutes: 0, avgQuality: 0, qualityCount: 0 }; });
   logs.forEach(log => {
     const date = new Date(log.date);
     const day = dayNames[date.getDay()];
     dayStats[day].sessions++;
     dayStats[day].totalMinutes += log.duration;
   });
-
   outcomes.forEach(outcome => {
     const date = new Date(outcome.date);
     const day = dayNames[date.getDay()];
-
-    // Independent quality average
     const currentQualityTotal = dayStats[day].avgQuality * dayStats[day].qualityCount;
     dayStats[day].qualityCount++;
     dayStats[day].avgQuality = (currentQualityTotal + outcome.completionQuality) / dayStats[day].qualityCount;
   });
-
   return Object.values(dayStats);
 };
 
@@ -563,42 +452,29 @@ const analyzeProductivityPattern = (
   dayOfWeekStats: DayOfWeekStats[],
   logs: StudyLog[]
 ): ProductivityPattern => {
-  // Find peak hours (top 3)
   const peakHours = timeOfDayStats
     .filter(h => h.sessions >= 3)
     .sort((a, b) => b.avgQuality - a.avgQuality)
     .slice(0, 3)
     .map(h => h.hour);
-
-  // Find best days (top 3)
   const bestDays = dayOfWeekStats
     .filter(d => d.sessions >= 2)
     .sort((a, b) => b.avgQuality - a.avgQuality)
     .slice(0, 3)
     .map(d => d.day);
-
-  // Calculate optimal duration
   const durations = logs.map(l => l.duration);
   const optimalDuration = durations.length > 0
     ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
     : 45;
-
-  // Calculate consistency (0-100)
   const uniqueDates = new Set(logs.map(l => l.date)).size;
   const dayRange = logs.length > 0
     ? Math.floor((Date.now() - new Date(logs[0].date).getTime()) / (1000 * 60 * 60 * 24)) + 1
     : 1;
   const consistency = Math.round((uniqueDates / dayRange) * 100);
-
   return { peakHours, bestDays, optimalDuration, consistency };
 };
 
-/* ======================================================
-  MAIN COMPONENT
-====================================================== */
-
 export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subject[] }) => {
-  // State
   const [timeRange, setTimeRange] = useState<TimeRange>("week");
   const [viewMode, setViewMode] = useState<ViewMode>("overview");
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
@@ -607,32 +483,19 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   const [isSharing, setIsSharing] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["overview"]));
   const toast = useToast();
-
-  // 1. INTERACTIVE HEATMAP state
   const [selectedHeatmapDay, setSelectedHeatmapDay] = useState<string | null>(null);
   const [heatmapDaySessions, setHeatmapDaySessions] = useState<StudyLog[]>([]);
-
-  // Performance Optimization - LAZY LOADING
   const [brainEnhancedLoaded, setBrainEnhancedLoaded] = useState(false);
   const [burnoutLoading, setBurnoutLoading] = useState<boolean>(false);
-
-  // Readiness scores
   const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness>>({});
   const [subjectPerformances, setSubjectPerformances] = useState<Record<number, SubjectPerformance>>({});
   const [burnoutSignals, setBurnoutSignals] = useState<BurnoutSignals | null>(null);
 
-  // Settings
   const settings = useLiveQuery(async () => {
-    try {
-      return (await (db as any).settings?.get("user")) || null;
-    } catch {
-      return null;
-    }
+    try { return (await (db as any).settings?.get("user")) || null; } catch { return null; }
   });
-
   const weeklyTargetHours = settings?.weeklyTargetHours ?? 7;
 
-  // Upcoming reviews
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split("T")[0];
@@ -650,23 +513,19 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     );
   }) || [];
 
-  // Block outcomes for performance tracking
   const blockOutcomes = useLiveQuery(() => db.blockOutcomes?.toArray()) || [];
 
   useEffect(() => {
-    // Trigger data fetch
     const fetchData = async () => {
       try {
         setBurnoutLoading(true);
         const scores = await getAllReadinessScores(db);
         setReadinessScores(scores);
-
         const perfs: Record<number, SubjectPerformance> = {};
         for (const subject of subjects) {
           perfs[subject.id!] = await getSubjectPerformance(subject.id!, 30, db);
         }
         setSubjectPerformances(perfs);
-
         const burnout = await detectBurnout(7, db);
         if (burnout) setBurnoutSignals(burnout);
       } catch (e) {
@@ -675,8 +534,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         setBurnoutLoading(false);
       }
     };
-
-    // Only load brainEnhanced when user navigates to performance/insights
     if ((viewMode === 'performance' || viewMode === 'insights') && !brainEnhancedLoaded) {
       import('./brain-enhanced-integration')
         .then(module => {
@@ -687,7 +544,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
           fetchData();
         })
         .catch(() => {
-          // Use DB-backed fallback implementations if brain-enhanced-integration fails or is missing
           getSubjectPerformance = async (subjectId: number) => {
             const logs = await db.logs.where('subjectId').equals(subjectId).toArray();
             const total = logs.length || 1;
@@ -704,7 +560,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
               recommendedDuration: Math.round(avg),
             };
           };
-
           detectBurnout = async () => {
             const since = new Date();
             since.setDate(since.getDate() - 7);
@@ -723,32 +578,24 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
               recommendation: atRisk ? "Consider a rest day." : "Healthy balance."
             };
           };
-
           getEnergyProfile = () => ({ morning: 100, afternoon: 80, evening: 60, night: 40 });
-
           setBrainEnhancedLoaded(true);
           fetchData();
         });
     }
   }, [viewMode, brainEnhancedLoaded, subjects]);
-
-  // 2. EAGER BURNOUT LOAD (Final Fix)
   useEffect(() => {
     let mounted = true;
     const loadBurnoutData = async () => {
-      // if burnout already loaded, skip
       if (burnoutSignals) return;
       setBurnoutLoading(true);
       try {
         const mod = await import('./brain-enhanced-integration').catch(() => null);
         if (mod && mounted) {
-          // assign if not already assigned by other code paths
           getSubjectPerformance = mod.getSubjectPerformance ?? getSubjectPerformance;
           detectBurnout = mod.detectBurnout ?? detectBurnout;
           getEnergyProfile = mod.getEnergyProfile ?? getEnergyProfile;
         }
-
-        // call detectBurnout (7 days window)
         const result = await (detectBurnout ? detectBurnout(7, db) : Promise.resolve(null));
         if (mounted && result) setBurnoutSignals(result);
       } catch (e) {
@@ -757,14 +604,10 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         if (mounted) setBurnoutLoading(false);
       }
     };
-
-    // load only when overview is visible
     if (viewMode === "overview") loadBurnoutData();
-
     return () => { mounted = false; };
   }, [viewMode]);
 
-  // Time range filtering
   const now = new Date();
   const rangeStart = useMemo(() => {
     const r = new Date(now);
@@ -776,18 +619,13 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     r.setHours(0, 0, 0, 0);
     return r;
   }, [timeRange]);
-
   const rangeStartStr = formatLocalDate(rangeStart);
   const filteredLogs = logs.filter((l) => l.date >= rangeStartStr);
   const filteredOutcomes = blockOutcomes.filter((o) => o.date >= rangeStartStr);
-
-  // Previous period for comparison
   const daysDiff = Math.floor((now.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24));
   const prevRangeStart = new Date(rangeStart.getTime() - (daysDiff * 24 * 60 * 60 * 1000));
   const prevRangeStartStr = prevRangeStart.toISOString().split("T")[0];
   const prevLogs = logs.filter((l) => l.date >= prevRangeStartStr && l.date < rangeStartStr);
-
-  // Empty state
   if (filteredLogs.length === 0) {
     return (
       <div className="pb-32 pt-8 px-4 lg:px-10 w-full max-w-[1400px] mx-auto">
@@ -800,18 +638,15 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     );
   }
 
-  // Core statistics
   const totalMinutes = filteredLogs.reduce((acc, l) => acc + l.duration, 0);
   const totalHours = (totalMinutes / 60).toFixed(1);
   const totalSessions = filteredLogs.length;
   const avgSessionMinutes = totalSessions > 0 ? Math.round(totalMinutes / totalSessions) : 0;
   const prevMinutes = prevLogs.reduce((a, b) => a + b.duration, 0);
   const trend = prevMinutes > 0 ? Math.round(((totalMinutes - prevMinutes) / prevMinutes) * 100) : totalMinutes > 0 ? 100 : 0;
-
   const daysInRange = Math.floor((now.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24));
   const avgDailyHours = (totalMinutes / Math.max(daysInRange, 1) / 60).toFixed(1);
 
-  // Focus score calculation
   const calculateFocusScore = (subjectId: number) => {
     const subLogs = filteredLogs.filter((l) => l.subjectId === subjectId);
     if (subLogs.length === 0) return 0;
@@ -825,7 +660,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     return Math.round(score);
   };
 
-  // Subject statistics
   const subjectStats: SubjectStats[] = useMemo(
     () =>
       subjects
@@ -860,10 +694,8 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         .sort((a, b) => b.focusScore - a.focusScore),
     [subjects, filteredLogs, prevLogs, daysInRange, readinessScores, subjectPerformances]
   );
-
   const topSubject = subjectStats[0];
 
-  // Activity breakdown
   const activityBreakdown = useMemo(() => {
     const map: Record<string, number> = {
       review: 0,
@@ -878,7 +710,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     return map;
   }, [filteredLogs]);
 
-  // Heatmap data (90 days for better view)
   const heatmapData = useMemo(() => {
     return Array(90)
       .fill(0)
@@ -895,7 +726,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       });
   }, [logs]);
 
-  // Sparkline series
   const series = useMemo(() => {
     return Array(daysInRange)
       .fill(0)
@@ -907,24 +737,20 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       });
   }, [logs, daysInRange, now]);
 
-  // Advanced analytics
   const streakInfo = useMemo(() => calculateStreak(filteredLogs), [filteredLogs]);
   const timeOfDayStats = useMemo(() => calculateTimeOfDayStats(filteredLogs, filteredOutcomes), [filteredLogs, filteredOutcomes]);
   const dayOfWeekStats = useMemo(() => calculateDayOfWeekStats(filteredLogs, filteredOutcomes), [filteredLogs, filteredOutcomes]);
   const productivityPattern = useMemo(() => analyzeProductivityPattern(timeOfDayStats, dayOfWeekStats, filteredLogs), [timeOfDayStats, dayOfWeekStats, filteredLogs]);
 
-  // Completion rate
   const completionRate = filteredOutcomes.length > 0
     ? Math.round((filteredOutcomes.filter(o => o.completed).length / filteredOutcomes.length) * 100)
     : 100;
 
-  // Average quality
   const avgQualityNum = filteredOutcomes.filter(o => o.completed).length > 0
     ? filteredOutcomes.filter(o => o.completed).reduce((sum, o) => sum + o.completionQuality, 0) / filteredOutcomes.filter(o => o.completed).length
     : null;
   const avgQuality = avgQualityNum !== null ? avgQualityNum.toFixed(1) : "N/A";
 
-  // Progress donut animation
   const targetWeeklyMins = weeklyTargetHours * 60;
   const percentRaw = Math.min(100, Math.round((totalMinutes / targetWeeklyMins) * 100));
   const [donutPct, setDonutPct] = useState(0);
@@ -935,7 +761,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     const duration = 1000;
     const step = (t: number) => {
       const p = Math.min(1, (t - start) / duration);
-      const eased = 1 - Math.pow(1 - p, 3); // ease-out-cubic
+      const eased = 1 - Math.pow(1 - p, 3);
       setDonutPct(Math.round(eased * percentRaw));
       if (p < 1) raf = requestAnimationFrame(step);
     };
@@ -943,15 +769,9 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     return () => cancelAnimationFrame(raf);
   }, [percentRaw]);
 
-  // 2. ADAPTIVE GOAL SUGGESTION - Add this calculation after avgDailyHours
   const adaptiveGoalSuggestion = useMemo(() => {
     const currentWeeklyAvg = parseFloat(avgDailyHours) * 7;
     const consistency = productivityPattern.consistency;
-
-    // If consistency is high (>70%), suggest increasing by 10-15%
-    // If consistency is medium (40-70%), maintain current level
-    // If consistency is low (<40%), suggest reducing by 10%
-
     if (consistency > 70 && currentWeeklyAvg < weeklyTargetHours) {
       const increment = Math.min(1.5, (weeklyTargetHours - currentWeeklyAvg) * 0.15);
       return {
@@ -981,41 +801,29 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     }
   }, [avgDailyHours, productivityPattern.consistency, weeklyTargetHours]);
 
-  // 3. ACTIONABLE INSIGHTS - Enhanced handler functions
   const handleScheduleReview = (subjectId: number, subjectName: string) => {
-    // This would integrate with your scheduling system
     toast.success(`Review scheduled for ${subjectName}`);
-    // In real implementation: navigate to schedule view with pre-filled subject
     window.dispatchEvent(new CustomEvent('schedule-review', { detail: { subjectId, subjectName } }));
   };
-
   const handleAdjustBlockDuration = (subjectId: number) => {
     toast.success('Opening block duration settings...');
-    // In real implementation: open settings modal for this subject
     window.dispatchEvent(new CustomEvent('adjust-duration', { detail: { subjectId } }));
   };
-
   const handleApplyGoalSuggestion = () => {
     const newTarget = parseFloat(adaptiveGoalSuggestion.suggested);
     toast.success(`Weekly target updated to ${newTarget}h`);
-    // In real implementation: update settings in database
-    // await db.settings.put({ id: 'user', weeklyTargetHours: newTarget });
   };
-
-  // 4. HEATMAP INTERACTION - Handler
   const handleHeatmapClick = (date: string, minutes: number) => {
     if (minutes === 0) {
       setSelectedHeatmapDay(null);
       setHeatmapDaySessions([]);
       return;
     }
-
     const daySessions = logs.filter(l => l.date === date).sort((a, b) => a.timestamp - b.timestamp);
     setSelectedHeatmapDay(date);
     setHeatmapDaySessions(daySessions);
   };
 
-  // Keyboard shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "ArrowLeft") {
@@ -1032,7 +840,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     return () => window.removeEventListener("keydown", onKey);
   }, [timeRange]);
 
-  // Handlers
   const viewSubjectNotes = (subjectId: number) => {
     const subjectLogs = logs
       .filter((l) => l.subjectId === subjectId && l.notes && l.notes.trim().length > 0)
@@ -1040,7 +847,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     setSelectedSubjectNotes(subjectLogs);
     setShowNotesModal(true);
   };
-
   const exportCSV = () => {
     try {
       const csv = [
@@ -1065,7 +871,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       link.href = url;
       link.download = `orbit-stats-${new Date().toISOString().split("T")[0]}.csv`;
       link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 5000); // Delayed revocation for async downloads
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
       toast.success("Exported as CSV");
     } catch (err) {
       toast.error("Export failed");
@@ -1103,7 +909,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     return "Needs Focus";
   };
 
-  // Generate smart insights
   const enhancedInsights = useMemo(() => {
     const list: Array<{
       type: "success" | "warning" | "info" | "danger";
@@ -1112,8 +917,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       action?: string;
       onAction?: () => void;
     }> = [];
-
-    // Burnout warning with action
     if (burnoutSignals?.atRisk) {
       list.push({
         type: "danger",
@@ -1122,12 +925,9 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         action: "Schedule Recovery Day",
         onAction: () => {
           toast.success("Recovery day suggestion noted");
-          // In real implementation: suggest specific dates
         }
       });
     }
-
-    // Streak achievements
     if (streakInfo.current >= 7) {
       list.push({
         type: "success",
@@ -1140,13 +940,9 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         title: "Streak Broken",
         description: `Start a new streak today. Your longest was ${streakInfo.longest} days.`,
         action: "Start Session Now",
-        onAction: () => {
-          window.dispatchEvent(new CustomEvent("navigate-to-dashboard"));
-        }
+        onAction: () => window.dispatchEvent(new CustomEvent("navigate-to-dashboard"))
       });
     }
-
-    // Performance insights with action
     const struggling = subjectStats.filter(s => s.skipRate && s.skipRate > 0.3);
     if (struggling.length > 0) {
       list.push({
@@ -1157,8 +953,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         onAction: () => handleAdjustBlockDuration(struggling[0].id)
       });
     }
-
-    // Readiness alerts with action
     const critical = subjectStats.filter(s => s.readiness?.status === "critical");
     if (critical.length > 0) {
       list.push({
@@ -1169,8 +963,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         onAction: () => handleScheduleReview(critical[0].id, critical[0].name)
       });
     }
-
-    // Productivity patterns
     if (productivityPattern.peakHours.length > 0) {
       const peakHour = productivityPattern.peakHours[0];
       const { label } = getTimeOfDayLabel(peakHour);
@@ -1180,8 +972,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         description: `You perform best in the ${label} (around ${peakHour}:00). Schedule difficult subjects then.`,
       });
     }
-
-    // Completion rate
     if (completionRate < 70) {
       list.push({
         type: "warning",
@@ -1189,8 +979,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         description: `Only ${completionRate}% of blocks completed. Try reducing block durations.`,
       });
     }
-
-    // Quality trends
     if (typeof avgQuality === "string" && parseFloat(avgQuality) >= 4) {
       list.push({
         type: "success",
@@ -1198,46 +986,41 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         description: `Average quality is ${avgQuality}/5. Your study technique is working!`,
       });
     }
-
-    return list.slice(0, 4); // Show top 4 insights
+    return list.slice(0, 4);
   }, [burnoutSignals, streakInfo, subjectStats, productivityPattern, completionRate, avgQuality]);
 
-  /* ======================================================
-    RENDER
-  ====================================================== */
-
   return (
-    <div className="pb-32 pt-8 px-4 lg:px-10 w-full max-w-[1600px] mx-auto space-y-8">
-      {/* Header */}
+    <div className="pb-24 md:pb-32 pt-4 md:pt-6 lg:pt-8 px-3 md:px-4 lg:px-10 w-full max-w-[1600px] mx-auto space-y-4 md:space-y-6 lg:space-y-8">
       <PageHeader
         title="Learning Analytics"
-        meta={<MetaText>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }).toUpperCase()}</MetaText>}
+        meta={
+          <MetaText>
+            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }).toUpperCase()}
+          </MetaText>
+        }
         actions={
           <div className="flex items-center gap-3 flex-wrap">
-            {/* View mode switcher */}
-            <div className="flex items-center gap-1.5 bg-zinc-900/60 rounded-2xl p-1.5 border border-zinc-800/50 overflow-x-auto backdrop-blur-xl">
+            <div className="flex items-center gap-1 md:gap-1.5 bg-zinc-900/60 rounded-xl md:rounded-2xl p-1 md:p-1.5 border border-zinc-800/50 overflow-x-auto backdrop-blur-xl">
               {(["overview", "subjects", "performance", "insights"] as ViewMode[]).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all capitalize whitespace-nowrap ${viewMode === mode
-                    ? "bg-indigo-500/20 text-indigo-100 shadow-lg shadow-indigo-500/10 border border-indigo-500/30"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
-                    }`}
+                  className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold transition-all capitalize whitespace-nowrap ${
+                    viewMode === mode
+                      ? "bg-indigo-500/20 text-indigo-100 border border-indigo-500/30"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
                 >
                   {mode}
                 </button>
               ))}
             </div>
-
-            <button
-              onClick={exportCSV}
+            <button onClick={exportCSV}
               className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-zinc-200 hover:text-indigo-200 hover:bg-white/10 hover:border-indigo-500/30 transition-all duration-300 flex items-center gap-2 group"
             >
               <Download size={14} className="group-hover:translate-y-0.5 transition-transform" />
               <span className="hidden sm:inline">Export</span>
             </button>
-
             <button
               onClick={async () => {
                 setIsSharing(true);
@@ -1250,23 +1033,16 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
 🌟 Avg Quality: ${avgQuality}/5
 💡 Top Insight: ${enhancedInsights.length > 0 ? enhancedInsights[0].title : 'Consistency is key!'}
 ${topSubject ? `🏆 Top Subject: ${topSubject.name} (${topSubject.focusScore}/100)` : ''}
-
 Keep pushing! 💪`;
-
                   if (navigator.share) {
-                    await navigator.share({
-                      title: "My Orbit Learning Analytics",
-                      text: summary,
-                    });
+                    await navigator.share({ title: "My Orbit Learning Analytics", text: summary });
                     toast.success("Shared successfully!");
                   } else {
                     await navigator.clipboard.writeText(summary);
                     toast.success("Stats copied to clipboard!");
                   }
                 } catch (err: any) {
-                  if (err.name !== 'AbortError') {
-                    toast.error("Failed to share");
-                  }
+                  if (err.name !== 'AbortError') toast.error("Failed to share");
                 } finally {
                   setIsSharing(false);
                 }
@@ -1279,135 +1055,132 @@ Keep pushing! 💪`;
           </div>
         }
       />
-
-      {/* Time range selector */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 md:gap-4">
+        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 scrollbar-hide">
           {(["week", "10days", "month", "3months", "all"] as TimeRange[]).map((r) => (
             <button
               key={r}
               onClick={() => setTimeRange(r)}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 whitespace-nowrap flex-shrink-0 ${timeRange === r
-                ? "bg-indigo-500/20 text-indigo-100 border-2 border-indigo-500/40 shadow-lg shadow-indigo-500/10"
-                : "bg-zinc-900/30 text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200 border-2 border-zinc-800/50 hover:border-zinc-700/50"
-                }`}
+              className={`px-3 md:px-4 lg:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
+                timeRange === r
+                  ? "bg-indigo-500/20 text-indigo-100 border-2 border-indigo-500/40"
+                  : "bg-zinc-900/30 text-zinc-400 hover:bg-zinc-900/50 border-2 border-zinc-800/50"
+              }`}
             >
               {r === "10days" ? "10 Days" : r === "3months" ? "3 Months" : r === "all" ? "All Time" : r.charAt(0).toUpperCase() + r.slice(1)}
             </button>
           ))}
         </div>
-
         <div className="text-xs text-zinc-400 whitespace-nowrap font-semibold">
-          {filteredLogs.length} sessions • {(totalMinutes / 60).toFixed(1)}h total
+          {filteredLogs.length} sessions • {(totalMinutes / 60).toFixed(1)}h
         </div>
       </div>
-
-      {/* Main content based on view mode */}
       {viewMode === "overview" && (
         <>
-          {/* Top KPIs - BALANCED GRID */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
-            <FrostedTile variant="indigo" className="p-6 flex flex-col justify-between h-full min-h-[156px]">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center border-2 border-indigo-500/30 flex-shrink-0 shadow-lg shadow-indigo-500/10">
-                  <Clock size={24} strokeWidth={2.5} className="text-indigo-200" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-5">
+            <FrostedTile variant="indigo" className="p-3 md:p-4 lg:p-6 flex flex-col justify-between">
+              <div className="flex items-start gap-2 md:gap-3 lg:gap-4 mb-2 md:mb-3">
+                <div className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-xl md:rounded-2xl bg-indigo-500/10 flex items-center justify-center border-2 border-indigo-500/30 flex-shrink-0">
+                  <Clock size={18} strokeWidth={2.5} className="text-indigo-200 md:hidden" />
+                  <Clock size={20} strokeWidth={2.5} className="text-indigo-200 hidden md:block lg:hidden" />
+                  <Clock size={24} strokeWidth={2.5} className="text-indigo-200 hidden lg:block" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs text-zinc-400 uppercase tracking-wider font-bold mb-3">Total Study</div>
-                  <div className="text-3xl font-bold tabular-nums mb-1">{totalHours}h</div>
-                  <div className="text-xs text-zinc-500 font-semibold">
-                    {totalSessions} sessions • avg {avgSessionMinutes}m
+                  <div className="text-[9px] md:text-[10px] lg:text-xs text-zinc-400 uppercase tracking-wider font-bold mb-1 md:mb-2 truncate">Study</div>
+                  <div className="text-xl md:text-2xl lg:text-3xl font-bold tabular-nums mb-0.5 md:mb-1">{totalHours}h</div>
+                  <div className="text-[10px] md:text-xs text-zinc-500 font-semibold truncate">
+                    {totalSessions} • {avgSessionMinutes}m
                   </div>
                 </div>
               </div>
             </FrostedTile>
-
-            <FrostedTile variant="emerald" className="p-6 flex flex-col justify-between h-full">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center border-2 border-emerald-500/30 flex-shrink-0 shadow-lg shadow-emerald-500/10">
-                  <Flame size={24} strokeWidth={2.5} className="text-emerald-200" />
+            <FrostedTile variant="emerald" className="p-3 md:p-4 lg:p-6 flex flex-col justify-between">
+              <div className="flex items-start gap-2 md:gap-3 lg:gap-4 mb-2 md:mb-3">
+                <div className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-xl md:rounded-2xl bg-emerald-500/10 flex items-center justify-center border-2 border-emerald-500/30 flex-shrink-0">
+                  <Flame size={18} strokeWidth={2.5} className="text-emerald-200 md:hidden" />
+                  <Flame size={20} strokeWidth={2.5} className="text-emerald-200 hidden md:block lg:hidden" />
+                  <Flame size={24} strokeWidth={2.5} className="text-emerald-200 hidden lg:block" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs text-zinc-400 uppercase tracking-wider font-bold mb-3">Current Streak</div>
-                  <div className="text-3xl font-bold tabular-nums mb-1">{streakInfo.current} days</div>
-                  <div className="text-xs text-zinc-500 font-semibold">
-                    Longest: {streakInfo.longest} days
+                  <div className="text-[9px] md:text-[10px] lg:text-xs text-zinc-400 uppercase tracking-wider font-bold mb-1 md:mb-2 truncate">Streak</div>
+                  <div className="text-xl md:text-2xl lg:text-3xl font-bold tabular-nums mb-0.5 md:mb-1">{streakInfo.current}</div>
+                  <div className="text-[10px] md:text-xs text-zinc-500 font-semibold truncate">
+                    Best: {streakInfo.longest}
                   </div>
                 </div>
               </div>
               {streakInfo.current >= 7 && (
-                <div className="text-xs font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-lg w-fit bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                  <Trophy size={14} strokeWidth={2.5} />
-                  On fire!
+                <div className="text-[10px] md:text-xs font-bold flex items-center gap-1 px-2 md:px-3 py-1 md:py-1.5 rounded-lg w-fit bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                  <Trophy size={12} strokeWidth={2.5} className="md:hidden" />
+                  <Trophy size={14} strokeWidth={2.5} className="hidden md:block" />
+                  Fire!
                 </div>
               )}
             </FrostedTile>
-
-            <FrostedTile variant="purple" className="p-6 flex flex-col justify-between h-full">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center border-2 border-purple-500/30 flex-shrink-0 shadow-lg shadow-purple-500/10">
-                  <Target size={24} strokeWidth={2.5} className="text-purple-200" />
+            <FrostedTile variant="purple" className="p-3 md:p-4 lg:p-6 flex flex-col justify-between">
+              <div className="flex items-start gap-2 md:gap-3 lg:gap-4 mb-2 md:mb-3">
+                <div className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-xl md:rounded-2xl bg-purple-500/10 flex items-center justify-center border-2 border-purple-500/30 flex-shrink-0">
+                  <Target size={18} strokeWidth={2.5} className="text-purple-200 md:hidden" />
+                  <Target size={20} strokeWidth={2.5} className="text-purple-200 hidden md:block lg:hidden" />
+                  <Target size={24} strokeWidth={2.5} className="text-purple-200 hidden lg:block" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs text-zinc-400 uppercase tracking-wider font-bold mb-3">Completion Rate</div>
-                  <div className="text-3xl font-bold tabular-nums mb-1">{completionRate}%</div>
-                  <div className="text-xs text-zinc-500 font-semibold">
-                    Quality: {avgQuality}/5
+                  <div className="text-[9px] md:text-[10px] lg:text-xs text-zinc-400 uppercase tracking-wider font-bold mb-1 md:mb-2 truncate">Rate</div>
+                  <div className="text-xl md:text-2xl lg:text-3xl font-bold tabular-nums mb-0.5 md:mb-1">{completionRate}%</div>
+                  <div className="text-[10px] md:text-xs text-zinc-500 font-semibold truncate">
+                    {avgQuality}/5
                   </div>
                 </div>
               </div>
             </FrostedTile>
-
-            <FrostedTile
-              variant="amber"
-              className="p-6 flex flex-col justify-between h-full relative overflow-hidden group"
-            >
-              {/* Non-blocking loader overlay: spinner tied to activity loading */}
+            <FrostedTile variant="amber" className="p-3 md:p-4 lg:p-6 flex flex-col justify-between relative">
               {(burnoutLoading && !burnoutSignals) && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-                  <div
-                    className="rounded-full p-3 bg-black/40 backdrop-blur-sm flex items-center justify-center pointer-events-auto"
-                    aria-hidden="true"
-                  >
-                    <RefreshCw size={20} className="animate-spin text-amber-400 opacity-85" />
+                  <div className="rounded-full p-2 md:p-3 bg-black/40 backdrop-blur-sm">
+                    <RefreshCw size={16} className="animate-spin text-amber-400 md:hidden" />
+                    <RefreshCw size={20} className="animate-spin text-amber-400 hidden md:block" />
                   </div>
                 </div>
               )}
-
-              <div className="flex items-start gap-4 mb-4 z-10">
-                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center border-2 border-amber-500/30 flex-shrink-0 shadow-lg transition-transform group-hover:scale-105">
+              <div className="flex items-start gap-2 md:gap-3 lg:gap-4 mb-2 md:mb-3 z-10">
+                <div className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-xl md:rounded-2xl bg-amber-500/10 flex items-center justify-center border-2 border-amber-500/30 flex-shrink-0">
                   {burnoutSignals && burnoutSignals.score > 60 ? (
-                    <AlertCircle size={24} strokeWidth={2.5} className="text-amber-200" />
+                    <>
+                      <AlertCircle size={18} strokeWidth={2.5} className="text-amber-200 md:hidden" />
+                      <AlertCircle size={20} strokeWidth={2.5} className="text-amber-200 hidden md:block lg:hidden" />
+                      <AlertCircle size={24} strokeWidth={2.5} className="text-amber-200 hidden lg:block" />
+                    </>
                   ) : (
-                    <Heart size={24} strokeWidth={2.5} className="text-amber-200" />
+                    <>
+                      <Heart size={18} strokeWidth={2.5} className="text-amber-200 md:hidden" />
+                      <Heart size={20} strokeWidth={2.5} className="text-amber-200 hidden md:block lg:hidden" />
+                      <Heart size={24} strokeWidth={2.5} className="text-amber-200 hidden lg:block" />
+                    </>
                   )}
                 </div>
-
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs text-zinc-400 uppercase tracking-wider font-bold mb-3">Wellbeing</div>
-                  <div className="text-3xl font-bold tabular-nums mb-1 z-10">
+                  <div className="text-[9px] md:text-[10px] lg:text-xs text-zinc-400 uppercase tracking-wider font-bold mb-1 md:mb-2 truncate">Health</div>
+                  <div className="text-xl md:text-2xl lg:text-3xl font-bold tabular-nums mb-0.5 md:mb-1">
                     {burnoutSignals ? Math.max(0, 100 - burnoutSignals.score) : 100}%
                   </div>
-                  <div className="text-xs text-zinc-500 font-semibold truncate z-10">
-                    {burnoutSignals?.atRisk ? "At risk" : "Healthy balance"}
+                  <div className="text-[10px] md:text-xs text-zinc-500 font-semibold truncate">
+                    {burnoutSignals?.atRisk ? "Risk" : "Good"}
                   </div>
                 </div>
               </div>
-
               {burnoutSignals?.atRisk && (
-                <div className="text-xs font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-lg w-fit bg-red-500/10 text-red-300 border border-red-500/20 z-10">
-                  <AlertCircle size={14} strokeWidth={2.5} />
-                  Burnout Risk
+                <div className="text-[10px] md:text-xs font-bold flex items-center gap-1 px-2 md:px-3 py-1 md:py-1.5 rounded-lg w-fit bg-red-500/10 text-red-300 border border-red-500/20 z-10">
+                  <AlertCircle size={12} strokeWidth={2.5} className="md:hidden" />
+                  <AlertCircle size={14} strokeWidth={2.5} className="hidden md:block" />
+                  Risk
                 </div>
               )}
             </FrostedTile>
           </div>
-
-          {/* Progress & Momentum - BALANCED LAYOUT */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Weekly Progress & Adaptive Goals */}
-            <div className="lg:col-span-2 flex flex-col gap-6 h-full">
-              <FrostedTile className="p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
+            <div className="lg:col-span-2 flex flex-col gap-4 md:gap-5 lg:gap-6">
+              <FrostedTile className="p-4 md:p-6 lg:p-8">
+                {/* Progress ring content remains here, responsively padded. */}
                 <div className="flex items-center justify-between mb-8">
                   <div>
                     <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-1">Weekly Progress</div>
@@ -1417,25 +1190,21 @@ Keep pushing! 💪`;
                     {daysInRange} days
                   </div>
                 </div>
-
                 <div className="flex flex-col md:flex-row items-center gap-8">
                   <div className="flex-shrink-0">
                     <ProgressRing progress={donutPct} size={160} strokeWidth={12} label={`${donutPct}%`} sublabel="of goal" />
                   </div>
-
                   <div className="flex-1 space-y-6 w-full">
                     <div>
                       <div className="text-sm text-zinc-400 mb-2 font-semibold">Daily Average</div>
                       <div className="text-4xl font-bold tabular-nums">{avgDailyHours}h</div>
                     </div>
-
                     <div>
                       <div className="text-sm text-zinc-400 mb-4 font-semibold">Momentum</div>
                       <Sparkline data={series} width={280} height={48} showDots className="drop-shadow-lg" />
                     </div>
                   </div>
                 </div>
-
                 {donutPct >= 100 && (
                   <div className="mt-8 p-5 bg-emerald-500/10 rounded-2xl border-2 border-emerald-500/20 shadow-lg shadow-emerald-500/5">
                     <div className="flex items-center gap-3 text-emerald-200">
@@ -1445,37 +1214,36 @@ Keep pushing! 💪`;
                   </div>
                 )}
               </FrostedTile>
-
-              {/* Adaptive Goal Suggestion Tile */}
-              <FrostedTile variant={adaptiveGoalSuggestion.type === 'increase' ? 'indigo' : 'purple'} className="p-6 border-l-4 border-l-indigo-400">
-                <div className="flex items-start gap-4">
-                  <div className={`w-12 h-12 rounded-2xl ${adaptiveGoalSuggestion.type === 'increase' ? 'bg-indigo-500/10' : 'bg-purple-500/10'} flex items-center justify-center border-2 ${adaptiveGoalSuggestion.type === 'increase' ? 'border-indigo-500/30' : 'border-purple-500/30'} flex-shrink-0 animate-pulse`}>
-                    <TrendingUp size={20} className={adaptiveGoalSuggestion.type === 'increase' ? 'text-indigo-200' : 'text-purple-200'} />
+              <FrostedTile
+                variant={adaptiveGoalSuggestion.type === 'increase' ? 'indigo' : 'purple'}
+                className="p-4 md:p-5 lg:p-6 border-l-2 md:border-l-4 border-l-indigo-400"
+              >
+                <div className="flex items-start gap-3 md:gap-4">
+                  <div className={`w-10 h-10 md:w-11 md:h-11 lg:w-12 lg:h-12 rounded-xl md:rounded-2xl ${
+                    adaptiveGoalSuggestion.type === 'increase' ? 'bg-indigo-500/10' : 'bg-purple-500/10'
+                  } flex items-center justify-center border-2 ${
+                    adaptiveGoalSuggestion.type === 'increase' ? 'border-indigo-500/30' : 'border-purple-500/30'
+                  } flex-shrink-0`}>
+                    <TrendingUp size={16} className="md:hidden" />
+                    <TrendingUp size={18} className="hidden md:block lg:hidden" />
+                    <TrendingUp size={20} className="hidden lg:block" />
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-sm font-bold text-zinc-100">Adaptive Goal Suggestion</div>
-                      <StatBadge label="Consistency" value={`${productivityPattern.consistency}%`} color="success" />
-                    </div>
-                    <p className="text-sm text-zinc-400 mb-4 leading-relaxed">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs md:text-sm font-bold text-zinc-100 mb-2">Adaptive Goal</div>
+                    <p className="text-xs md:text-sm text-zinc-400 mb-3 md:mb-4">
                       {adaptiveGoalSuggestion.message}
                     </p>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={handleApplyGoalSuggestion}
-                        className="px-4 py-2 rounded-xl bg-indigo-500/20 text-indigo-100 border border-indigo-500/30 text-xs font-bold hover:bg-indigo-500/30 transition-all flex items-center gap-2"
-                      >
-                        Adjust target to {adaptiveGoalSuggestion.suggested}h
-                        <ChevronRight size={14} />
-                      </button>
-                    </div>
+                    <button
+                      onClick={handleApplyGoalSuggestion}
+                      className="px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl bg-indigo-500/20 text-indigo-100 text-[10px] md:text-xs font-bold"
+                    >
+                      Adjust to {adaptiveGoalSuggestion.suggested}h
+                    </button>
                   </div>
                 </div>
               </FrostedTile>
             </div>
-
-            {/* Activity Mix */}
-            <FrostedTile variant="purple" className="p-8">
+            <FrostedTile variant="purple" className="p-4 md:p-6 lg:p-8">
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border-2 border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-500/10">
                   <Zap size={20} strokeWidth={2.5} className="text-purple-200" />
@@ -1485,7 +1253,6 @@ Keep pushing! 💪`;
                   <div className="text-sm text-zinc-500 font-semibold">Time distribution</div>
                 </div>
               </div>
-
               <div className="space-y-4">
                 {Object.entries(activityBreakdown)
                   .filter(([_, mins]) => mins > 0)
@@ -1520,8 +1287,6 @@ Keep pushing! 💪`;
               </div>
             </FrostedTile>
           </div>
-
-          {/* Smart Insights */}
           {enhancedInsights.length > 0 && (
             <FrostedTile variant="indigo" className="p-8">
               <div className="flex items-center justify-between mb-7">
@@ -1538,16 +1303,13 @@ Keep pushing! 💪`;
                   {enhancedInsights.length} suggestions
                 </div>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 lg:gap-5">
                 {enhancedInsights.map((insight, idx) => (
                   <InsightCard key={idx} {...insight} />
                 ))}
               </div>
             </FrostedTile>
           )}
-
-          {/* Interactive Study Heatmap */}
           <FrostedTile variant="indigo" className="p-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-7 gap-4">
               <div>
@@ -1565,8 +1327,7 @@ Keep pushing! 💪`;
                 </div>
               </div>
             </div>
-
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(11px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(13px,1fr))] gap-2 max-w-full">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(10px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(12px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(13px,1fr))] gap-1.5 md:gap-2">
               {heatmapData.map((day, i) => {
                 const d = new Date(day.date);
                 const title = `${d.toLocaleDateString()}: ${day.minutes}m`;
@@ -1583,13 +1344,11 @@ Keep pushing! 💪`;
                         : day.intensity === 2
                           ? "bg-indigo-600 border-2 border-indigo-500/50 shadow-md shadow-indigo-600/20"
                           : "bg-indigo-400 border-2 border-indigo-300 shadow-lg shadow-indigo-400/30"
-                      }`}
+                    }`}
                   />
                 );
               })}
             </div>
-
-            {/* Heatmap Detail Panel */}
             {selectedHeatmapDay && heatmapDaySessions.length > 0 && (
               <div className="mt-8 p-6 rounded-2xl bg-indigo-500/5 border-2 border-indigo-500/20 animate-in slide-in-from-top-4 duration-500">
                 <div className="flex items-center justify-between mb-6">
@@ -1608,7 +1367,6 @@ Keep pushing! 💪`;
                     <X size={16} className="text-zinc-500" />
                   </button>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {heatmapDaySessions.map((session, idx) => (
                     <div key={idx} className="p-4 rounded-xl bg-zinc-900/40 border-2 border-zinc-800/50 flex flex-col gap-2 hover:border-zinc-700/50 transition-all">
@@ -1634,10 +1392,8 @@ Keep pushing! 💪`;
           </FrostedTile>
         </>
       )}
-
       {viewMode === "subjects" && (
         <>
-          {/* Subject Focus Scores */}
           <FrostedTile variant="indigo" className="p-8">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-5">
@@ -1649,7 +1405,6 @@ Keep pushing! 💪`;
                   <div className="text-lg font-bold">Deep dive into each subject</div>
                 </div>
               </div>
-
               {topSubject && (
                 <div className="px-5 py-2.5 bg-emerald-500/10 rounded-2xl border-2 border-emerald-500/30 flex items-center gap-2.5 shadow-lg shadow-emerald-500/10">
                   <Trophy size={18} strokeWidth={2.5} className="text-emerald-200" />
@@ -1657,7 +1412,6 @@ Keep pushing! 💪`;
                 </div>
               )}
             </div>
-
             <div className="space-y-5">
               {subjectStats.map((stat) => {
                 const subjectColor = getSubjectColor(stat.id!);
@@ -1665,7 +1419,6 @@ Keep pushing! 💪`;
                 const scoreColor = getFocusScoreColor(stat.focusScore);
                 const scoreLabel = getFocusScoreLabel(stat.focusScore);
                 const isExpanded = expandedSections.has(`subject-${stat.id}`);
-
                 return (
                   <div key={stat.id} className="group">
                     <div
@@ -1676,7 +1429,6 @@ Keep pushing! 💪`;
                         <div className={`w-20 h-20 rounded-2xl ${colorClasses.bgLight} flex items-center justify-center border-2 ${colorClasses.borderLight} shadow-lg`}>
                           <div className={`text-3xl font-bold ${colorClasses.text} tabular-nums`}>{stat.focusScore}</div>
                         </div>
-
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3">
                             <div className="text-zinc-100 font-bold text-xl">{stat.code}</div>
@@ -1689,7 +1441,6 @@ Keep pushing! 💪`;
                               </div>
                             )}
                           </div>
-
                           <div className="flex items-center gap-4 text-sm text-zinc-400 font-semibold">
                             <span>{stat.sessions} sessions</span>
                             <span>•</span>
@@ -1704,7 +1455,6 @@ Keep pushing! 💪`;
                             )}
                           </div>
                         </div>
-
                         <div className="flex items-center gap-3">
                           {stat.notesCount > 0 && (
                             <button
@@ -1725,8 +1475,6 @@ Keep pushing! 💪`;
                         </div>
                       </div>
                     </div>
-
-                    {/* Expanded details */}
                     {isExpanded && (
                       <div className="mt-4 p-6 rounded-2xl bg-zinc-900/30 border-2 border-zinc-800/30 space-y-6 shadow-inner">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1763,7 +1511,6 @@ Keep pushing! 💪`;
                             />
                           )}
                         </div>
-
                         {stat.readiness && (
                           <div className="p-5 bg-zinc-800/40 rounded-2xl border-2 border-zinc-700/50">
                             <div className="text-sm text-zinc-300 font-bold mb-3">Readiness Analysis</div>
@@ -1794,11 +1541,8 @@ Keep pushing! 💪`;
               })}
             </div>
           </FrostedTile>
-
-          {/* Subject Comparison */}
           <FrostedTile className="p-8">
             <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-7">Subject Comparison</div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <MiniChart
                 data={subjectStats.map(s => s.focusScore)}
@@ -1822,10 +1566,8 @@ Keep pushing! 💪`;
           </FrostedTile>
         </>
       )}
-
       {viewMode === "performance" && (
         <>
-          {/* Time of Day Performance - BALANCED CARDS */}
           <FrostedTile variant="indigo" className="p-8">
             <div className="flex items-center gap-5 mb-8">
               <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border-2 border-indigo-500/30 flex items-center justify-center shadow-lg shadow-indigo-500/10">
@@ -1836,7 +1578,6 @@ Keep pushing! 💪`;
                 <div className="text-lg font-bold">When you perform best</div>
               </div>
             </div>
-
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
               {timeOfDayStats.length > 0 ? (
                 timeOfDayStats
@@ -1846,38 +1587,25 @@ Keep pushing! 💪`;
                   .map((hour) => {
                     const { label, icon, color } = getTimeOfDayLabel(hour.hour);
                     return (
-                      <div key={hour.hour} className="p-5 rounded-2xl bg-zinc-900/40 border-2 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700/50 transition-all duration-300 hover:shadow-lg h-full flex flex-col">
+                      <div key={hour.hour}
+                        className={`p-5 rounded-2xl bg-zinc-900/40 border-2 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700/50 transition-all duration-300 hover:shadow-lg h-full flex flex-col`}>
                         <div className={`flex items-center gap-3 mb-3 ${color}`}>
-                          <div className="w-9 h-9 rounded-xl bg-current/10 flex items-center justify-center border border-current/20">
-                            {icon}
-                          </div>
+                          <div className="w-9 h-9 rounded-xl bg-current/10 flex items-center justify-center border border-current/20">{icon}</div>
                           <span className="text-base font-bold">{hour.hour}:00</span>
                         </div>
                         <div className="text-xs text-zinc-500 font-semibold mb-4">{label}</div>
                         <div className="space-y-3 flex-1">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-zinc-400 font-semibold">Quality</span>
-                            <span className="font-bold text-zinc-100 tabular-nums">{hour.avgQuality.toFixed(1)}/5</span>
-                          </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="text-zinc-400 font-semibold">Sessions</span>
-                            <span className="font-mono font-bold text-zinc-100 tabular-nums">{hour.sessions}</span>
-                          </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="text-zinc-400 font-semibold">Total</span>
-                            <span className="font-mono font-bold text-zinc-100 tabular-nums">{(hour.totalMinutes / 60).toFixed(1)}h</span>
-                          </div>
+                          <div className="flex justify-between text-xs"><span className="text-zinc-400 font-semibold">Quality</span><span className="font-bold text-zinc-100 tabular-nums">{hour.avgQuality.toFixed(1)}/5</span></div>
+                          <div className="flex justify-between text-xs"><span className="text-zinc-400 font-semibold">Sessions</span><span className="font-mono font-bold text-zinc-100 tabular-nums">{hour.sessions}</span></div>
+                          <div className="flex justify-between text-xs"><span className="text-zinc-400 font-semibold">Total</span><span className="font-mono font-bold text-zinc-100 tabular-nums">{(hour.totalMinutes / 60).toFixed(1)}h</span></div>
                         </div>
                       </div>
                     );
                   })
               ) : (
-                <div className="col-span-4 text-center text-zinc-500 py-12 font-semibold">
-                  Not enough data yet. Complete more sessions to see patterns.
-                </div>
+                <div className="col-span-4 text-center text-zinc-500 py-12 font-semibold">Not enough data yet. Complete more sessions to see patterns.</div>
               )}
             </div>
-
             {productivityPattern.peakHours.length > 0 && (
               <div className="mt-8 p-6 bg-indigo-500/10 rounded-2xl border-2 border-indigo-500/20 shadow-lg shadow-indigo-500/5">
                 <div className="flex items-center gap-3 text-indigo-200 mb-3">
@@ -1891,8 +1619,6 @@ Keep pushing! 💪`;
               </div>
             )}
           </FrostedTile>
-
-          {/* Day of Week Performance - BALANCED GRID */}
           <FrostedTile variant="purple" className="p-8">
             <div className="flex items-center gap-5 mb-8">
               <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border-2 border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-500/10">
@@ -1903,12 +1629,10 @@ Keep pushing! 💪`;
                 <div className="text-lg font-bold">Your best days</div>
               </div>
             </div>
-
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
               {dayOfWeekStats.map((day, idx) => {
                 const isWeekend = day.day === "Saturday" || day.day === "Sunday";
                 const isBestDay = productivityPattern.bestDays.includes(day.day);
-
                 return (
                   <div
                     key={day.day}
@@ -1945,8 +1669,6 @@ Keep pushing! 💪`;
               })}
             </div>
           </FrostedTile>
-
-          {/* Session Analytics - BALANCED GRID */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <FrostedTile className="p-6 h-full flex flex-col">
               <div className="flex items-center gap-4 mb-5">
@@ -1958,7 +1680,6 @@ Keep pushing! 💪`;
               <div className="text-4xl font-bold tabular-nums mb-2">{productivityPattern.optimalDuration}m</div>
               <div className="text-xs text-zinc-500 font-semibold mt-auto">Based on your completion patterns</div>
             </FrostedTile>
-
             <FrostedTile className="p-6 h-full flex flex-col">
               <div className="flex items-center gap-4 mb-5">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center shadow-lg shadow-emerald-500/10">
@@ -1969,7 +1690,6 @@ Keep pushing! 💪`;
               <div className="text-4xl font-bold tabular-nums mb-2">{productivityPattern.consistency}%</div>
               <div className="text-xs text-zinc-500 font-semibold mt-auto">Daily study frequency</div>
             </FrostedTile>
-
             <FrostedTile className="p-6 h-full flex flex-col">
               <div className="flex items-center gap-4 mb-5">
                 <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border-2 border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-500/10">
@@ -1983,10 +1703,8 @@ Keep pushing! 💪`;
           </div>
         </>
       )}
-
       {viewMode === "insights" && (
         <>
-          {/* All Insights */}
           <FrostedTile variant="indigo" className="p-8">
             <div className="flex items-center gap-5 mb-8">
               <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border-2 border-indigo-500/30 flex items-center justify-center shadow-lg shadow-indigo-500/10">
@@ -1997,15 +1715,12 @@ Keep pushing! 💪`;
                 <div className="text-lg font-bold">Comprehensive analysis</div>
               </div>
             </div>
-
             <div className="space-y-5">
               {enhancedInsights.map((insight, idx) => (
                 <InsightCard key={idx} {...insight} />
               ))}
             </div>
           </FrostedTile>
-
-          {/* Burnout Analysis */}
           {burnoutSignals && (
             <FrostedTile variant={burnoutSignals.atRisk ? "red" : "emerald"} className="p-8">
               <div className="flex items-center gap-5 mb-8">
@@ -2023,7 +1738,6 @@ Keep pushing! 💪`;
                   </div>
                 </div>
               </div>
-
               <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-8">
                 <StatBadge
                   label="Risk Score"
@@ -2046,7 +1760,6 @@ Keep pushing! 💪`;
                   color={burnoutSignals.streakBreaks >= 3 ? "danger" : burnoutSignals.streakBreaks >= 1 ? "warning" : "success"}
                 />
               </div>
-
               {burnoutSignals.recommendation && (
                 <div className={`p-5 rounded-2xl border-2 ${burnoutSignals.atRisk ? "bg-red-500/10 border-red-500/20" : "bg-emerald-500/10 border-emerald-500/20"}`}>
                   <div className="text-sm font-bold mb-2">{burnoutSignals.atRisk ? "Recommendation" : "Keep it up!"}</div>
@@ -2055,8 +1768,6 @@ Keep pushing! 💪`;
               )}
             </FrostedTile>
           )}
-
-          {/* Upcoming Reviews */}
           <FrostedTile className="p-8">
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -2067,7 +1778,6 @@ Keep pushing! 💪`;
                 {upcomingReviews.length} topics
               </div>
             </div>
-
             {upcomingReviews.length === 0 ? (
               <div className="p-8 bg-zinc-900/30 rounded-2xl text-sm text-zinc-400 text-center font-semibold border-2 border-zinc-800/30">
                 No upcoming reviews — you're all caught up! 🎉
@@ -2080,7 +1790,6 @@ Keep pushing! 💪`;
                   );
                   const urgency = daysUntil === 0 ? "today" : daysUntil === 1 ? "tomorrow" : `in ${daysUntil}d`;
                   const urgencyColor = daysUntil === 0 ? "text-red-300" : daysUntil === 1 ? "text-amber-300" : "text-cyan-300";
-
                   return (
                     <div key={t.id} className="p-5 rounded-2xl bg-zinc-900/40 border-2 border-zinc-800/50 flex items-center justify-between hover:bg-zinc-900/60 hover:border-zinc-700/50 transition-all duration-300">
                       <div>
@@ -2100,8 +1809,6 @@ Keep pushing! 💪`;
           </FrostedTile>
         </>
       )}
-
-      {/* Notes Modal */}
       {showNotesModal && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-200">
           <div className="w-full max-w-5xl max-h-[85vh] bg-zinc-900 border-2 border-white/10 rounded-[2rem] overflow-hidden flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
@@ -2117,14 +1824,10 @@ Keep pushing! 💪`;
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => setShowNotesModal(false)}
-                className="p-3 rounded-xl hover:bg-white/5 transition-all duration-200 group"
-              >
+              <button onClick={() => setShowNotesModal(false)} className="p-3 rounded-xl hover:bg-white/5 transition-all duration-200 group">
                 <X size={20} strokeWidth={2.5} className="group-hover:rotate-90 transition-transform duration-200" />
               </button>
             </div>
-
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
               {selectedSubjectNotes.map((log) => (
                 <div key={log.id} className="p-5 bg-zinc-800/60 rounded-2xl border-2 border-zinc-700/50 hover:bg-zinc-800/80 transition-all duration-200">
@@ -2144,7 +1847,6 @@ Keep pushing! 💪`;
                 </div>
               ))}
             </div>
-
             <div className="px-6 py-4 border-t-2 border-white/6 text-sm text-zinc-500 font-semibold bg-zinc-900/80 backdrop-blur-xl">
               {selectedSubjectNotes.length} notes • Sorted by most recent
             </div>
