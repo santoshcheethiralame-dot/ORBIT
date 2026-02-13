@@ -10,6 +10,7 @@ import {
   Percent, RefreshCw,
 } from "lucide-react";
 import { db } from "./db";
+import { safeDB, withToast } from './utils/dbErrorHandler';
 import { useLiveQuery } from "dexie-react-hooks";
 import { EmptyStats } from "./EmptyStates";
 import { useToast } from "./Toast";
@@ -625,7 +626,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         });
     }
   }, [viewMode, brainEnhancedLoaded, subjects]);
-  
+
   useEffect(() => {
     let mounted = true;
     const loadBurnoutData = async () => {
@@ -661,7 +662,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     r.setHours(0, 0, 0, 0);
     return r;
   }, [timeRange]);
-  
+
   const rangeStartStr = formatLocalDate(rangeStart);
   const filteredLogs = logs.filter((l) => l.date >= rangeStartStr);
   const filteredOutcomes = blockOutcomes.filter((o) => o.date >= rangeStartStr);
@@ -669,7 +670,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   const prevRangeStart = new Date(rangeStart.getTime() - (daysDiff * 24 * 60 * 60 * 1000));
   const prevRangeStartStr = prevRangeStart.toISOString().split("T")[0];
   const prevLogs = logs.filter((l) => l.date >= prevRangeStartStr && l.date < rangeStartStr);
-  
+
   if (filteredLogs.length === 0) {
     return (
       <div className="pb-32 pt-8 px-4 lg:px-10 w-full max-w-[1400px] mx-auto">
@@ -850,17 +851,17 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     toast.success(`Review scheduled for ${subjectName}`);
     window.dispatchEvent(new CustomEvent('schedule-review', { detail: { subjectId, subjectName } }));
   };
-  
+
   const handleAdjustBlockDuration = (subjectId: number) => {
     toast.success('Opening block duration settings...');
     window.dispatchEvent(new CustomEvent('adjust-duration', { detail: { subjectId } }));
   };
-  
+
   const handleApplyGoalSuggestion = () => {
     const newTarget = parseFloat(adaptiveGoalSuggestion.suggested);
     toast.success(`Weekly target updated to ${newTarget}h`);
   };
-  
+
   const handleHeatmapClick = (date: string, minutes: number) => {
     if (minutes === 0) {
       setSelectedHeatmapDay(null);
@@ -895,7 +896,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     setSelectedSubjectNotes(subjectLogs);
     setShowNotesModal(true);
   };
-  
+
   const exportCSV = () => {
     try {
       const csv = [
@@ -966,7 +967,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       action?: string;
       onAction?: () => void;
     }> = [];
-    
+
     if (burnoutSignals?.atRisk) {
       list.push({
         type: "danger",
@@ -978,7 +979,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         }
       });
     }
-    
+
     if (streakInfo.current >= 7) {
       list.push({
         type: "success",
@@ -994,7 +995,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         onAction: () => window.dispatchEvent(new CustomEvent("navigate-to-dashboard"))
       });
     }
-    
+
     const struggling = subjectStats.filter(s => s.skipRate && s.skipRate > 0.3);
     if (struggling.length > 0) {
       list.push({
@@ -1005,7 +1006,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         onAction: () => handleAdjustBlockDuration(struggling[0].id)
       });
     }
-    
+
     const critical = subjectStats.filter(s => s.readiness?.status === "critical");
     if (critical.length > 0) {
       list.push({
@@ -1016,7 +1017,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         onAction: () => handleScheduleReview(critical[0].id, critical[0].name)
       });
     }
-    
+
     if (productivityPattern.peakHours.length > 0) {
       const peakHour = productivityPattern.peakHours[0];
       const { label } = getTimeOfDayLabel(peakHour);
@@ -1026,7 +1027,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         description: `You perform best in the ${label} (around ${peakHour}:00). Schedule difficult subjects then.`,
       });
     }
-    
+
     if (completionRate < 70) {
       list.push({
         type: "warning",
@@ -1034,7 +1035,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         description: `Only ${completionRate}% of blocks completed. Try reducing block durations.`,
       });
     }
-    
+
     if (typeof avgQuality === "string" && parseFloat(avgQuality) >= 4) {
       list.push({
         type: "success",
@@ -1042,7 +1043,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         description: `Average quality is ${avgQuality}/5. Your study technique is working!`,
       });
     }
-    
+
     return list.slice(0, 4);
   }, [burnoutSignals, streakInfo, subjectStats, productivityPattern, completionRate, avgQuality]);
 
@@ -1131,7 +1132,7 @@ Keep pushing! 💪`;
                 </div>
               </div>
             </FrostedTile>
-            
+
             <FrostedTile variant="emerald" className="p-3 md:p-4 lg:p-6 flex flex-col justify-between">
               <div className="flex items-start gap-2 md:gap-3 lg:gap-4 mb-2 md:mb-3">
                 <div className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-xl md:rounded-2xl bg-emerald-500/10 flex items-center justify-center border-2 border-emerald-500/30 flex-shrink-0">
@@ -1155,7 +1156,7 @@ Keep pushing! 💪`;
                 </div>
               )}
             </FrostedTile>
-            
+
             <FrostedTile variant="purple" className="p-3 md:p-4 lg:p-6 flex flex-col justify-between">
               <div className="flex items-start gap-2 md:gap-3 lg:gap-4 mb-2 md:mb-3">
                 <div className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-xl md:rounded-2xl bg-purple-500/10 flex items-center justify-center border-2 border-purple-500/30 flex-shrink-0">
@@ -1172,7 +1173,7 @@ Keep pushing! 💪`;
                 </div>
               </div>
             </FrostedTile>
-            
+
             <FrostedTile variant="amber" className="p-3 md:p-4 lg:p-6 flex flex-col justify-between relative">
               {(burnoutLoading && !burnoutSignals) && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
@@ -1231,18 +1232,17 @@ Keep pushing! 💪`;
                       {timeRangeInfo.subtitle}
                     </div>
                   </div>
-                  
+
                   {/* INTEGRATED TIME RANGE SELECTOR */}
                   <div className="flex items-center gap-1.5 bg-zinc-900/60 rounded-xl p-1.5 border border-zinc-800/50 backdrop-blur-xl">
                     {(["week", "10days", "month", "3months", "all"] as TimeRange[]).map((r) => (
                       <button
                         key={r}
                         onClick={() => setTimeRange(r)}
-                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 whitespace-nowrap ${
-                          timeRange === r
+                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 whitespace-nowrap ${timeRange === r
                             ? "bg-indigo-500/20 text-indigo-100 border border-indigo-500/30 shadow-lg shadow-indigo-500/10"
                             : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
-                        }`}
+                          }`}
                       >
                         {r === "10days" ? "10D" : r === "3months" ? "3M" : r === "all" ? "All" : r[0].toUpperCase()}
                       </button>
@@ -1265,7 +1265,7 @@ Keep pushing! 💪`;
                     </div>
                   </div>
                 </div>
-                
+
                 {donutPct >= 100 && (
                   <div className="mt-8 p-5 bg-emerald-500/10 rounded-2xl border-2 border-emerald-500/20 shadow-lg shadow-emerald-500/5">
                     <div className="flex items-center gap-3 text-emerald-200">
@@ -1281,11 +1281,9 @@ Keep pushing! 💪`;
                 className="p-4 md:p-5 lg:p-6 border-l-2 md:border-l-4 border-l-indigo-400"
               >
                 <div className="flex items-start gap-3 md:gap-4">
-                  <div className={`w-10 h-10 md:w-11 md:h-11 lg:w-12 lg:h-12 rounded-xl md:rounded-2xl ${
-                    adaptiveGoalSuggestion.type === 'increase' ? 'bg-indigo-500/10' : 'bg-purple-500/10'
-                  } flex items-center justify-center border-2 ${
-                    adaptiveGoalSuggestion.type === 'increase' ? 'border-indigo-500/30' : 'border-purple-500/30'
-                  } flex-shrink-0`}>
+                  <div className={`w-10 h-10 md:w-11 md:h-11 lg:w-12 lg:h-12 rounded-xl md:rounded-2xl ${adaptiveGoalSuggestion.type === 'increase' ? 'bg-indigo-500/10' : 'bg-purple-500/10'
+                    } flex items-center justify-center border-2 ${adaptiveGoalSuggestion.type === 'increase' ? 'border-indigo-500/30' : 'border-purple-500/30'
+                    } flex-shrink-0`}>
                     <TrendingUp size={16} className="md:hidden" />
                     <TrendingUp size={18} className="hidden md:block lg:hidden" />
                     <TrendingUp size={20} className="hidden lg:block" />
@@ -1402,17 +1400,15 @@ Keep pushing! 💪`;
                     key={i}
                     title={title}
                     onClick={() => handleHeatmapClick(day.date, day.minutes)}
-                    className={`aspect-square rounded-md transition-all duration-300 hover:scale-125 hover:z-10 cursor-pointer ${
-                      isSelected ? "ring-2 ring-indigo-400 ring-offset-2 ring-offset-zinc-950 scale-110" : ""
-                    } ${
-                      day.intensity === 0
+                    className={`aspect-square rounded-md transition-all duration-300 hover:scale-125 hover:z-10 cursor-pointer ${isSelected ? "ring-2 ring-indigo-400 ring-offset-2 ring-offset-zinc-950 scale-110" : ""
+                      } ${day.intensity === 0
                         ? "bg-zinc-900 border-2 border-zinc-800/50"
                         : day.intensity === 1
-                        ? "bg-indigo-900/60 border-2 border-indigo-800/50 shadow-sm"
-                        : day.intensity === 2
-                          ? "bg-indigo-600 border-2 border-indigo-500/50 shadow-md shadow-indigo-600/20"
-                          : "bg-indigo-400 border-2 border-indigo-300 shadow-lg shadow-indigo-400/30"
-                    }`}
+                          ? "bg-indigo-900/60 border-2 border-indigo-800/50 shadow-sm"
+                          : day.intensity === 2
+                            ? "bg-indigo-600 border-2 border-indigo-500/50 shadow-md shadow-indigo-600/20"
+                            : "bg-indigo-400 border-2 border-indigo-300 shadow-lg shadow-indigo-400/30"
+                      }`}
                   />
                 );
               })}
@@ -1706,11 +1702,10 @@ Keep pushing! 💪`;
                 return (
                   <div
                     key={day.day}
-                    className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:shadow-lg h-full flex flex-col ${
-                      isBestDay
+                    className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:shadow-lg h-full flex flex-col ${isBestDay
                         ? "bg-purple-500/10 border-purple-500/30 shadow-md shadow-purple-500/10"
                         : "bg-zinc-900/40 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700/50"
-                    }`}
+                      }`}
                   >
                     <div className="text-xs font-bold text-zinc-200 mb-4 uppercase tracking-wider">{day.day.slice(0, 3)}</div>
                     <div className="space-y-3 flex-1">

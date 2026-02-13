@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { db } from './db';
 import { FrostedTile, FrostedMini, PageHeader, MetaText } from './components';
+import { safeDB, withToast } from './utils/dbErrorHandler';
 import { useToast } from './Toast';
 import { useSettings } from './SettingsContext';
 import { SoundManager } from './utils/sounds';
@@ -99,15 +100,38 @@ export const SettingsView = () => {
         throw new Error('Invalid backup file');
       }
 
-      await db.subjects.clear();
-      await db.logs.clear();
-      await db.assignments.clear();
-      await db.plans.clear();
-
-      if (imported.data.subjects?.length) await db.subjects.bulkAdd(imported.data.subjects);
-      if (imported.data.logs?.length) await db.logs.bulkAdd(imported.data.logs);
-      if (imported.data.assignments?.length) await db.assignments.bulkAdd(imported.data.assignments);
-      if (imported.data.plans?.length) await db.plans.bulkAdd(imported.data.plans);
+      // ✅ Use transaction for atomicity
+      await db.transaction(
+        'rw',
+        [db.subjects, db.logs, db.assignments, db.plans],
+        async () => {
+          // Clear existing data
+          await Promise.all([
+            db.subjects.clear(),
+            db.logs.clear(),
+            db.assignments.clear(),
+            db.plans.clear(),
+          ]);
+          
+          // Import new data
+          const importPromises = [];
+          
+          if (imported.data.subjects?.length) {
+            importPromises.push(db.subjects.bulkAdd(imported.data.subjects));
+          }
+          if (imported.data.logs?.length) {
+            importPromises.push(db.logs.bulkAdd(imported.data.logs));
+          }
+          if (imported.data.assignments?.length) {
+            importPromises.push(db.assignments.bulkAdd(imported.data.assignments));
+          }
+          if (imported.data.plans?.length) {
+            importPromises.push(db.plans.bulkAdd(imported.data.plans));
+          }
+          
+          await Promise.all(importPromises);
+        }
+      );
 
       if (imported.settings) {
         Object.entries(imported.settings).forEach(([category, values]: [string, any]) => {
@@ -117,25 +141,35 @@ export const SettingsView = () => {
         });
       }
 
-      toast.success('Data imported successfully');
+      toast.success(`Imported ${imported.data.subjects?.length || 0} subjects, ${imported.data.logs?.length || 0} logs`);
       setShowImportModal(false);
       setTimeout(() => window.location.reload(), 1000);
     } catch (err) {
       console.error('Import failed:', err);
-      toast.error('Failed to import data. Check file format.');
+      toast.error('Import failed. Your existing data is unchanged.');
     }
   };
 
   // Clear all data
   const clearAllData = async () => {
     try {
-      await db.subjects.clear();
-      await db.logs.clear();
-      await db.assignments.clear();
-      await db.plans.clear();
-      await db.topics.clear();
-      await db.blockOutcomes.clear();
-      await db.studyBlocks.clear();
+      // ✅ Use transaction for atomicity
+      await db.transaction(
+        'rw',
+        [db.subjects, db.logs, db.assignments, db.plans, db.topics, db.blockOutcomes, db.studyBlocks],
+        async () => {
+          await Promise.all([
+            db.subjects.clear(),
+            db.logs.clear(),
+            db.assignments.clear(),
+            db.plans.clear(),
+            db.topics.clear(),
+            db.blockOutcomes.clear(),
+            db.studyBlocks.clear(),
+          ]);
+        }
+      );
+      
       localStorage.clear();
 
       toast.success('All data cleared successfully');

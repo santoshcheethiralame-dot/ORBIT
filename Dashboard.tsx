@@ -6,6 +6,7 @@ import { getISTTime, getISTEffectiveDate } from "./utils/time";
 import { EmptyBacklog, EmptyTodayPlan } from './EmptyStates';
 import { getAllReadinessScores, SubjectReadiness, updateAssignmentProgress } from './brain';
 import { useToast } from './Toast';
+import { safeDB, withToast } from './utils/dbErrorHandler';
 import {
   Play,
   Check,

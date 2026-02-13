@@ -3,6 +3,7 @@ import { Brain, Calendar, TrendingUp, CheckCircle, AlertCircle, Clock, Target } 
 import { StudyTopic } from './types';
 import { db } from './db';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { safeDB, withToast } from './utils/dbErrorHandler';
 
 // Comprehension Rating Modal
 export const ComprehensionRatingModal = ({
@@ -274,8 +275,8 @@ export const TopicMasteryCard = ({ topic }: { topic: StudyTopic & { subjectName?
           <div
             key={i}
             className={`flex-1 h-6 rounded ${rating === 3 ? 'bg-emerald-500' :
-                rating === 2 ? 'bg-amber-500' :
-                  'bg-red-500'
+              rating === 2 ? 'bg-amber-500' :
+                'bg-red-500'
               }`}
             style={{ opacity: Math.max(0.3, 1 - (i * 0.1)) }}
             title={`Review ${i + 1}: ${rating === 3 ? 'Easy' : rating === 2 ? 'Good' : 'Hard'}`}

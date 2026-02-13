@@ -251,25 +251,37 @@ export async function updateAssignmentProgress(
   minutesCompleted: number,
   dbInstance: OrbitDB = db
 ): Promise<void> {
+  // Validate input
+  if (minutesCompleted < 0) {
+    throw new Error('minutesCompleted cannot be negative');
+  }
+  if (!assignmentId) {
+    throw new Error('assignmentId is required');
+  }
+
   try {
-    const assignment = await dbInstance.assignments.get(assignmentId);
-    if (!assignment) return;
+    // ✅ Use transaction for atomicity
+    await dbInstance.transaction('rw', dbInstance.assignments, async () => {
+      const assignment = await dbInstance.assignments.get(assignmentId);
+      
+      if (!assignment) {
+        throw new Error(`Assignment ${assignmentId} not found`);
+      }
 
-    const currentProgress = assignment.progressMinutes ?? 0;
-    const newProgress = currentProgress + minutesCompleted;
+      const currentProgress = assignment.progressMinutes ?? 0;
+      const newProgress = currentProgress + minutesCompleted;
+      const estimatedEffort = assignment.estimatedEffort ?? DEFAULT_ASSIGNMENT_EFFORT_MIN;
 
-    await dbInstance.assignments.update(assignmentId, {
-      progressMinutes: newProgress
-    });
-
-    const estimatedEffort = assignment.estimatedEffort ?? DEFAULT_ASSIGNMENT_EFFORT_MIN;
-    if (newProgress >= estimatedEffort) {
       await dbInstance.assignments.update(assignmentId, {
-        completed: true
+        progressMinutes: newProgress,
+        completed: newProgress >= estimatedEffort,
       });
-    }
+      
+      console.log(`Assignment ${assignmentId}: ${currentProgress}min → ${newProgress}min (${estimatedEffort}min total)`);
+    });
   } catch (err) {
     console.error('Failed to update assignment progress:', err);
+    throw err; // Re-throw so caller can handle
   }
 }
 

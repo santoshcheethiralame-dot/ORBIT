@@ -15,26 +15,6 @@
 
 ---
 
-### 🎯 **The Problem**
-
-Traditional planners assume you're a robot:
-- ❌ Same energy every day at 8 AM
-- ❌ Perfect discipline, no bad days
-- ❌ Static priorities that never change
-- ❌ Midnight resets that break flow states
-
-**Reality:** You study at 2 AM. Exams move. Energy fluctuates. Priorities shift hourly.
-
-### ⚡ **The Solution**
-
-Orbit generates your study plan **fresh every day** based on:
-- ✅ Your actual energy level (Low/Normal/High)
-- ✅ Upcoming exam deadlines (auto-prioritizes)
-- ✅ Which subjects you've been avoiding
-- ✅ Your focus session performance history
-
-**No calendars. No rigid schedules. Just intelligent execution.**
-
 </div>
 
 ---

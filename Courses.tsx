@@ -14,6 +14,7 @@ import {
 import { db } from "./db";
 import { ResourceType } from "./types";
 import { useLiveQuery } from "dexie-react-hooks";
+import { safeDB, withToast } from './utils/dbErrorHandler';
 import {
   EmptyCourses, EmptyResources, EmptyGrades,
   EmptyNotes, EmptySyllabus

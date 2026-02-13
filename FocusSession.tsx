@@ -49,11 +49,22 @@ const getBreakDuration = (): number => {
 
 const haptic = (pattern: 'light' | 'medium' | 'heavy' | 'success' = 'light') => {
   try {
-    if (navigator && (navigator as any).vibrate) {
-      const patterns = { light: 5, medium: 10, heavy: 15, success: [10, 50, 10, 50, 15] };
-      (navigator as any).vibrate(patterns[pattern]);
+    if (!('vibrate' in navigator)) {
+      return; // Feature not supported
     }
-  } catch {}
+    
+    const patterns = { 
+      light: 5, 
+      medium: 10, 
+      heavy: 15, 
+      success: [10, 50, 10, 50, 15] 
+    };
+    
+    navigator.vibrate(patterns[pattern]);
+  } catch (error) {
+    // Haptic feedback failed - non-critical, just log
+    console.debug('Haptic feedback not available:', error);
+  }
 };
 
 export interface SubjectIntelligence {
@@ -79,6 +90,11 @@ export const FocusSession = ({
 }) => {
   const { settings } = useSettings();
   const BREAK_TOTAL = settings.study.breakDuration * 60; // Dynamic break duration from settings
+  
+  // ✅ Store all timer/interval IDs for cleanup
+  const timerAnimationRef = useRef<number | null>(null);
+  const autosaveIntervalRef = useRef<number | null>(null);
+  const isMountedRef = useRef(true);
   
   const [sessionStartTime] = useState(() => Date.now());
   const [pausedAt, setPausedAt] = useState<number | null>(null);
@@ -160,7 +176,8 @@ export const FocusSession = ({
   }, [soundEnabled]);
 
   const handleFocusComplete = useCallback(async (actualDuration?: number, sessionNotes?: string) => {
-    if (!block) return;
+    if (!block || !isMountedRef.current) return;
+    
     const durationToLog = actualDuration || block.duration;
     if (block.type === 'assignment' && block.assignmentId) {
       await updateAssignmentProgress(block.assignmentId, durationToLog);
@@ -172,12 +189,18 @@ export const FocusSession = ({
           const percent = Math.round((progress / total) * 100);
           console.log(`📋 Assignment progress: ${percent}%`);
         }
-      } catch (err) {}
+      } catch (err) {
+        console.warn('Failed to fetch assignment progress:', err);
+      }
     }
-    playChime('complete');
-    setCompletedDuration(durationToLog);
-    setSessionNotes(sessionNotes || "");
-    setShowQualityModal(true);
+    
+    // Only update state if still mounted
+    if (isMountedRef.current) {
+      playChime('complete');
+      setCompletedDuration(durationToLog);
+      setSessionNotes(sessionNotes || "");
+      setShowQualityModal(true);
+    }
   }, [block, playChime]);
 
   const handleQualityRating = async (rating: 1 | 2 | 3 | 4 | 5, topic?: string) => {
@@ -214,7 +237,7 @@ export const FocusSession = ({
       setTotalPausedTime(prev => prev + (Date.now() - pausedAt));
       setPausedAt(null);
     }
-    let animationId: number;
+    
     const updateTimer = () => {
       if (isBreak) {
         if (!breakStartTime) setBreakStartTime(Date.now());
@@ -274,11 +297,64 @@ export const FocusSession = ({
           setTimeLeft(remaining);
         }
       }
-      animationId = requestAnimationFrame(updateTimer);
+      timerAnimationRef.current = requestAnimationFrame(updateTimer);
     };
-    animationId = requestAnimationFrame(updateTimer);
-    return () => cancelAnimationFrame(animationId);
+    timerAnimationRef.current = requestAnimationFrame(updateTimer);
+    
+    // ✅ CRITICAL: Cleanup animation frame
+    return () => {
+      if (timerAnimationRef.current) {
+        cancelAnimationFrame(timerAnimationRef.current);
+        timerAnimationRef.current = null;
+      }
+    };
   }, [isActive, isBreak, isInOvertime, sessionStartTime, totalPausedTime, pausedAt, block.duration, breakStartTime, milestonesReached, playChime]);
+
+  // ✅ Autosave effect with cleanup
+  useEffect(() => {
+    if (notes && notes.length > 0) {
+      autosaveIntervalRef.current = window.setInterval(() => {
+        if (isMountedRef.current) {
+          localStorage.setItem(`orbit-session-notes-${block.id}`, notes);
+        }
+      }, 30000); // Every 30 seconds
+    }
+
+    return () => {
+      if (autosaveIntervalRef.current) {
+        clearInterval(autosaveIntervalRef.current);
+        autosaveIntervalRef.current = null;
+      }
+    };
+  }, [notes, block.id]);
+
+  // ✅ Master cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      
+      // Clear all intervals and animation frames
+      if (timerAnimationRef.current) {
+        cancelAnimationFrame(timerAnimationRef.current);
+      }
+      if (autosaveIntervalRef.current) {
+        clearInterval(autosaveIntervalRef.current);
+      }
+      
+      // Save notes before unmount
+      if (notes) {
+        try {
+          localStorage.setItem(`orbit-session-notes-${block.id}`, notes);
+        } catch (e) {
+          console.warn('Failed to save notes on unmount:', e);
+        }
+      }
+      
+      console.log('✅ FocusSession: All timers cleaned up');
+    };
+  }, [notes, block.id]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

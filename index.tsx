@@ -1,6 +1,6 @@
 // index.tsx - FUTURISTIC GLASSMORPHIC FLOATING NAVBAR (Hybrid Enhancement: Active Gradient Border)
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom/client";
 import { SettingsProvider } from './SettingsContext';
 import {
@@ -70,6 +70,11 @@ const App = () => {
   const [showRolloverModal, setShowRolloverModal] = useState(false);
   const [subjectIntelligence, setSubjectIntelligence] = useState<SubjectIntelligence | undefined>();
 
+  // ✅ Add refs for preventing race conditions
+  const rolloverCheckInProgress = useRef(false);
+  const planGenerationInProgress = useRef(false);
+  const loadDataInProgress = useRef(false);
+
   // ✨ NEW: Access toast from context
   const toast = useToast();
 
@@ -114,28 +119,42 @@ const App = () => {
   }, []);
 
   const loadData = async () => {
-    const subs = await db.subjects.toArray();
-    setSubjects(subs);
-    const lgs = await db.logs.toArray();
-    setLogs(lgs);
+    if (loadDataInProgress.current) {
+      console.log('⏭️  Load already in progress, skipping');
+      return;
+    }
+    
+    loadDataInProgress.current = true;
+    
+    try {
+      const subs = await db.subjects.toArray();
+      setSubjects(subs);
+      const lgs = await db.logs.toArray();
+      setLogs(lgs);
 
-    const todayStr = getISTEffectiveDate();
-    const existing = await db.plans.get(todayStr);
+      const todayStr = getISTEffectiveDate();
+      const existing = await db.plans.get(todayStr);
 
-    console.log("📊 LoadData:", {
-      effectiveDate: todayStr,
-      existingPlan: existing?.date,
-    });
+      console.log("📊 LoadData:", {
+        effectiveDate: todayStr,
+        existingPlan: existing?.date,
+      });
 
-    if (existing && isPlanCurrent(existing.date)) {
-      setTodayPlan(existing);
-      setNeedsContext(false);
-    } else {
-      const subCount = await db.subjects.count();
-      if (subCount > 0) {
-        setNeedsContext(true);
-        setTodayPlan(null);
+      if (existing && isPlanCurrent(existing.date)) {
+        setTodayPlan(existing);
+        setNeedsContext(false);
+      } else {
+        const subCount = await db.subjects.count();
+        if (subCount > 0) {
+          setNeedsContext(true);
+          setTodayPlan(null);
+        }
       }
+    } catch (err) {
+      console.error('❌ LoadData failed:', err);
+      toast.error('Failed to load data. Please refresh the page.');
+    } finally {
+      loadDataInProgress.current = false;
     }
   };
 
@@ -190,6 +209,13 @@ const App = () => {
     const STORAGE_KEY = "orbit_last_check_date";
 
     const checkRollover = async () => {
+      if (rolloverCheckInProgress.current) {
+        console.log('⏭️  Rollover check already in progress');
+        return;
+      }
+      
+      rolloverCheckInProgress.current = true;
+      
       try {
         const currentEffectiveDate = getISTEffectiveDate();
         const lastCheckedDate = localStorage.getItem(STORAGE_KEY);
@@ -216,6 +242,8 @@ const App = () => {
         // ✨ NEW: Show error toast
         toast.error("Failed to check day rollover. Please refresh.");
         setNeedsContext(true);
+      } finally {
+        rolloverCheckInProgress.current = false;
       }
     };
 
@@ -229,6 +257,12 @@ const App = () => {
   }, [todayPlan, toast]);
 
   const handleContextGenerate = async (ctx: DailyContext) => {
+    if (planGenerationInProgress.current) {
+      toast.error('Plan generation already in progress');
+      return;
+    }
+    
+    planGenerationInProgress.current = true;
     SoundManager.playSuccess();
 
     try {
@@ -273,6 +307,8 @@ const App = () => {
       console.error("Plan generation failed:", err);
       // ✨ NEW: Error toast
       toast.error("Failed to generate plan. Please try again.");
+    } finally {
+      planGenerationInProgress.current = false;
     }
   };
 
@@ -775,14 +811,28 @@ const App = () => {
 
 // Service Worker Registration
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  let updateCheckInterval: number | null = null;
+
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js")
       .then((registration) => {
         console.log("✅ SW registered:", registration.scope);
 
-        setInterval(() => {
-          registration.update();
+        // ✅ Cleanup previous interval if exists
+        if (updateCheckInterval) {
+          clearInterval(updateCheckInterval);
+        }
+
+        // Check for updates every hour, only when page is visible
+        updateCheckInterval = window.setInterval(async () => {
+          try {
+            if (document.visibilityState === 'visible') {
+              await registration.update();
+            }
+          } catch (err) {
+            console.warn('Service worker update check failed:', err);
+          }
         }, 60 * 60 * 1000);
 
         registration.addEventListener("updatefound", () => {
@@ -807,6 +857,14 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
       .catch((error) => {
         console.warn("❌ SW registration failed:", error);
       });
+  });
+
+  // ✅ Cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    if (updateCheckInterval) {
+      clearInterval(updateCheckInterval);
+      updateCheckInterval = null;
+    }
   });
 
   let refreshing = false;
