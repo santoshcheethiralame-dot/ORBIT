@@ -11,6 +11,7 @@ import {
   StudyTopic,
 } from "./types";
 import { getISTEffectiveDate } from "./utils/time";
+import { notifyDataChange } from "./db";
 
 // --------------------
 // Pure brain engine contract (fact-only)
@@ -251,7 +252,6 @@ export async function updateAssignmentProgress(
   minutesCompleted: number,
   dbInstance: OrbitDB = db
 ): Promise<void> {
-  // Validate input
   if (minutesCompleted < 0) {
     throw new Error('minutesCompleted cannot be negative');
   }
@@ -260,7 +260,6 @@ export async function updateAssignmentProgress(
   }
 
   try {
-    // ✅ Use transaction for atomicity
     await dbInstance.transaction('rw', dbInstance.assignments, async () => {
       const assignment = await dbInstance.assignments.get(assignmentId);
       
@@ -277,11 +276,12 @@ export async function updateAssignmentProgress(
         completed: newProgress >= estimatedEffort,
       });
       
+      notifyDataChange('ASSIGNMENT_UPDATED', { assignmentId, newProgress });
       console.log(`Assignment ${assignmentId}: ${currentProgress}min → ${newProgress}min (${estimatedEffort}min total)`);
     });
   } catch (err) {
     console.error('Failed to update assignment progress:', err);
-    throw err; // Re-throw so caller can handle
+    throw err;
   }
 }
 

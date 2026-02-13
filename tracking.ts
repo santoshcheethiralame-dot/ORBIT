@@ -1,18 +1,24 @@
 // tracking.ts - Utility functions for time and tracking
 
 import { db } from "./db";
+import { notifyDataChange } from "./db";
 
 /**
- * Get effective date in IST timezone
+ * Get effective date in UTC (timezone-safe)
  */
 export function getISTEffectiveDate(): string {
   const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(now.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
-  // Convert to IST (UTC+5:30)
-  const istOffset = 5.5 * 60 * 60 * 1000;
-  const istTime = new Date(now.getTime() + istOffset);
-
-  return istTime.toISOString().split('T')[0];
+function validateTopicName(name: string): string {
+  const normalized = name.trim();
+  if (!normalized) throw new Error('Topic name cannot be empty');
+  if (normalized.length > 100) throw new Error('Topic name too long');
+  return normalized.replace(/\s+/g, ' ');
 }
 
 /**
@@ -26,26 +32,20 @@ export async function recordTopicReview(
   dateStr?: string
 ): Promise<void> {
   try {
-    // If no date is provided, use IST effective date
+    const normalizedName = validateTopicName(topicName);
     const effectiveDate = dateStr || getISTEffectiveDate();
 
-    // Find or create topic
-    let topic = await db.topics
-      .where({ subjectId, name: topicName })
-      .first();
+    const existingTopics = await db.topics.where({ subjectId }).toArray();
+    let topic = existingTopics.find(t => t.name.toLowerCase() === normalizedName.toLowerCase());
 
     if (!topic) {
-      // New topic - create it
       const { nextReviewDate, newEaseFactor } = calculateNextReview(
-        effectiveDate,
-        1.8,  // Default ease factor
-        0,    // First review
-        comprehensionRating
+        effectiveDate, 1.8, 0, comprehensionRating
       );
 
       await db.topics.add({
         subjectId,
-        name: topicName,
+        name: normalizedName,
         lastStudied: effectiveDate,
         nextReview: nextReviewDate,
         easeFactor: newEaseFactor,
@@ -53,12 +53,8 @@ export async function recordTopicReview(
         comprehensionHistory: [comprehensionRating]
       });
     } else {
-      // Update existing topic
       const { nextReviewDate, newEaseFactor } = calculateNextReview(
-        topic.lastStudied,
-        topic.easeFactor,
-        topic.reviewCount,
-        comprehensionRating
+        topic.lastStudied, topic.easeFactor, topic.reviewCount, comprehensionRating
       );
 
       await db.topics.update(topic.id!, {
@@ -70,25 +66,26 @@ export async function recordTopicReview(
       });
     }
 
-    // Also update the study log
     await db.logs.add({
       subjectId,
       duration,
       date: effectiveDate,
       timestamp: Date.now(),
       type: "review",
-      topicId: topicName.toLowerCase().replace(/\s+/g, '-'),
+      topicId: normalizedName.toLowerCase().replace(/\s+/g, '-'),
       comprehensionRating,
       reviewNumber: topic ? topic.reviewCount + 1 : 1,
     });
-
+    
+    notifyDataChange('TOPIC_REVIEWED', { subjectId, topicName: normalizedName });
   } catch (err) {
     console.error('Failed to record topic review:', err);
+    throw err;
   }
 }
 
 /**
- * Calculate next review date based on SM-2 algorithm
+ * Calculate next review date based on SM-2 algorithm (timezone-safe)
  */
 function calculateNextReview(
   lastReviewDate: string,
@@ -97,36 +94,33 @@ function calculateNextReview(
   comprehensionRating: 1 | 2 | 3
 ): { nextReviewDate: string; newEaseFactor: number } {
 
-  // Update ease factor based on performance
   let newEaseFactor = easeFactor;
-
-  if (comprehensionRating === 3) {      // Easy
+  if (comprehensionRating === 3) {
     newEaseFactor = Math.min(2.5, easeFactor + 0.15);
-  } else if (comprehensionRating === 1) { // Hard
+  } else if (comprehensionRating === 1) {
     newEaseFactor = Math.max(1.3, easeFactor - 0.15);
   }
-  // Good (2) keeps same ease factor
 
-  // Calculate interval in days
   let intervalDays: number;
-
   if (reviewNumber === 0) {
-    // First review after initial study
-    intervalDays = comprehensionRating === 1 ? 1 :
-      comprehensionRating === 2 ? 3 : 7;
+    intervalDays = 1;
+  } else if (reviewNumber === 1) {
+    intervalDays = comprehensionRating === 1 ? 1 : 6;
   } else {
-    // Subsequent reviews: multiply previous interval by ease factor
-    const previousInterval = reviewNumber === 1 ? 3 : 7 * Math.pow(newEaseFactor, reviewNumber - 1);
+    const previousInterval = 6 * Math.pow(newEaseFactor, reviewNumber - 2);
     intervalDays = Math.round(previousInterval * newEaseFactor);
   }
 
-  // Max 30 days between reviews (prevent forgetting)
   intervalDays = Math.min(intervalDays, 30);
 
-  // Calculate next review date
-  const lastDate = new Date(lastReviewDate);
-  lastDate.setDate(lastDate.getDate() + intervalDays);
-  const nextReviewDate = lastDate.toISOString().split('T')[0];
+  const [year, month, day] = lastReviewDate.split('-').map(Number);
+  const lastDate = new Date(Date.UTC(year, month - 1, day));
+  lastDate.setUTCDate(lastDate.getUTCDate() + intervalDays);
+  
+  const nextYear = lastDate.getUTCFullYear();
+  const nextMonth = String(lastDate.getUTCMonth() + 1).padStart(2, '0');
+  const nextDay = String(lastDate.getUTCDate()).padStart(2, '0');
+  const nextReviewDate = `${nextYear}-${nextMonth}-${nextDay}`;
 
   return { nextReviewDate, newEaseFactor };
 }

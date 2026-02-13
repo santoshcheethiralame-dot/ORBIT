@@ -33,6 +33,7 @@ import { AIStudyAssistant } from "./AIStudyAssistant";
 import { FrostedTile, FrostedMini, PageHeader, MetaText } from "./components";
 import { useSettings } from "./SettingsContext";
 import { SoundManager } from "./utils/sounds";
+import { onDataChange } from "./db";
 
 const getBreakDuration = (): number => {
   try {
@@ -130,6 +131,13 @@ export const FocusSession = ({
   const [showSettings, setShowSettings] = useState(false);
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([]);
 
+  useEffect(() => {
+    const cleanup = onDataChange(() => {
+      console.log('Data changed in another tab');
+    });
+    return cleanup;
+  }, []);
+
   const elapsedSeconds = block.duration * 60 - timeLeft;
   const canFinishEarly = elapsedSeconds >= 300;
   const currentTotal = isBreak ? BREAK_TOTAL : block.duration * 60;
@@ -159,6 +167,17 @@ export const FocusSession = ({
   }, []);
 
   useEffect(() => { if (isActive) setHasStarted(true); }, [isActive]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && isActive && !strictMode) {
+        setPausedAt(Date.now());
+        setIsActive(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isActive, strictMode]);
 
   const playChime = useCallback((type: 'start' | 'milestone' | 'complete' | 'break' | 'overtime') => {
     if (!soundEnabled) return;
