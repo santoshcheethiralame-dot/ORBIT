@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
+import { SettingsProvider } from './SettingsContext';
 import {
   LayoutGrid,
   BookOpen,
@@ -840,7 +841,9 @@ if (rootElement) {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <ToastProvider>
-      <App />
+      <SettingsProvider>
+        <App />
+      </SettingsProvider>
     </ToastProvider>
   );
 }

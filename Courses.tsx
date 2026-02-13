@@ -1,8 +1,15 @@
+// CoursesView_Enhanced.tsx – DASHBOARD DESIGN LANGUAGE APPLIED ✨
+// 🎨 Cohesive frosted glass morphism
+// 📚 Enhanced resource viewer with fullscreen
+// 💫 Smooth animations throughout
+// 🎯 Polished stat cards and interactions
+
 import React, { useEffect, useState } from "react";
 import {
   BookOpen, Award, FileText, Upload, Trash2, X, Search, Target,
   Clock, Download, CheckSquare, Square, Calculator, TrendingUp,
-  Link, ExternalLink, Plus, Edit2, StickyNote, Sparkles, Presentation
+  Link, ExternalLink, Plus, Edit2, StickyNote, Sparkles, Presentation,
+  Maximize2, Minimize2, ChevronLeft
 } from "lucide-react";
 import { db } from "./db";
 import { ResourceType } from "./types";
@@ -15,72 +22,74 @@ import { getAllReadinessScores, SubjectReadiness } from './brain';
 import { useToast } from './Toast';
 import { FrostedTile, FrostedMini, PageHeader, MetaText, getSubjectColor, SUBJECT_COLOR_CLASSES } from './components';
 
-// ✨ Enhanced Prediction Modal
+// ✨ Enhanced Prediction Modal with Dashboard Design
 const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300 p-6">
-    <div className="w-full max-w-lg bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
-      <div className="p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-indigo-500/10 to-transparent">
-        <div>
-          <h2 className="text-2xl font-bold text-white mb-1">📈 Readiness Predictor</h2>
-          <p className="text-sm text-zinc-500">Forecast your exam confidence</p>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
-        >
-          <X size={20} />
-        </button>
-      </div>
-
-      <div className="p-6 space-y-6">
-        <div>
-          <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2 font-bold">Subject</div>
-          <div className="text-xl font-bold text-white">{subject?.name || 'Unknown'}</div>
-        </div>
-
-        <div className="p-5 bg-white/5 border border-white/10 rounded-xl">
-          <div className="text-xs text-zinc-500 uppercase tracking-wider mb-3 font-bold">Current Readiness</div>
-          <div className="flex items-end gap-4">
-            <div className={`text-5xl font-bold font-mono tabular-nums ${currentReadiness?.status === 'critical' ? 'text-red-400' :
-                currentReadiness?.status === 'maintaining' ? 'text-yellow-400' :
-                  'text-emerald-400'
-              }`}>
-              {currentReadiness?.score || 0}%
-            </div>
-            <div className={`text-xs mb-2 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider ${currentReadiness?.status === 'critical' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
-                currentReadiness?.status === 'maintaining' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
-                  'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-              }`}>
-              {currentReadiness?.status || 'unknown'}
-            </div>
+    <div className="w-full max-w-lg animate-in slide-in-from-bottom-4 duration-500">
+      <FrostedTile className="overflow-hidden">
+        <div className="p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-indigo-500/10 to-transparent">
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-1">📈 Readiness Predictor</h2>
+            <p className="text-sm text-zinc-500">Forecast your exam confidence</p>
           </div>
-          {currentReadiness?.lastStudiedDays !== undefined && (
-            <div className="text-sm text-zinc-400 mt-4 flex items-center gap-2">
-              <Clock size={14} />
-              Last studied: {currentReadiness.lastStudiedDays === 0 ? 'Today' : `${currentReadiness.lastStudiedDays} days ago`}
-            </div>
-          )}
+          <button
+            onClick={onClose}
+            className="p-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        <div>
-          <div className="text-sm font-bold text-zinc-300 flex items-center gap-2 mb-3">
-            <TrendingUp size={16} className="text-emerald-400" />
-            Study 1h/day for 7 days:
+        <div className="p-6 space-y-6">
+          <div>
+            <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2 font-bold">Subject</div>
+            <div className="text-xl font-bold text-white">{subject?.name || 'Unknown'}</div>
           </div>
-          <div className="p-5 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 rounded-xl border border-emerald-500/20">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-emerald-300">Projected Readiness</span>
-              <span className="text-4xl font-bold text-emerald-400 tabular-nums">
-                {Math.min(100, (currentReadiness?.score || 0) + 25)}%
-              </span>
-            </div>
-          </div>
-        </div>
 
-        <div className="text-xs text-zinc-500 italic p-4 bg-zinc-800/30 rounded-xl border border-white/5">
-          💡 This is a simplified prediction. Actual results depend on comprehension, retention, and review quality.
+          <FrostedMini className="p-5 hover:border-white/15 hover:-translate-y-1">
+            <div className="text-xs text-zinc-500 uppercase tracking-wider mb-3 font-bold">Current Readiness</div>
+            <div className="flex items-end gap-4">
+              <div className={`text-5xl font-bold font-mono tabular-nums ${currentReadiness?.status === 'critical' ? 'text-red-400' :
+                  currentReadiness?.status === 'maintaining' ? 'text-yellow-400' :
+                    'text-emerald-400'
+                }`}>
+                {currentReadiness?.score || 0}%
+              </div>
+              <div className={`text-xs mb-2 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider ${currentReadiness?.status === 'critical' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                  currentReadiness?.status === 'maintaining' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
+                    'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                }`}>
+                {currentReadiness?.status || 'unknown'}
+              </div>
+            </div>
+            {currentReadiness?.lastStudiedDays !== undefined && (
+              <div className="text-sm text-zinc-400 mt-4 flex items-center gap-2">
+                <Clock size={14} />
+                Last studied: {currentReadiness.lastStudiedDays === 0 ? 'Today' : `${currentReadiness.lastStudiedDays} days ago`}
+              </div>
+            )}
+          </FrostedMini>
+
+          <div>
+            <div className="text-sm font-bold text-zinc-300 flex items-center gap-2 mb-3">
+              <TrendingUp size={16} className="text-emerald-400" />
+              Study 1h/day for 7 days:
+            </div>
+            <FrostedMini className="p-5 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border-emerald-500/20 hover:border-emerald-500/30 hover:-translate-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-emerald-300">Projected Readiness</span>
+                <span className="text-4xl font-bold text-emerald-400 tabular-nums">
+                  {Math.min(100, (currentReadiness?.score || 0) + 25)}%
+                </span>
+              </div>
+            </FrostedMini>
+          </div>
+
+          <div className="text-xs text-zinc-500 italic p-4 bg-zinc-800/30 rounded-xl border border-white/5">
+            💡 This is a simplified prediction. Actual results depend on comprehension, retention, and review quality.
+          </div>
         </div>
-      </div>
+      </FrostedTile>
     </div>
   </div>
 );
@@ -104,7 +113,7 @@ const isOfficeDoc = (type: string) =>
 const isPowerPoint = (type: string) =>
   type.includes("presentation") || type.includes("powerpoint") || type.includes(".ppt");
 
-export default function CoursesView_v2() {
+export default function CoursesView_Enhanced() {
   const subjects = useLiveQuery(() => db.subjects.toArray()) || [];
   const logs = useLiveQuery(() => db.logs.toArray()) || [];
   const toast = useToast();
@@ -121,6 +130,7 @@ export default function CoursesView_v2() {
   const [newLink, setNewLink] = useState({ title: "", url: "" });
   const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness>>({});
   const [showPrediction, setShowPrediction] = useState<number | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     const loadReadiness = async () => {
@@ -277,7 +287,6 @@ export default function CoursesView_v2() {
       return;
     }
 
-    // Always download office documents (including PowerPoint)
     if (isOfficeDoc(r.fileType)) {
       const link = document.createElement("a");
       link.href = url;
@@ -317,7 +326,17 @@ export default function CoursesView_v2() {
     setNewUnit("");
   };
 
-  // ✨ FIXED: Resource Viewer with fullscreen, auto-download PPT, and enhanced controls
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  // ✨ ENHANCED Resource Viewer with Dashboard Design
   if (selectedResource && selectedResource.type !== 'link') {
     const isPPT = isPowerPoint(selectedResource.fileType);
     const canPreview = !isPPT && (
@@ -326,121 +345,93 @@ export default function CoursesView_v2() {
       selectedResource.fileType?.startsWith("video")
     );
 
-    const [isFullscreen, setIsFullscreen] = React.useState(false);
-
-    const toggleFullscreen = () => {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-        setIsFullscreen(true);
-      } else {
-        document.exitFullscreen();
-        setIsFullscreen(false);
-      }
-    };
-
-    // Auto-download PPT files when opened
     React.useEffect(() => {
       if (isPPT && selectedResource) {
-        // Trigger download automatically
         openExternally(selectedResource);
       }
     }, [isPPT, selectedResource?.id]);
 
     return (
       <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center animate-in fade-in duration-300 p-4 md:p-8">
-        {/* Floating Header with Controls */}
+        {/* Floating Header with Dashboard Design */}
         <div className="fixed top-4 md:top-8 left-4 md:left-8 right-4 md:right-8 z-[60] flex items-center justify-between gap-4">
-          {/* Filename Badge */}
-          <div className="flex items-center gap-3 bg-zinc-900/90 backdrop-blur-xl border border-white/10 rounded-2xl px-4 md:px-6 py-3 md:py-4 min-w-0 flex-1 shadow-xl">
+          <FrostedTile className="flex items-center gap-3 px-4 md:px-6 py-3 md:py-4 min-w-0 flex-1 shadow-xl hover:border-white/15 transition-all">
             {isPPT && <Presentation size={18} className="text-orange-400 flex-shrink-0" />}
             <div className="font-bold truncate text-sm md:text-base text-white">{selectedResource.title}</div>
-          </div>
+          </FrostedTile>
 
-          {/* Control Buttons */}
           <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-            {/* Fullscreen Toggle */}
             <button
               onClick={toggleFullscreen}
-              className="p-3 md:p-4 bg-zinc-900/90 backdrop-blur-xl border border-white/10 rounded-2xl hover:bg-zinc-800 transition-all hover:scale-110 active:scale-95 duration-300 min-h-[48px] min-w-[48px] md:min-h-[56px] md:min-w-[56px] flex items-center justify-center text-zinc-300 hover:text-white shadow-xl"
-              title={isFullscreen ? "Exit Fullscreen (Esc)" : "Fullscreen"}
-            >
-              {isFullscreen ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
-                </svg>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-                </svg>
-              )}
+              className="p-3 md:p-4 min-h-[48px] min-w-[48px] md:min-h-[56px] md:min-w-[56px]">
+              <FrostedTile className="w-full h-full flex items-center justify-center text-zinc-300 hover:text-white hover:border-white/20 hover:-translate-y-1 transition-all">
+                {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+              </FrostedTile>
             </button>
 
-            {/* Close Button */}
             <button
               onClick={() => setSelectedResource(null)}
-              className="p-3 md:p-4 bg-zinc-900/90 backdrop-blur-xl border border-white/10 rounded-2xl hover:bg-zinc-800 transition-all hover:scale-110 active:scale-95 duration-300 min-h-[48px] min-w-[48px] md:min-h-[56px] md:min-w-[56px] flex items-center justify-center text-zinc-300 hover:text-white shadow-xl"
-              title="Close (Esc)"
-            >
-              <X size={22} />
+              className="p-3 md:p-4 min-h-[48px] min-w-[48px] md:min-h-[56px] md:min-w-[56px]">
+              <FrostedTile className="w-full h-full flex items-center justify-center text-zinc-300 hover:text-white hover:border-red-500/30 hover:-translate-y-1 transition-all">
+                <X size={22} />
+              </FrostedTile>
             </button>
           </div>
         </div>
 
-        {/* Centered Content Container */}
-        <div className="w-full max-w-6xl h-[85vh] bg-zinc-900 rounded-3xl border border-white/10 flex flex-col shadow-2xl overflow-hidden my-auto">
-          {/* Content Area */}
-          <div className="flex-1 bg-zinc-950 p-4 md:p-6 rounded-3xl overflow-hidden flex items-center justify-center min-h-0">
-            {isPPT ? (
-              <div className="flex flex-col items-center justify-center text-center max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="w-24 h-24 md:w-28 md:h-28 rounded-3xl bg-gradient-to-br from-orange-500/20 to-orange-600/20 flex items-center justify-center mb-8 border border-orange-500/30 shadow-lg shadow-orange-500/20 animate-in zoom-in duration-700">
-                  <Presentation size={48} className="text-orange-400" />
+        {/* Content Container */}
+        <div className="w-full max-w-6xl h-[85vh] my-auto">
+          <FrostedTile className="h-full flex flex-col overflow-hidden">
+            <div className="flex-1 bg-zinc-950 p-4 md:p-6 rounded-3xl overflow-hidden flex items-center justify-center min-h-0">
+              {isPPT ? (
+                <div className="flex flex-col items-center justify-center text-center max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="w-24 h-24 md:w-28 md:h-28 rounded-3xl bg-gradient-to-br from-orange-500/20 to-orange-600/20 flex items-center justify-center mb-8 border border-orange-500/30 shadow-lg shadow-orange-500/20 animate-in zoom-in duration-700">
+                    <Presentation size={48} className="text-orange-400" />
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">PowerPoint Presentation</h3>
+                  <p className="text-sm md:text-base text-zinc-400 mb-8 leading-relaxed">
+                    Your download should start automatically. If it doesn't, click the button below.
+                  </p>
+                  <button
+                    onClick={() => openExternally(selectedResource)}
+                    className="px-8 md:px-10 py-4 md:py-5 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 rounded-2xl transition-all font-bold text-base md:text-lg border border-indigo-500/30 hover:scale-105 active:scale-95 duration-300 flex items-center justify-center gap-3 min-h-[64px] shadow-lg hover:shadow-indigo-500/20"
+                  >
+                    <Download size={22} />
+                    Download Presentation
+                  </button>
                 </div>
-                <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">PowerPoint Presentation</h3>
-                <p className="text-sm md:text-base text-zinc-400 mb-8 leading-relaxed">
-                  Your download should start automatically. If it doesn't, click the button below to download.
-                </p>
-                <button
-                  onClick={() => openExternally(selectedResource)}
-                  className="px-8 md:px-10 py-4 md:py-5 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 rounded-2xl transition-all font-bold text-base md:text-lg border border-indigo-500/30 hover:scale-105 active:scale-95 duration-300 flex items-center justify-center gap-3 min-h-[64px] shadow-lg hover:shadow-indigo-500/20"
-                >
-                  <Download size={22} />
-                  Download Presentation
-                </button>
-                <div className="flex items-center gap-2 text-xs text-zinc-600 bg-zinc-900/50 px-5 py-3 rounded-xl border border-zinc-800 mt-8">
-                  <span className="font-mono">{selectedResource.fileType}</span>
-                </div>
-              </div>
-            ) : canPreview ? (
-              selectedResource.fileType.includes("pdf") ? (
-                <iframe src={previewUrl ?? ""} className="w-full h-full bg-white rounded-2xl shadow-2xl" />
-              ) : selectedResource.fileType.startsWith("image") ? (
-                <img src={previewUrl ?? ""} className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl" />
+              ) : canPreview ? (
+                selectedResource.fileType.includes("pdf") ? (
+                  <iframe src={previewUrl ?? ""} className="w-full h-full bg-white rounded-2xl shadow-2xl" />
+                ) : selectedResource.fileType.startsWith("image") ? (
+                  <img src={previewUrl ?? ""} className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl" />
+                ) : (
+                  <video src={previewUrl ?? ""} controls className="max-w-full max-h-full rounded-2xl shadow-2xl" />
+                )
               ) : (
-                <video src={previewUrl ?? ""} controls className="max-w-full max-h-full rounded-2xl shadow-2xl" />
-              )
-            ) : (
-              <div className="flex flex-col items-center justify-center text-center max-w-md">
-                <div className="w-24 h-24 md:w-28 md:h-28 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-8 shadow-lg">
-                  <FileText size={48} className="text-zinc-600" />
+                <div className="flex flex-col items-center justify-center text-center max-w-md animate-in fade-in duration-300">
+                  <div className="w-24 h-24 md:w-28 md:h-28 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-8 shadow-lg">
+                    <FileText size={48} className="text-zinc-600" />
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-bold text-white mb-3">Preview not supported</h3>
+                  <p className="text-sm md:text-base text-zinc-500 mb-8 leading-relaxed">This file type cannot be previewed in the browser</p>
+                  <button
+                    onClick={() => openExternally(selectedResource)}
+                    className="px-8 md:px-10 py-4 md:py-5 bg-indigo-500/20 hover:bg-indigo-500/30 rounded-2xl transition-all font-bold text-base border border-indigo-500/30 hover:scale-105 active:scale-95 duration-300 flex items-center justify-center gap-3 min-h-[64px]"
+                  >
+                    <Download size={22} />
+                    Download File
+                  </button>
                 </div>
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-3">Preview not supported</h3>
-                <p className="text-sm md:text-base text-zinc-500 mb-8 leading-relaxed">This file type cannot be previewed in the browser</p>
-                <button
-                  onClick={() => openExternally(selectedResource)}
-                  className="px-8 md:px-10 py-4 md:py-5 bg-indigo-500/20 hover:bg-indigo-500/30 rounded-2xl transition-all font-bold text-base border border-indigo-500/30 hover:scale-105 active:scale-95 duration-300 flex items-center justify-center gap-3 min-h-[64px]"
-                >
-                  <Download size={22} />
-                  Download File
-                </button>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          </FrostedTile>
         </div>
       </div>
     );
   }
 
-  // Subject Detail View
+  // Subject Detail View with Enhanced Dashboard Design
   if (selectedSubject) {
     const subjectColor = getSubjectColor(selectedSubject.id!);
     const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
@@ -450,17 +441,18 @@ export default function CoursesView_v2() {
       <div className="pb-32 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
         <button
           onClick={() => setSelectedSubjectId(null)}
-          className="mb-6 flex items-center gap-2 text-sm font-bold text-zinc-400 hover:text-white transition"
+          className="mb-6 flex items-center gap-2 text-sm font-bold text-zinc-400 hover:text-white transition-all hover:-translate-x-1 min-h-[44px]"
         >
-          ← Back to Courses
+          <ChevronLeft size={16} />
+          <span>Back to Courses</span>
         </button>
 
-        {/* Header */}
+        {/* Enhanced Header */}
         <div className="flex items-center gap-4 md:gap-6 mb-8">
-          <div className={`w-16 h-16 md:w-20 md:h-20 ${colorClasses.bg} rounded-3xl flex items-center justify-center font-bold text-black text-xl md:text-2xl shadow-xl shrink-0`}>
+          <div className={`w-16 h-16 md:w-20 md:h-20 ${colorClasses.bg} rounded-3xl flex items-center justify-center font-bold text-black text-xl md:text-2xl shadow-xl shrink-0 animate-in zoom-in duration-500`}>
             {getInitials(selectedSubject.name)}
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 animate-in slide-in-from-left duration-500">
             <h1 className="text-3xl md:text-5xl font-bold font-display mb-2 truncate">{selectedSubject.name || "Untitled"}</h1>
             <div className="text-zinc-400 text-sm md:text-base flex items-center gap-2 md:gap-3 flex-wrap">
               <span className="font-mono font-semibold">{selectedSubject.code || "NO CODE"}</span>
@@ -470,7 +462,7 @@ export default function CoursesView_v2() {
           </div>
         </div>
 
-        {/* ✨ Enhanced Stats Grid with Icon Tiles */}
+        {/* Enhanced Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-10">
           {[
             { label: "Progress", value: `${computeProgress(selectedSubject)}%`, color: "indigo", icon: Target },
@@ -480,7 +472,7 @@ export default function CoursesView_v2() {
           ].map((stat, i) => {
             const Icon = stat.icon;
             return (
-              <FrostedTile key={i} className="p-4 md:p-6 group hover:border-indigo-500/30 hover:-translate-y-1">
+              <FrostedTile key={i} className="p-4 md:p-6 group hover:border-indigo-500/30 hover:-translate-y-1 animate-in fade-in duration-300" style={{ animationDelay: `${i * 50}ms` }}>
                 <div className={`absolute inset-0 bg-gradient-to-br from-${stat.color}-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
                 <div className="relative z-10">
                   <div className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-${stat.color}-500/20 flex items-center justify-center mb-3 md:mb-4 text-${stat.color}-400 group-hover:scale-110 transition-transform duration-500 border border-${stat.color}-500/30 shadow-lg shadow-${stat.color}-500/10`}>
@@ -499,8 +491,8 @@ export default function CoursesView_v2() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
 
-          {/* ✨ Enhanced Syllabus Section */}
-          <FrostedTile className="p-6 md:p-8 hover:border-indigo-500/30 hover:-translate-y-1">
+          {/* Enhanced Syllabus Section */}
+          <FrostedTile className="p-6 md:p-8 hover:border-indigo-500/30 hover:-translate-y-1 animate-in fade-in slide-in-from-left duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="relative z-10">
               <div className="flex items-center gap-4 mb-6">
@@ -515,19 +507,24 @@ export default function CoursesView_v2() {
                 <EmptySyllabus />
               ) : (
                 <div className="space-y-2 mb-6 max-h-[400px] overflow-y-auto">
-                  {(selectedSubject.syllabus || []).map((u: any) => (
+                  {(selectedSubject.syllabus || []).map((u: any, i: number) => (
                     <div
                       key={u.id}
-                      className="flex items-center gap-3 md:gap-4 cursor-pointer hover:bg-white/5 p-3 md:p-4 rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 min-h-[56px] md:min-h-[64px] group"
-                      onClick={() => toggleSyllabus(u)}
+                      className="animate-in fade-in slide-in-from-left duration-300"
+                      style={{ animationDelay: `${i * 30}ms` }}
                     >
-                      {u.completed ?
-                        <CheckSquare className="text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" size={20} /> :
-                        <Square size={20} className="text-zinc-600 shrink-0 group-hover:scale-110 transition-transform" />
-                      }
-                      <span className={`text-sm md:text-base font-medium ${u.completed ? "line-through text-zinc-500" : "text-zinc-300"}`}>
-                        {u.title}
-                      </span>
+                      <FrostedMini
+                        onClick={() => toggleSyllabus(u)}
+                        className="flex items-center gap-3 md:gap-4 cursor-pointer hover:bg-white/5 p-3 md:p-4 hover:scale-[1.02] active:scale-[0.98] duration-300 min-h-[56px] md:min-h-[64px] group hover:-translate-y-0.5"
+                      >
+                        {u.completed ?
+                          <CheckSquare className="text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" size={20} /> :
+                          <Square size={20} className="text-zinc-600 shrink-0 group-hover:scale-110 transition-transform" />
+                        }
+                        <span className={`text-sm md:text-base font-medium ${u.completed ? "line-through text-zinc-500" : "text-zinc-300"}`}>
+                          {u.title}
+                        </span>
+                      </FrostedMini>
                     </div>
                   ))}
                 </div>
@@ -555,8 +552,8 @@ export default function CoursesView_v2() {
             </div>
           </FrostedTile>
 
-          {/* ✨ Enhanced Grades Section */}
-          <FrostedTile className="p-6 md:p-8 hover:border-emerald-500/30 hover:-translate-y-1">
+          {/* Enhanced Grades Section */}
+          <FrostedTile className="p-6 md:p-8 hover:border-emerald-500/30 hover:-translate-y-1 animate-in fade-in slide-in-from-right duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-6">
@@ -576,35 +573,43 @@ export default function CoursesView_v2() {
               </div>
 
               {showGradeForm && (
-                <div className="mb-6 p-4 md:p-6 bg-zinc-900/60 rounded-2xl space-y-3 md:space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 border border-zinc-800">
-                  <input
-                    placeholder="Type (e.g., ISA-1, Quiz 2)"
-                    value={newGrade.type}
-                    onChange={(e) => setNewGrade({ ...newGrade, type: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all min-h-[56px] md:min-h-[64px]"
-                  />
+                <div className="mb-6 p-4 md:p-6 space-y-3 md:space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <FrostedMini>
+                    <input
+                      placeholder="Type (e.g., ISA-1, Quiz 2)"
+                      value={newGrade.type}
+                      onChange={(e) => setNewGrade({ ...newGrade, type: e.target.value })}
+                      className="w-full bg-transparent px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none min-h-[56px] md:min-h-[64px]"
+                    />
+                  </FrostedMini>
                   <div className="grid grid-cols-2 gap-3 md:gap-4">
-                    <input
-                      type="number"
-                      placeholder="Score"
-                      value={newGrade.score}
-                      onChange={(e) => setNewGrade({ ...newGrade, score: e.target.value })}
-                      className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all min-h-[56px] md:min-h-[64px]"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Max (100)"
-                      value={newGrade.maxScore}
-                      onChange={(e) => setNewGrade({ ...newGrade, maxScore: e.target.value })}
-                      className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all min-h-[56px] md:min-h-[64px]"
-                    />
+                    <FrostedMini>
+                      <input
+                        type="number"
+                        placeholder="Score"
+                        value={newGrade.score}
+                        onChange={(e) => setNewGrade({ ...newGrade, score: e.target.value })}
+                        className="w-full bg-transparent px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none min-h-[56px] md:min-h-[64px]"
+                      />
+                    </FrostedMini>
+                    <FrostedMini>
+                      <input
+                        type="number"
+                        placeholder="Max (100)"
+                        value={newGrade.maxScore}
+                        onChange={(e) => setNewGrade({ ...newGrade, maxScore: e.target.value })}
+                        className="w-full bg-transparent px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none min-h-[56px] md:min-h-[64px]"
+                      />
+                    </FrostedMini>
                   </div>
-                  <input
-                    type="date"
-                    value={newGrade.date}
-                    onChange={(e) => setNewGrade({ ...newGrade, date: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 md:px-5 py-3 md:py-4 text-sm md:text-base font-mono outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all min-h-[56px] md:min-h-[64px]"
-                  />
+                  <FrostedMini>
+                    <input
+                      type="date"
+                      value={newGrade.date}
+                      onChange={(e) => setNewGrade({ ...newGrade, date: e.target.value })}
+                      className="w-full bg-transparent px-4 md:px-5 py-3 md:py-4 text-sm md:text-base font-mono outline-none min-h-[56px] md:min-h-[64px]"
+                    />
+                  </FrostedMini>
                   <button
                     onClick={addGrade}
                     className="w-full py-3 md:py-4 bg-emerald-500/20 hover:bg-emerald-500/30 rounded-2xl font-bold text-sm md:text-base transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 border border-emerald-500/30 min-h-[56px] md:min-h-[64px]"
@@ -618,27 +623,33 @@ export default function CoursesView_v2() {
                 <EmptyGrades />
               ) : (
                 <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                  {(selectedSubject.grades || []).map((g: any) => (
-                    <FrostedMini key={g.id} className="flex justify-between items-center hover:bg-zinc-800 hover:scale-[1.02] min-h-[72px] md:min-h-[80px]">
-                      <div>
-                        <div className="font-bold text-sm md:text-base mb-1">{g.type}</div>
-                        <div className="text-xs text-zinc-500 uppercase tracking-wider font-mono">{g.date}</div>
-                      </div>
-                      <div className="text-xl md:text-2xl font-mono font-bold tabular-nums">
-                        {g.score}<span className="text-zinc-500 text-base md:text-lg">/{g.maxScore}</span>
-                        <span className="text-xs md:text-sm text-emerald-400 ml-2 md:ml-3 bg-emerald-500/10 px-2 md:px-3 py-1 md:py-1.5 rounded-xl">
-                          {((g.score / g.maxScore) * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                    </FrostedMini>
+                  {(selectedSubject.grades || []).map((g: any, i: number) => (
+                    <div
+                      key={g.id}
+                      className="animate-in fade-in slide-in-from-right duration-300"
+                      style={{ animationDelay: `${i * 30}ms` }}
+                    >
+                      <FrostedMini className="flex justify-between items-center hover:bg-zinc-800 hover:scale-[1.02] min-h-[72px] md:min-h-[80px]">
+                        <div>
+                          <div className="font-bold text-sm md:text-base mb-1">{g.type}</div>
+                          <div className="text-xs text-zinc-500 uppercase tracking-wider font-mono">{g.date}</div>
+                        </div>
+                        <div className="text-xl md:text-2xl font-mono font-bold tabular-nums">
+                          {g.score}<span className="text-zinc-500 text-base md:text-lg">/{g.maxScore}</span>
+                          <span className="text-xs md:text-sm text-emerald-400 ml-2 md:ml-3 bg-emerald-500/10 px-2 md:px-3 py-1 md:py-1.5 rounded-xl">
+                            {((g.score / g.maxScore) * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      </FrostedMini>
+                    </div>
                   ))}
                 </div>
               )}
             </div>
           </FrostedTile>
 
-          {/* ✨ Enhanced Resources Section */}
-          <FrostedTile className="lg:col-span-2 p-6 md:p-8 hover:border-purple-500/30 hover:-translate-y-1">
+          {/* Enhanced Resources Section */}
+          <FrostedTile className="lg:col-span-2 p-6 md:p-8 hover:border-purple-500/30 hover:-translate-y-1 animate-in fade-in duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="relative z-10">
               <div className="flex items-center gap-4 mb-6">
@@ -653,45 +664,53 @@ export default function CoursesView_v2() {
                 <EmptyResources />
               ) : (
                 <div className="space-y-3 mb-6 md:mb-8 max-h-[400px] overflow-y-auto">
-                  {(selectedSubject.resources || []).map((r: any) => (
-                    <div key={r.id} className="flex items-center justify-between p-4 md:p-5 bg-zinc-900 rounded-2xl hover:bg-zinc-800 transition-all group border border-zinc-800/50 hover:scale-[1.01] duration-300 min-h-[64px] md:min-h-[72px]">
-                      <div
-                        className="flex items-center gap-3 md:gap-4 flex-1 cursor-pointer min-w-0"
-                        onClick={() => r.type === 'link' ? openExternally(r) : setSelectedResource(r)}
-                      >
-                        {r.type === 'link' ? (
-                          <Link size={20} className="text-cyan-400 shrink-0" />
-                        ) : isPowerPoint(r.fileType) ? (
-                          <Presentation size={20} className="text-orange-400 shrink-0" />
-                        ) : (
-                          <FileText size={20} className="text-purple-400 shrink-0" />
-                        )}
-                        <span className="truncate text-sm md:text-base font-medium">{r.title}</span>
-                      </div>
-                      <div className="flex items-center gap-3 md:gap-4 shrink-0">
-                        {r.type === 'link' && (
-                          <ExternalLink size={16} className="text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        )}
-                        <button
-                          onClick={() => removeResource(r.id)}
-                          className="p-2 hover:bg-red-500/10 rounded-xl transition-all opacity-0 group-hover:opacity-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  {(selectedSubject.resources || []).map((r: any, i: number) => (
+                    <div
+                      key={r.id}
+                      className="animate-in fade-in slide-in-from-bottom duration-300"
+                      style={{ animationDelay: `${i * 30}ms` }}
+                    >
+                      <FrostedMini className="flex items-center justify-between p-4 md:p-5 hover:bg-zinc-800 transition-all group border-zinc-800/50 hover:scale-[1.01] duration-300 min-h-[64px] md:min-h-[72px] hover:-translate-y-0.5">
+                        <div
+                          className="flex items-center gap-3 md:gap-4 flex-1 cursor-pointer min-w-0"
+                          onClick={() => r.type === 'link' ? openExternally(r) : setSelectedResource(r)}
                         >
-                          <Trash2 size={16} className="text-red-400" />
-                        </button>
-                      </div>
+                          {r.type === 'link' ? (
+                            <Link size={20} className="text-cyan-400 shrink-0" />
+                          ) : isPowerPoint(r.fileType) ? (
+                            <Presentation size={20} className="text-orange-400 shrink-0" />
+                          ) : (
+                            <FileText size={20} className="text-purple-400 shrink-0" />
+                          )}
+                          <span className="truncate text-sm md:text-base font-medium">{r.title}</span>
+                        </div>
+                        <div className="flex items-center gap-3 md:gap-4 shrink-0">
+                          {r.type === 'link' && (
+                            <ExternalLink size={16} className="text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          )}
+                          <button
+                            onClick={() => removeResource(r.id)}
+                            className="p-2 hover:bg-red-500/10 rounded-xl transition-all opacity-0 group-hover:opacity-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                          >
+                            <Trash2 size={16} className="text-red-400" />
+                          </button>
+                        </div>
+                      </FrostedMini>
                     </div>
                   ))}
                 </div>
               )}
 
               <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
-                <label className="flex-1 px-4 md:px-6 py-4 md:py-5 text-sm md:text-base text-center rounded-2xl border border-white/10 hover:border-indigo-500/40 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 font-semibold min-h-[56px] md:min-h-[64px] flex items-center justify-center gap-2 md:gap-3">
-                  <input type="file" multiple hidden onChange={async (e: any) => {
-                    const files = Array.from((e.target?.files || [])) as File[];
-                    for (const f of files) await processAndSaveFile(f);
-                  }} />
-                  <Upload size={20} />
-                  <span>Upload Files</span>
+                <label className="flex-1">
+                  <FrostedTile className="px-4 md:px-6 py-4 md:py-5 text-sm md:text-base text-center cursor-pointer hover:border-indigo-500/40 transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 font-semibold min-h-[56px] md:min-h-[64px] flex items-center justify-center gap-2 md:gap-3 hover:-translate-y-1">
+                    <input type="file" multiple hidden onChange={async (e: any) => {
+                      const files = Array.from((e.target?.files || [])) as File[];
+                      for (const f of files) await processAndSaveFile(f);
+                    }} />
+                    <Upload size={20} />
+                    <span>Upload Files</span>
+                  </FrostedTile>
                 </label>
 
                 <button
@@ -704,19 +723,23 @@ export default function CoursesView_v2() {
               </div>
 
               {showLinkForm && (
-                <div className="mt-6 p-4 md:p-6 bg-zinc-900/60 rounded-2xl space-y-3 md:space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 border border-zinc-800">
-                  <input
-                    placeholder="Link title"
-                    value={newLink.title}
-                    onChange={(e) => setNewLink({ ...newLink, title: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all min-h-[56px] md:min-h-[64px]"
-                  />
-                  <input
-                    placeholder="URL"
-                    value={newLink.url}
-                    onChange={(e) => setNewLink({ ...newLink, url: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all min-h-[56px] md:min-h-[64px]"
-                  />
+                <div className="mt-6 p-4 md:p-6 space-y-3 md:space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <FrostedMini>
+                    <input
+                      placeholder="Link title"
+                      value={newLink.title}
+                      onChange={(e) => setNewLink({ ...newLink, title: e.target.value })}
+                      className="w-full bg-transparent px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none min-h-[56px] md:min-h-[64px]"
+                    />
+                  </FrostedMini>
+                  <FrostedMini>
+                    <input
+                      placeholder="URL"
+                      value={newLink.url}
+                      onChange={(e) => setNewLink({ ...newLink, url: e.target.value })}
+                      className="w-full bg-transparent px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none min-h-[56px] md:min-h-[64px]"
+                    />
+                  </FrostedMini>
                   <button
                     onClick={addWebLink}
                     className="w-full py-3 md:py-4 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-2xl font-bold text-sm md:text-base transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 border border-cyan-500/30 min-h-[56px] md:min-h-[64px]"
@@ -728,8 +751,8 @@ export default function CoursesView_v2() {
             </div>
           </FrostedTile>
 
-          {/* ✨ Enhanced Session Notes */}
-          <FrostedTile className="lg:col-span-2 p-6 md:p-8 hover:border-amber-500/30 hover:-translate-y-1">
+          {/* Enhanced Session Notes */}
+          <FrostedTile className="lg:col-span-2 p-6 md:p-8 hover:border-amber-500/30 hover:-translate-y-1 animate-in fade-in duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="relative z-10">
               <div className="flex items-center gap-4 mb-6">
@@ -751,30 +774,33 @@ export default function CoursesView_v2() {
                 }
 
                 return (
-                  <div className="space-y-4 max-h-[500px] overflow-y-auto pr-3 custom-scrollbar">
-                    {subjectLogs.map((log) => (
+                  <div className="space-y-4 max-h-[500px] overflow-y-auto pr-3">
+                    {subjectLogs.map((log, i) => (
                       <div
                         key={log.id}
-                        className="p-4 md:p-6 bg-zinc-900/40 rounded-2xl border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300"
+                        className="animate-in fade-in slide-in-from-bottom duration-300"
+                        style={{ animationDelay: `${i * 30}ms` }}
                       >
-                        <div className="flex items-center justify-between mb-3 md:mb-4">
-                          <div className="flex items-center gap-2 md:gap-3 text-xs font-bold uppercase tracking-wider text-zinc-500">
-                            <span className="font-mono">{log.date}</span>
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
-                            <span className="text-amber-500/80">{log.type}</span>
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
-                            <span>{log.duration}m</span>
+                        <FrostedMini className="p-4 md:p-6 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300">
+                          <div className="flex items-center justify-between mb-3 md:mb-4">
+                            <div className="flex items-center gap-2 md:gap-3 text-xs font-bold uppercase tracking-wider text-zinc-500">
+                              <span className="font-mono">{log.date}</span>
+                              <span className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
+                              <span className="text-amber-500/80">{log.type}</span>
+                              <span className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
+                              <span>{log.duration}m</span>
+                            </div>
+                            <span className="text-xs font-mono text-zinc-600">
+                              {new Date(log.timestamp).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
                           </div>
-                          <span className="text-xs font-mono text-zinc-600">
-                            {new Date(log.timestamp).toLocaleTimeString('en-US', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
-                        </div>
-                        <p className="text-sm md:text-base text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                          {log.notes}
-                        </p>
+                          <p className="text-sm md:text-base text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                            {log.notes}
+                          </p>
+                        </FrostedMini>
                       </div>
                     ))}
                   </div>
@@ -787,7 +813,7 @@ export default function CoursesView_v2() {
     );
   }
 
-  // MAIN COURSES GRID
+  // MAIN COURSES GRID with Enhanced Design
   const filtered = subjects
     .filter((s) =>
       (s.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -823,8 +849,8 @@ export default function CoursesView_v2() {
         />
       )}
 
-      {/* Search & Sort */}
-      <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
+      {/* Enhanced Search & Sort */}
+      <div className="flex flex-col sm:flex-row gap-3 md:gap-4 animate-in fade-in duration-300">
         <div className="relative flex-1">
           <Search className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
           <input
@@ -868,7 +894,7 @@ export default function CoursesView_v2() {
         )
       ) : (
         <div className="grid md:grid-cols-2 gap-6 md:gap-8">
-          {filtered.map((s) => {
+          {filtered.map((s, i) => {
             const subjectColor = getSubjectColor(s.id!);
             const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
             const progress = computeProgress(s);
@@ -878,7 +904,8 @@ export default function CoursesView_v2() {
               <FrostedTile
                 key={s.id}
                 onClick={() => setSelectedSubjectId(s.id!)}
-                className="p-6 md:p-8 cursor-pointer hover:border-indigo-500/30 hover:-translate-y-1 shadow-lg hover:shadow-2xl hover:shadow-indigo-500/10"
+                className="p-6 md:p-8 cursor-pointer hover:border-indigo-500/30 hover:-translate-y-1 shadow-lg hover:shadow-2xl hover:shadow-indigo-500/10 animate-in fade-in duration-300"
+                style={{ animationDelay: `${i * 50}ms` }}
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 

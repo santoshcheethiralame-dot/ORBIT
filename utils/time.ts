@@ -1,4 +1,4 @@
-// utils/time.ts — FINAL PRODUCTION VERSION
+// utils/time.ts — ENHANCED WITH SETTINGS INTEGRATION
 /**
  * IST Time Management Utilities
  * Handles configurable day start logic (0–6 AM)
@@ -12,15 +12,26 @@
 -------------------------------------------------------- */
 
 /**
- * Read user-configured day start hour safely
+ * Read user-configured day start hour safely from settings
  */
 function getDayStartHour(): number {
   try {
+    // Try new settings location first
+    const settingsSaved = localStorage.getItem("orbit-settings-v2");
+    if (settingsSaved) {
+      const settings = JSON.parse(settingsSaved);
+      const hour = settings?.study?.dayStartHour;
+      if (typeof hour === "number" && hour >= 0 && hour <= 23) {
+        return hour;
+      }
+    }
+
+    // Fallback to old location for backward compatibility
     const saved = localStorage.getItem("orbit-prefs");
     if (saved) {
       const parsed = JSON.parse(saved);
       const hour = parsed?.dayStartHour;
-      if (typeof hour === "number" && hour >= 0 && hour <= 6) {
+      if (typeof hour === "number" && hour >= 0 && hour <= 23) {
         return hour;
       }
     }
@@ -223,3 +234,8 @@ export function debugISTInfo(): void {
     timeUntilRollover: info.timeUntilRollover,
   });
 }
+
+/**
+ * Export getDayStartHour for backward compatibility with brain.ts
+ */
+export { getDayStartHour };
