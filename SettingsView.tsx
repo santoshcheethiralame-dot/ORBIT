@@ -803,42 +803,6 @@ export const SettingsView = () => {
           )}
         </SettingSection>
 
-        {/* Display Settings */}
-        <SettingSection
-          id="display"
-          title="Display Settings"
-          subtitle="VISUAL PREFERENCES"
-          icon={Sparkles}
-          variant="cyan"
-        >
-          <div className="space-y-3">
-            {[
-              { key: 'compactMode', label: 'Compact Mode', desc: 'Reduce spacing for more content' },
-              { key: 'animationsEnabled', label: 'Animations', desc: 'Enable smooth transitions' },
-              { key: 'showProgressPercentage', label: 'Show Progress %', desc: 'Display percentage in progress bars' },
-            ].map((item, i) => (
-              <FrostedMini key={item.key} variant="cyan" style={{ animationDelay: `${i * 50}ms` }}>
-                <label className="flex items-center justify-between cursor-pointer p-4 md:p-5 group/toggle hover:bg-white/[0.01] transition-all">
-                  <div className="flex-1">
-                    <div className="font-semibold text-white text-sm md:text-base">{item.label}</div>
-                    <div className="text-xs text-zinc-500 mt-0.5">{item.desc}</div>
-                  </div>
-                  <ToggleSwitch
-                    checked={(settings.display as any)[item.key]}
-                    onChange={(checked) => {
-                      updateSetting(`display.${item.key}`, checked);
-                      if (item.key === 'animationsEnabled') {
-                        toast.info(checked ? 'Animations enabled' : 'Animations disabled');
-                      }
-                    }}
-                    variant="cyan"
-                  />
-                </label>
-              </FrostedMini>
-            ))}
-          </div>
-        </SettingSection>
-
         {/* Privacy Settings */}
         <SettingSection
           id="privacy"

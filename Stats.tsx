@@ -119,65 +119,65 @@ const Sparkline: React.FC<{
   showDots = false,
   className = "",
 }) => {
-  const max = Math.max(...data, 1);
-  const points = data.map((v, i) => {
-    const x = (i / (data.length - 1 || 1)) * width;
-    const y = height - (v / max) * (height - 6) - 3;
-    return [x, y];
-  });
-  const d = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p[0]} ${p[1]}`).join(" ");
+    const max = Math.max(...data, 1);
+    const points = data.map((v, i) => {
+      const x = (i / (data.length - 1 || 1)) * width;
+      const y = height - (v / max) * (height - 6) - 3;
+      return [x, y];
+    });
+    const d = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p[0]} ${p[1]}`).join(" ");
 
-  return (
-    <svg
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      className={`inline-block ${className}`}
-    >
-      <defs>
-        <linearGradient id="spark" x1="0" x2="1">
-          <stop offset="0" stopColor="#7dd3fc" />
-          <stop offset="1" stopColor="#c084fc" />
-        </linearGradient>
-        <linearGradient id="sparkGreen" x1="0" x2="1">
-          <stop offset="0" stopColor="#34d399" />
-          <stop offset="1" stopColor="#10b981" />
-        </linearGradient>
-        <linearGradient id="sparkRed" x1="0" x2="1">
-          <stop offset="0" stopColor="#f87171" />
-          <stop offset="1" stopColor="#ef4444" />
-        </linearGradient>
-        <linearGradient id="sparkAmber" x1="0" x2="1">
-          <stop offset="0" stopColor="#fbbf24" />
-          <stop offset="1" stopColor="#f59e0b" />
-        </linearGradient>
-        <linearGradient id="sparkPurple" x1="0" x2="1">
-          <stop offset="0" stopColor="#a78bfa" />
-          <stop offset="1" stopColor="#8b5cf6" />
-        </linearGradient>
-      </defs>
-      <path
-        d={d}
-        fill="none"
-        stroke={color}
-        strokeWidth={2.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="drop-shadow-[0_2px_8px_rgba(139,92,246,0.3)]"
-      />
-      {showDots && points.map((p, i) => (
-        <circle
-          key={i}
-          cx={p[0]}
-          cy={p[1]}
-          r={2.5}
-          fill={color === "url(#spark)" ? "#c084fc" : color}
-          className="opacity-90 drop-shadow-[0_0_6px_rgba(192,132,252,0.6)]"
+    return (
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        className={`inline-block ${className}`}
+      >
+        <defs>
+          <linearGradient id="spark" x1="0" x2="1">
+            <stop offset="0" stopColor="#7dd3fc" />
+            <stop offset="1" stopColor="#c084fc" />
+          </linearGradient>
+          <linearGradient id="sparkGreen" x1="0" x2="1">
+            <stop offset="0" stopColor="#34d399" />
+            <stop offset="1" stopColor="#10b981" />
+          </linearGradient>
+          <linearGradient id="sparkRed" x1="0" x2="1">
+            <stop offset="0" stopColor="#f87171" />
+            <stop offset="1" stopColor="#ef4444" />
+          </linearGradient>
+          <linearGradient id="sparkAmber" x1="0" x2="1">
+            <stop offset="0" stopColor="#fbbf24" />
+            <stop offset="1" stopColor="#f59e0b" />
+          </linearGradient>
+          <linearGradient id="sparkPurple" x1="0" x2="1">
+            <stop offset="0" stopColor="#a78bfa" />
+            <stop offset="1" stopColor="#8b5cf6" />
+          </linearGradient>
+        </defs>
+        <path
+          d={d}
+          fill="none"
+          stroke={color}
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="drop-shadow-[0_2px_8px_rgba(139,92,246,0.3)]"
         />
-      ))}
-    </svg>
-  );
-};
+        {showDots && points.map((p, i) => (
+          <circle
+            key={i}
+            cx={p[0]}
+            cy={p[1]}
+            r={2.5}
+            fill={color === "url(#spark)" ? "#c084fc" : color}
+            className="opacity-90 drop-shadow-[0_0_6px_rgba(192,132,252,0.6)]"
+          />
+        ))}
+      </svg>
+    );
+  };
 
 const MiniChart: React.FC<{
   data: number[];
@@ -474,6 +474,47 @@ const analyzeProductivityPattern = (
   return { peakHours, bestDays, optimalDuration, consistency };
 };
 
+// Helper function to get dynamic title and target based on time range
+const getTimeRangeInfo = (range: TimeRange, weeklyTargetHours: number, daysInRange: number) => {
+  switch (range) {
+    case "week":
+      return {
+        title: "Weekly Progress",
+        subtitle: `Target: ${weeklyTargetHours}h per week`,
+        targetHours: weeklyTargetHours,
+        daysLabel: "7 days"
+      };
+    case "10days":
+      return {
+        title: "10-Day Progress",
+        subtitle: `Target: ${(weeklyTargetHours * 10 / 7).toFixed(1)}h over 10 days`,
+        targetHours: weeklyTargetHours * 10 / 7,
+        daysLabel: "10 days"
+      };
+    case "month":
+      return {
+        title: "Monthly Progress",
+        subtitle: `Target: ${(weeklyTargetHours * 30 / 7).toFixed(1)}h per month`,
+        targetHours: weeklyTargetHours * 30 / 7,
+        daysLabel: "30 days"
+      };
+    case "3months":
+      return {
+        title: "3-Month Progress",
+        subtitle: `Target: ${(weeklyTargetHours * 90 / 7).toFixed(1)}h over 3 months`,
+        targetHours: weeklyTargetHours * 90 / 7,
+        daysLabel: "90 days"
+      };
+    case "all":
+      return {
+        title: "All-Time Progress",
+        subtitle: `Tracking ${daysInRange} days of data`,
+        targetHours: weeklyTargetHours * daysInRange / 7,
+        daysLabel: `${daysInRange} days`
+      };
+  }
+};
+
 export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subject[] }) => {
   const [timeRange, setTimeRange] = useState<TimeRange>("week");
   const [viewMode, setViewMode] = useState<ViewMode>("overview");
@@ -584,6 +625,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         });
     }
   }, [viewMode, brainEnhancedLoaded, subjects]);
+  
   useEffect(() => {
     let mounted = true;
     const loadBurnoutData = async () => {
@@ -615,10 +657,11 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     else if (timeRange === "10days") r.setDate(now.getDate() - 10);
     else if (timeRange === "month") r.setDate(now.getDate() - 30);
     else if (timeRange === "3months") r.setDate(now.getDate() - 90);
-    else r.setFullYear(2020); // All time
+    else r.setFullYear(2020);
     r.setHours(0, 0, 0, 0);
     return r;
   }, [timeRange]);
+  
   const rangeStartStr = formatLocalDate(rangeStart);
   const filteredLogs = logs.filter((l) => l.date >= rangeStartStr);
   const filteredOutcomes = blockOutcomes.filter((o) => o.date >= rangeStartStr);
@@ -626,6 +669,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   const prevRangeStart = new Date(rangeStart.getTime() - (daysDiff * 24 * 60 * 60 * 1000));
   const prevRangeStartStr = prevRangeStart.toISOString().split("T")[0];
   const prevLogs = logs.filter((l) => l.date >= prevRangeStartStr && l.date < rangeStartStr);
+  
   if (filteredLogs.length === 0) {
     return (
       <div className="pb-32 pt-8 px-4 lg:px-10 w-full max-w-[1400px] mx-auto">
@@ -751,8 +795,9 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     : null;
   const avgQuality = avgQualityNum !== null ? avgQualityNum.toFixed(1) : "N/A";
 
-  const targetWeeklyMins = weeklyTargetHours * 60;
-  const percentRaw = Math.min(100, Math.round((totalMinutes / targetWeeklyMins) * 100));
+  const timeRangeInfo = getTimeRangeInfo(timeRange, weeklyTargetHours, daysInRange);
+  const targetMinutes = timeRangeInfo.targetHours * 60;
+  const percentRaw = Math.min(100, Math.round((totalMinutes / targetMinutes) * 100));
   const [donutPct, setDonutPct] = useState(0);
 
   useEffect(() => {
@@ -805,14 +850,17 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     toast.success(`Review scheduled for ${subjectName}`);
     window.dispatchEvent(new CustomEvent('schedule-review', { detail: { subjectId, subjectName } }));
   };
+  
   const handleAdjustBlockDuration = (subjectId: number) => {
     toast.success('Opening block duration settings...');
     window.dispatchEvent(new CustomEvent('adjust-duration', { detail: { subjectId } }));
   };
+  
   const handleApplyGoalSuggestion = () => {
     const newTarget = parseFloat(adaptiveGoalSuggestion.suggested);
     toast.success(`Weekly target updated to ${newTarget}h`);
   };
+  
   const handleHeatmapClick = (date: string, minutes: number) => {
     if (minutes === 0) {
       setSelectedHeatmapDay(null);
@@ -847,6 +895,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     setSelectedSubjectNotes(subjectLogs);
     setShowNotesModal(true);
   };
+  
   const exportCSV = () => {
     try {
       const csv = [
@@ -917,6 +966,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       action?: string;
       onAction?: () => void;
     }> = [];
+    
     if (burnoutSignals?.atRisk) {
       list.push({
         type: "danger",
@@ -928,6 +978,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         }
       });
     }
+    
     if (streakInfo.current >= 7) {
       list.push({
         type: "success",
@@ -943,6 +994,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         onAction: () => window.dispatchEvent(new CustomEvent("navigate-to-dashboard"))
       });
     }
+    
     const struggling = subjectStats.filter(s => s.skipRate && s.skipRate > 0.3);
     if (struggling.length > 0) {
       list.push({
@@ -953,6 +1005,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         onAction: () => handleAdjustBlockDuration(struggling[0].id)
       });
     }
+    
     const critical = subjectStats.filter(s => s.readiness?.status === "critical");
     if (critical.length > 0) {
       list.push({
@@ -963,6 +1016,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         onAction: () => handleScheduleReview(critical[0].id, critical[0].name)
       });
     }
+    
     if (productivityPattern.peakHours.length > 0) {
       const peakHour = productivityPattern.peakHours[0];
       const { label } = getTimeOfDayLabel(peakHour);
@@ -972,6 +1026,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         description: `You perform best in the ${label} (around ${peakHour}:00). Schedule difficult subjects then.`,
       });
     }
+    
     if (completionRate < 70) {
       list.push({
         type: "warning",
@@ -979,6 +1034,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         description: `Only ${completionRate}% of blocks completed. Try reducing block durations.`,
       });
     }
+    
     if (typeof avgQuality === "string" && parseFloat(avgQuality) >= 4) {
       list.push({
         type: "success",
@@ -986,6 +1042,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         description: `Average quality is ${avgQuality}/5. Your study technique is working!`,
       });
     }
+    
     return list.slice(0, 4);
   }, [burnoutSignals, streakInfo, subjectStats, productivityPattern, completionRate, avgQuality]);
 
@@ -1005,11 +1062,10 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
-                  className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold transition-all capitalize whitespace-nowrap ${
-                    viewMode === mode
-                      ? "bg-indigo-500/20 text-indigo-100 border border-indigo-500/30"
-                      : "text-zinc-400 hover:text-zinc-200"
-                  }`}
+                  className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold transition-all capitalize whitespace-nowrap ${viewMode === mode
+                    ? "bg-indigo-500/20 text-indigo-100 border border-indigo-500/30"
+                    : "text-zinc-400 hover:text-zinc-200"
+                    }`}
                 >
                   {mode}
                 </button>
@@ -1055,26 +1111,7 @@ Keep pushing! 💪`;
           </div>
         }
       />
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 md:gap-4">
-        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 scrollbar-hide">
-          {(["week", "10days", "month", "3months", "all"] as TimeRange[]).map((r) => (
-            <button
-              key={r}
-              onClick={() => setTimeRange(r)}
-              className={`px-3 md:px-4 lg:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
-                timeRange === r
-                  ? "bg-indigo-500/20 text-indigo-100 border-2 border-indigo-500/40"
-                  : "bg-zinc-900/30 text-zinc-400 hover:bg-zinc-900/50 border-2 border-zinc-800/50"
-              }`}
-            >
-              {r === "10days" ? "10 Days" : r === "3months" ? "3 Months" : r === "all" ? "All Time" : r.charAt(0).toUpperCase() + r.slice(1)}
-            </button>
-          ))}
-        </div>
-        <div className="text-xs text-zinc-400 whitespace-nowrap font-semibold">
-          {filteredLogs.length} sessions • {(totalMinutes / 60).toFixed(1)}h
-        </div>
-      </div>
+
       {viewMode === "overview" && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-5">
@@ -1094,6 +1131,7 @@ Keep pushing! 💪`;
                 </div>
               </div>
             </FrostedTile>
+            
             <FrostedTile variant="emerald" className="p-3 md:p-4 lg:p-6 flex flex-col justify-between">
               <div className="flex items-start gap-2 md:gap-3 lg:gap-4 mb-2 md:mb-3">
                 <div className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-xl md:rounded-2xl bg-emerald-500/10 flex items-center justify-center border-2 border-emerald-500/30 flex-shrink-0">
@@ -1117,6 +1155,7 @@ Keep pushing! 💪`;
                 </div>
               )}
             </FrostedTile>
+            
             <FrostedTile variant="purple" className="p-3 md:p-4 lg:p-6 flex flex-col justify-between">
               <div className="flex items-start gap-2 md:gap-3 lg:gap-4 mb-2 md:mb-3">
                 <div className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-xl md:rounded-2xl bg-purple-500/10 flex items-center justify-center border-2 border-purple-500/30 flex-shrink-0">
@@ -1133,6 +1172,7 @@ Keep pushing! 💪`;
                 </div>
               </div>
             </FrostedTile>
+            
             <FrostedTile variant="amber" className="p-3 md:p-4 lg:p-6 flex flex-col justify-between relative">
               {(burnoutLoading && !burnoutSignals) && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
@@ -1177,19 +1217,39 @@ Keep pushing! 💪`;
               )}
             </FrostedTile>
           </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
             <div className="lg:col-span-2 flex flex-col gap-4 md:gap-5 lg:gap-6">
+              {/* INTEGRATED WEEKLY PROGRESS CARD */}
               <FrostedTile className="p-4 md:p-6 lg:p-8">
-                {/* Progress ring content remains here, responsively padded. */}
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                   <div>
-                    <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-1">Weekly Progress</div>
-                    <div className="text-xs text-zinc-500 font-semibold">Target: {weeklyTargetHours}h per week</div>
+                    <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-1">
+                      {timeRangeInfo.title}
+                    </div>
+                    <div className="text-xs text-zinc-500 font-semibold">
+                      {timeRangeInfo.subtitle}
+                    </div>
                   </div>
-                  <div className="text-xs px-4 py-2 rounded-xl bg-indigo-500/10 text-indigo-200 border-2 border-indigo-500/20 font-bold">
-                    {daysInRange} days
+                  
+                  {/* INTEGRATED TIME RANGE SELECTOR */}
+                  <div className="flex items-center gap-1.5 bg-zinc-900/60 rounded-xl p-1.5 border border-zinc-800/50 backdrop-blur-xl">
+                    {(["week", "10days", "month", "3months", "all"] as TimeRange[]).map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setTimeRange(r)}
+                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 whitespace-nowrap ${
+                          timeRange === r
+                            ? "bg-indigo-500/20 text-indigo-100 border border-indigo-500/30 shadow-lg shadow-indigo-500/10"
+                            : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
+                        }`}
+                      >
+                        {r === "10days" ? "10D" : r === "3months" ? "3M" : r === "all" ? "All" : r[0].toUpperCase()}
+                      </button>
+                    ))}
                   </div>
                 </div>
+
                 <div className="flex flex-col md:flex-row items-center gap-8">
                   <div className="flex-shrink-0">
                     <ProgressRing progress={donutPct} size={160} strokeWidth={12} label={`${donutPct}%`} sublabel="of goal" />
@@ -1205,15 +1265,17 @@ Keep pushing! 💪`;
                     </div>
                   </div>
                 </div>
+                
                 {donutPct >= 100 && (
                   <div className="mt-8 p-5 bg-emerald-500/10 rounded-2xl border-2 border-emerald-500/20 shadow-lg shadow-emerald-500/5">
                     <div className="flex items-center gap-3 text-emerald-200">
                       <Trophy size={20} strokeWidth={2.5} />
-                      <span className="font-bold text-base">Weekly goal achieved! 🎉</span>
+                      <span className="font-bold text-base">{timeRangeInfo.title.replace('Progress', 'goal')} achieved! 🎉</span>
                     </div>
                   </div>
                 )}
               </FrostedTile>
+
               <FrostedTile
                 variant={adaptiveGoalSuggestion.type === 'increase' ? 'indigo' : 'purple'}
                 className="p-4 md:p-5 lg:p-6 border-l-2 md:border-l-4 border-l-indigo-400"
@@ -1235,7 +1297,7 @@ Keep pushing! 💪`;
                     </p>
                     <button
                       onClick={handleApplyGoalSuggestion}
-                      className="px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl bg-indigo-500/20 text-indigo-100 text-[10px] md:text-xs font-bold"
+                      className="px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl bg-indigo-500/20 text-indigo-100 text-[10px] md:text-xs font-bold hover:bg-indigo-500/30 transition-all"
                     >
                       Adjust to {adaptiveGoalSuggestion.suggested}h
                     </button>
@@ -1243,6 +1305,7 @@ Keep pushing! 💪`;
                 </div>
               </FrostedTile>
             </div>
+
             <FrostedTile variant="purple" className="p-4 md:p-6 lg:p-8">
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border-2 border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-500/10">
@@ -1287,6 +1350,7 @@ Keep pushing! 💪`;
               </div>
             </FrostedTile>
           </div>
+
           {enhancedInsights.length > 0 && (
             <FrostedTile variant="indigo" className="p-8">
               <div className="flex items-center justify-between mb-7">
@@ -1310,6 +1374,7 @@ Keep pushing! 💪`;
               </div>
             </FrostedTile>
           )}
+
           <FrostedTile variant="indigo" className="p-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-7 gap-4">
               <div>
@@ -1337,9 +1402,12 @@ Keep pushing! 💪`;
                     key={i}
                     title={title}
                     onClick={() => handleHeatmapClick(day.date, day.minutes)}
-                    className={`aspect-square rounded-md transition-all duration-300 hover:scale-125 hover:z-10 cursor-pointer ${isSelected ? "ring-2 ring-indigo-400 ring-offset-2 ring-offset-zinc-950 scale-110" : ""} ${day.intensity === 0
-                      ? "bg-zinc-900 border-2 border-zinc-800/50"
-                      : day.intensity === 1
+                    className={`aspect-square rounded-md transition-all duration-300 hover:scale-125 hover:z-10 cursor-pointer ${
+                      isSelected ? "ring-2 ring-indigo-400 ring-offset-2 ring-offset-zinc-950 scale-110" : ""
+                    } ${
+                      day.intensity === 0
+                        ? "bg-zinc-900 border-2 border-zinc-800/50"
+                        : day.intensity === 1
                         ? "bg-indigo-900/60 border-2 border-indigo-800/50 shadow-sm"
                         : day.intensity === 2
                           ? "bg-indigo-600 border-2 border-indigo-500/50 shadow-md shadow-indigo-600/20"
@@ -1392,6 +1460,7 @@ Keep pushing! 💪`;
           </FrostedTile>
         </>
       )}
+
       {viewMode === "subjects" && (
         <>
           <FrostedTile variant="indigo" className="p-8">
@@ -1566,6 +1635,7 @@ Keep pushing! 💪`;
           </FrostedTile>
         </>
       )}
+
       {viewMode === "performance" && (
         <>
           <FrostedTile variant="indigo" className="p-8">
@@ -1636,10 +1706,11 @@ Keep pushing! 💪`;
                 return (
                   <div
                     key={day.day}
-                    className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:shadow-lg h-full flex flex-col ${isBestDay
-                      ? "bg-purple-500/10 border-purple-500/30 shadow-md shadow-purple-500/10"
-                      : "bg-zinc-900/40 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700/50"
-                      }`}
+                    className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:shadow-lg h-full flex flex-col ${
+                      isBestDay
+                        ? "bg-purple-500/10 border-purple-500/30 shadow-md shadow-purple-500/10"
+                        : "bg-zinc-900/40 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700/50"
+                    }`}
                   >
                     <div className="text-xs font-bold text-zinc-200 mb-4 uppercase tracking-wider">{day.day.slice(0, 3)}</div>
                     <div className="space-y-3 flex-1">
@@ -1703,6 +1774,7 @@ Keep pushing! 💪`;
           </div>
         </>
       )}
+
       {viewMode === "insights" && (
         <>
           <FrostedTile variant="indigo" className="p-8">
@@ -1809,6 +1881,7 @@ Keep pushing! 💪`;
           </FrostedTile>
         </>
       )}
+
       {showNotesModal && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-200">
           <div className="w-full max-w-5xl max-h-[85vh] bg-zinc-900 border-2 border-white/10 rounded-[2rem] overflow-hidden flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300">

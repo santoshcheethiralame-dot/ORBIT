@@ -1,11 +1,11 @@
-// AboutView.tsx
+// AboutView.tsx - v4.0.1 STABLE
 import React, { useEffect, useState } from "react";
 import {
   Rocket, Shield, Database, Github, Mail, Globe,
   CheckCircle2, AlertCircle, Info, Star, Zap, Cpu,
   Cloud, Lock, Sparkles, Heart, Coffee, ExternalLink,
   ChevronRight, Twitter, Package, Layers, History,
-  TrendingUp, Activity, BarChart3, PieChart, Brain, Target, Clock, Terminal, Linkedin, Code2, HelpCircle, Flame, Network
+  TrendingUp, Activity, BarChart3, PieChart, Brain, Target, Clock, Terminal, Linkedin, Code2, HelpCircle, Flame, Network, Award, MessageSquare, Volume2, Bell, Calendar
 } from 'lucide-react';
 import { getAllReadinessScores } from './brain';
 import { db } from './db';
@@ -91,12 +91,12 @@ export const AboutView = () => {
                 <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
                   <Brain size={24} className="text-purple-400" />
                 </div>
-                <h3 className="text-xl font-bold text-white">Readiness Intelligence</h3>
+                <h3 className="text-xl font-bold text-white">Readiness Intelligence v3</h3>
               </div>
 
               <div className="space-y-4">
                 <p className="text-zinc-300 leading-relaxed">
-                  Orbit's brain calculates your <strong className="text-purple-300">exam readiness</strong> for each subject using a sophisticated algorithm that tracks study volume, recency, and subject difficulty. The system automatically prioritizes subjects falling below 35% readiness.
+                  Orbit's enhanced brain calculates your <strong className="text-purple-300">exam readiness</strong> using a sophisticated algorithm that tracks study volume, recency decay, and subject difficulty. The system automatically prioritizes subjects falling below 35% readiness and adapts to your performance patterns.
                 </p>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -137,7 +137,6 @@ export const AboutView = () => {
           </FrostedTile>
 
           <FrostedTile variant="cyan" className="p-8">
-
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center border border-cyan-500/30">
@@ -151,15 +150,12 @@ export const AboutView = () => {
             </div>
           </FrostedTile>
 
-
-
         </div>
 
         {/* RIGHT COLUMN */}
         <div className="lg:col-span-4 space-y-6">
 
           <FrostedTile variant="indigo" className="p-6">
-
             <div className="relative z-10">
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-2xl font-bold text-white shadow-lg shadow-indigo-500/30">
@@ -199,7 +195,6 @@ export const AboutView = () => {
           </FrostedTile>
 
           <FrostedTile variant="orange" className="p-6">
-
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-2xl bg-orange-500/20 flex items-center justify-center border border-orange-500/30">
@@ -210,9 +205,10 @@ export const AboutView = () => {
               <div className="space-y-3">
                 {[
                   { icon: Flame, text: "Spaced Repetition Engine", status: "Active" },
+                  { icon: Award, text: "Performance Analytics", status: "Active" },
+                  { icon: MessageSquare, text: "AI Study Assistant", status: "Active" },
                   { icon: Network, text: "Mobile PWA Support", status: "Q1 2026" },
                   { icon: Shield, text: "Encrypted Cloud Sync", status: "Q2 2026" },
-                  { icon: Star, text: "Flashcard System", status: "Q3 2026" },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center justify-between p-3 bg-orange-500/5 rounded-xl border border-orange-500/10 hover:bg-orange-500/10 transition-all">
                     <div className="flex items-center gap-3">
@@ -227,7 +223,6 @@ export const AboutView = () => {
           </FrostedTile>
 
           <FrostedTile variant="cyan" className="p-6">
-
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center border border-cyan-500/30">
@@ -240,8 +235,7 @@ export const AboutView = () => {
                   "React 19.2.3",
                   "TypeScript 5.8.2",
                   "Dexie.js (IndexedDB)",
-                  "Web Audio API",
-                  "Tailwind"
+                  "Tailwind CSS 3.4"
                 ].map((tech, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm text-zinc-400 p-2 hover:bg-cyan-500/5 rounded-lg transition-all">
                     <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 flex-shrink-0" />
@@ -254,48 +248,105 @@ export const AboutView = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <FrostedTile variant="emerald" className="p-6">
-          <div className="relative z-10">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center mb-5 text-emerald-400 group-hover:scale-110 transition-transform duration-500 border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
-              <Shield size={28} />
+      {/* FEATURE HIGHLIGHTS */}
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+          <Sparkles size={28} className="text-purple-400" />
+          Core Features
+        </h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <FrostedTile variant="purple" className="p-6">
+            <div className="relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center mb-5 text-purple-400 border border-purple-500/30 shadow-lg shadow-purple-500/10">
+                <Activity size={28} />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-3">Performance Analytics</h3>
+              <p className="text-sm text-zinc-400 leading-relaxed mb-3">
+                Track quality ratings, completion rates, and time-of-day patterns. Adaptive difficulty adjustment based on your session history.
+              </p>
+              <div className="space-y-1">
+                <div className="text-xs text-purple-400">• Quality rating system (1-5 stars)</div>
+                <div className="text-xs text-purple-400">• Burnout detection (0-100 score)</div>
+                <div className="text-xs text-purple-400">• Study streak tracking</div>
+              </div>
             </div>
-            <h3 className="text-lg font-bold text-white mb-3">Local-First Privacy</h3>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              Your data lives on your device via IndexedDB. Zero telemetry without consent. Your study habits are your business alone.
-            </p>
-          </div>
-        </FrostedTile>
+          </FrostedTile>
 
-        <FrostedTile variant="amber" className="p-6">
-
-          <div className="relative z-10">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-5 text-amber-400 group-hover:scale-110 transition-transform duration-500 border border-amber-500/30 shadow-lg shadow-amber-500/10">
-              <Zap size={28} />
+          <FrostedTile variant="amber" className="p-6">
+            <div className="relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-5 text-amber-400 border border-amber-500/30 shadow-lg shadow-amber-500/10">
+                <Calendar size={28} />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-3">Spaced Repetition</h3>
+              <p className="text-sm text-zinc-400 leading-relaxed mb-3">
+                SM-2 algorithm automatically schedules reviews based on comprehension levels. Never forget what you've learned.
+              </p>
+              <div className="space-y-1">
+                <div className="text-xs text-amber-400">• Intelligent review scheduling</div>
+                <div className="text-xs text-amber-400">• Comprehension-based intervals</div>
+                <div className="text-xs text-amber-400">• Topic mastery tracking</div>
+              </div>
             </div>
-            <h3 className="text-lg font-bold text-white mb-3">Adaptive Intelligence</h3>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              Plans that don't break when you miss a day. The brain intelligently reshuffles tasks based on urgency, energy, and readiness scores.
-            </p>
-          </div>
-        </FrostedTile>
+          </FrostedTile>
 
-        <FrostedTile variant="cyan" className="p-6">
-
-          <div className="relative z-10">
-            <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 flex items-center justify-center mb-5 text-cyan-400 group-hover:scale-110 transition-transform duration-500 border border-cyan-500/30 shadow-lg shadow-cyan-500/10">
-              <Cpu size={28} />
+          <FrostedTile variant="indigo" className="p-6">
+            <div className="relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 flex items-center justify-center mb-5 text-indigo-400 border border-indigo-500/30 shadow-lg shadow-indigo-500/10">
+                <MessageSquare size={28} />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-3">AI Study Assistant</h3>
+              <p className="text-sm text-zinc-400 leading-relaxed mb-3">
+                World-class prompt engineering with smart AI provider recommendations. Get the perfect study companion for each subject.
+              </p>
+              <div className="space-y-1">
+                <div className="text-xs text-indigo-400">• ChatGPT, Claude, Gemini support</div>
+                <div className="text-xs text-indigo-400">• Bloom's Taxonomy integration</div>
+                <div className="text-xs text-indigo-400">• Custom prompt templates</div>
+              </div>
             </div>
-            <h3 className="text-lg font-bold text-white mb-3">Engineered Precision</h3>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              Optimized for sub-100ms interactions. Focus sessions feature gentle nudges and smart circadian ordering to keep you on track.
-            </p>
-          </div>
-        </FrostedTile>
+          </FrostedTile>
+
+          <FrostedTile variant="emerald" className="p-6">
+            <div className="relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center mb-5 text-emerald-400 border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
+                <Shield size={28} />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-3">Local-First Privacy</h3>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Your data lives on your device via IndexedDB. Zero telemetry without consent. Your study habits are your business alone.
+              </p>
+            </div>
+          </FrostedTile>
+
+          <FrostedTile variant="cyan" className="p-6">
+            <div className="relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 flex items-center justify-center mb-5 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/10">
+                <Zap size={28} />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-3">Adaptive Intelligence</h3>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Plans that don't break when you miss a day. The brain intelligently reshuffles tasks based on urgency, energy, and readiness scores.
+              </p>
+            </div>
+          </FrostedTile>
+
+          <FrostedTile variant="purple" className="p-6">
+            <div className="relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center mb-5 text-purple-400 border border-purple-500/30 shadow-lg shadow-purple-500/10">
+                <Cpu size={28} />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-3">Engineered Precision</h3>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Optimized for sub-100ms interactions. Focus sessions feature gentle audio cues, milestone tracking, and smart circadian ordering.
+              </p>
+            </div>
+          </FrostedTile>
+        </div>
       </div>
 
+      {/* FAQ SECTION */}
       <FrostedTile variant="indigo" className="p-8">
-
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
@@ -330,6 +381,14 @@ export const AboutView = () => {
                 q: "What's the Night-Owl Principle?",
                 a: "Your study day starts at 4 AM (configurable), not midnight. Studying at 3 AM still counts as 'today'—no broken streaks."
               },
+              {
+                q: "How does the AI assistant work?",
+                a: "It generates world-class prompts based on your subject, session type, and readiness. Smart provider recommendations ensure you use the best AI for each task."
+              },
+              {
+                q: "What is spaced repetition?",
+                a: "An evidence-based learning technique. Orbit uses the SM-2 algorithm to schedule reviews at optimal intervals, maximizing retention while minimizing study time."
+              },
             ].map((faq, i) => (
               <FrostedMini key={i} variant="indigo" className="group/faq p-5 transition-all duration-300">
                 <h4 className="text-white font-bold mb-2 group-hover/faq:text-indigo-300 transition-colors text-base">{faq.q}</h4>
@@ -340,6 +399,7 @@ export const AboutView = () => {
         </div>
       </FrostedTile>
 
+      {/* VERSION INFO */}
       <div className="flex justify-center pt-6">
         <div className="inline-flex items-center gap-4 px-6 py-3 rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur-sm">
           <div className="flex items-center gap-2">
@@ -347,10 +407,11 @@ export const AboutView = () => {
             <span className="text-xs text-zinc-500 font-mono tracking-wider">LOCAL_FIRST</span>
           </div>
           <div className="w-px h-4 bg-white/10"></div>
-          <span className="text-xs text-zinc-500 font-mono tracking-wider">ORBIT v4.0.1</span>
+          <span className="text-xs text-zinc-500 font-mono tracking-wider">ORBIT v4.0.1-STABLE</span>
+          <div className="w-px h-4 bg-white/10"></div>
+          <span className="text-xs text-zinc-500 font-mono tracking-wider">BUILD_2026.02</span>
         </div>
       </div>
     </div>
-
   );
 };
