@@ -1,8 +1,8 @@
-// CoursesView_Enhanced.tsx â€“ DASHBOARD DESIGN LANGUAGE APPLIED âœ¨
-// ðŸŽ¨ Cohesive frosted glass morphism
-// ðŸ“š Enhanced resource viewer with fullscreen
-// ðŸ’« Smooth animations throughout
-// ðŸŽ¯ Polished stat cards and interactions
+// CoursesView_Enhanced.tsx Ã¢â‚¬â€œ DASHBOARD DESIGN LANGUAGE APPLIED Ã¢Å“Â¨
+// Ã°Å¸Å½Â¨ Cohesive frosted glass morphism
+// Ã°Å¸â€œÅ¡ Enhanced resource viewer with fullscreen
+// Ã°Å¸â€™Â« Smooth animations throughout
+// Ã°Å¸Å½Â¯ Polished stat cards and interactions
 
 import React, { useEffect, useState } from "react";
 import {
@@ -24,14 +24,14 @@ type SubjectReadiness = { score: number; status: string };
 import { useToast } from './Toast';
 import { FrostedTile, FrostedMini, PageHeader, MetaText, getSubjectColor, SUBJECT_COLOR_CLASSES } from './components';
 
-// âœ¨ Enhanced Prediction Modal with Dashboard Design
+// Ã¢Å“Â¨ Enhanced Prediction Modal with Dashboard Design
 const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300 p-6">
     <div className="w-full max-w-lg animate-in slide-in-from-bottom-4 duration-500">
       <FrostedTile className="overflow-hidden">
         <div className="p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-indigo-500/10 to-transparent">
           <div>
-            <h2 className="text-2xl font-bold text-white mb-1">ðŸ“ˆ Readiness Predictor</h2>
+            <h2 className="text-2xl font-bold text-white mb-1">Readiness Predictor</h2>
             <p className="text-sm text-zinc-500">Forecast your exam confidence</p>
           </div>
           <button
@@ -88,7 +88,7 @@ const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
           </div>
 
           <div className="text-xs text-zinc-500 italic p-4 bg-zinc-800/30 rounded-xl border border-white/5">
-            ðŸ’¡ This is a simplified prediction. Actual results depend on comprehension, retention, and review quality.
+            This is a simplified prediction. Actual results depend on comprehension, retention, and review quality.
           </div>
         </div>
       </FrostedTile>
@@ -338,7 +338,18 @@ export default function CoursesView_Enhanced() {
     }
   };
 
-  // âœ¨ ENHANCED Resource Viewer with Dashboard Design
+
+  // Auto-open PowerPoint files - useEffect MUST be before conditional returns (Rules of Hooks)
+  React.useEffect(() => {
+    if (selectedResource?.type !== 'link') {
+      const isPPT = selectedResource && isPowerPoint(selectedResource.fileType);
+      if (isPPT) {
+        openExternally(selectedResource);
+      }
+    }
+  }, [selectedResource?.id, selectedResource?.fileType]);
+
+  // Ã¢Å“Â¨ ENHANCED Resource Viewer with Dashboard Design
   if (selectedResource && selectedResource.type !== 'link') {
     const isPPT = isPowerPoint(selectedResource.fileType);
     const canPreview = !isPPT && (
@@ -347,11 +358,6 @@ export default function CoursesView_Enhanced() {
       selectedResource.fileType?.startsWith("video")
     );
 
-    React.useEffect(() => {
-      if (isPPT && selectedResource) {
-        openExternally(selectedResource);
-      }
-    }, [isPPT, selectedResource?.id]);
 
     return (
       <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center animate-in fade-in duration-300 p-4 md:p-8">
@@ -922,7 +928,7 @@ export default function CoursesView_Enhanced() {
                           {s.name}
                         </div>
                         <div className="text-xs md:text-sm text-zinc-500 font-mono tracking-wider font-semibold">
-                          {s.code || "NO CODE"} â€¢ {s.credits ?? 0} CREDITS
+                          {s.code || "NO CODE"} Ã¢â‚¬Â¢ {s.credits ?? 0} CREDITS
                         </div>
                       </div>
                     </div>
@@ -943,7 +949,7 @@ export default function CoursesView_Enhanced() {
                         }}
                         className="text-xs md:text-sm text-indigo-400 hover:text-indigo-300 px-3 md:px-4 py-2 md:py-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 transition-all font-bold border border-indigo-500/30 whitespace-nowrap hover:scale-110 active:scale-95 duration-300 min-h-[40px] md:min-h-[44px]"
                       >
-                        ðŸ“ˆ Predict
+                        Predict
                       </button>
                     </div>
                   </div>
