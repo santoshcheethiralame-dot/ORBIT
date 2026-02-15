@@ -188,7 +188,7 @@ const BacklogItem = React.memo(({
 
           <div className="flex items-center gap-2 text-xs text-zinc-500">
             <span className="uppercase tracking-wide font-medium">{block.type}</span>
-            <span>•</span>
+            <span>â€¢</span>
             <span className="flex items-center gap-1">
               <Clock size={12} />
               {block.duration}m
@@ -492,7 +492,7 @@ export const Dashboard = ({
     const isHeavyLoad = level === 'heavy' || score > 50;
     const isLightLoad = level === 'light' || score < 30;
     const readinessImpact = plan.loadAnalysis?.readinessImpact ?? 0;
-    const hasAdjustments = plan.performanceAdjustments?.length > 0;
+    const hasAdjustments = (plan.performanceAdjustments?.length ?? 0) > 0;
 
     // TILE 1: CRITICAL STATUS
     if (criticalSubjects.length > 0) {
@@ -506,12 +506,12 @@ export const Dashboard = ({
                 <AlertTriangle size={20} className="text-red-400" strokeWidth={2.5} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-bold text-base text-red-300 mb-1.5">⚠️ Critical Attention Required</div>
+                <div className="font-bold text-base text-red-300 mb-1.5">Critical Attention Required</div>
                 <div className="text-sm text-red-200/70 leading-relaxed">
                   {criticalSubjects.length} {criticalSubjects.length === 1 ? 'subject needs' : 'subjects need'} urgent review to prevent knowledge decay
                 </div>
                 <div className="text-xs text-red-400/50 mt-2 font-medium">
-                  📚 {criticalSubjects.slice(0, 2).join(', ')}{criticalSubjects.length > 2 ? ` +${criticalSubjects.length - 2} more` : ''}
+                   {criticalSubjects.slice(0, 2).join(', ')}{criticalSubjects.length > 2 ? ` +${criticalSubjects.length - 2} more` : ''}
                 </div>
               </div>
             </div>
@@ -533,14 +533,14 @@ export const Dashboard = ({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-base text-red-300 flex items-center gap-2 mb-1.5">
-                  🔥 High-Intensity Day
+                  High-Intensity Day
                   <span className="text-xs px-1.5 py-0.5 rounded bg-red-500/20 font-mono">{score}</span>
                 </div>
                 <div className="text-sm text-red-200/70 leading-relaxed">
                   Demanding schedule ahead - pace yourself and take strategic breaks
                 </div>
                 <div className="text-xs text-red-400/50 mt-2 font-medium">
-                  💪 Focus on high-priority tasks first
+                  Focus on high-priority tasks first
                 </div>
               </div>
             </div>
@@ -559,14 +559,14 @@ export const Dashboard = ({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-base text-orange-300 flex items-center gap-2 mb-1.5">
-                  📊 Active Day
+                  Active Day
                   <span className="text-xs px-1.5 py-0.5 rounded bg-orange-500/20 font-mono">{score}</span>
                 </div>
                 <div className="text-sm text-orange-200/70 leading-relaxed">
                   Full schedule planned - maintain steady pace throughout the day
                 </div>
                 <div className="text-xs text-orange-400/50 mt-2 font-medium">
-                  ⏱️ {totalCount} blocks • Est. {plan.blocks.reduce((sum, b) => sum + b.duration, 0)}min total
+                  {totalCount} blocks Est. {plan.blocks.reduce((sum, b) => sum + b.duration, 0)}min total
                 </div>
               </div>
             </div>
@@ -585,14 +585,14 @@ export const Dashboard = ({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-base text-sky-300 flex items-center gap-2 mb-1.5">
-                  🌤️ Recovery Day
+                  Recovery Day
                   <span className="text-xs px-1.5 py-0.5 rounded bg-sky-500/20 font-mono">{score}</span>
                 </div>
                 <div className="text-sm text-sky-200/70 leading-relaxed">
                   Light workload scheduled - perfect for deep focus and quality learning
                 </div>
                 <div className="text-xs text-sky-400/50 mt-2 font-medium">
-                  ✨ Use extra time for review or exploration
+                  Use extra time for review or exploration
                 </div>
               </div>
             </div>
@@ -611,14 +611,14 @@ export const Dashboard = ({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-base text-indigo-300 flex items-center gap-2 mb-1.5">
-                  ✨ Balanced Load
+                  Balanced Load
                   <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-500/20 font-mono">{score}</span>
                 </div>
                 <div className="text-sm text-indigo-200/70 leading-relaxed">
                   Optimal conditions for progress - steady workload with good distribution
                 </div>
                 <div className="text-xs text-indigo-400/50 mt-2 font-medium">
-                  🎯 {totalCount} focused sessions planned
+                  {totalCount} focused sessions planned
                 </div>
               </div>
             </div>
@@ -640,12 +640,12 @@ export const Dashboard = ({
                 <Zap size={20} className="text-cyan-400" strokeWidth={2.5} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-bold text-base text-cyan-300 mb-1.5">⚡ Smart Adjustments Applied</div>
+                <div className="font-bold text-base text-cyan-300 mb-1.5"> Smart Adjustments Applied</div>
                 <div className="text-sm text-cyan-200/70 leading-relaxed">
                   {count} {count === 1 ? 'optimization' : 'optimizations'} made based on your recent performance patterns
                 </div>
                 <div className="text-xs text-cyan-400/50 mt-2 font-medium">
-                  🧠 AI-powered scheduling active
+                  AI-powered scheduling active
                 </div>
               </div>
             </div>
@@ -665,12 +665,12 @@ export const Dashboard = ({
               <RefreshCw size={20} className="text-emerald-400" strokeWidth={2.5} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-bold text-base text-emerald-300 mb-1.5">💾 Data Governance</div>
+              <div className="font-bold text-base text-emerald-300 mb-1.5">Data Governance</div>
               <div className="text-sm text-emerald-200/70 leading-relaxed">
                 Protect your progress! Make a manual backup every 2-3 days to ensure your data is safe.
               </div>
               <div className="text-xs text-emerald-400/50 mt-2 font-medium">
-                🛡️ Visit Settings {'>'} Data Governance
+                Visit Settings {'>'} Data Governance
               </div>
             </div>
           </div>
@@ -698,12 +698,12 @@ export const Dashboard = ({
                   <Target size={20} className="text-purple-400" strokeWidth={2.5} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-base text-purple-300 mb-1.5">📝 Assignment Work Scheduled</div>
+                  <div className="font-bold text-base text-purple-300 mb-1.5">Assignment Work Scheduled</div>
                   <div className="text-sm text-purple-200/70 leading-relaxed">
                     {assignmentBlocks} {assignmentBlocks === 1 ? 'assignment session' : 'assignment sessions'} planned to maintain steady progress
                   </div>
                   <div className="text-xs text-purple-400/50 mt-2 font-medium">
-                    📌 Stay on track with deadlines
+                    Stay on track with deadlines
                   </div>
                 </div>
               </div>
@@ -731,7 +731,7 @@ export const Dashboard = ({
                     {plan.blocks.length} focused blocks covering {subjects.filter(s => plan.blocks.some(b => b.subjectId === s.id)).length} subjects
                   </div>
                   <div className="text-xs text-blue-400/50 mt-2 font-medium">
-                    🎓 Comprehensive learning schedule
+                    ðŸŽ“ Comprehensive learning schedule
                   </div>
                 </div>
               </div>
@@ -754,12 +754,12 @@ export const Dashboard = ({
                   <Clock size={20} className="text-amber-400" strokeWidth={2.5} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-base text-amber-300 mb-1.5">⏰ Reviews Coming Up</div>
+                  <div className="font-bold text-base text-amber-300 mb-1.5">â° Reviews Coming Up</div>
                   <div className="text-sm text-amber-200/70 leading-relaxed">
                     {upcomingReviews.length} topics scheduled for review in the next 7 days
                   </div>
                   <div className="text-xs text-amber-400/50 mt-2 font-medium">
-                    📅 {dueToday.length} due today
+                    ðŸ“… {dueToday.length} due today
                   </div>
                 </div>
               </div>
@@ -782,12 +782,12 @@ export const Dashboard = ({
                   <CheckCircle size={20} className="text-zinc-400" strokeWidth={2.5} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-base text-zinc-300 mb-1.5">✅ Ready to Begin</div>
+                  <div className="font-bold text-base text-zinc-300 mb-1.5">âœ… Ready to Begin</div>
                   <div className="text-sm text-zinc-400 leading-relaxed">
                     Your study plan is optimized and ready for action
                   </div>
                   <div className="text-xs text-zinc-500 mt-2 font-medium">
-                    🚀 Let's get started!
+                    🎉 Let's get started!
                   </div>
                 </div>
               </div>
@@ -848,7 +848,7 @@ export const Dashboard = ({
                         duration: 30,
                         completed: false,
                         priority: 0,
-                        notes: `📖 ${topic.name}`,
+                        notes: `ðŸ“– ${topic.name}`,
                         topicId: topic.name.toLowerCase().replace(/\s+/g, '-'),
                         reviewNumber: topic.reviewCount,
                       };
@@ -1400,7 +1400,7 @@ export const Dashboard = ({
             {getDayTypeBadge()}
             {getLoadBadge()}
             {refreshing && (
-              <span className="text-xs text-indigo-400 font-mono">syncing…</span>
+              <span className="text-xs text-indigo-400 font-mono">syncingâ€¦</span>
             )}
           </>
         }
@@ -1684,7 +1684,7 @@ export const Dashboard = ({
                         {b.subjectName}
                       </div>
                       <div className="text-xs text-zinc-500 uppercase mt-1 tracking-wide font-medium">
-                        {b.type} • {b.duration}m
+                        {b.type} â€¢ {b.duration}m
                       </div>
 
                       {b.type === 'assignment' && b.assignmentId && (

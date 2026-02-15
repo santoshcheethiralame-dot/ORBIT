@@ -74,10 +74,10 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
     const assert = (condition: boolean, msg: string) => {
         if (!condition) {
-            addLog(`âŒ FAILED: ${msg}`, 'error');
+            addLog(`Ã¢ÂÅ’ FAILED: ${msg}`, 'error');
             throw new Error(msg);
         } else {
-            addLog(`âœ… PASS: ${msg}`, 'success');
+            addLog(`Ã¢Å“â€¦ PASS: ${msg}`, 'success');
         }
     };
 
@@ -92,7 +92,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
         const testDB = new OrbitDB(testDBName);
 
         try {
-            addLog("ðŸš€ ORBIT COMPREHENSIVE STRESS TEST v2.0", "header");
+            addLog("Ã°Å¸Å¡â‚¬ ORBIT COMPREHENSIVE STRESS TEST v2.0", "header");
             addLog(`Isolated DB Instance: ${testDBName}`);
             addLog(`Start Time: ${new Date().toISOString()}`);
 
@@ -102,7 +102,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             // ==========================================
             // PHASE 1: DATA LAYER STRESS TEST
             // ==========================================
-            addLog("ðŸ“¦ PHASE 1: DATA LAYER INTEGRITY", "header");
+            addLog("Ã°Å¸â€œÂ¦ PHASE 1: DATA LAYER INTEGRITY", "header");
 
             // 1.1 Subjects Table - Edge Cases
             addLog("Test 1.1: Subjects Table...");
@@ -111,8 +111,8 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             const extremeSubjects: Subject[] = [
                 { name: "A", code: "X", credits: 1, difficulty: 1 },
                 { name: "X".repeat(100), code: "Y".repeat(50), credits: 10, difficulty: 5 },
-                { name: "Math & Physicsâ„¢", code: "M&P-101", credits: 3, difficulty: 3 },
-                { name: "æ•°å­¦", code: "æ•°101", credits: 4, difficulty: 4 },
+                { name: "Math & PhysicsÃ¢â€žÂ¢", code: "M&P-101", credits: 3, difficulty: 3 },
+                { name: "Ã¦â€¢Â°Ã¥Â­Â¦", code: "Ã¦â€¢Â°101", credits: 4, difficulty: 4 },
                 { name: "", code: "", credits: 0, difficulty: 0 }, // Empty edge case
             ];
 
@@ -257,7 +257,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             // ==========================================
             // PHASE 2: CORE BRAIN LOGIC
             // ==========================================
-            addLog("ðŸ§  PHASE 2: CORE BRAIN LOGIC", "header");
+            addLog("Ã°Å¸Â§Â  PHASE 2: CORE BRAIN LOGIC", "header");
 
             // 2.1 Context Combinations
             addLog("Test 2.1: All Context Combinations...");
@@ -289,7 +289,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                     assert(hasESAFocus || result.blocks.length === 0, `${name}: ESA focus present`);
                 }
 
-                addLog(`  â†’ ${name}: ${result.blocks.length} blocks, ${totalMinutes}m`, 'info');
+                addLog(`  Ã¢â€ â€™ ${name}: ${result.blocks.length} blocks, ${totalMinutes}m`, 'info');
             }
             setProgress(40);
 
@@ -306,8 +306,8 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             const readiness2 = calculateReadiness(fullSub2!, allLogs, todayStr);
             assert(readiness2.score <= readiness1.score, "History readiness lower (no logs)");
 
-            addLog(`  â†’ Math: ${readiness1.score}% (${readiness1.status})`);
-            addLog(`  â†’ History: ${readiness2.score}% (${readiness2.status})`);
+            addLog(`  Ã¢â€ â€™ Math: ${readiness1.score}% (${readiness1.status})`);
+            addLog(`  Ã¢â€ â€™ History: ${readiness2.score}% (${readiness2.status})`);
             setProgress(50);
 
             // 2.3 Constraint Resolution
@@ -334,7 +334,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             // ==========================================
             // PHASE 3: ENHANCED FEATURES (Quick Wins)
             // ==========================================
-            addLog("ðŸš€ PHASE 3: ENHANCED FEATURES", "header");
+            addLog("Ã°Å¸Å¡â‚¬ PHASE 3: ENHANCED FEATURES", "header");
 
             // 3.1 Quality Tracking
             addLog("Test 3.1: Block Outcome Recording...");
@@ -368,9 +368,9 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             assert(performance.recommendedDuration >= 20 && performance.recommendedDuration <= 90, "Recommended duration valid");
             assert(performance.skipRate >= 0 && performance.skipRate <= 1, "Skip rate in range");
 
-            addLog(`  â†’ Avg Quality: ${performance.avgQuality.toFixed(2)}/5`);
-            addLog(`  â†’ Skip Rate: ${(performance.skipRate * 100).toFixed(1)}%`);
-            addLog(`  â†’ Recommended: ${performance.recommendedDuration}m (was ${performance.targetDuration}m)`);
+            addLog(`  Ã¢â€ â€™ Avg Quality: ${performance.avgQuality.toFixed(2)}/5`);
+            addLog(`  Ã¢â€ â€™ Skip Rate: ${(performance.skipRate * 100).toFixed(1)}%`);
+            addLog(`  Ã¢â€ â€™ Recommended: ${performance.recommendedDuration}m (was ${performance.targetDuration}m)`);
             setProgress(65);
 
             // 3.3 Energy Budget System
@@ -399,7 +399,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
             assert(energyValidation.budget > 0, "Energy budget calculated");
             assert(energyValidation.allocated >= 0, "Energy allocated calculated");
-            addLog(`  â†’ Budget: ${energyValidation.budget}, Allocated: ${energyValidation.allocated}, Valid: ${energyValidation.valid}`);
+            addLog(`  Ã¢â€ â€™ Budget: ${energyValidation.budget}, Allocated: ${energyValidation.allocated}, Valid: ${energyValidation.valid}`);
             setProgress(70);
 
             // 3.4 Burnout Detection
@@ -427,10 +427,10 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             assert(burnout.skipRate >= 0, "Skip rate calculated");
 
             if (burnout.atRisk) {
-                addLog(`  â†’ âš ï¸ BURNOUT RISK DETECTED: Score ${burnout.score}`, 'warning');
-                addLog(`  â†’ ${burnout.recommendation}`, 'warning');
+                addLog(`  Ã¢â€ â€™ Ã¢Å¡Â Ã¯Â¸Â BURNOUT RISK DETECTED: Score ${burnout.score}`, 'warning');
+                addLog(`  Ã¢â€ â€™ ${burnout.recommendation}`, 'warning');
             } else {
-                addLog(`  â†’ Burnout Score: ${burnout.score} (Safe)`);
+                addLog(`  Ã¢â€ â€™ Burnout Score: ${burnout.score} (Safe)`);
             }
             setProgress(75);
 
@@ -450,7 +450,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             assert(analysis.consecutiveSameSubject >= 3, "Consecutive same subject detected");
 
             const interleaved = applyInterleaving(monotonous);
-            addLog(`  â†’ Variety Score: ${analysis.varietyScore}% (needs interleaving: ${analysis.needsInterleaving})`);
+            addLog(`  Ã¢â€ â€™ Variety Score: ${analysis.varietyScore}% (needs interleaving: ${analysis.needsInterleaving})`);
             setProgress(80);
 
             // 3.6 Enhanced Plan Generation
@@ -467,9 +467,9 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             assert(enhancedResult.loadAnalysis !== undefined, "Load analysis present");
 
             if (enhancedResult.performanceAdjustments && enhancedResult.performanceAdjustments.length > 0) {
-                addLog(`  â†’ ${enhancedResult.performanceAdjustments.length} performance adjustments applied`);
+                addLog(`  Ã¢â€ â€™ ${enhancedResult.performanceAdjustments.length} performance adjustments applied`);
                 enhancedResult.performanceAdjustments.forEach(adj => {
-                    addLog(`    â€¢ ${adj.reason} (${adj.oldDuration}m â†’ ${adj.newDuration}m)`);
+                    addLog(`    Ã¢â‚¬Â¢ ${adj.reason} (${adj.oldDuration}m Ã¢â€ â€™ ${adj.newDuration}m)`);
                 });
             }
             setProgress(85);
@@ -483,15 +483,15 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             assert(Array.isArray(insights.topPerformers), "Top performers array");
             assert(Array.isArray(insights.strugglingSubjects), "Struggling subjects array");
 
-            addLog(`  â†’ Top Performers: ${insights.topPerformers.length}`);
-            addLog(`  â†’ Struggling: ${insights.strugglingSubjects.length}`);
-            addLog(`  â†’ Burnout Risk: ${insights.burnout.atRisk ? 'YES' : 'NO'}`);
+            addLog(`  Ã¢â€ â€™ Top Performers: ${insights.topPerformers.length}`);
+            addLog(`  Ã¢â€ â€™ Struggling: ${insights.strugglingSubjects.length}`);
+            addLog(`  Ã¢â€ â€™ Burnout Risk: ${insights.burnout.atRisk ? 'YES' : 'NO'}`);
             setProgress(90);
 
             // ==========================================
             // PHASE 4: INTEGRATION & EDGE CASES
             // ==========================================
-            addLog("âš¡ PHASE 4: INTEGRATION TESTS", "header");
+            addLog("Ã¢Å¡Â¡ PHASE 4: INTEGRATION TESTS", "header");
 
             // 4.1 Empty Database
             addLog("Test 4.1: Empty Database Handling...");
@@ -553,7 +553,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             // ==========================================
             // PHASE 5: DEEP BRAIN LOGIC
             // ==========================================
-            addLog("ðŸ§¬ PHASE 5: DEEP BRAIN LOGIC", "header");
+            addLog("Ã°Å¸Â§Â¬ PHASE 5: DEEP BRAIN LOGIC", "header");
 
             // 5.1 Priority Ordering
             addLog("Test 5.1: Priority Ordering...");
@@ -579,11 +579,11 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                     const reviewBlocks = planResult.blocks.filter(b => b.type === 'review' || b.type === 'prep');
                     if (assignmentBlocks.length > 0 && reviewBlocks.length > 0) {
                         const avgAssignmentIdx = assignmentBlocks.reduce((s, b) => s + planResult.blocks.indexOf(b), 0) / assignmentBlocks.length;
-                        addLog(`  â†’ Assignment avg position: ${avgAssignmentIdx.toFixed(1)}/${planResult.blocks.length}`);
+                        addLog(`  Ã¢â€ â€™ Assignment avg position: ${avgAssignmentIdx.toFixed(1)}/${planResult.blocks.length}`);
                     }
                     assert(planResult.blocks.length > 0, "Plan has blocks for priority check");
                 } else {
-                    addLog("  â†’ Fewer than 2 blocks, skipping priority ordering check", 'warning');
+                    addLog("  Ã¢â€ â€™ Fewer than 2 blocks, skipping priority ordering check", 'warning');
                     assert(true, "Priority ordering (skipped: too few blocks)");
                 }
             }
@@ -610,8 +610,8 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                     `High energy load score valid (got: ${normalPlan2.loadAnalysis.loadScore})`
                 );
 
-                addLog(`  â†’ Sick day: ${sickPlan.loadAnalysis.loadLevel} (${sickPlan.loadAnalysis.loadScore})`);
-                addLog(`  â†’ High energy: ${normalPlan2.loadAnalysis.loadLevel} (${normalPlan2.loadAnalysis.loadScore})`);
+                addLog(`  Ã¢â€ â€™ Sick day: ${sickPlan.loadAnalysis.loadLevel} (${sickPlan.loadAnalysis.loadScore})`);
+                addLog(`  Ã¢â€ â€™ High energy: ${normalPlan2.loadAnalysis.loadLevel} (${normalPlan2.loadAnalysis.loadScore})`);
             }
             setProgress(77);
 
@@ -638,13 +638,13 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                 const heavyConstraints = resolveConstraints(heavyCtx);
                 const heavyLoad = await analyzeLoad(heavyBlocks, heavyCtx, heavyConstraints, readinessMap, testDB);
 
-                // 7 blocks Ã— 60m = 420m should be heavy or extreme
+                // 7 blocks Ãƒâ€” 60m = 420m should be heavy or extreme
                 assert(
                     heavyLoad.loadLevel === 'heavy' || heavyLoad.loadLevel === 'extreme',
                     `Heavy blocks produce heavy/extreme load (got: ${heavyLoad.loadLevel})`
                 );
-                addLog(`  â†’ 420m blocks: ${heavyLoad.loadLevel} (score: ${heavyLoad.loadScore})`);
-                if (heavyLoad.warning) addLog(`  â†’ Warning: ${heavyLoad.warning}`);
+                addLog(`  Ã¢â€ â€™ 420m blocks: ${heavyLoad.loadLevel} (score: ${heavyLoad.loadScore})`);
+                if (heavyLoad.warning) addLog(`  Ã¢â€ â€™ Warning: ${heavyLoad.warning}`);
 
                 // Light blocks should produce light or normal
                 const lightBlocks: StudyBlock[] = [{
@@ -658,20 +658,20 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                     lightLoad.loadLevel === 'light' || lightLoad.loadLevel === 'normal',
                     `Light blocks produce light/normal load (got: ${lightLoad.loadLevel})`
                 );
-                addLog(`  â†’ 30m block: ${lightLoad.loadLevel} (score: ${lightLoad.loadScore})`);
+                addLog(`  Ã¢â€ â€™ 30m block: ${lightLoad.loadLevel} (score: ${lightLoad.loadScore})`);
             }
             setProgress(80);
 
             // 5.4 Readiness-Driven Fallback
             addLog("Test 5.4: Readiness-Driven Fallback...");
             {
-                // Create DB with subjects but no schedule â†’ brain should use fallback
+                // Create DB with subjects but no schedule Ã¢â€ â€™ brain should use fallback
                 const fallbackDB = new OrbitDB("FallbackTest_" + Date.now());
                 try {
                     const fb1 = await fallbackDB.subjects.add({ name: "Weak Subject", code: "WEAK1", credits: 4, difficulty: 5 });
                     const fb2 = await fallbackDB.subjects.add({ name: "Strong Subject", code: "STR1", credits: 2, difficulty: 1 });
 
-                    // Add logs only for strong subject (weak subject has no logs â†’ low readiness)
+                    // Add logs only for strong subject (weak subject has no logs Ã¢â€ â€™ low readiness)
                     for (let i = 0; i < 5; i++) {
                         await fallbackDB.logs.add({
                             subjectId: Number(fb2), date: todayStr,
@@ -687,8 +687,8 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
                     // Weak subject (no logs) should appear in the plan
                     const hasWeakSubject = fallbackPlan.blocks.some(b => b.subjectId === Number(fb1));
-                    addLog(`  â†’ Weak subject in plan: ${hasWeakSubject}`);
-                    addLog(`  â†’ Fallback blocks: ${fallbackPlan.blocks.length}`);
+                    addLog(`  Ã¢â€ â€™ Weak subject in plan: ${hasWeakSubject}`);
+                    addLog(`  Ã¢â€ â€™ Fallback blocks: ${fallbackPlan.blocks.length}`);
                     assert(true, "Readiness-driven fallback generates plan");
                 } finally {
                     await fallbackDB.delete();
@@ -712,8 +712,8 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                 const historyBlocks = schedulePlan.blocks.filter(b => b.subjectId === Number(sub2));
                 const physicsBlocks = schedulePlan.blocks.filter(b => b.subjectId === Number(sub3));
 
-                addLog(`  â†’ History blocks (scheduled): ${historyBlocks.length}`);
-                addLog(`  â†’ Physics blocks (scheduled): ${physicsBlocks.length}`);
+                addLog(`  Ã¢â€ â€™ History blocks (scheduled): ${historyBlocks.length}`);
+                addLog(`  Ã¢â€ â€™ Physics blocks (scheduled): ${physicsBlocks.length}`);
                 assert(
                     schedulePlan.blocks.length > 0,
                     "Schedule-based plan generates blocks"
@@ -735,12 +735,12 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                     totalWeekMinutes += day.totalMinutes;
                 }
 
-                addLog(`  â†’ Week total: ${totalWeekMinutes}m across 7 days`);
-                addLog(`  â†’ Peak day: ${weekPreview.peakDay}`);
-                addLog(`  â†’ Warnings: ${weekPreview.warnings.length}`);
-                weekPreview.warnings.forEach(w => addLog(`    âš ï¸ ${w}`, 'warning'));
+                addLog(`  Ã¢â€ â€™ Week total: ${totalWeekMinutes}m across 7 days`);
+                addLog(`  Ã¢â€ â€™ Peak day: ${weekPreview.peakDay}`);
+                addLog(`  Ã¢â€ â€™ Warnings: ${weekPreview.warnings.length}`);
+                weekPreview.warnings.forEach(w => addLog(`    Ã¢Å¡Â Ã¯Â¸Â ${w}`, 'warning'));
                 if (weekPreview.neglectedProjects.length > 0) {
-                    addLog(`  â†’ Neglected projects: ${weekPreview.neglectedProjects.join(', ')}`);
+                    addLog(`  Ã¢â€ â€™ Neglected projects: ${weekPreview.neglectedProjects.join(', ')}`);
                 }
             }
             setProgress(92);
@@ -748,7 +748,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             // ==========================================
             // PHASE 6: END-TO-END INTEGRATION
             // ==========================================
-            addLog("ðŸ”— PHASE 6: END-TO-END INTEGRATION", "header");
+            addLog("Ã°Å¸â€â€” PHASE 6: END-TO-END INTEGRATION", "header");
 
             // 6.1 Full Enhanced Pipeline
             addLog("Test 6.1: Full Enhanced Pipeline...");
@@ -764,23 +764,23 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
                 if (fullResult.loadAnalysis.energyBudget) {
                     assert(fullResult.loadAnalysis.energyBudget.budget > 0, "Energy budget > 0");
-                    addLog(`  â†’ Energy: ${fullResult.loadAnalysis.energyBudget.allocated}/${fullResult.loadAnalysis.energyBudget.budget}`);
+                    addLog(`  Ã¢â€ â€™ Energy: ${fullResult.loadAnalysis.energyBudget.allocated}/${fullResult.loadAnalysis.energyBudget.budget}`);
                 }
 
                 if (fullResult.loadAnalysis.burnoutRisk) {
                     assert(fullResult.loadAnalysis.burnoutRisk.score >= 0, "Burnout score present");
-                    addLog(`  â†’ Burnout risk: ${fullResult.loadAnalysis.burnoutRisk.atRisk ? 'YES' : 'NO'} (${fullResult.loadAnalysis.burnoutRisk.score})`);
+                    addLog(`  Ã¢â€ â€™ Burnout risk: ${fullResult.loadAnalysis.burnoutRisk.atRisk ? 'YES' : 'NO'} (${fullResult.loadAnalysis.burnoutRisk.score})`);
                 }
 
                 if (fullResult.loadAnalysis.interleaving) {
                     assert(fullResult.loadAnalysis.interleaving.varietyScore >= 0, "Variety score present");
-                    addLog(`  â†’ Variety: ${fullResult.loadAnalysis.interleaving.varietyScore}%`);
+                    addLog(`  Ã¢â€ â€™ Variety: ${fullResult.loadAnalysis.interleaving.varietyScore}%`);
                 }
 
-                addLog(`  â†’ Blocks: ${fullResult.blocks.length}`);
-                addLog(`  â†’ Load: ${fullResult.loadAnalysis.loadLevel} (${fullResult.loadAnalysis.loadScore})`);
-                addLog(`  â†’ Readiness impact: +${fullResult.loadAnalysis.readinessImpact}`);
-                if (fullResult.loadAnalysis.warning) addLog(`  â†’ Warning: ${fullResult.loadAnalysis.warning}`);
+                addLog(`  Ã¢â€ â€™ Blocks: ${fullResult.blocks.length}`);
+                addLog(`  Ã¢â€ â€™ Load: ${fullResult.loadAnalysis.loadLevel} (${fullResult.loadAnalysis.loadScore})`);
+                addLog(`  Ã¢â€ â€™ Readiness impact: +${fullResult.loadAnalysis.readinessImpact}`);
+                if (fullResult.loadAnalysis.warning) addLog(`  Ã¢â€ â€™ Warning: ${fullResult.loadAnalysis.warning}`);
             }
             setProgress(96);
 
@@ -818,7 +818,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                     assert(typeof block.completed === 'boolean', `Block ${block.id}: has completed flag`);
                 }
 
-                addLog(`  â†’ Dashboard contract: ${mockPlan.blocks.length} blocks verified`);
+                addLog(`  Ã¢â€ â€™ Dashboard contract: ${mockPlan.blocks.length} blocks verified`);
             }
             setProgress(99);
 
@@ -827,7 +827,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             // ==========================================
             addLog("", "header");
             addLog("=".repeat(60), "header");
-            addLog("ðŸŽ‰ ALL TESTS PASSED SUCCESSFULLY", "header");
+            addLog("Ã°Å¸Å½â€° ALL TESTS PASSED SUCCESSFULLY", "header");
             addLog("=".repeat(60), "header");
             addLog(`Total Tests Passed: ${passedCount}`);
             addLog(`Total Tests Failed: ${failedCount}`);
@@ -837,12 +837,12 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
         } catch (err: any) {
             addLog("", "header");
-            addLog("âŒ CRITICAL FAILURE", "error");
+            addLog("Ã¢ÂÅ’ CRITICAL FAILURE", "error");
             addLog(`Error: ${err.message}`, 'error');
             addLog(`Stack: ${err.stack}`, 'error');
             console.error(err);
         } finally {
-            addLog("ðŸ§¹ Cleaning up test database...");
+            addLog("Ã°Å¸Â§Â¹ Cleaning up test database...");
             await testDB.delete();
             setIsRunning(false);
         }
@@ -850,7 +850,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
     const runManualSimulation = async () => {
         if (manualSubjects.length === 0) {
-            addLog("âš ï¸ Add at least one subject first", 'warning');
+            addLog("Ã¢Å¡Â Ã¯Â¸Â Add at least one subject first", 'warning');
             return;
         }
 
@@ -865,7 +865,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
         const oneDay = 24 * 60 * 60 * 1000;
 
         try {
-            addLog("ðŸŽ® MANUAL SIMULATION MODE v2.0", "header");
+            addLog("Ã°Å¸Å½Â® MANUAL SIMULATION MODE v2.0", "header");
             addLog("Setting up full test environment...");
 
             // Add subjects
@@ -875,12 +875,12 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                 subjectIds.push(Number(id));
             }
 
-            // Add schedule entries â€” map each subject to a weekday slot
+            // Add schedule entries Ã¢â‚¬â€ map each subject to a weekday slot
             const dayOfWeek = new Date().getDay();
             for (let i = 0; i < subjectIds.length; i++) {
                 await testDB.schedule.add({ day: dayOfWeek, slot: i + 1, subjectId: subjectIds[i] });
             }
-            addLog(`âœ“ Added ${subjectIds.length} schedule slots for today (day ${dayOfWeek})`);
+            addLog(`Ã¢Å“â€œ Added ${subjectIds.length} schedule slots for today (day ${dayOfWeek})`);
 
             // Add study logs based on log freshness 
             for (const subId of subjectIds) {
@@ -895,7 +895,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                     } as any);
                 }
             }
-            addLog(`âœ“ Added study logs (last studied ${manualLogFreshness} days ago)`);
+            addLog(`Ã¢Å“â€œ Added study logs (last studied ${manualLogFreshness} days ago)`);
 
             // Add assignments
             for (const assignment of manualAssignments) {
@@ -910,57 +910,57 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             // Save energy profile
             saveEnergyProfile(manualEnergy);
 
-            addLog(`âœ“ Added ${manualAssignments.length} assignments, ${manualProjects.length} projects`);
-            addLog(`âœ“ Context: Mood=${manualContext.mood}, Type=${manualContext.dayType}, Sick=${manualContext.isSick}, Holiday=${manualContext.isHoliday}`);
+            addLog(`Ã¢Å“â€œ Added ${manualAssignments.length} assignments, ${manualProjects.length} projects`);
+            addLog(`Ã¢Å“â€œ Context: Mood=${manualContext.mood}, Type=${manualContext.dayType}, Sick=${manualContext.isSick}, Holiday=${manualContext.isHoliday}`);
             if (manualContext.focusSubjectId) {
                 const focusSub = manualSubjects.find(s => Number(s.id) === manualContext.focusSubjectId);
-                addLog(`âœ“ Focus Subject: ${focusSub?.name || manualContext.focusSubjectId}`);
+                addLog(`Ã¢Å“â€œ Focus Subject: ${focusSub?.name || manualContext.focusSubjectId}`);
             }
 
             // Compute readiness scores
             addLog("", "header");
-            addLog("ðŸ“Š READINESS SCORES:", "header");
+            addLog("Ã°Å¸â€œÅ  READINESS SCORES:", "header");
             const allLogs = await testDB.logs.toArray();
             const allSubjects = await testDB.subjects.toArray();
             for (const sub of allSubjects) {
                 const readiness = calculateReadiness(sub, allLogs, todayStr);
-                addLog(`  â†’ ${sub.name}: ${readiness.score}% (${readiness.status})`);
+                addLog(`  Ã¢â€ â€™ ${sub.name}: ${readiness.score}% (${readiness.status})`);
             }
 
             // Generate plan
             addLog("", "header");
-            addLog("âš™ï¸ Generating enhanced plan...");
+            addLog("Ã¢Å¡â„¢Ã¯Â¸Â Generating enhanced plan...");
             const result = await generateEnhancedPlan(manualContext, testDB);
 
             addLog("", "header");
-            addLog("ðŸ“‹ GENERATED PLAN:", "header");
+            addLog("Ã°Å¸â€œâ€¹ GENERATED PLAN:", "header");
             addLog(`Total Blocks: ${result.blocks.length}`);
             addLog(`Total Minutes: ${result.blocks.reduce((s, b) => s + b.duration, 0)}`);
             addLog(`Load Level: ${result.loadAnalysis.loadLevel} (score: ${result.loadAnalysis.loadScore})`);
 
             if (result.loadAnalysis.warning) {
-                addLog(`âš ï¸ Warning: ${result.loadAnalysis.warning}`, 'warning');
+                addLog(`Ã¢Å¡Â Ã¯Â¸Â Warning: ${result.loadAnalysis.warning}`, 'warning');
             }
 
             addLog("", "header");
-            addLog("ðŸ“ BLOCK DETAILS:", "header");
+            addLog("Ã°Å¸â€œÂ BLOCK DETAILS:", "header");
             result.blocks.forEach((block, i) => {
-                let line = `${i + 1}. [${block.type.toUpperCase()}] ${block.subjectName} â€” ${block.duration}m (priority: ${block.priority})`;
+                let line = `${i + 1}. [${block.type.toUpperCase()}] ${block.subjectName} Ã¢â‚¬â€ ${block.duration}m (priority: ${block.priority})`;
                 addLog(line);
-                if (block.notes) addLog(`   ðŸ’¬ ${block.notes}`);
-                if (block.reason) addLog(`   ðŸ“Œ ${block.reason}`);
-                if (block.displaced) addLog(`   â†”ï¸ Displaced: ${block.displaced.subjectName} (${block.displaced.type})`);
+                if (block.notes) addLog(`   Ã°Å¸â€™Â¬ ${block.notes}`);
+                if (block.reason) addLog(`   Ã°Å¸â€œÅ’ ${block.reason}`);
+                if (block.displaced) addLog(`   Ã¢â€ â€Ã¯Â¸Â Displaced: ${block.displaced.subjectName} (${block.displaced.type})`);
             });
 
             // Readiness impact
             if (result.loadAnalysis.readinessImpact > 0) {
                 addLog("", "header");
-                addLog("ðŸ“ˆ READINESS IMPACT:", "header");
+                addLog("Ã°Å¸â€œË† READINESS IMPACT:", "header");
                 addLog(`  Overall: +${result.loadAnalysis.readinessImpact.toFixed(1)}%`);
                 if (result.loadAnalysis.subjectImpacts) {
                     for (const [subId, impact] of Object.entries(result.loadAnalysis.subjectImpacts)) {
                         const sub = allSubjects.find(s => Number(s.id) === Number(subId));
-                        addLog(`  â†’ ${sub?.name || subId}: +${(impact as number).toFixed(1)}%`);
+                        addLog(`  Ã¢â€ â€™ ${sub?.name || subId}: +${(impact as number).toFixed(1)}%`);
                     }
                 }
             }
@@ -968,28 +968,28 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             // Performance adjustments
             if (result.performanceAdjustments && result.performanceAdjustments.length > 0) {
                 addLog("", "header");
-                addLog("ðŸŽ¯ PERFORMANCE ADJUSTMENTS:", "header");
+                addLog("Ã°Å¸Å½Â¯ PERFORMANCE ADJUSTMENTS:", "header");
                 result.performanceAdjustments.forEach(adj => {
-                    addLog(`  â†’ ${adj.reason} (${adj.oldDuration}m â†’ ${adj.newDuration}m)`);
+                    addLog(`  Ã¢â€ â€™ ${adj.reason} (${adj.oldDuration}m Ã¢â€ â€™ ${adj.newDuration}m)`);
                 });
             }
 
             // Energy analysis
             if (result.loadAnalysis.energyBudget) {
                 addLog("", "header");
-                addLog("âš¡ ENERGY ANALYSIS:", "header");
+                addLog("Ã¢Å¡Â¡ ENERGY ANALYSIS:", "header");
                 addLog(`  Budget: ${result.loadAnalysis.energyBudget.budget}`);
                 addLog(`  Allocated: ${result.loadAnalysis.energyBudget.allocated}`);
                 addLog(`  Remaining: ${result.loadAnalysis.energyBudget.remaining}`);
-                addLog(`  Valid: ${result.loadAnalysis.energyBudget.valid ? 'YES âœ“' : 'NO âœ—'}`);
+                addLog(`  Valid: ${result.loadAnalysis.energyBudget.valid ? 'YES Ã¢Å“â€œ' : 'NO Ã¢Å“â€”'}`);
             }
 
             // Burnout risk
             if (result.loadAnalysis.burnoutRisk) {
                 addLog("", "header");
-                addLog("ðŸ”¥ BURNOUT RISK:", "header");
+                addLog("Ã°Å¸â€Â¥ BURNOUT RISK:", "header");
                 addLog(`  Score: ${result.loadAnalysis.burnoutRisk.score}`);
-                addLog(`  At Risk: ${result.loadAnalysis.burnoutRisk.atRisk ? 'YES âš ï¸' : 'NO âœ“'}`);
+                addLog(`  At Risk: ${result.loadAnalysis.burnoutRisk.atRisk ? 'YES Ã¢Å¡Â Ã¯Â¸Â' : 'NO Ã¢Å“â€œ'}`);
                 addLog(`  Skip Rate: ${(result.loadAnalysis.burnoutRisk.skipRate * 100).toFixed(1)}%`);
                 if (result.loadAnalysis.burnoutRisk.recommendation) {
                     addLog(`  Recommendation: ${result.loadAnalysis.burnoutRisk.recommendation}`);
@@ -999,13 +999,13 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             // Interleaving
             if (result.loadAnalysis.interleaving) {
                 addLog("", "header");
-                addLog("ðŸ”„ INTERLEAVING ANALYSIS:", "header");
+                addLog("Ã°Å¸â€â€ž INTERLEAVING ANALYSIS:", "header");
                 addLog(`  Variety Score: ${result.loadAnalysis.interleaving.varietyScore}%`);
                 addLog(`  Max Same Subject: ${result.loadAnalysis.interleaving.consecutiveSameSubject}`);
                 addLog(`  Max Same Type: ${result.loadAnalysis.interleaving.consecutiveSameType}`);
                 addLog(`  Needs Adjustment: ${result.loadAnalysis.interleaving.needsInterleaving ? 'YES' : 'NO'}`);
                 if (result.loadAnalysis.interleaving.suggestions) {
-                    result.loadAnalysis.interleaving.suggestions.forEach((s: string) => addLog(`    ðŸ’¡ ${s}`));
+                    result.loadAnalysis.interleaving.suggestions.forEach((s: string) => addLog(`    Ã°Å¸â€™Â¡ ${s}`));
                 }
             }
 
@@ -1013,7 +1013,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
             setplanAnalysis(result.loadAnalysis);
 
         } catch (err: any) {
-            addLog(`âŒ Error: ${err.message}`, 'error');
+            addLog(`Ã¢ÂÅ’ Error: ${err.message}`, 'error');
             if (err.stack) addLog(`Stack: ${err.stack}`);
             console.error(err);
         } finally {
@@ -1257,7 +1257,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                                             onClick={() => removeManualSubject(i)}
                                             className="text-red-500 hover:text-red-300 text-xs"
                                         >
-                                            âœ—
+                                            Ã¢Å“â€”
                                         </button>
                                     </div>
                                 ))}
@@ -1311,7 +1311,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                                             placeholder="Effort (m)"
                                             className="col-span-2 bg-black border border-green-900/50 rounded px-2 py-1 text-sm text-green-400"
                                         />
-                                        <button onClick={() => removeManualAssignment(i)} className="text-red-500 hover:text-red-300 text-xs font-bold px-2">âœ—</button>
+                                        <button onClick={() => removeManualAssignment(i)} className="text-red-500 hover:text-red-300 text-xs font-bold px-2">Ã¢Å“â€”</button>
                                     </div>
                                 ))}
                                 {manualAssignments.length === 0 && (
@@ -1365,7 +1365,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                                             placeholder="%"
                                             className="col-span-2 bg-black border border-green-900/50 rounded px-2 py-1 text-sm text-green-400"
                                         />
-                                        <button onClick={() => removeManualProject(i)} className="text-red-500 hover:text-red-300 text-xs font-bold px-2">âœ—</button>
+                                        <button onClick={() => removeManualProject(i)} className="text-red-500 hover:text-red-300 text-xs font-bold px-2">Ã¢Å“â€”</button>
                                     </div>
                                 ))}
                                 {manualProjects.length === 0 && (
@@ -1388,7 +1388,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                                 <span className="text-sm font-mono w-16 text-right">{manualLogFreshness}d ago</span>
                             </div>
                             <div className="text-[10px] opacity-40 mt-1">
-                                0 = studied today (high readiness) Â· 30 = month ago (low readiness)
+                                0 = studied today (high readiness) Ã‚Â· 30 = month ago (low readiness)
                             </div>
                         </div>
 
@@ -1462,10 +1462,10 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
                     {logs.map((log, i) => (
                         <div key={i} className={`
                             mb-1 whitespace-pre-wrap
-                            ${log.includes('âŒ') ? 'text-red-500 font-bold' : ''}
-                            ${log.includes('âœ…') ? 'text-green-300' : ''}
-                            ${log.includes('âš ï¸') ? 'text-yellow-500' : ''}
-                            ${log.includes('ðŸŽ‰') ? 'text-green-300 font-bold text-lg mt-4' : ''}
+                            ${log.includes('Ã¢ÂÅ’') ? 'text-red-500 font-bold' : ''}
+                            ${log.includes('Ã¢Å“â€¦') ? 'text-green-300' : ''}
+                            ${log.includes('Ã¢Å¡Â Ã¯Â¸Â') ? 'text-yellow-500' : ''}
+                            ${log.includes('Ã°Å¸Å½â€°') ? 'text-green-300 font-bold text-lg mt-4' : ''}
                             ${log.includes('PHASE') || log.includes('===') ? 'text-cyan-400 font-bold mt-4 border-t border-cyan-900/30 pt-2' : ''}
                         `}>
                             {log}
@@ -1476,7 +1476,7 @@ export const StressTestEnhanced = ({ onBack }: { onBack: () => void }) => {
 
                 {/* Stats Footer */}
                 <div className="grid grid-cols-4 gap-4 text-xs border-t border-green-900/50 pt-4 opacity-70">
-                    <div>STATUS: {isRunning ? 'ðŸ”´ RUNNING' : 'ðŸŸ¢ IDLE'}</div>
+                    <div>STATUS: {isRunning ? 'Ã°Å¸â€Â´ RUNNING' : 'Ã°Å¸Å¸Â¢ IDLE'}</div>
                     <div>PASSED: {passedCount}</div>
                     <div>FAILED: {failedCount}</div>
                     <div>MODE: {mode.toUpperCase()}</div>

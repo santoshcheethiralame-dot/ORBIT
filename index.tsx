@@ -16,7 +16,7 @@ import {
 import { db } from "./db";
 import { Subject, DailyPlan, StudyBlock, StudyLog, DailyContext } from "./types";
 import { updateAssignmentProgress } from "./brain";
-import { generateEnhancedPlan } from "./brain-enhanced-integration";
+import { generateEnhancedPlan } from "./brain-ultimate";
 import { Onboarding } from "./Onboarding";
 import { Dashboard } from "./Dashboard";
 import { FocusSession } from "./FocusSession";
@@ -69,12 +69,12 @@ const App = () => {
   const [showRolloverModal, setShowRolloverModal] = useState(false);
   const [subjectIntelligence, setSubjectIntelligence] = useState<SubjectIntelligence | undefined>();
 
-  // ✅ Add refs for preventing race conditions
+  // âœ… Add refs for preventing race conditions
   const rolloverCheckInProgress = useRef(false);
   const planGenerationInProgress = useRef(false);
   const loadDataInProgress = useRef(false);
 
-  // ✨ NEW: Access toast from context
+  // âœ¨ NEW: Access toast from context
   const toast = useToast();
 
   useEffect(() => {
@@ -85,7 +85,7 @@ const App = () => {
     } catch (e) { }
   }, []);
 
-  // 🔍 Load subject intelligence whenever a focus block starts
+  // ðŸ” Load subject intelligence whenever a focus block starts
   useEffect(() => {
     let cancelled = false;
 
@@ -106,12 +106,12 @@ const App = () => {
     };
   }, [activeBlock]);
 
-  // ✨ NEW: PWA Install Logic
+  // âœ¨ NEW: PWA Install Logic
   useEffect(() => {
     const handler = (e: any) => {
       e.preventDefault();
       (window as any).deferredPrompt = e;
-      console.log('✅ PWA Install Prompt captured');
+      console.log('âœ… PWA Install Prompt captured');
     };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
@@ -119,7 +119,7 @@ const App = () => {
 
   const loadData = async () => {
     if (loadDataInProgress.current) {
-      console.log('⏭️  Load already in progress, skipping');
+      console.log('â­ï¸  Load already in progress, skipping');
       return;
     }
 
@@ -134,7 +134,7 @@ const App = () => {
       const todayStr = getISTEffectiveDate();
       const existing = await db.plans.get(todayStr);
 
-      console.log("📊 LoadData:", {
+      console.log("ðŸ“Š LoadData:", {
         effectiveDate: todayStr,
         existingPlan: existing?.date,
       });
@@ -150,7 +150,7 @@ const App = () => {
         }
       }
     } catch (err) {
-      console.error('❌ LoadData failed:', err);
+      console.error('âŒ LoadData failed:', err);
       toast.error('Failed to load data. Please refresh the page.');
     } finally {
       loadDataInProgress.current = false;
@@ -160,9 +160,9 @@ const App = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        // 🆕 ADD: Database health check
+        // ðŸ†• ADD: Database health check
         const dbVersion = db.verno;
-        console.log(`📊 Database version: ${dbVersion}`);
+        console.log(`ðŸ“Š Database version: ${dbVersion}`);
 
         // Try to access each table to ensure schema is valid
         await Promise.all([
@@ -173,7 +173,7 @@ const App = () => {
           db.logs.limit(1).toArray().catch(() => []),
           db.topics.limit(1).toArray().catch(() => []),
         ]);
-        console.log('✅ Database schema validated');
+        console.log('âœ… Database schema validated');
 
         const [semesterCount, subjectCount] = await Promise.all([
           db.semesters.count(),
@@ -187,7 +187,7 @@ const App = () => {
           await loadData();
         }
       } catch (err) {
-        console.error('❌ Database initialization failed:', err);
+        console.error('âŒ Database initialization failed:', err);
 
         // More granular recovery: attempt to load data anyway if possible
         try {
@@ -209,7 +209,7 @@ const App = () => {
 
     const checkRollover = async () => {
       if (rolloverCheckInProgress.current) {
-        console.log('⏭️  Rollover check already in progress');
+        console.log('â­ï¸  Rollover check already in progress');
         return;
       }
 
@@ -238,7 +238,7 @@ const App = () => {
         localStorage.setItem(STORAGE_KEY, currentEffectiveDate);
       } catch (error) {
         console.error("Rollover check failed:", error);
-        // ✨ NEW: Show error toast
+        // âœ¨ NEW: Show error toast
         toast.error("Failed to check day rollover. Please refresh.");
         setNeedsContext(true);
       } finally {
@@ -281,7 +281,7 @@ const App = () => {
 
       await db.plans.put(plan);
 
-      // 🆕 Persist individual blocks for direct access/backlog
+      // ðŸ†• Persist individual blocks for direct access/backlog
       await Promise.all(plan.blocks.map(b => db.studyBlocks.put({
         ...b,
         date: dateStr
@@ -290,7 +290,7 @@ const App = () => {
       setTodayPlan(plan);
       setNeedsContext(false);
 
-      // ✨ NEW: Success toast
+      // âœ¨ NEW: Success toast
       toast.success(`Daily plan ready: ${plan.blocks.length} blocks scheduled`);
 
       try {
@@ -304,7 +304,7 @@ const App = () => {
       } catch (e) { }
     } catch (err) {
       console.error("Plan generation failed:", err);
-      // ✨ NEW: Error toast
+      // âœ¨ NEW: Error toast
       toast.error("Failed to generate plan. Please try again.");
     } finally {
       planGenerationInProgress.current = false;
@@ -355,7 +355,7 @@ const App = () => {
           const newPlan = { ...todayPlan, blocks: newBlocks };
           await db.plans.put(newPlan);
 
-          // 🆕 Update individual block in db.studyBlocks
+          // ðŸ†• Update individual block in db.studyBlocks
           await db.studyBlocks.update(activeBlock.id, { completed: true });
 
           setTodayPlan(newPlan);
@@ -370,7 +370,7 @@ const App = () => {
           });
         }
 
-        // ✨ NEW: Success toast with undo
+        // âœ¨ NEW: Success toast with undo
         toast.success("Study block completed!", {
           label: "UNDO",
           onClick: async () => {
@@ -395,7 +395,7 @@ const App = () => {
             const newStreak = calculateStreak();
             if ([7, 14, 30, 60, 100].includes(newStreak)) {
               NotificationManager.send(
-                `🔥 ${newStreak}-Day Streak!`,
+                `ðŸ”¥ ${newStreak}-Day Streak!`,
                 "Consistency unlocked. Keep the momentum going."
               );
             }
@@ -408,7 +408,7 @@ const App = () => {
         setView(activeTab as any);
       } catch (err) {
         console.error("Failed to complete block:", err);
-        // ✨ NEW: Error toast
+        // âœ¨ NEW: Error toast
         toast.error("Failed to save progress. Please try again.");
       }
     }
@@ -812,9 +812,9 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
     navigator.serviceWorker
       .register("/sw.js")
       .then((registration) => {
-        console.log("✅ SW registered:", registration.scope);
+        console.log("âœ… SW registered:", registration.scope);
 
-        // ✅ Cleanup previous interval if exists
+        // âœ… Cleanup previous interval if exists
         if (updateCheckInterval) {
           clearInterval(updateCheckInterval);
         }
@@ -850,11 +850,11 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
         });
       })
       .catch((error) => {
-        console.warn("❌ SW registration failed:", error);
+        console.warn("âŒ SW registration failed:", error);
       });
   });
 
-  // ✅ Cleanup on page unload
+  // âœ… Cleanup on page unload
   window.addEventListener('beforeunload', () => {
     if (updateCheckInterval) {
       clearInterval(updateCheckInterval);
@@ -870,7 +870,7 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
     }
   });
 
-  // ✨ NEW: Expose triggerPwaInstall global for Settings page
+  // âœ¨ NEW: Expose triggerPwaInstall global for Settings page
   (window as any).triggerPwaInstall = async () => {
     const prompt = (window as any).deferredPrompt;
     if (prompt) {
@@ -879,12 +879,12 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
       console.log(`User response for PWA: ${outcome}`);
       (window as any).deferredPrompt = null;
     } else {
-      console.warn('❌ PWA prompt not available');
+      console.warn('âŒ PWA prompt not available');
     }
   };
 }
 
-// ✨ NEW: Wrap root with ToastProvider
+// âœ¨ NEW: Wrap root with ToastProvider
 const rootElement = document.getElementById("root");
 if (rootElement) {
   const root = ReactDOM.createRoot(rootElement);

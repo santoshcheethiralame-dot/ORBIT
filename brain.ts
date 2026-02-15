@@ -195,7 +195,7 @@ const DEFAULT_PROJECT_MIN = 60;
 const ESA_BASE_MIN = 360;
 const ISA_PREP_MIN = 45;
 
-const MIN_BLOCKS_FALLBACK = 3; // ðŸ†• Increased from 2
+const MIN_BLOCKS_FALLBACK = 3; // Ã°Å¸â€ â€¢ Increased from 2
 
 const READINESS_GOAL_HOURS_PER_CREDIT = 10;
 const READINESS_CRITICAL_THRESHOLD = 35;
@@ -244,7 +244,7 @@ function daysBetweenDates(a: string, b: string) {
 }
 
 /**
- * ðŸ†• Track assignment progress when completing blocks
+ * Ã°Å¸â€ â€¢ Track assignment progress when completing blocks
  * Call this from FocusSession after completing an assignment block
  */
 export async function updateAssignmentProgress(
@@ -277,7 +277,7 @@ export async function updateAssignmentProgress(
       });
 
       notifyDataChange('ASSIGNMENT_UPDATED', { assignmentId, newProgress });
-      console.log(`Assignment ${assignmentId}: ${currentProgress}min â†’ ${newProgress}min (${estimatedEffort}min total)`);
+      console.log(`Assignment ${assignmentId}: ${currentProgress}min Ã¢â€ â€™ ${newProgress}min (${estimatedEffort}min total)`);
     });
   } catch (err) {
     console.error('Failed to update assignment progress:', err);
@@ -323,7 +323,7 @@ function getSubjectType(subject: Subject): 'analytical' | 'memory' | 'creative' 
 }
 
 /* ======================================================
-  ðŸ†• READINESS ENGINE (Exam Confidence Score)
+  Ã°Å¸â€ â€¢ READINESS ENGINE (Exam Confidence Score)
 ====================================================== */
 
 export function calculateReadiness(
@@ -334,9 +334,9 @@ export function calculateReadiness(
   const totalStudiedMinutes = logs.filter(l => l.subjectId === subject.id)
     .reduce((sum, l) => sum + (l.duration ?? 0), 0);
   const totalStudiedHours = totalStudiedMinutes / 60;
-  const credits = subject.credits || 3; // âœ… Good default
+  const credits = subject.credits || 3; // Ã¢Å“â€¦ Good default
 
-  // âœ… ADD: Guard against zero credits
+  // Ã¢Å“â€¦ ADD: Guard against zero credits
   const goal = READINESS_GOAL_HOURS_PER_CREDIT * Math.max(credits, 1);
   let volume = Math.min(totalStudiedHours / goal, 1);
 
@@ -357,7 +357,7 @@ export function calculateReadiness(
   let decayRate = (subject.difficulty >= 4 ? 0.7 : 0.9);
   let decay = Math.pow(decayRate, lastStudiedDays || 0);
 
-  // Final Score: Volume Ã— Decay
+  // Final Score: Volume Ãƒâ€” Decay
   let score = Math.round(volume * 100 * decay);
 
   // Status Classification
@@ -377,7 +377,7 @@ export function calculateReadiness(
 }
 
 /* ======================================================
-  ðŸ“ˆ PREDICT READINESS CALCULATOR
+  Ã°Å¸â€œË† PREDICT READINESS CALCULATOR
 ====================================================== */
 /**
  * Predict readiness score after N days of studying X hours/day
@@ -414,16 +414,16 @@ export function predictReadiness(
 
   const breakdown = `
 Study ${hoursPerDay}h/day for ${daysFromNow} days:
-  â€¢ Add ${hoursPerDay * daysFromNow}h total
-  â€¢ Reach ${Math.round(currentHours)}/${goalHours}h goal
-  â€¢ Final readiness: ${projectedScore}%
+  Ã¢â‚¬Â¢ Add ${hoursPerDay * daysFromNow}h total
+  Ã¢â‚¬Â¢ Reach ${Math.round(currentHours)}/${goalHours}h goal
+  Ã¢â‚¬Â¢ Final readiness: ${projectedScore}%
   `.trim();
 
   return { projectedScore, breakdown };
 }
 
 /* ======================================================
-  ðŸ“– SPACED REPETITION ENGINE (SM-2 Algorithm)
+  Ã°Å¸â€œâ€“ SPACED REPETITION ENGINE (SM-2 Algorithm)
 ====================================================== */
 
 /**
@@ -522,7 +522,7 @@ async function addSpacedRepetitionReviews(
       duration: Math.min(duration, constraints.maxBlockDuration),
       completed: false,
       priority: DOMINANCE.REVIEW,
-      notes: `ðŸ“– ${topic.name}`,
+      notes: `Ã°Å¸â€œâ€“ ${topic.name}`,
       reason: `Spaced repetition review (${topic.reviewCount} previous reviews)`,
       topicId: topic.name.toLowerCase().replace(/\s+/g, '-'),
     };
@@ -602,7 +602,7 @@ export async function recordTopicReview(
 }
 
 /**
- * ðŸ†• Get readiness for all subjects (for dashboard display)
+ * Ã°Å¸â€ â€¢ Get readiness for all subjects (for dashboard display)
  */
 export async function getAllReadinessScores(dbInstance: OrbitDB = db): Promise<Record<number, SubjectReadiness>> {
   const subjects = await dbInstance.subjects.toArray();
@@ -738,7 +738,7 @@ function tryInsertWithDisplacement(
 }
 
 /* ======================================================
-  ðŸš€ PLAN GENERATOR v4 - ULTIMATE INTELLIGENCE
+  Ã°Å¸Å¡â‚¬ PLAN GENERATOR v4 - ULTIMATE INTELLIGENCE
 ====================================================== */
 
 export const generateDailyPlan = async (
@@ -760,7 +760,7 @@ export const generateDailyPlan = async (
     const logs = await dbInstance.logs.toArray();
     const schedule = await dbInstance.schedule.toArray();
 
-    // ðŸ†• Calculate readiness for all subjects upfront
+    // Ã°Å¸â€ â€¢ Calculate readiness for all subjects upfront
     const readinessMap: Record<number, SubjectReadiness> = {};
     for (const subject of subjects) {
       readinessMap[Number(subject.id)] = calculateReadiness(subject, logs, effectiveDate);
@@ -806,7 +806,7 @@ export const generateDailyPlan = async (
             blocks,
             createBlock(sub, "review", 90, DOMINANCE.ESA, {
               notes: "ESA Focus",
-              reason: "ESA in â‰¤ 2 days â€” majority of time reserved",
+              reason: "ESA in Ã¢â€°Â¤ 2 days Ã¢â‚¬â€ majority of time reserved",
             }),
             constraints,
             usedMinutes
@@ -820,7 +820,7 @@ export const generateDailyPlan = async (
           blocks,
           createBlock(sub, "prep", ISA_PREP_MIN, DOMINANCE.PREP, {
             notes: "ISA Prep",
-            reason: "ISA upcoming â€” focused preparation",
+            reason: "ISA upcoming Ã¢â‚¬â€ focused preparation",
           }),
           constraints,
           usedMinutes
@@ -829,7 +829,7 @@ export const generateDailyPlan = async (
     }
 
     /* ============================
-      2. ðŸ†• CRITICAL READINESS RECOVERY
+      2. Ã°Å¸â€ â€¢ CRITICAL READINESS RECOVERY
     ============================ */
 
     if (!context.isHoliday && !context.isSick) {
@@ -857,8 +857,8 @@ export const generateDailyPlan = async (
               Math.max(DEFAULT_REVIEW_MIN, 40),
               DOMINANCE.CRITICAL_REVIEW,
               {
-                notes: "ðŸ§  Critical Review",
-                reason: `Readiness low (${readiness.score}/100) â€” ${readiness.lastStudiedDays} days since last study`,
+                notes: "Ã°Å¸Â§Â  Critical Review",
+                reason: `Readiness low (${readiness.score}/100) Ã¢â‚¬â€ ${readiness.lastStudiedDays} days since last study`,
               }
             ),
             constraints,
@@ -869,7 +869,7 @@ export const generateDailyPlan = async (
     }
 
     /* ============================
-      2.5 ðŸ“– SPACED REPETITION REVIEWS (NEW)
+      2.5 Ã°Å¸â€œâ€“ SPACED REPETITION REVIEWS (NEW)
     ============================ */
     await addSpacedRepetitionReviews(
       blocks,
@@ -881,7 +881,7 @@ export const generateDailyPlan = async (
     );
 
     /* ============================
-      3. ðŸ†• SMART ASSIGNMENT PLANNING (Backward Planning)
+      3. Ã°Å¸â€ â€¢ SMART ASSIGNMENT PLANNING (Backward Planning)
     ============================ */
 
     for (const asm of assignments) {
@@ -893,18 +893,18 @@ export const generateDailyPlan = async (
       );
       if (!sub) continue;
 
-      // ðŸ”¥ PANIC MODE: â‰¤1 day left
+      // Ã°Å¸â€Â¥ PANIC MODE: Ã¢â€°Â¤1 day left
       if (daysLeft <= 1) {
         tryInsertWithDisplacement(
           blocks,
           createBlock(sub, "assignment", 60, DOMINANCE.ASSIGNMENT_URGENT, {
             assignmentId: asm.id,
             notes: daysLeft < 0
-              ? `âš ï¸ OVERDUE by ${Math.abs(daysLeft)} day(s)`
-              : `ðŸ”¥ Due ${daysLeft === 0 ? 'TODAY' : 'TOMORROW'}`,
+              ? `Ã¢Å¡Â Ã¯Â¸Â OVERDUE by ${Math.abs(daysLeft)} day(s)`
+              : `Ã°Å¸â€Â¥ Due ${daysLeft === 0 ? 'TODAY' : 'TOMORROW'}`,
             reason: daysLeft < 0
-              ? `Assignment overdue â€” immediate action required`
-              : `Critical deadline â€” ${daysLeft === 0 ? 'due today' : 'due tomorrow'}`,
+              ? `Assignment overdue Ã¢â‚¬â€ immediate action required`
+              : `Critical deadline Ã¢â‚¬â€ ${daysLeft === 0 ? 'due today' : 'due tomorrow'}`,
           }),
           constraints,
           usedMinutes
@@ -912,7 +912,7 @@ export const generateDailyPlan = async (
         continue;
       }
 
-      // ðŸ“‹ BACKWARD PLANNING: 2-14 days left
+      // Ã°Å¸â€œâ€¹ BACKWARD PLANNING: 2-14 days left
       if (daysLeft > 1 && daysLeft <= 14) {
         const totalEffort = asm.estimatedEffort ?? DEFAULT_ASSIGNMENT_EFFORT_MIN;
         const progressSoFar = asm.progressMinutes ?? 0;
@@ -935,7 +935,7 @@ export const generateDailyPlan = async (
               DOMINANCE.ASSIGNMENT_BACKLOG,
               {
                 assignmentId: asm.id,
-                notes: `ðŸ“‹ ${asm.title}`,
+                notes: `Ã°Å¸â€œâ€¹ ${asm.title}`,
                 reason: `Backward plan: ${todayChunk}m/day for ${workDays} days (${Math.round(remainingEffort / 60)}h remaining)`,
               }
             ),
@@ -977,15 +977,15 @@ export const generateDailyPlan = async (
 
         if (daysIdle >= 7) {
           priority = DOMINANCE.PROJECT_DECAY;
-          reason = `âš ï¸ Critical: Project abandoned for ${daysIdle} days`;
+          reason = `Ã¢Å¡Â Ã¯Â¸Â Critical: Project abandoned for ${daysIdle} days`;
           notes = `Abandoned ${daysIdle}d`;
         } else if (isStalled) {
           priority = DOMINANCE.PROJECT_DECAY + 1;
-          reason = `âš ï¸ Stalled project`;
+          reason = `Ã¢Å¡Â Ã¯Â¸Â Stalled project`;
           notes = `Stalled at ${p.progression}%`;
         } else if (isNewProject) {
           notes = "Start project";
-          reason = "New project â€” establish momentum";
+          reason = "New project Ã¢â‚¬â€ establish momentum";
         }
 
         let projectDuration = DEFAULT_PROJECT_MIN;
@@ -1060,14 +1060,14 @@ export const generateDailyPlan = async (
     }
 
     /* ============================
-      6. ðŸ†• SMART FALLBACK (Readiness-Based)
+      6. Ã°Å¸â€ â€¢ SMART FALLBACK (Readiness-Based)
     ============================ */
 
     const currentBlockCount = blocks.length;
     const targetMinBlocks = Math.min(MIN_BLOCKS_FALLBACK, constraints.maxBlocks);
 
     if (currentBlockCount < targetMinBlocks && !context.isSick && subjects.length > 0) {
-      console.log(`ðŸ“Š Fallback: ${currentBlockCount} < ${targetMinBlocks} target`);
+      console.log(`Ã°Å¸â€œÅ  Fallback: ${currentBlockCount} < ${targetMinBlocks} target`);
 
       const scheduledSubjectIds = new Set<number>(blocks.map(b => b.subjectId));
 
@@ -1108,10 +1108,10 @@ export const generateDailyPlan = async (
             45,
             DOMINANCE.FALLBACK + index,
             {
-              notes: "ðŸ“ˆ Readiness Boost",
+              notes: "Ã°Å¸â€œË† Readiness Boost",
               reason: currentBlockCount === 0
-                ? `No timetable entries â€” auto-selected weakest subjects (${readiness?.score ?? '?'}%)`
-                : `Maintaining study rhythm â€” boosting readiness (currently ${readiness?.score ?? '?'}%)`,
+                ? `No timetable entries Ã¢â‚¬â€ auto-selected weakest subjects (${readiness?.score ?? '?'}%)`
+                : `Maintaining study rhythm Ã¢â‚¬â€ boosting readiness (currently ${readiness?.score ?? '?'}%)`,
             }
           ),
           constraints,
@@ -1120,12 +1120,12 @@ export const generateDailyPlan = async (
         index++;
       }
 
-      console.log(`âœ… Fallback added ${index} blocks`);
+      console.log(`Ã¢Å“â€¦ Fallback added ${index} blocks`);
     }
 
-    // ðŸ†˜ Emergency fallback: If STILL no blocks
+    // Ã°Å¸â€ Ëœ Emergency fallback: If STILL no blocks
     if (blocks.length === 0 && subjects.length > 0) {
-      console.warn('âš ï¸ Emergency fallback');
+      console.warn('Ã¢Å¡Â Ã¯Â¸Â Emergency fallback');
 
       const emergencySub = subjects
         .sort((a, b) =>
@@ -1137,7 +1137,7 @@ export const generateDailyPlan = async (
         blocks,
         createBlock(emergencySub, "review", 45, 99, {
           notes: "Maintenance Review",
-          reason: "Light study day â€” keeping momentum alive"
+          reason: "Light study day Ã¢â‚¬â€ keeping momentum alive"
         }),
         constraints,
         usedMinutes
@@ -1147,7 +1147,7 @@ export const generateDailyPlan = async (
     const ordered = await orderBlocksCircadian(blocks, subjects);
     const loadAnalysis = await analyzeLoad(ordered, context, constraints, readinessMap, dbInstance);
 
-    console.log(`ðŸŽ¯ Final plan: ${ordered.length} blocks, ${usedMinutes.value} minutes`);
+    console.log(`Ã°Å¸Å½Â¯ Final plan: ${ordered.length} blocks, ${usedMinutes.value} minutes`);
 
     return {
       blocks: ordered,
@@ -1163,7 +1163,7 @@ export const generateDailyPlan = async (
 };
 
 /* ======================================================
-  ðŸ†• WHAT-IF SCENARIO ENGINE
+  Ã°Å¸â€ â€¢ WHAT-IF SCENARIO ENGINE
 ====================================================== */
 
 export async function runWhatIfScenario(
@@ -1175,7 +1175,7 @@ export async function runWhatIfScenario(
 }
 
 /* ======================================================
-  ðŸ†• CIRCADIAN ORDERING (Time-of-Day Optimization)
+  Ã°Å¸â€ â€¢ CIRCADIAN ORDERING (Time-of-Day Optimization)
 ====================================================== */
 
 async function orderBlocksCircadian(
@@ -1230,7 +1230,7 @@ async function orderBlocksCircadian(
       continue;
     }
 
-    // Mixed subjects â†’ treat as memory
+    // Mixed subjects Ã¢â€ â€™ treat as memory
     if (sub && getSubjectType(sub) === "mixed") {
       memory.push(b);
       continue;
@@ -1249,12 +1249,12 @@ async function orderBlocksCircadian(
   memory.sort(byPriority);
   creative.sort(byPriority);
 
-  // Optimal order: Warmup â†’ Analytical (hard) â†’ Memory â†’ Creative
+  // Optimal order: Warmup Ã¢â€ â€™ Analytical (hard) Ã¢â€ â€™ Memory Ã¢â€ â€™ Creative
   return [...warmup, ...analytical, ...memory, ...creative];
 }
 
 /* ======================================================
-  ðŸ†• ENHANCED LOAD ANALYSIS (with Readiness Impact)
+  Ã°Å¸â€ â€¢ ENHANCED LOAD ANALYSIS (with Readiness Impact)
 ====================================================== */
 
 export async function analyzeLoad(
@@ -1344,22 +1344,22 @@ export async function analyzeLoad(
   let warning: string | undefined;
 
   if (loadLevel === 'extreme' && !['esa', 'isa'].includes(context.dayType)) {
-    warning = "Very high load â€” consider breaking into 2 days";
+    warning = "Very high load Ã¢â‚¬â€ consider breaking into 2 days";
   } else if (loadLevel === 'heavy') {
     if (context.mood === "low") {
-      warning = "âš¡ Energy Mismatch: Heavy load on low mood day";
+      warning = "Ã¢Å¡Â¡ Energy Mismatch: Heavy load on low mood day";
     } else if (deepWorkBlocks >= 3) {
-      warning = "Multiple deep work blocks â€” schedule recovery time";
+      warning = "Multiple deep work blocks Ã¢â‚¬â€ schedule recovery time";
     } else if (totalMinutes > constraints.maxMinutes * 0.9) {
-      warning = "Near capacity â€” expect fatigue in evening";
+      warning = "Near capacity Ã¢â‚¬â€ expect fatigue in evening";
     }
   } else if (loadLevel === 'light' && context.dayType === 'normal') {
     if (blocks.length < 2 && !context.isSick && !context.isHoliday) {
-      warning = "Light day â€” good for recovery or catching up";
+      warning = "Light day Ã¢â‚¬â€ good for recovery or catching up";
     }
   }
 
-  // ðŸ†• Calculate readiness impact
+  // Ã°Å¸â€ â€¢ Calculate readiness impact
   let readinessImpact = 0;
   const subjectImpacts: Record<number, number> = {};
 
@@ -1375,7 +1375,7 @@ export async function analyzeLoad(
       block.type === "project" ||
       block.type === "recovery"
     ) {
-      // Gain formula: hours Ã— 5 points, scaled by how far from 100%
+      // Gain formula: hours Ãƒâ€” 5 points, scaled by how far from 100%
       const gainRaw = (block.duration / 60) * 5;
       const scaledGain = gainRaw * ((100 - currentScore) / 100);
 
@@ -1536,7 +1536,7 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
       consecutiveHeavy++;
 
       if (consecutiveHeavy >= 3) {
-        warnings.push(`âš ï¸ Heavy load 3 days in a row (${d.dayName} week)`);
+        warnings.push(`Ã¢Å¡Â Ã¯Â¸Â Heavy load 3 days in a row (${d.dayName} week)`);
       }
     } else {
       consecutiveHeavy = 0;
@@ -1545,7 +1545,7 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
 
   const assignmentPeaks = days.filter(d => d.urgentAssignments >= 2);
   assignmentPeaks.forEach(d => {
-    warnings.push(`ðŸ“‹ ${d.urgentAssignments} urgent assignments on ${d.dayName}`);
+    warnings.push(`Ã°Å¸â€œâ€¹ ${d.urgentAssignments} urgent assignments on ${d.dayName}`);
   });
 
   const neglectedProjects: string[] = [];
@@ -1556,12 +1556,12 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
   });
 
   if (neglectedProjects.length > 0) {
-    warnings.push(`ðŸŽ¯ Projects neglected all week: ${neglectedProjects.join(', ')}`);
+    warnings.push(`Ã°Å¸Å½Â¯ Projects neglected all week: ${neglectedProjects.join(', ')}`);
   }
 
   const collisions = days.filter(d => d.hasESA && d.urgentAssignments >= 1);
   collisions.forEach(d => {
-    warnings.push(`âš¡ ESA prep + ${d.urgentAssignments} assignment(s) on ${d.dayName}`);
+    warnings.push(`Ã¢Å¡Â¡ ESA prep + ${d.urgentAssignments} assignment(s) on ${d.dayName}`);
   });
 
   const peakDay = days.reduce((max, d) =>

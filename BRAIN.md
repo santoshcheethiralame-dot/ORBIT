@@ -1,20 +1,20 @@
-# 🧠 The Orbit Brain: Technical Deep Dive
+# 🧠 The Orbit Brain v3.0: Technical Deep Dive
 
 > **"The calendar is dead. Long live Context."**
 
-This document provides a comprehensive technical overview of Orbit's decision engine. If you're looking for user-facing features, check the [main README](./README.md). This is for developers, contributors, and the technically curious.
+This document provides a comprehensive technical overview of Orbit's triple-brain decision engine. If you're looking for user-facing features, check the [main README](./README.md). This is for developers, contributors, and the technically curious.
 
 ---
 
 ## Table of Contents
 
 1. [Architecture Philosophy](#architecture-philosophy)
-2. [Data Flow & Processing Pipeline](#data-flow--processing-pipeline)
-3. [The Displacement Algorithm](#the-displacement-algorithm)
-4. [Heuristic Scoring System](#heuristic-scoring-system)
-5. [Enhanced Intelligence Layer (v3)](#enhanced-intelligence-layer-v3)
-6. [Spaced Repetition Implementation](#spaced-repetition-implementation)
-7. [Performance Optimizations](#performance-optimizations)
+2. [The Triple-Brain System (v3.0)](#the-triple-brain-system-v30)
+3. [Data Flow & Processing Pipeline](#data-flow--processing-pipeline)
+4. [The Displacement Algorithm](#the-displacement-algorithm)
+5. [Heuristic Scoring System](#heuristic-scoring-system)
+6. [Performance Tracking & Adaptation](#performance-tracking--adaptation)
+7. [Spaced Repetition Implementation](#spaced-repetition-implementation)
 8. [Database Schema](#database-schema)
 9. [API Reference](#api-reference)
 
@@ -43,14 +43,13 @@ graph TD
     Validator -->|Sanitized| Resolver[Constraint Resolver]
     
     DB[(IndexedDB)] -->|Subjects| Resolver
-    DB -->|Sessions| Resolver
     DB -->|Performance| Resolver
+    DB -->|History| Resolver
     
-    Resolver -->|Constraints| Generator[Plan Generator]
-    Generator -->|Raw Plan| Sorter[Priority Sorter]
-    Sorter -->|Sorted Blocks| Displacement[Displacement Engine]
-    Displacement -->|Displaced Plan| Enhanced[Enhanced Layer v3]
-    Enhanced -->|Final Plan| Output[JSON Output]
+    Resolver -->|Context| Brain[Triple Brain System]
+    Brain -->|Raw Plan| Sorter[Priority Sorter]
+    Sorter -->|Sorted| Displacement[Displacement Engine]
+    Displacement -->|Final| Output[Daily Plan]
     
     Output --> UI[User Interface]
     Output --> DB
@@ -63,6 +62,101 @@ graph TD
 
 ---
 
+## The Triple-Brain System (v3.0)
+
+### Overview
+
+Orbit v3.0 introduces a **three-layer brain architecture** that adapts to user data maturity:
+
+```
+┌─────────────────────────────────────────────────────┐
+│           BRAIN-ULTIMATE (Orchestrator)             │
+│  Selects strategy based on user data availability   │
+└────────┬────────────────────────────────────┬───────┘
+         │                                    │
+    ┌────▼────────┐    ┌──────────────┐    ┌▼─────────────┐
+    │  Core Brain │    │  Enhanced    │    │  Research    │
+    │  (Base)     │───►│  Integration │◄───│  Grade       │
+    │             │    │  (Tracking)  │    │  (Advanced)  │
+    └─────────────┘    └──────────────┘    └──────────────┘
+```
+
+### Layer 1: Core Brain (`brain.ts`)
+
+**Purpose**: Foundation readiness calculations and basic planning
+
+**Features:**
+- Subject readiness scoring
+- Priority-based block generation
+- Basic load analysis
+- Displacement logic
+
+**When Used**: Always (base layer for all plans)
+
+### Layer 2: Enhanced Integration (`brain-enhanced-integration.ts`)
+
+**Purpose**: Performance tracking and adaptive adjustments
+
+**Features:**
+- Session quality ratings (1-5 scale)
+- Burnout detection
+- Energy budget management
+- Interleaving enforcement
+- Performance-based duration tuning
+
+**When Used**: After 5+ days of data
+
+### Layer 3: Research-Grade (`brain-research-grade.ts`)
+
+**Purpose**: Probabilistic models and formal optimization
+
+**Features:**
+- Bayesian readiness estimation
+- Confidence intervals
+- Mastery probability calculations
+- Formal gain function optimization
+- Variance tracking
+
+**When Used**: After 14+ days of data for full power
+
+### Strategy Selection Logic
+
+```typescript
+function selectStrategy(dataSpan: number) {
+  if (dataSpan < 5 days) {
+    return {
+      strategy: 'research',
+      confidence: 0.7,
+      reason: 'New user - using research-grade with smart defaults'
+    };
+  } else if (dataSpan < 30 days) {
+    return {
+      strategy: 'enhanced',
+      confidence: 0.8,
+      reason: 'Active user - core brain + performance adjustments'
+    };
+  } else {
+    return {
+      strategy: 'hybrid',
+      confidence: 0.95,
+      reason: 'Power user - full research optimization + feedback'
+    };
+  }
+}
+```
+
+### Hybrid Mode (30+ Days)
+
+When you have sufficient data, all three layers work together:
+
+1. **Research-Grade** generates initial plan with probabilistic models
+2. **Enhanced** applies performance-based adjustments
+3. **Core** handles displacement and final constraints
+
+**Result**: Maximum intelligence with 95% confidence
+
+---
+
 ## Data Flow & Processing Pipeline
 
 ### Stage 1: Context Parsing
@@ -70,11 +164,13 @@ graph TD
 **Input Shape:**
 ```typescript
 interface DailyContext {
-  energy: 'low' | 'normal' | 'high';
+  mood: 'low' | 'normal' | 'high';
   dayType: 'normal' | 'isa' | 'esa';
-  conditions: ('holiday' | 'sick' | 'overload')[];
-  bunkedSubjects: string[]; // Subject IDs
-  customTimeAvailable?: number; // Override total minutes
+  focusSubjectId?: number;
+  isHoliday: boolean;
+  isSick: boolean;
+  bunkedSubjectId?: number;
+  daysToExam?: number;
 }
 ```
 
@@ -85,28 +181,18 @@ const resolveConstraints = (context: DailyContext) => {
     low: 180,      // 3 hours
     normal: 300,   // 5 hours
     high: 420      // 7 hours
-  }[context.energy];
+  }[context.mood];
   
-  const maxBlockSize = {
-    low: 45,
-    normal: 60,
+  const energyLevel = {
+    low: 60,
+    normal: 80,
     high: 90
-  }[context.energy];
+  }[context.mood];
   
-  const totalMinutes = context.customTimeAvailable ?? baseMinutes;
-  
-  // Holiday modifier
-  if (context.conditions.includes('holiday')) {
-    totalMinutes *= 0.6; // Reduce to 60%
-  }
-  
-  // Sick modifier
-  if (context.conditions.includes('sick')) {
-    totalMinutes *= 0.4;
-    maxBlockSize = 30; // Force shorter blocks
-  }
-  
-  return { totalMinutes, maxBlockSize };
+  return { 
+    timeAvailableMinutes: baseMinutes,
+    energyLevel 
+  };
 };
 ```
 
@@ -118,15 +204,12 @@ Before generation, each subject is scored on multiple dimensions:
 interface EnrichedSubject {
   id: string;
   name: string;
-  examDate: Date | null;
   priority: number;          // 1-10 (user-set)
   difficulty: number;        // 1-10 (user-set)
   
   // Computed scores
   decayScore: number;        // Days since last study
-  examProximityScore: number; // Urgency based on date
   performanceScore: number;  // Recent session quality avg
-  volumeScore: number;       // Total time studied
   
   // Meta
   lastStudied: Date | null;
@@ -140,7 +223,9 @@ interface EnrichedSubject {
 const calculateDecayScore = (lastStudied: Date | null): number => {
   if (!lastStudied) return 100; // Never studied = max urgency
   
-  const daysSince = (Date.now() - lastStudied.getTime()) / (1000 * 60 * 60 * 24);
+  const daysSince = Math.floor(
+    (Date.now() - lastStudied.getTime()) / (1000 * 60 * 60 * 24)
+  );
   
   if (daysSince >= 7) return 100;
   if (daysSince >= 5) return 80;
@@ -150,77 +235,45 @@ const calculateDecayScore = (lastStudied: Date | null): number => {
 };
 ```
 
-**Exam Proximity Scoring:**
-```typescript
-const calculateExamProximityScore = (examDate: Date | null): number => {
-  if (!examDate) return 0; // No exam = no urgency
-  
-  const daysUntil = (examDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-  
-  // Quadratic urgency scaling
-  if (daysUntil <= 2) return 100; // Panic mode
-  if (daysUntil <= 7) return 75;
-  if (daysUntil <= 14) return 50;
-  if (daysUntil <= 30) return 25;
-  return 10; // Background priority
-};
-```
+### Stage 3: Plan Generation (Brain-Ultimate)
 
-### Stage 3: Plan Generation
+The ultimate orchestrator decides which brain system to use:
 
-**Block Creation Logic:**
 ```typescript
-const generateBlocks = (
-  subjects: EnrichedSubject[],
-  constraints: Constraints
-): StudyBlock[] => {
-  const blocks: StudyBlock[] = [];
-  let remainingMinutes = constraints.totalMinutes;
+const generateUltimatePlan = async (context: DailyContext) => {
+  // 1. Assess data maturity
+  const dataSpan = calculateDataSpan();
   
-  // Sort subjects by composite score
-  const sorted = subjects.sort((a, b) => {
-    const scoreA = (
-      a.priority * 10 +
-      a.decayScore * 5 +
-      a.examProximityScore * 8 +
-      a.difficulty * 3
-    );
-    const scoreB = (
-      b.priority * 10 +
-      b.decayScore * 5 +
-      b.examProximityScore * 8 +
-      b.difficulty * 3
-    );
-    return scoreB - scoreA; // Descending
-  });
+  // 2. Select strategy
+  let blocks: StudyBlock[];
+  let confidence: number;
   
-  for (const subject of sorted) {
-    if (remainingMinutes <= 0) break;
-    
-    // Calculate ideal duration
-    let duration = Math.min(
-      60, // Default 60min
-      constraints.maxBlockSize,
-      remainingMinutes
-    );
-    
-    // Difficulty adjustment
-    if (subject.difficulty >= 8) {
-      duration = Math.min(45, duration); // Cap hard subjects
-    }
-    
-    blocks.push({
-      subjectId: subject.id,
-      subjectName: subject.name,
-      duration,
-      priority: subject.priority,
-      type: 'standard'
-    });
-    
-    remainingMinutes -= duration;
+  if (dataSpan < 5) {
+    // Use research-grade with smart defaults
+    const plan = await generateResearchGradePlan(context);
+    blocks = plan.blocks;
+    confidence = 0.7;
+  } else if (dataSpan < 30) {
+    // Use core brain + performance adjustments
+    const corePlan = await generateDailyPlan(context);
+    blocks = await applyPerformanceAdjustments(corePlan.blocks);
+    confidence = 0.8;
+  } else {
+    // Full hybrid: research + performance
+    const researchPlan = await generateResearchGradePlan(context);
+    blocks = await applyAggressiveAdjustments(researchPlan.blocks);
+    confidence = 0.95;
   }
   
-  return blocks;
+  // 3. Compute comprehensive analytics
+  const loadAnalysis = {
+    burnoutRisk: await detectBurnout(),
+    interleaving: analyzeInterleaving(blocks),
+    energyBudget: validateEnergyBudget(blocks),
+    ...coreMetrics
+  };
+  
+  return { blocks, loadAnalysis, confidence };
 };
 ```
 
@@ -230,16 +283,16 @@ const generateBlocks = (
 
 ### Core Concept: Bucket Overflow Management
 
-Traditional calendars "find slots." Orbit **fills a bucket until overflow**, then uses **dominance hierarchy** to decide what stays.
+Traditional calendars "find slots." Orbit **fills a bucket until overflow**, then uses **priority hierarchy** to decide what stays.
 
-**Dominance Tiers (Highest → Lowest):**
+**Priority Tiers (Highest to Lowest):**
 ```typescript
 enum BlockPriority {
-  ESA_EXAM = 1000,           // Exam today/tomorrow
+  EXAM_TODAY = 1000,         // Exam/ISA/ESA today
   URGENT_ASSIGNMENT = 800,   // Due < 24h
   SRS_DUE_TODAY = 700,       // Spaced repetition reviews
-  PROJECT_DECAY = 600,       // Ignored > 3 days
-  ISA_EXAM = 500,            // Internal assessment prep
+  HIGH_DECAY = 600,          // Ignored > 5 days
+  MODERATE_DECAY = 400,      // Ignored 3-5 days
   STANDARD_STUDY = 300,      // Regular subjects
   OPTIONAL_READING = 100     // Background learning
 }
@@ -252,7 +305,7 @@ const displaceBlocks = (
   maxMinutes: number
 ): StudyBlock[] => {
   // Sort by priority (descending)
-  const sorted = blocks.sort((a, b) => b.priority - a.priority);
+  const sorted = [...blocks].sort((a, b) => b.priority - a.priority);
   
   const kept: StudyBlock[] = [];
   const displaced: StudyBlock[] = [];
@@ -263,12 +316,14 @@ const displaceBlocks = (
       kept.push(block);
       usedMinutes += block.duration;
     } else {
-      displaced.push(block);
+      displaced.push({
+        ...block,
+        reason: `Time budget exceeded (${usedMinutes}/${maxMinutes} min used)`
+      });
     }
   }
   
-  // Log displaced blocks for transparency
-  console.log(`Displaced ${displaced.length} blocks:`, displaced.map(b => b.subjectName));
+  console.log(`Kept ${kept.length}, Displaced ${displaced.length} blocks`);
   
   return kept;
 };
@@ -278,13 +333,14 @@ const displaceBlocks = (
 ```
 Day Capacity: 300 minutes
 
-Initial Queue:
-1. Physics (ESA_EXAM, 90min)     → KEPT
-2. Math Review (SRS_DUE, 60min)  → KEPT
-3. Chemistry (DECAY, 90min)      → KEPT
-4. History (STANDARD, 60min)     → KEPT
-5. Economics (OPTIONAL, 45min)   → DISPLACED (overflow)
-Total: 345 min → Reduced to 300 min
+Initial Queue (by priority):
+1. Physics (EXAM_TODAY, 90min)      → KEPT (total: 90)
+2. Math (HIGH_DECAY, 60min)         → KEPT (total: 150)
+3. Chemistry (MODERATE_DECAY, 90min)→ KEPT (total: 240)
+4. History (STANDARD, 60min)        → KEPT (total: 300)
+5. Economics (OPTIONAL, 45min)      → DISPLACED (would exceed 300)
+
+Final Plan: 4 blocks, 300 minutes
 ```
 
 ---
@@ -296,39 +352,35 @@ Total: 345 min → Reduced to 300 min
 ```typescript
 const calculateCompositePriority = (subject: EnrichedSubject): number => {
   const weights = {
-    userPriority: 10,
-    decayScore: 5,
-    examProximity: 8,
-    difficulty: 3,
-    performance: -2  // Negative: high performers get deprioritized
+    userPriority: 10,      // Manual overrides are king
+    decayScore: 5,         // Neglect matters
+    difficulty: 3,         // Harder = slight boost
+    avgQuality: -2         // High performers get less time
   };
   
   return (
     subject.priority * weights.userPriority +
     subject.decayScore * weights.decayScore +
-    subject.examProximityScore * weights.examProximity +
     subject.difficulty * weights.difficulty +
-    subject.performanceScore * weights.performance
+    (5 - subject.avgQualityRating) * weights.avgQuality
   );
 };
 ```
 
 **Why These Weights?**
 - **User Priority (10x)**: Respects manual overrides
-- **Exam Proximity (8x)**: Deadlines trump everything except user intent
 - **Decay (5x)**: Prevents long-term neglect
 - **Difficulty (3x)**: Harder subjects get slight boost
-- **Performance (-2x)**: Subjects you're crushing get less time
+- **Quality (-2x)**: Subjects you're crushing get less time
 
 ---
 
-## Enhanced Intelligence Layer (v3)
+## Performance Tracking & Adaptation
 
-### 1. Dynamic Difficulty Adjustment (DDA)
+### Dynamic Duration Adjustment
 
-**Goal:** Auto-tune block durations based on performance.
+**Goal:** Auto-tune block sizes based on completion patterns
 
-**Implementation:**
 ```typescript
 const adjustDuration = (
   baselineDuration: number,
@@ -337,20 +389,25 @@ const adjustDuration = (
 ): number => {
   const last30Days = recentSessions.filter(s => 
     s.subjectId === subject.id &&
-    s.timestamp > Date.now() - (30 * 24 * 60 * 60 * 1000)
+    s.timestamp > Date.now() - 30 * 24 * 60 * 60 * 1000
   );
   
-  if (last30Days.length < 3) return baselineDuration; // Insufficient data
+  if (last30Days.length < 3) return baselineDuration;
   
-  const avgQuality = last30Days.reduce((sum, s) => sum + s.qualityRating, 0) / last30Days.length;
-  const completionRate = last30Days.filter(s => s.completed).length / last30Days.length;
+  const avgQuality = last30Days.reduce(
+    (sum, s) => sum + s.qualityRating, 0
+  ) / last30Days.length;
   
-  // Too easy: consistently high quality + 100% completion
+  const completionRate = last30Days.filter(
+    s => s.completed
+  ).length / last30Days.length;
+  
+  // Too easy: high quality + high completion
   if (avgQuality >= 4.5 && completionRate >= 0.9) {
     return Math.floor(baselineDuration * 1.15); // +15%
   }
   
-  // Too hard: low completion or frequent early exits
+  // Too hard: low completion or quality
   if (completionRate < 0.6 || avgQuality < 2.5) {
     return Math.floor(baselineDuration * 0.8); // -20%
   }
@@ -359,112 +416,56 @@ const adjustDuration = (
 };
 ```
 
-### 2. Energy Budget System
+### Burnout Detection
 
-**Goal:** Match task intensity to available cognitive capacity.
-
-**Energy Cost Calculation:**
-```typescript
-interface EnergyProfile {
-  morning: 'low' | 'medium' | 'high';   // 6 AM - 12 PM
-  afternoon: 'low' | 'medium' | 'high'; // 12 PM - 6 PM
-  evening: 'low' | 'medium' | 'high';   // 6 PM - 12 AM
-  night: 'low' | 'medium' | 'high';     // 12 AM - 6 AM
-}
-
-const calculateEnergyCost = (subject: EnrichedSubject, duration: number): number => {
-  const baseCost = duration / 60; // 1 unit per hour
-  const difficultyMultiplier = 0.5 + (subject.difficulty / 10); // 0.5-1.5x
-  
-  return baseCost * difficultyMultiplier;
-};
-
-const scheduleByEnergy = (
-  blocks: StudyBlock[],
-  profile: EnergyProfile,
-  currentTime: Date
-): StudyBlock[] => {
-  const currentPeriod = getCurrentPeriod(currentTime);
-  const availableEnergy = profile[currentPeriod];
-  
-  // Sort blocks by energy cost (descending)
-  blocks.sort((a, b) => b.energyCost - a.energyCost);
-  
-  // High energy periods: front-load heavy tasks
-  if (availableEnergy === 'high') {
-    return blocks; // Keep heavy tasks first
-  }
-  
-  // Low energy periods: push heavy tasks to end (or skip)
-  if (availableEnergy === 'low') {
-    return blocks.reverse(); // Light tasks first
-  }
-  
-  return blocks; // Medium energy: no reordering
-};
-```
-
-### 3. Burnout Detection
-
-**Red Flags Monitored:**
 ```typescript
 interface BurnoutMetrics {
   skipRate: number;          // % of planned sessions skipped
-  sessionCompletionRatio: number; // % of sessions finished vs started
-  lowMoodStreak: number;     // Consecutive days of mood < 3
-  noStudyStreak: number;     // Consecutive days with 0 sessions
+  avgCompletionRate: number; // % of sessions finished
+  lowMoodStreak: number;     // Consecutive days mood < 3
 }
 
-const detectBurnout = (metrics: BurnoutMetrics): boolean => {
+const detectBurnout = async (): Promise<{
+  score: number;
+  atRisk: boolean;
+  recommendation: string;
+}> => {
+  const metrics = await calculateBurnoutMetrics();
+  
   const redFlags = [
-    metrics.skipRate > 0.3,                 // 30%+ skip rate
-    metrics.sessionCompletionRatio < 0.6,   // Quitting early often
-    metrics.lowMoodStreak > 4,              // 4+ days low mood
-    metrics.noStudyStreak > 3               // 3+ day study gap
+    metrics.skipRate > 0.3,              // 30%+ skip rate
+    metrics.avgCompletionRate < 0.6,     // Quitting early often
+    metrics.lowMoodStreak > 4            // 4+ days low mood
   ];
   
-  return redFlags.filter(Boolean).length >= 2; // 2+ red flags = burnout
-};
-```
-
-**Recovery Mode:**
-```typescript
-const generateRecoveryPlan = (subjects: EnrichedSubject[]): StudyBlock[] => {
-  // Only 2 hours total
-  const easySubjects = subjects
-    .filter(s => s.difficulty <= 5)
-    .sort((a, b) => a.difficulty - b.difficulty)
-    .slice(0, 2); // Top 2 easiest
+  const atRisk = redFlags.filter(Boolean).length >= 2;
   
-  return easySubjects.map(s => ({
-    subjectId: s.id,
-    subjectName: s.name,
-    duration: 60, // 1 hour each
-    priority: 100,
-    type: 'recovery'
-  }));
+  return {
+    score: metrics.skipRate * 100,
+    atRisk,
+    recommendation: atRisk 
+      ? "Consider a rest day or lighter schedule"
+      : "Healthy study patterns detected"
+  };
 };
 ```
 
-### 4. Interleaving & Cognitive Variety
+### Interleaving Enforcement
 
-**Goal:** Prevent mental fatigue by mixing task types.
+**Goal:** Prevent mental fatigue by mixing subjects and task types
 
-**Rules Enforced:**
 ```typescript
 const enforceInterleaving = (blocks: StudyBlock[]): StudyBlock[] => {
   const result: StudyBlock[] = [];
-  let lastSubjectId: string | null = null;
+  let lastSubjectId: number | null = null;
   let sameSubjectCount = 0;
-  let lastTaskType: TaskType | null = null;
-  let sameTypeCount = 0;
   
   for (const block of blocks) {
-    // Rule 1: Max 2 consecutive blocks of same subject
+    // Rule: Max 2 consecutive blocks of same subject
     if (block.subjectId === lastSubjectId) {
       sameSubjectCount++;
       if (sameSubjectCount >= 2) {
-        // Find a different subject to insert
+        // Find different subject to insert
         const different = blocks.find(b => 
           b.subjectId !== lastSubjectId && 
           !result.includes(b)
@@ -480,29 +481,8 @@ const enforceInterleaving = (blocks: StudyBlock[]): StudyBlock[] => {
       sameSubjectCount = 1;
     }
     
-    // Rule 2: Max 3 consecutive blocks of same type
-    if (block.taskType === lastTaskType) {
-      sameTypeCount++;
-      if (sameTypeCount >= 3) {
-        // Find different type
-        const differentType = blocks.find(b => 
-          b.taskType !== lastTaskType && 
-          !result.includes(b)
-        );
-        if (differentType) {
-          result.push(differentType);
-          lastTaskType = differentType.taskType;
-          sameTypeCount = 1;
-          continue;
-        }
-      }
-    } else {
-      sameTypeCount = 1;
-    }
-    
     result.push(block);
     lastSubjectId = block.subjectId;
-    lastTaskType = block.taskType;
   }
   
   return result;
@@ -513,11 +493,10 @@ const enforceInterleaving = (blocks: StudyBlock[]): StudyBlock[] => {
 
 ## Spaced Repetition Implementation
 
-### SM-2 Algorithm Adaptation
+### Modified SM-2 Algorithm
 
-Orbit uses a modified **SuperMemo 2** algorithm, adapted for entire study blocks (not just flashcards).
+Orbit uses a modified **SuperMemo 2** algorithm for review scheduling:
 
-**Core Variables:**
 ```typescript
 interface SRSData {
   easeFactor: number;    // 1.3 - 2.5 (default 2.5)
@@ -525,23 +504,23 @@ interface SRSData {
   repetitions: number;   // Total review count
   nextReview: Date;      // Scheduled review date
 }
-```
 
-**Update Algorithm:**
-```typescript
 const updateSRS = (
   current: SRSData,
   comprehensionRating: 1 | 2 | 3 // 1=Hard, 2=Good, 3=Easy
 ): SRSData => {
   let { easeFactor, interval, repetitions } = current;
   
-  // Update ease factor
   if (comprehensionRating === 1) {
-    easeFactor = Math.max(1.3, easeFactor - 0.2); // Harder
-    repetitions = 0; // Reset
+    // Reset: too hard
+    easeFactor = Math.max(1.3, easeFactor - 0.2);
+    repetitions = 0;
     interval = 1; // Review tomorrow
   } else {
-    easeFactor = Math.min(2.5, easeFactor + (0.1 * (comprehensionRating - 2)));
+    // Increase difficulty factor
+    easeFactor = Math.min(2.5, 
+      easeFactor + (0.1 * (comprehensionRating - 2))
+    );
     repetitions++;
     
     // Calculate next interval
@@ -561,97 +540,6 @@ const updateSRS = (
 };
 ```
 
-**Integration with Daily Plan:**
-```typescript
-const injectSRSBlocks = (
-  plan: StudyBlock[],
-  srsData: Map<string, SRSData>
-): StudyBlock[] => {
-  const dueReviews: StudyBlock[] = [];
-  const today = new Date();
-  
-  for (const [subjectId, data] of srsData.entries()) {
-    if (data.nextReview <= today) {
-      dueReviews.push({
-        subjectId,
-        subjectName: getSubjectName(subjectId),
-        duration: 30, // Fixed 30min reviews
-        priority: 700, // SRS_DUE_TODAY
-        type: 'srs_review'
-      });
-    }
-  }
-  
-  // Insert reviews at strategic positions (after heavy tasks)
-  return interleaveReviews(plan, dueReviews);
-};
-```
-
----
-
-## Performance Optimizations
-
-### 1. Database Query Batching
-
-**Problem:** IndexedDB queries are async and slow if chained.
-
-**Solution:** Batch all reads upfront.
-
-```typescript
-const batchLoadData = async (): Promise<{
-  subjects: Subject[];
-  sessions: Session[];
-  srsData: Map<string, SRSData>;
-}> => {
-  const [subjects, sessions, srsData] = await Promise.all([
-    db.subjects.toArray(),
-    db.sessions.where('timestamp').above(Date.now() - 90 * 24 * 60 * 60 * 1000).toArray(),
-    db.srsData.toArray()
-  ]);
-  
-  return {
-    subjects,
-    sessions,
-    srsData: new Map(srsData.map(s => [s.subjectId, s]))
-  };
-};
-```
-
-### 2. Memoization of Expensive Calculations
-
-```typescript
-const memoizedScores = new Map<string, number>();
-
-const getCompositeScore = (subject: EnrichedSubject): number => {
-  const key = `${subject.id}-${subject.lastStudied}-${subject.examDate}`;
-  
-  if (memoizedScores.has(key)) {
-    return memoizedScores.get(key)!;
-  }
-  
-  const score = calculateCompositePriority(subject);
-  memoizedScores.set(key, score);
-  return score;
-};
-```
-
-### 3. Lazy Loading of Historical Data
-
-**Only load sessions when needed** (e.g., for analytics, not plan generation).
-
-```typescript
-// Plan generation uses only recent 30 days
-const getRecentSessions = async (subjectId: string) => {
-  return db.sessions
-    .where('[subjectId+timestamp]')
-    .between(
-      [subjectId, Date.now() - 30 * 24 * 60 * 60 * 1000],
-      [subjectId, Date.now()]
-    )
-    .toArray();
-};
-```
-
 ---
 
 ## Database Schema
@@ -659,72 +547,32 @@ const getRecentSessions = async (subjectId: string) => {
 ### Dexie.js Configuration
 
 ```typescript
-import Dexie from 'dexie';
-
 class OrbitDB extends Dexie {
-  subjects: Dexie.Table<Subject, string>;
-  sessions: Dexie.Table<Session, number>;
-  srsData: Dexie.Table<SRSData, string>;
-  settings: Dexie.Table<Settings, string>;
+  semesters!: Table<Semester, number>;
+  subjects!: Table<Subject, number>;
+  projects!: Table<Project, number>;
+  schedule!: Table<ScheduleSlot, number>;
+  assignments!: Table<Assignment, string>;
+  plans!: Table<DailyPlan, string>;
+  logs!: Table<StudyLog, number>;
+  topics!: Table<StudyTopic, number>;
+  blockOutcomes!: Table<BlockOutcome, string>;
   
   constructor() {
     super('OrbitDB');
     
-    this.version(3).stores({
-      subjects: 'id, examDate, lastStudied, priority',
-      sessions: '++id, subjectId, timestamp, [subjectId+timestamp]',
-      srsData: 'subjectId, nextReview',
-      settings: 'key'
+    this.version(9).stores({
+      semesters: '++id',
+      subjects: '++id, name, code',
+      projects: '++id, subjectId',
+      schedule: '++id, day, slot',
+      assignments: 'id, subjectId, dueDate',
+      plans: 'date',
+      logs: '++id, timestamp, date, subjectId',
+      topics: '++id, subjectId, nextReview',
+      blockOutcomes: '++id, blockId, timestamp, date, completed'
     });
   }
-}
-
-export const db = new OrbitDB();
-```
-
-### Schema Definitions
-
-**Subject:**
-```typescript
-interface Subject {
-  id: string;              // UUID
-  name: string;
-  examDate: Date | null;
-  priority: number;        // 1-10
-  difficulty: number;      // 1-10
-  credits: number;         // 1-6
-  lastStudied: Date | null;
-  totalMinutesLogged: number;
-  createdAt: Date;
-}
-```
-
-**Session:**
-```typescript
-interface Session {
-  id: number;              // Auto-increment
-  subjectId: string;       // FK to subjects
-  timestamp: Date;
-  duration: number;        // Actual minutes studied
-  plannedDuration: number; // Intended minutes
-  completed: boolean;      // Did they finish?
-  qualityRating: number;   // 1-5 stars
-  notes: string;
-  pauseCount: number;
-  energyLevel: 'low' | 'normal' | 'high';
-}
-```
-
-**SRSData:**
-```typescript
-interface SRSData {
-  subjectId: string;       // PK, FK to subjects
-  easeFactor: number;      // 1.3 - 2.5
-  interval: number;        // Days
-  repetitions: number;
-  nextReview: Date;
-  lastReview: Date;
-  comprehensionHistory: (1 | 2 | 3)[]; // Last 10 ratings
 }
 ```
 
@@ -734,75 +582,33 @@ interface SRSData {
 
 ### Core Functions
 
-#### `generateDailyPlan(context: DailyContext): Promise<StudyBlock[]>`
+#### `generateUltimatePlan(context: DailyContext): Promise<UltimatePlanResult>`
 
-Generates a complete daily study plan.
-
-**Parameters:**
-- `context`: User's daily calibration inputs
+Generates a complete daily study plan using the triple-brain system.
 
 **Returns:**
-- Array of `StudyBlock` objects
-
-**Example:**
 ```typescript
-const plan = await generateDailyPlan({
-  energy: 'high',
-  dayType: 'normal',
-  conditions: [],
-  bunkedSubjects: []
-});
+{
+  blocks: StudyBlock[];
+  loadAnalysis: {
+    loadScore: number;
+    loadLevel: 'light' | 'normal' | 'heavy' | 'extreme';
+    burnoutRisk: BurnoutMetrics;
+    interleaving: InterleavingAnalysis;
+    energyBudget: EnergyBudget;
+  };
+  planningStrategy: 'core' | 'enhanced' | 'research' | 'hybrid';
+  confidence: number; // 0.7 - 0.95
+}
 ```
 
-#### `enrichSubject(subject: Subject, sessions: Session[]): EnrichedSubject`
+#### `getUnifiedReadiness(): Promise<Record<number, SubjectReadiness>>`
 
-Calculates all derived scores for a subject.
+Gets readiness scores using the best available system.
 
-**Parameters:**
-- `subject`: Raw subject data
-- `sessions`: Historical session data
+#### `recordBlockOutcome(outcome: BlockOutcome): Promise<void>`
 
-**Returns:**
-- `EnrichedSubject` with computed scores
-
-#### `displaceBlocks(blocks: StudyBlock[], maxMinutes: number): StudyBlock[]`
-
-Applies displacement algorithm to fit blocks within time budget.
-
-**Parameters:**
-- `blocks`: Initial block list
-- `maxMinutes`: Total available minutes
-
-**Returns:**
-- Filtered blocks that fit within budget
-
----
-
-## Contributing to the Brain
-
-### Adding New Heuristics
-
-1. Add new score calculation in `brain.ts`
-2. Update `EnrichedSubject` interface
-3. Modify `calculateCompositePriority()` with new weight
-4. Add tests in `brain.test.ts`
-
-### Testing Philosophy
-
-- **Unit tests**: Pure functions with deterministic outputs
-- **Integration tests**: Full plan generation scenarios
-- **Property tests**: Invariants (e.g., total minutes never exceed budget)
-
-**Example Test:**
-```typescript
-test('displacement respects time budget', () => {
-  const blocks = generateMockBlocks(10, 60); // 10 blocks, 60min each
-  const displaced = displaceBlocks(blocks, 300); // 5 hours max
-  
-  const totalMinutes = displaced.reduce((sum, b) => sum + b.duration, 0);
-  expect(totalMinutes).toBeLessThanOrEqual(300);
-});
-```
+Records session completion and quality data for learning.
 
 ---
 
@@ -810,22 +616,22 @@ test('displacement respects time budget', () => {
 
 | Operation | Time (avg) | Notes |
 |-----------|-----------|-------|
-| Full plan generation | 45ms | 20 subjects, 500 sessions |
-| Subject enrichment | 8ms | Per subject |
-| Displacement algorithm | 12ms | 15 blocks |
-| SRS update | 2ms | Per subject |
+| Full plan generation | 45-300ms | Varies by strategy |
+| Research-grade plan | 50ms | New users |
+| Enhanced plan | 150ms | Active users |
+| Hybrid plan | 300ms | Power users |
 | Database batch load | 120ms | Cold start |
 
-**Target:** Plan generation under 100ms on mid-range devices.
+**Target:** All plans under 500ms on mid-range devices.
 
 ---
 
 ## Future Enhancements
 
-1. **Machine Learning Integration**: Replace heuristic weights with learned models
-2. **Multi-Day Planning**: Optimize across a week, not just one day
-3. **Collaborative Filtering**: Learn from aggregate anonymous patterns
-4. **Natural Language Input**: "I have 3 hours and I'm tired" → Auto-calibrate
+1. **Neural Network Duration Prediction**: Replace heuristics with learned models
+2. **Multi-Day Optimization**: Optimize across a week, not just one day
+3. **Reinforcement Learning**: Let the system learn optimal strategies
+4. **Collaborative Filtering**: Learn from aggregate patterns
 
 ---
 
@@ -833,7 +639,7 @@ test('displacement respects time budget', () => {
 
 This document is a living spec. If something is unclear:
 1. Check the [main README](./README.md) for user-facing docs
-2. Open a [Discussion](https://github.com/santoshcheethirala/orbit/discussions)
-3. Read the source: [`brain.ts`](./brain.ts) and [`brain-enhanced-integration.ts`](./brain-enhanced-integration.ts)
+2. Read the source: `brain-ultimate.ts`, `brain.ts`, `brain-enhanced-integration.ts`, `brain-research-grade.ts`
+3. Open a [Discussion](https://github.com/santoshcheethirala/orbit/discussions)
 
 **Built with ❤️ by developers who actually study.**

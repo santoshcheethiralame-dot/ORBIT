@@ -1,14 +1,136 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Semester, Subject, Project } from "./types";
 import { db } from "./db";
 import { Button, Input, Slider, GlassCard, getSubjectColor, SUBJECT_COLOR_CLASSES } from "./components";
-import { X, Zap, Calendar, BookOpen, Target, ChevronRight, ChevronLeft, Check, AlertCircle, Rocket, Sparkles, Radio, Orbit, Plus, Minus } from "lucide-react";
+import { X, Zap, Calendar, BookOpen, Target, ChevronRight, ChevronLeft, Check, AlertCircle, Rocket, Sparkles, Radio, Orbit, Plus, Minus, Upload, Download, Database } from "lucide-react";
 import { SpaceBackground } from "./SpaceBackground";
 import { useToast } from "./Toast";
 
 // Progress indicator removed
 
-// ðŸŽ¨ ENHANCED: Floating Input with Subtle Styling
+// Utility functions for backup import/export
+const exportBackup = async () => {
+  try {
+    const data = {
+      version: "1.0",
+      timestamp: Date.now(),
+      semesters: await db.semesters.toArray(),
+      subjects: await db.subjects.toArray(),
+      projects: await db.projects.toArray(),
+      schedule: await db.schedule.toArray(),
+      plans: await db.plans.toArray(),
+      logs: await db.logs.toArray(),
+      assignments: await db.assignments.toArray(),
+      topics: await db.topics.toArray(),
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `orbit-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    return true;
+  } catch (err) {
+    console.error('Export failed:', err);
+    return false;
+  }
+};
+
+const importBackup = async (file: File): Promise<{ success: boolean; message: string }> => {
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    
+    console.log('Import backup data:', data);
+    
+    // Check if this is the v4.0.1 format with settings and nested data
+    if (data.version && data.exportDate && data.data) {
+      // New format with nested structure (v4.0.1)
+      const backupData = data.data;
+      
+      // Map the new format to database tables
+      await db.transaction('rw', [
+        db.subjects, db.plans, db.logs, db.assignments
+      ], async () => {
+        // Clear existing data
+        await db.subjects.clear();
+        await db.plans.clear();
+        await db.logs.clear();
+        await db.assignments.clear();
+        
+        // Import subjects
+        if (backupData.subjects?.length) {
+          await db.subjects.bulkAdd(backupData.subjects);
+        }
+        
+        // Import logs
+        if (backupData.logs?.length) {
+          await db.logs.bulkAdd(backupData.logs);
+        }
+        
+        // Import assignments
+        if (backupData.assignments?.length) {
+          await db.assignments.bulkAdd(backupData.assignments);
+        }
+        
+        // Import plans
+        if (backupData.plans?.length) {
+          await db.plans.bulkAdd(backupData.plans);
+        }
+      });
+      
+      // Also restore settings if they exist
+      if (data.settings) {
+        try {
+          localStorage.setItem('orbit-prefs', JSON.stringify(data.settings));
+        } catch (e) {
+          console.warn('Could not restore settings:', e);
+        }
+      }
+      
+      return { success: true, message: `Restored ${backupData.subjects?.length || 0} subjects and ${backupData.plans?.length || 0} plans!` };
+    } 
+    // Check for simple format with version/timestamp
+    else if (data.version || data.timestamp) {
+      // Old simple format with tables at root level
+      await db.transaction('rw', [
+        db.semesters, db.subjects, db.projects, db.schedule,
+        db.plans, db.logs, db.assignments, db.topics
+      ], async () => {
+        await db.semesters.clear();
+        await db.subjects.clear();
+        await db.projects.clear();
+        await db.schedule.clear();
+        await db.plans.clear();
+        await db.logs.clear();
+        await db.assignments.clear();
+        await db.topics.clear();
+        
+        if (data.semesters?.length) await db.semesters.bulkAdd(data.semesters);
+        if (data.subjects?.length) await db.subjects.bulkAdd(data.subjects);
+        if (data.projects?.length) await db.projects.bulkAdd(data.projects);
+        if (data.schedule?.length) await db.schedule.bulkAdd(data.schedule);
+        if (data.plans?.length) await db.plans.bulkAdd(data.plans);
+        if (data.logs?.length) await db.logs.bulkAdd(data.logs);
+        if (data.assignments?.length) await db.assignments.bulkAdd(data.assignments);
+        if (data.topics?.length) await db.topics.bulkAdd(data.topics);
+      });
+      
+      return { success: true, message: 'Backup restored successfully!' };
+    } 
+    else {
+      return { success: false, message: 'Invalid backup file format - missing version or exportDate' };
+    }
+  } catch (err: any) {
+    console.error('Import failed:', err);
+    return { success: false, message: err.message || 'Failed to import backup' };
+  }
+};
+
+// ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â¨ ENHANCED: Floating Input with Subtle Styling
 const FloatingInput = ({
   label,
   error,
@@ -80,7 +202,7 @@ const FloatingInput = ({
   );
 };
 
-// ðŸŽ¨ ENHANCED: Subject Card with Better Animations
+// ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â¨ ENHANCED: Subject Card with Better Animations
 const SubjectCard = ({
   subject,
   index,
@@ -209,7 +331,7 @@ const DifficultySelector = ({ value, onChange }: { value: number; onChange: (val
   );
 };
 
-// ðŸŽ¨ NEW: Enhanced Navigation Button Component
+// ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â¨ NEW: Enhanced Navigation Button Component
 const NavButton = ({
   onClick,
   disabled,
@@ -247,7 +369,7 @@ const NavButton = ({
   );
 };
 
-// ðŸŽ¨ MAIN COMPONENT
+// ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â¨ MAIN COMPONENT
 export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   const toast = useToast();
   const [step, setStep] = useState(1);
@@ -267,6 +389,10 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   const [timetableError, setTimetableError] = useState('');
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  
+  // Import/Export state
+  const [showImportOption, setShowImportOption] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validateTimetable = (): { isValid: boolean; message: string } => {
     const placedSubjects = new Set<number>();
@@ -335,6 +461,24 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
       setFieldErrors({});
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }, 300);
+  };
+
+  // Import/Export handlers
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const result = await importBackup(file);
+    if (result.success) {
+      toast.success(result.message);
+      onComplete();
+    } else {
+      toast.error(result.message);
+    }
   };
 
   const days = showWeekend ? ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] : ['MON', 'TUE', 'WED', 'THU', 'FRI'];
@@ -434,7 +578,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
         await db.schedule.bulkAdd(scheduleSlots);
       });
 
-      toast.success('ðŸš€ Orbit initialized successfully!');
+      toast.success('ÃƒÂ°Ã…Â¸Ã…Â¡Ã¢â€šÂ¬ Orbit initialized successfully!');
       setTimeout(onComplete, 800);
     } catch (error) {
       toast.error('Failed to initialize orbit');
@@ -482,6 +626,48 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
         {/* STEP 1: Mission Parameters */}
         {step === 1 && (
           <div className="w-full max-w-xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+            
+            {/* Import/Export UI */}
+            {showImportOption && (
+              <div className="mb-6">
+                <GlassCard className="p-6 border-indigo-500/20">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-xl bg-indigo-500/20">
+                      <Database className="w-6 h-6 text-indigo-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-white font-bold mb-2">Already have Orbit data?</h3>
+                      <p className="text-zinc-400 text-sm mb-4">
+                        Restore your previous backup to continue where you left off
+                      </p>
+                      <div className="flex gap-3">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".json"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                        />
+                        <button
+                          onClick={handleImportClick}
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium text-sm flex items-center gap-2 transition-colors"
+                        >
+                          <Upload className="w-4 h-4" />
+                          Import Backup
+                        </button>
+                        <button
+                          onClick={() => setShowImportOption(false)}
+                          className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium text-sm transition-colors"
+                        >
+                          Start Fresh
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </GlassCard>
+              </div>
+            )}
+            
             {/* Title Section */}
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center p-3 mb-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl animate-float">
@@ -885,7 +1071,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
                             </span>
                             <div className="flex items-center gap-2 mt-auto">
                               <span className="text-[10px] text-white/40 group-hover/sub:text-white/60">{s.credits} cr</span>
-                              <span className="text-[10px] text-white/40 group-hover/sub:text-white/60">•</span>
+                              <span className="text-[10px] text-white/40 group-hover/sub:text-white/60">Ã¢â‚¬Â¢</span>
                               <span className="text-[10px] text-white/40 group-hover/sub:text-white/60">Lvl {s.difficulty}</span>
                             </div>
                           </button>

@@ -23,7 +23,7 @@ interface DailyContextModalProps {
   onGenerate: (ctx: DailyContext) => void;
 }
 
-// ðŸŽ¯ PRESET DEFINITIONS
+// Ã°Å¸Å½Â¯ PRESET DEFINITIONS
 const PRESETS = {
   regular: {
     name: "Regular Day",
@@ -356,7 +356,7 @@ export const DailyContextModal = ({
 
   const handleSubmit = async () => {
     if ((dayType === "isa" || dayType === "esa") && !focusSubjectId) {
-      alert("âš ï¸ Please select a subject for exam preparation!");
+      alert("Ã¢Å¡Â Ã¯Â¸Â Please select a subject for exam preparation!");
       return;
     }
 
@@ -769,8 +769,8 @@ export const DailyContextModal = ({
               style={{ minWidth: 140 }}
             >
               {(dayType === "isa" || dayType === "esa") && !focusSubjectId
-                ? "âš ï¸ Select Subject"
-                : "ðŸš€ Initialize"}
+                ? "Ã¢Å¡Â Ã¯Â¸Â Select Subject"
+                : "Ã°Å¸Å¡â‚¬ Initialize"}
             </Button>
 
             <button

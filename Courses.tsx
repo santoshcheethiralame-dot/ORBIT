@@ -1,8 +1,8 @@
-// CoursesView_Enhanced.tsx – DASHBOARD DESIGN LANGUAGE APPLIED ✨
-// 🎨 Cohesive frosted glass morphism
-// 📚 Enhanced resource viewer with fullscreen
-// 💫 Smooth animations throughout
-// 🎯 Polished stat cards and interactions
+// CoursesView_Enhanced.tsx â€“ DASHBOARD DESIGN LANGUAGE APPLIED âœ¨
+// ðŸŽ¨ Cohesive frosted glass morphism
+// ðŸ“š Enhanced resource viewer with fullscreen
+// ðŸ’« Smooth animations throughout
+// ðŸŽ¯ Polished stat cards and interactions
 
 import React, { useEffect, useState } from "react";
 import {
@@ -19,18 +19,19 @@ import {
   EmptyCourses, EmptyResources, EmptyGrades,
   EmptyNotes, EmptySyllabus
 } from './EmptyStates';
-import { getAllReadinessScores, SubjectReadiness } from './brain';
+import { getAllReadinessScores } from './brain-research-grade';
+type SubjectReadiness = { score: number; status: string };
 import { useToast } from './Toast';
 import { FrostedTile, FrostedMini, PageHeader, MetaText, getSubjectColor, SUBJECT_COLOR_CLASSES } from './components';
 
-// ✨ Enhanced Prediction Modal with Dashboard Design
+// âœ¨ Enhanced Prediction Modal with Dashboard Design
 const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300 p-6">
     <div className="w-full max-w-lg animate-in slide-in-from-bottom-4 duration-500">
       <FrostedTile className="overflow-hidden">
         <div className="p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-indigo-500/10 to-transparent">
           <div>
-            <h2 className="text-2xl font-bold text-white mb-1">📈 Readiness Predictor</h2>
+            <h2 className="text-2xl font-bold text-white mb-1">ðŸ“ˆ Readiness Predictor</h2>
             <p className="text-sm text-zinc-500">Forecast your exam confidence</p>
           </div>
           <button
@@ -51,14 +52,14 @@ const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
             <div className="text-xs text-zinc-500 uppercase tracking-wider mb-3 font-bold">Current Readiness</div>
             <div className="flex items-end gap-4">
               <div className={`text-5xl font-bold font-mono tabular-nums ${currentReadiness?.status === 'critical' ? 'text-red-400' :
-                  currentReadiness?.status === 'maintaining' ? 'text-yellow-400' :
-                    'text-emerald-400'
+                currentReadiness?.status === 'maintaining' ? 'text-yellow-400' :
+                  'text-emerald-400'
                 }`}>
                 {currentReadiness?.score || 0}%
               </div>
               <div className={`text-xs mb-2 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider ${currentReadiness?.status === 'critical' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
-                  currentReadiness?.status === 'maintaining' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
-                    'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                currentReadiness?.status === 'maintaining' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
+                  'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                 }`}>
                 {currentReadiness?.status || 'unknown'}
               </div>
@@ -87,7 +88,7 @@ const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
           </div>
 
           <div className="text-xs text-zinc-500 italic p-4 bg-zinc-800/30 rounded-xl border border-white/5">
-            💡 This is a simplified prediction. Actual results depend on comprehension, retention, and review quality.
+            ðŸ’¡ This is a simplified prediction. Actual results depend on comprehension, retention, and review quality.
           </div>
         </div>
       </FrostedTile>
@@ -193,7 +194,7 @@ export default function CoursesView_Enhanced() {
   };
 
   const processAndSaveFile = async (file: File) => {
-    if (!selectedSubject) return;
+    if (!selectedSubject || !selectedSubject.id) return;
     try {
       const reader = new FileReader();
       const base64 = await new Promise<string>((res, rej) => {
@@ -227,7 +228,7 @@ export default function CoursesView_Enhanced() {
   };
 
   const addWebLink = async () => {
-    if (!selectedSubject || !newLink.title || !newLink.url) return;
+    if (!selectedSubject || !selectedSubject.id || !newLink.title || !newLink.url) return;
 
     await db.subjects.update(selectedSubject.id, {
       resources: [
@@ -248,7 +249,7 @@ export default function CoursesView_Enhanced() {
   };
 
   const addGrade = async () => {
-    if (!selectedSubject || !newGrade.type || !newGrade.score) return;
+    if (!selectedSubject || !selectedSubject.id || !newGrade.type || !newGrade.score) return;
 
     await db.subjects.update(selectedSubject.id, {
       grades: [
@@ -269,7 +270,7 @@ export default function CoursesView_Enhanced() {
   };
 
   const removeResource = async (resourceId: any) => {
-    if (!selectedSubject) return;
+    if (!selectedSubject || !selectedSubject.id) return;
     await db.subjects.update(selectedSubject.id, {
       resources: (selectedSubject.resources || []).filter((x: any) => x.id !== resourceId),
     });
@@ -337,7 +338,7 @@ export default function CoursesView_Enhanced() {
     }
   };
 
-  // ✨ ENHANCED Resource Viewer with Dashboard Design
+  // âœ¨ ENHANCED Resource Viewer with Dashboard Design
   if (selectedResource && selectedResource.type !== 'link') {
     const isPPT = isPowerPoint(selectedResource.fileType);
     const canPreview = !isPPT && (
@@ -921,7 +922,7 @@ export default function CoursesView_Enhanced() {
                           {s.name}
                         </div>
                         <div className="text-xs md:text-sm text-zinc-500 font-mono tracking-wider font-semibold">
-                          {s.code || "NO CODE"} • {s.credits ?? 0} CREDITS
+                          {s.code || "NO CODE"} â€¢ {s.credits ?? 0} CREDITS
                         </div>
                       </div>
                     </div>
@@ -938,11 +939,11 @@ export default function CoursesView_Enhanced() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setShowPrediction(s.id);
+                          if (s.id !== undefined) setShowPrediction(s.id);
                         }}
                         className="text-xs md:text-sm text-indigo-400 hover:text-indigo-300 px-3 md:px-4 py-2 md:py-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 transition-all font-bold border border-indigo-500/30 whitespace-nowrap hover:scale-110 active:scale-95 duration-300 min-h-[40px] md:min-h-[44px]"
                       >
-                        📈 Predict
+                        ðŸ“ˆ Predict
                       </button>
                     </div>
                   </div>

@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🛰️ Orbit
+# 🛰️ Orbit v3.0
 
 ### **Your brain doesn't work 9-to-5. Your study planner shouldn't either.**
 
@@ -17,6 +17,27 @@
 
 </div>
 
+## ✨ What's New in v3.0
+
+### 🧠 Triple-Brain AI System
+Orbit now uses **three integrated intelligence layers** that work together:
+
+1. **Core Brain** - Readiness calculations & priority-based planning
+2. **Enhanced Integration** - Performance tracking, energy management, quality ratings  
+3. **Research-Grade** - Probabilistic models & formal optimization algorithms
+
+**Adaptive Strategy Selection:**
+- **New users (< 5 days)**: Research-grade algorithms with smart defaults
+- **Active users (5-30 days)**: Enhanced performance-based adjustments
+- **Power users (30+ days)**: Full hybrid optimization with ML feedback
+
+### 🎯 New Features
+- ✅ **Import/Export Backup System** - Seamless device switching
+- ✅ **Confidence Scoring** - See how confident the AI is in your plan (70-95%)
+- ✅ **Performance Adjustments** - Block durations auto-tune based on your history
+- ✅ **Comprehensive Load Analysis** - Burnout risk, interleaving, energy budgets
+- ✅ **Quality Rating System** - Rate session quality (1-5 scale) for better predictions
+
 ---
 
 ## 🎨 What Makes Orbit Different
@@ -25,33 +46,36 @@
 <tr>
 <td width="50%">
 
-### **🧠 AI That Learns You**
-- **Adaptive Block Sizing**: Struggling with Physics? Get shorter, focused sessions automatically
+### 🧠 AI That Learns You
+- **Adaptive Block Sizing**: Struggling? Get shorter, focused sessions automatically
 - **Energy Matching**: Heavy tasks scheduled during your peak hours
 - **Burnout Detection**: Proactive recovery suggestions before you crash
+- **Quality Tracking**: Rate each session to improve future predictions
 
 </td>
 <td width="50%">
 
-### **🎯 Smart Prioritization**
+### 🎯 Smart Prioritization
 - **Decay Detection**: Auto-escalates subjects ignored 3+ days
 - **Exam Proximity Engine**: Quadratic urgency scaling
-- **Daily Context Calibration**: Energy + Deadlines → Optimal plan
+- **Daily Context Calibration**: Energy + Deadlines = Optimal plan
+- **Performance Feedback**: Block sizes adjust based on completion rates
 
 </td>
 </tr>
 <tr>
 <td>
 
-### **⚡ Zero Friction Execution**
+### ⚡ Zero Friction Execution
 - **One-Click Focus Mode**: Full-screen, distraction-free
 - **Session Reflections**: Rate quality, capture insights instantly
 - **Configurable "Day Start"**: 4 AM default (for night owls)
+- **Import/Export**: Switch devices seamlessly
 
 </td>
 <td>
 
-### **🔒 100% Private & Offline**
+### 🔒 100% Private & Offline
 - **Local-First**: Data never leaves your device
 - **No Accounts**: No sign-ups, no tracking
 - **Instant**: 0ms latency, works offline
@@ -76,8 +100,9 @@ npm install && npm run dev
 
 **First Session:**
 1. Add subjects (Courses tab)
-2. Calibrate your day (Dashboard → Set energy level)
-3. Start a focus session (Pick a mission → Focus)
+2. Calibrate your day (Dashboard - Set context: energy/mood)
+3. Start a focus session (Pick a mission - Focus)
+4. Rate your session quality (helps the AI learn)
 
 That's it. No tutorials. No setup hell.
 
@@ -87,12 +112,49 @@ That's it. No tutorials. No setup hell.
 
 | Feature | What It Does | Why It Matters |
 |---------|-------------|----------------|
+| **Triple-Brain System** | 3 AI layers working together | Plans get smarter as you use Orbit |
 | **Daily Context Engine** | Calibrate energy/mood before generating plan | Plans match reality, not fantasy |
 | **Adaptive Displacement** | Auto-reschedules based on changing priorities | Exams don't sneak up on you |
 | **Focus Session Protocol** | Distraction-free, full-screen study mode | Preserves flow state, tracks quality |
+| **Performance Tracking** | Quality ratings & completion analytics | AI tunes block sizes to your patterns |
 | **Spaced Repetition** | Ebbinghaus curve-based review scheduling | Actually retain what you learn |
 | **AI Study Assistant** | Claude-powered concept clarification | Get unstuck instantly |
 | **Analytics Dashboard** | Focus scores, streaks, subject heatmaps | See patterns, adjust strategy |
+| **Import/Export** | Backup/restore your entire study history | Never lose your data |
+
+---
+
+## 🧠 The Triple-Brain System
+
+### How It Works
+
+```mermaid
+graph TD
+    A[Your Context] --> B{Data Maturity?}
+    B -->|< 5 days| C[Research-Grade Brain]
+    B -->|5-30 days| D[Enhanced Brain]
+    B -->|30+ days| E[Hybrid Brain]
+    
+    C --> F[Smart Defaults]
+    D --> G[Performance Tuning]
+    E --> H[Full Optimization]
+    
+    F --> I[Your Daily Plan]
+    G --> I
+    H --> I
+    
+    I --> J[Study Sessions]
+    J --> K[Quality Ratings]
+    K --> L[Performance Data]
+    L --> B
+```
+
+### Confidence Levels
+- **70%**: New user, using research algorithms
+- **80%**: Active user, enhanced with performance data
+- **95%**: Power user, full hybrid optimization
+
+**Deep Dive:** [Read BRAIN.md](./BRAIN.md) for algorithm details, heuristics, and technical architecture.
 
 ---
 
@@ -103,7 +165,7 @@ Frontend:    React 19 + TypeScript 5.8
 Database:    Dexie.js (IndexedDB wrapper)
 Styling:     Tailwind CSS
 Build:       Vite 6.2
-AI:          Claude (Anthropic API)
+Brain:       Custom algorithms + research-grade models
 ```
 
 **Why Local-First?**
@@ -114,23 +176,6 @@ AI:          Claude (Anthropic API)
 
 ---
 
-## 📊 How It Works (TL;DR)
-
-```mermaid
-graph LR
-    A[You: Low Energy] --> B[Orbit Brain]
-    C[Exam in 3 days] --> B
-    D[Avoided Math 4 days] --> B
-    B --> E[Custom Daily Plan]
-    E --> F[Focus Session]
-    F --> G[Performance Data]
-    G --> B
-```
-
-**Deep Dive:** [Read BRAIN.md](./BRAIN.md) for algorithm details, heuristics, and technical architecture.
-
----
-
 ## 🎯 Perfect For
 
 - 🌙 **Night owls** who study best after midnight
@@ -138,30 +183,101 @@ graph LR
 - 🧠 **STEM students** juggling heavy, interconnected subjects
 - 📊 **Data nerds** who want analytics on their study patterns
 - 🔒 **Privacy advocates** who hate cloud dependency
+- 🎓 **Power users** who want AI that learns their patterns
 
 ---
 
-## 📸 Screenshots
+## 💡 Why Blocks Instead of Time Slots?
 
-> _Coming soon: Dashboard, Focus Mode, Analytics views_
+Traditional planners force you into rigid time slots:
+- ❌ "Study Math 2-4 PM" - What if you're tired at 2 PM?
+- ❌ "Review Physics Monday" - What if there's a surprise quiz Tuesday?
+- ❌ "30 min per subject" - What if you need 60 min for hard topics?
+
+**Orbit uses "Study Blocks" instead:**
+- ✅ **Context-Aware**: Generated fresh each day based on YOUR energy
+- ✅ **Priority-Driven**: Most urgent subjects get scheduled first
+- ✅ **Adaptive Sizing**: Block duration matches subject difficulty + your performance
+- ✅ **Displacement Logic**: When time runs out, least critical blocks get displaced (not forgotten - just postponed)
+
+**Example:**
+```
+Morning (High Energy):
+  Block 1: Physics (Hard) - 45 min
+  Block 2: Math (Hard) - 45 min
+
+Afternoon (Normal Energy):  
+  Block 3: Chemistry (Medium) - 60 min
+
+Evening (Low Energy):
+  Block 4: History (Easy) - 30 min
+  [Economics displaced to tomorrow - ran out of time]
+```
+
+**The Result:** You study what matters most, when you have the energy for it, for as long as you need.
+
+---
+
+## 📊 Performance Tracking
+
+Orbit learns from every session:
+
+```typescript
+After Each Focus Session:
+1. Did you complete it? (Completion Rate)
+2. How hard was it? (Quality Rating 1-5)
+3. How long did it actually take?
+
+The Brain Learns:
+- If you consistently quit early -> Reduce block size
+- If you finish with time to spare -> Increase duration  
+- If quality is low -> Schedule during peak energy
+- If quality is high -> Maintain or extend
+```
+
+---
+
+## 📱 Installation
+
+### Option 1: Web (Recommended)
+```bash
+npm install && npm run dev
+# Open http://localhost:5173
+```
+
+### Option 2: PWA (Install as App)
+1. Open in Chrome/Edge
+2. Click "Install" icon in address bar
+3. Works offline like a native app
+
+### Option 3: Build for Production
+```bash
+npm run build
+# Serve the `dist` folder with any static host
+```
 
 ---
 
 ## 🗺️ Roadmap
 
-**Now (v3.0)**
-- [x] Brain v3 with adaptive intelligence
-- [x] AI study assistant integration
-- [x] Quality rating system
+**v3.0 (Current)**
+- [x] Triple-brain AI system
+- [x] Performance-based adaptive planning
+- [x] Quality rating & feedback loop
+- [x] Import/export backup system
+- [x] Confidence scoring
 
-**Next (Q2 2026)**
-- [ ] Enhanced spaced repetition with flashcards
-- [ ] Mobile native apps (iOS/Android)
+**v3.1 (Q2 2026)**
+- [ ] Mobile-optimized UI
 - [ ] Pomodoro timer integration
+- [ ] Advanced analytics dashboard
+- [ ] Custom study block templates
 
-**Future**
+**v4.0 (Future)**
 - [ ] Optional E2E encrypted cloud sync
-- [ ] Study group collaboration features
+- [ ] Study group collaboration
+- [ ] Natural language planning ("I'm tired, give me 2 hours of easy stuff")
+- [ ] Machine learning-based duration prediction
 
 ---
 
@@ -181,6 +297,7 @@ Found a bug? Want a feature? PRs welcome.
 - Accessibility (WCAG 2.1)
 - i18n (internationalization)
 - Bug fixes & stability
+- More brain algorithms!
 ```
 
 ---
@@ -193,10 +310,20 @@ Found a bug? Want a feature? PRs welcome.
 ✅ No telemetry or tracking
 ✅ No cookies or third-party scripts
 ✅ 100% open source & auditable
-✅ Export your data anytime
+✅ Export your data anytime (JSON format)
 ```
 
 Your study patterns are yours. Period.
+
+---
+
+## 🐛 Known Issues
+
+### Encoding Display Issues
+If you see garbled characters (strange symbols instead of dashes or arrows), this is a font rendering issue, not a data problem. Your data is safe. To fix:
+1. Ensure your browser is set to UTF-8 encoding
+2. Try a different browser (Chrome/Firefox recommended)
+3. Check your terminal font supports Unicode
 
 ---
 
@@ -222,6 +349,6 @@ MIT © 2026 [Santosh Cheethirala](https://github.com/santoshcheethirala)
 
 ⭐ **Star this repo if Orbit helps you ace your exams**
 
-[⬆ Back to Top](#-orbit)
+[⬆ Back to Top](#-orbit-v30)
 
 </div>

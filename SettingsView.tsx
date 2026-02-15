@@ -154,7 +154,7 @@ export const SettingsView = () => {
         throw new Error('Invalid backup file');
       }
 
-      // Ã¢Å“â€¦ Use transaction for atomicity
+      // ÃƒÂ¢Ã…â€œÃ¢€Â¦ Use transaction for atomicity
       await db.transaction(
         'rw',
         [db.subjects, db.logs, db.assignments, db.plans],
@@ -207,7 +207,7 @@ export const SettingsView = () => {
   // Clear all data
   const clearAllData = async () => {
     try {
-      // Ã¢Å“â€¦ Use transaction for atomicity - Clear ALL tables
+      // ÃƒÂ¢Ã…â€œÃ¢€Â¦ Use transaction for atomicity - Clear ALL tables
       await db.transaction(
         'rw',
         [db.semesters, db.subjects, db.projects, db.schedule, db.logs, db.assignments, db.plans, db.topics, db.blockOutcomes, db.studyBlocks],
@@ -585,7 +585,7 @@ export const SettingsView = () => {
                 <div className="text-xs md:text-sm text-zinc-300 min-w-0">
                   <p className="font-bold mb-1.5 md:mb-2">How to unblock:</p>
                   <ol className="text-zinc-400 space-y-1 md:space-y-1.5 list-decimal list-inside text-[11px] md:text-xs">
-                    <li className="truncate md:whitespace-normal">Click <strong>Ã°Å¸â€â€™</strong> in address bar</li>
+                    <li className="truncate md:whitespace-normal">Click <strong>ÃƒÂ°Ã…Â¸Ã¢€ÂÃ¢€â„¢</strong> in address bar</li>
                     <li className="truncate md:whitespace-normal">Change to "Allow"</li>
                     <li className="truncate md:whitespace-normal">Refresh page</li>
                   </ol>
@@ -958,7 +958,7 @@ export const SettingsView = () => {
                   <Bug size={24} className="text-rose-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-white text-sm md:text-base mb-1">🐛 Bug Report</div>
+                  <div className="font-bold text-white text-sm md:text-base mb-1"> Bug Report</div>
                   <div className="text-xs text-zinc-400">Report issues to help improve Orbit</div>
                 </div>
                 <ArrowRight size={18} className="text-rose-400 opacity-0 group-hover/tool:opacity-100 transition-opacity" />
@@ -974,7 +974,7 @@ export const SettingsView = () => {
                   <Activity size={24} className="text-rose-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-white text-sm md:text-base mb-1">⚙️ Stress Test</div>
+                  <div className="font-bold text-white text-sm md:text-base mb-1">Stress Test</div>
                   <div className="text-xs text-zinc-400">Run comprehensive system diagnostics</div>
                 </div>
                 <ChevronRight size={18} className="text-rose-400 opacity-0 group-hover/tool:opacity-100 transition-opacity" />
@@ -1011,7 +1011,7 @@ export const SettingsView = () => {
                     {[
                       { text: `${stats.subjects} subjects with resources`, count: stats.subjects },
                       { text: `${stats.logs} study sessions`, count: stats.logs },
-                      { text: 'All settings and preferences', count: 'Ã¢Å“â€œ' },
+                      { text: 'All settings and preferences', count: 'ÃƒÂ¢Ã…â€œ—' },
                     ].map((item, i) => (
                       <div key={i} className="flex items-center gap-3 text-sm text-zinc-300 p-3 bg-white/[0.02] rounded-lg border border-white/5" style={{ animationDelay: `${i * 50}ms` }}>
                         <CheckCircle size={18} className="text-cyan-400 flex-shrink-0" />
