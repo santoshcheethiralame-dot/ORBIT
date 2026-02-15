@@ -30,7 +30,6 @@ import { SoundManager } from "./utils/sounds";
 import { NotificationManager } from "./utils/notifications";
 import { getSubjectIntelligence, SubjectIntelligence } from "./utils/subjectIntelligence";
 import { ToastProvider, useToast } from "./Toast";
-import { TouchAuditTool } from "./utils/touchAudit";
 
 import { getISTEffectiveDate, isPlanCurrent } from "./utils/time";
 
@@ -123,9 +122,9 @@ const App = () => {
       console.log('⏭️  Load already in progress, skipping');
       return;
     }
-    
+
     loadDataInProgress.current = true;
-    
+
     try {
       const subs = await db.subjects.toArray();
       setSubjects(subs);
@@ -213,9 +212,9 @@ const App = () => {
         console.log('⏭️  Rollover check already in progress');
         return;
       }
-      
+
       rolloverCheckInProgress.current = true;
-      
+
       try {
         const currentEffectiveDate = getISTEffectiveDate();
         const lastCheckedDate = localStorage.getItem(STORAGE_KEY);
@@ -261,7 +260,7 @@ const App = () => {
       toast.error('Plan generation already in progress');
       return;
     }
-    
+
     planGenerationInProgress.current = true;
     SoundManager.playSuccess();
 
@@ -450,10 +449,6 @@ const App = () => {
   return (
     <div className="min-h-screen text-zinc-200 font-sans flex flex-col">
       <SpaceBackground />
-
-      {/* ✨ NEW: Touch Audit Tool (only in dev mode) */}
-      {process.env.NODE_ENV === "development" && <TouchAuditTool />}
-
       {showRolloverModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-2xl">
           <div className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-[2.5rem] p-8 text-center space-y-6 shadow-2xl animate-in zoom-in-95 duration-300">

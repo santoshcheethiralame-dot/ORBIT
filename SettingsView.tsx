@@ -7,7 +7,7 @@ import {
   RotateCcw, Check, X, AlertCircle, Info, Volume2, VolumeX,
   Target, Coffee, Shield, Sparkles, Zap, Activity,
   ChevronDown, CheckCircle, AlertTriangle, Sunrise, Brain,
-  Settings as SettingsIcon, FileJson, Archive, Moon, Sun
+  Settings as SettingsIcon, FileJson, Archive, Moon, Sun, Bug, Code, ArrowRight, ChevronRight, Send, HelpCircle
 } from 'lucide-react';
 import { db } from './db';
 import { FrostedTile, FrostedMini, PageHeader, MetaText } from './components';
@@ -16,15 +16,29 @@ import { useToast } from './Toast';
 import { useSettings } from './SettingsContext';
 import { SoundManager } from './utils/sounds';
 import { NotificationManager } from './utils/notifications';
+import StressTestView from './StressTestView';
 
 export const SettingsView = () => {
   const { settings, updateSetting, resetSettings } = useSettings();
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showStressTest, setShowStressTest] = useState(false);
   const [stats, setStats] = useState({ subjects: 0, logs: 0, totalHours: 0 });
   const [expandedSection, setExpandedSection] = useState<string | null>('notifications');
   const toast = useToast();
+
+  // Bug Report state
+  const [showBugReport, setShowBugReport] = useState(false);
+  const [bugReportData, setBugReportData] = useState({
+    title: '',
+    description: '',
+    severity: 'medium' as 'low' | 'medium' | 'high',
+    category: 'bug' as 'bug' | 'feature' | 'ui' | 'performance',
+    email: '',
+  });
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Load stats
   useEffect(() => {
@@ -56,6 +70,46 @@ export const SettingsView = () => {
     settings.audio.completionSound,
     settings.audio.milestoneSound
   ]);
+
+  // Bug Report handlers
+  const handleBugReportChange = (field: string, value: string) => {
+    setBugReportData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleBugReportSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitStatus('submitting');
+    setErrorMessage('');
+
+    try {
+      const systemInfo = {
+        userAgent: navigator.userAgent,
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+      };
+
+      const emailSubject = `[Orbit] ${bugReportData.category.toUpperCase()} - ${bugReportData.title}`;
+      let emailBody = `Category: ${bugReportData.category}\n`;
+      emailBody += `Severity: ${bugReportData.severity}\n`;
+      emailBody += `Title: ${bugReportData.title}\n\n`;
+      emailBody += `Description:\n${bugReportData.description}\n\n`;
+      emailBody += `--\nUser Email: ${bugReportData.email}\n\n`;
+      emailBody += `App Stats: ${stats.subjects} subjects, ${stats.logs} sessions, ${stats.totalHours}h\n`;
+      emailBody += `Version: v4.0.1`;
+
+      window.location.href = `mailto:santoshcheethirala.me@gmail.com?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+
+      setSubmitStatus('success');
+      setTimeout(() => {
+        setShowBugReport(false);
+        setBugReportData({ title: '', description: '', severity: 'medium', category: 'bug', email: '' });
+        setSubmitStatus('idle');
+      }, 1000);
+    } catch (err) {
+      setSubmitStatus('error');
+      setErrorMessage('Failed to launch email client.');
+      setTimeout(() => { setSubmitStatus('idle'); setErrorMessage(''); }, 5000);
+    }
+  };
 
   // Export data
   const exportData = async () => {
@@ -100,7 +154,7 @@ export const SettingsView = () => {
         throw new Error('Invalid backup file');
       }
 
-      // ✅ Use transaction for atomicity
+      // Ã¢Å“â€¦ Use transaction for atomicity
       await db.transaction(
         'rw',
         [db.subjects, db.logs, db.assignments, db.plans],
@@ -112,10 +166,10 @@ export const SettingsView = () => {
             db.assignments.clear(),
             db.plans.clear(),
           ]);
-          
+
           // Import new data
           const importPromises = [];
-          
+
           if (imported.data.subjects?.length) {
             importPromises.push(db.subjects.bulkAdd(imported.data.subjects));
           }
@@ -128,7 +182,7 @@ export const SettingsView = () => {
           if (imported.data.plans?.length) {
             importPromises.push(db.plans.bulkAdd(imported.data.plans));
           }
-          
+
           await Promise.all(importPromises);
         }
       );
@@ -153,13 +207,16 @@ export const SettingsView = () => {
   // Clear all data
   const clearAllData = async () => {
     try {
-      // ✅ Use transaction for atomicity
+      // Ã¢Å“â€¦ Use transaction for atomicity - Clear ALL tables
       await db.transaction(
         'rw',
-        [db.subjects, db.logs, db.assignments, db.plans, db.topics, db.blockOutcomes, db.studyBlocks],
+        [db.semesters, db.subjects, db.projects, db.schedule, db.logs, db.assignments, db.plans, db.topics, db.blockOutcomes, db.studyBlocks],
         async () => {
           await Promise.all([
+            db.semesters.clear(),
             db.subjects.clear(),
+            db.projects.clear(),
+            db.schedule.clear(),
             db.logs.clear(),
             db.assignments.clear(),
             db.plans.clear(),
@@ -169,7 +226,7 @@ export const SettingsView = () => {
           ]);
         }
       );
-      
+
       localStorage.clear();
 
       toast.success('All data cleared successfully');
@@ -198,7 +255,7 @@ export const SettingsView = () => {
     title: string;
     subtitle?: string;
     icon: any;
-    variant: 'indigo' | 'emerald' | 'purple' | 'cyan' | 'amber';
+    variant: 'indigo' | 'emerald' | 'purple' | 'cyan' | 'amber' | 'rose';
     children: React.ReactNode;
   }) => {
     const isExpanded = expandedSection === id;
@@ -209,6 +266,7 @@ export const SettingsView = () => {
       purple: { bg: 'bg-purple-500', border: 'border-purple-500', text: 'text-purple-400' },
       cyan: { bg: 'bg-cyan-500', border: 'border-cyan-500', text: 'text-cyan-400' },
       amber: { bg: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-400' },
+      rose: { bg: 'bg-rose-500', border: 'border-rose-500', text: 'text-rose-400' },
     };
 
     return (
@@ -309,8 +367,8 @@ export const SettingsView = () => {
       <button
         onClick={() => onChange(!checked)}
         className={`relative ${s.container} rounded-full transition-all duration-300 ${checked
-            ? colors[variant] + ' shadow-lg shadow-' + variant + '-500/30'
-            : 'bg-zinc-800 border-2 border-zinc-700'
+          ? colors[variant] + ' shadow-lg shadow-' + variant + '-500/30'
+          : 'bg-zinc-800 border-2 border-zinc-700'
           } hover:scale-105 active:scale-95`}
       >
         <span
@@ -503,10 +561,10 @@ export const SettingsView = () => {
                 }}
                 disabled={settings.notifications.permission === 'denied'}
                 className={`p-3 md:p-3.5 lg:p-4 rounded-lg md:rounded-xl transition-all duration-300 min-h-[48px] min-w-[48px] md:min-h-[52px] md:min-w-[52px] lg:min-h-[56px] lg:min-w-[56px] flex items-center justify-center flex-shrink-0 ${settings.notifications.enabled
-                    ? 'bg-indigo-500/20 text-indigo-400 border-2 border-indigo-500/40 shadow-lg shadow-indigo-500/20 hover:bg-indigo-500/30 hover:scale-110'
-                    : settings.notifications.permission === 'denied'
-                      ? 'bg-red-500/10 text-red-400 border-2 border-red-500/30 cursor-not-allowed opacity-50'
-                      : 'bg-zinc-800/50 text-zinc-400 border-2 border-zinc-700 hover:border-indigo-500/50 hover:bg-indigo-500/10 hover:scale-110'
+                  ? 'bg-indigo-500/20 text-indigo-400 border-2 border-indigo-500/40 shadow-lg shadow-indigo-500/20 hover:bg-indigo-500/30 hover:scale-110'
+                  : settings.notifications.permission === 'denied'
+                    ? 'bg-red-500/10 text-red-400 border-2 border-red-500/30 cursor-not-allowed opacity-50'
+                    : 'bg-zinc-800/50 text-zinc-400 border-2 border-zinc-700 hover:border-indigo-500/50 hover:bg-indigo-500/10 hover:scale-110'
                   } active:scale-95 disabled:hover:scale-100`}
               >
                 <Bell size={20} className="md:hidden" />
@@ -527,7 +585,7 @@ export const SettingsView = () => {
                 <div className="text-xs md:text-sm text-zinc-300 min-w-0">
                   <p className="font-bold mb-1.5 md:mb-2">How to unblock:</p>
                   <ol className="text-zinc-400 space-y-1 md:space-y-1.5 list-decimal list-inside text-[11px] md:text-xs">
-                    <li className="truncate md:whitespace-normal">Click <strong>🔒</strong> in address bar</li>
+                    <li className="truncate md:whitespace-normal">Click <strong>Ã°Å¸â€â€™</strong> in address bar</li>
                     <li className="truncate md:whitespace-normal">Change to "Allow"</li>
                     <li className="truncate md:whitespace-normal">Refresh page</li>
                   </ol>
@@ -878,6 +936,52 @@ export const SettingsView = () => {
             ))}
           </div>
         </SettingSection>
+
+        {/* Developer Tools */}
+        <SettingSection
+          id="developer"
+          title="Developer Tools"
+          subtitle="ADVANCED DEBUGGING"
+          icon={Code}
+          variant="rose"
+        >
+          <div className="space-y-3">
+            <FrostedMini variant="rose">
+              <button
+                onClick={() => {
+                  SoundManager.playClick();
+                  setShowBugReport(true);
+                }}
+                className="w-full p-4 md:p-5 flex items-center gap-4 text-left hover:bg-white/[0.02] transition-all group/tool"
+              >
+                <div className="w-12 h-12 rounded-xl bg-rose-500/20 flex items-center justify-center border border-rose-500/30 group-hover/tool:bg-rose-500/25 transition-colors shrink-0">
+                  <Bug size={24} className="text-rose-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-white text-sm md:text-base mb-1">🐛 Bug Report</div>
+                  <div className="text-xs text-zinc-400">Report issues to help improve Orbit</div>
+                </div>
+                <ArrowRight size={18} className="text-rose-400 opacity-0 group-hover/tool:opacity-100 transition-opacity" />
+              </button>
+            </FrostedMini>
+
+            <FrostedMini variant="rose">
+              <button
+                onClick={() => setShowStressTest(true)}
+                className="w-full p-4 md:p-5 flex items-center gap-4 text-left hover:bg-white/[0.02] transition-all group/tool"
+              >
+                <div className="w-12 h-12 rounded-xl bg-rose-500/20 flex items-center justify-center border border-rose-500/30 group-hover/tool:bg-rose-500/25 transition-colors shrink-0">
+                  <Activity size={24} className="text-rose-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-white text-sm md:text-base mb-1">⚙️ Stress Test</div>
+                  <div className="text-xs text-zinc-400">Run comprehensive system diagnostics</div>
+                </div>
+                <ChevronRight size={18} className="text-rose-400 opacity-0 group-hover/tool:opacity-100 transition-opacity" />
+              </button>
+            </FrostedMini>
+          </div>
+        </SettingSection>
       </div>
 
       {/* MODALS - Enhanced with better animations and styling */}
@@ -907,7 +1011,7 @@ export const SettingsView = () => {
                     {[
                       { text: `${stats.subjects} subjects with resources`, count: stats.subjects },
                       { text: `${stats.logs} study sessions`, count: stats.logs },
-                      { text: 'All settings and preferences', count: '✓' },
+                      { text: 'All settings and preferences', count: 'Ã¢Å“â€œ' },
                     ].map((item, i) => (
                       <div key={i} className="flex items-center gap-3 text-sm text-zinc-300 p-3 bg-white/[0.02] rounded-lg border border-white/5" style={{ animationDelay: `${i * 50}ms` }}>
                         <CheckCircle size={18} className="text-cyan-400 flex-shrink-0" />
@@ -1047,6 +1151,257 @@ export const SettingsView = () => {
                 </div>
               </div>
             </FrostedTile>
+          </div>
+        </div>
+      )}
+
+      {/* Bug Report Modal */}
+      {showBugReport && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => submitStatus === 'idle' && setShowBugReport(false)}
+          />
+
+          {/* Modal */}
+          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900 via-zinc-900 to-black [background:linear-gradient(to_bottom_right,rgba(255,255,255,0.03),transparent)] backdrop-blur-2xl shadow-2xl">
+            {/* Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b border-white/10 bg-zinc-900/95 backdrop-blur-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center border border-red-500/30">
+                  <Bug size={20} className="text-red-400" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Report an Issue</h3>
+              </div>
+              <button
+                onClick={() => submitStatus === 'idle' && setShowBugReport(false)}
+                disabled={submitStatus === 'submitting'}
+                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
+              >
+                <X size={20} className="text-zinc-400" />
+              </button>
+            </div>
+
+            <form onSubmit={handleBugReportSubmit} className="p-6 space-y-6" autoComplete="off">
+              {submitStatus === 'success' ? (
+                <div className="py-12 text-center">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
+                    <CheckCircle size={32} className="text-emerald-400" />
+                  </div>
+                  <h4 className="text-xl font-bold text-white mb-2">Redirecting to Email</h4>
+                  <p className="text-zinc-400">Your email client should open. Thank you for helping improve Orbit!</p>
+                </div>
+              ) : submitStatus === 'error' ? (
+                <div className="py-12 text-center">
+                  <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4 border border-red-500/30">
+                    <AlertCircle size={32} className="text-red-400" />
+                  </div>
+                  <h4 className="text-xl font-bold text-white mb-2">Submission Failed</h4>
+                  <p className="text-zinc-400 mb-4">{errorMessage}</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowBugReport(false)}
+                    className="px-6 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition-all"
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Email Input */}
+                  <div>
+                    <label htmlFor="bug-email" className="block text-sm font-semibold text-zinc-300 mb-3">
+                      Your Email (for follow-up) <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      id="bug-email"
+                      type="email"
+                      autoComplete="email"
+                      value={bugReportData.email}
+                      onChange={(e) => handleBugReportChange('email', e.target.value)}
+                      placeholder="Enter your email address"
+                      required
+                      maxLength={100}
+                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
+                    />
+                  </div>
+
+                  {/* Category Selection */}
+                  <div>
+                    <label className="block text-sm font-semibold text-zinc-300 mb-3">
+                      Issue Type
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { value: 'bug', label: 'Bug Report', icon: Bug, color: 'red' },
+                        { value: 'feature', label: 'Feature Request', icon: Sparkles, color: 'blue' },
+                        { value: 'ui', label: 'UI/UX Issue', icon: Code, color: 'purple' },
+                        { value: 'performance', label: 'Performance', icon: Zap, color: 'amber' }
+                      ].map((cat) => {
+                        const isSelected = bugReportData.category === cat.value;
+                        const baseClasses = "p-4 rounded-xl border transition-all hover:scale-[1.02] active:scale-[0.98]";
+                        let colorClasses = 'bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10';
+
+                        if (isSelected) {
+                          if (cat.color === 'red') colorClasses = 'bg-red-500/10 border-red-500/30 text-red-400';
+                          else if (cat.color === 'blue') colorClasses = 'bg-blue-500/10 border-blue-500/30 text-blue-400';
+                          else if (cat.color === 'purple') colorClasses = 'bg-purple-500/10 border-purple-500/30 text-purple-400';
+                          else if (cat.color === 'amber') colorClasses = 'bg-amber-500/10 border-amber-500/30 text-amber-400';
+                        }
+
+                        return (
+                          <button
+                            key={cat.value}
+                            type="button"
+                            onClick={() => handleBugReportChange('category', cat.value)}
+                            className={`${baseClasses} ${colorClasses}`}
+                          >
+                            <cat.icon size={20} className="mx-auto mb-2" />
+                            <span className="text-sm font-medium">{cat.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Severity */}
+                  <div>
+                    <label className="block text-sm font-semibold text-zinc-300 mb-3">
+                      Severity
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { value: 'low', label: 'Low', color: 'emerald' },
+                        { value: 'medium', label: 'Medium', color: 'amber' },
+                        { value: 'high', label: 'High', color: 'red' }
+                      ].map((sev) => {
+                        const isSelected = bugReportData.severity === sev.value;
+                        const baseClasses = "py-3 px-4 rounded-xl border transition-all font-semibold text-sm hover:scale-[1.02] active:scale-[0.98]";
+                        let colorClasses = 'bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10';
+
+                        if (isSelected) {
+                          if (sev.color === 'emerald') colorClasses = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400';
+                          else if (sev.color === 'amber') colorClasses = 'bg-amber-500/10 border-amber-500/30 text-amber-400';
+                          else if (sev.color === 'red') colorClasses = 'bg-red-500/10 border-red-500/30 text-red-400';
+                        }
+
+                        return (
+                          <button
+                            key={sev.value}
+                            type="button"
+                            onClick={() => handleBugReportChange('severity', sev.value)}
+                            className={`${baseClasses} ${colorClasses}`}
+                          >
+                            {sev.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Title */}
+                  <div>
+                    <label htmlFor="bug-title" className="block text-sm font-semibold text-zinc-300 mb-3">
+                      Title <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      id="bug-title"
+                      type="text"
+                      value={bugReportData.title}
+                      onChange={(e) => handleBugReportChange('title', e.target.value)}
+                      placeholder="Brief summary of the issue"
+                      required
+                      maxLength={100}
+                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label htmlFor="bug-description" className="block text-sm font-semibold text-zinc-300 mb-3">
+                      Description <span className="text-red-400">*</span>
+                    </label>
+                    <textarea
+                      id="bug-description"
+                      value={bugReportData.description}
+                      onChange={(e) => handleBugReportChange('description', e.target.value)}
+                      placeholder="Detailed description of the issue..."
+                      required
+                      rows={6}
+                      maxLength={1000}
+                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all resize-none"
+                    />
+                  </div>
+
+                  {/* System Info Notice */}
+                  <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                    <div className="flex items-start gap-3">
+                      <Info size={18} className="text-indigo-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm text-indigo-300 font-medium mb-1">Auto-included Information</p>
+                        <p className="text-xs text-indigo-400/80 leading-relaxed">
+                          Browser details, total sessions ({stats.logs}), study hours ({stats.totalHours}h) included.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    disabled={
+                      submitStatus === 'submitting'
+                      || !bugReportData.email.trim()
+                      || !bugReportData.title.trim()
+                      || !bugReportData.description.trim()
+                    }
+                    className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-indigo-500/30"
+                  >
+                    {submitStatus === 'submitting' ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Launching Email...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send size={20} />
+                        <span>Submit & Email</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Stress Test Modal */}
+      {showStressTest && (
+        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="h-full w-full p-4 overflow-auto">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex items-center justify-between mb-6 sticky top-0 bg-black/90 backdrop-blur-xl z-10 p-4 rounded-2xl border border-white/10">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-rose-500/20 flex items-center justify-center border border-rose-500/30">
+                    <Activity size={24} className="text-rose-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">System Stress Test</h2>
+                    <p className="text-sm text-zinc-400">Comprehensive diagnostics & performance testing</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowStressTest(false)}
+                  className="p-3 hover:bg-white/10 active:bg-white/5 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center group"
+                >
+                  <X size={22} className="text-zinc-400 group-hover:text-white transition-colors" />
+                </button>
+              </div>
+              <StressTestView onBack={() => setShowStressTest(false)} />
+            </div>
           </div>
         </div>
       )}

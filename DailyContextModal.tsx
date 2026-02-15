@@ -23,7 +23,7 @@ interface DailyContextModalProps {
   onGenerate: (ctx: DailyContext) => void;
 }
 
-// 🎯 PRESET DEFINITIONS
+// ðŸŽ¯ PRESET DEFINITIONS
 const PRESETS = {
   regular: {
     name: "Regular Day",
@@ -356,7 +356,7 @@ export const DailyContextModal = ({
 
   const handleSubmit = async () => {
     if ((dayType === "isa" || dayType === "esa") && !focusSubjectId) {
-      alert("⚠️ Please select a subject for exam preparation!");
+      alert("âš ï¸ Please select a subject for exam preparation!");
       return;
     }
 
@@ -633,7 +633,7 @@ export const DailyContextModal = ({
                             {subject?.name}
                           </span>
                           <span className="text-red-400 font-mono font-bold">
-                            {readiness.score}% ({readiness.lastStudiedDays}d ago)
+                            {readiness.score}% ({readiness.lastStudiedDays === 999 ? 'never' : `${readiness.lastStudiedDays}d ago`})
                           </span>
                         </div>
                       );
@@ -769,8 +769,8 @@ export const DailyContextModal = ({
               style={{ minWidth: 140 }}
             >
               {(dayType === "isa" || dayType === "esa") && !focusSubjectId
-                ? "⚠️ Select Subject"
-                : "🚀 Initialize"}
+                ? "âš ï¸ Select Subject"
+                : "ðŸš€ Initialize"}
             </Button>
 
             <button

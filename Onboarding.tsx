@@ -8,7 +8,7 @@ import { useToast } from "./Toast";
 
 // Progress indicator removed
 
-// 🎨 ENHANCED: Floating Input with Subtle Styling
+// ðŸŽ¨ ENHANCED: Floating Input with Subtle Styling
 const FloatingInput = ({
   label,
   error,
@@ -80,7 +80,7 @@ const FloatingInput = ({
   );
 };
 
-// 🎨 ENHANCED: Subject Card with Better Animations
+// ðŸŽ¨ ENHANCED: Subject Card with Better Animations
 const SubjectCard = ({
   subject,
   index,
@@ -209,7 +209,7 @@ const DifficultySelector = ({ value, onChange }: { value: number; onChange: (val
   );
 };
 
-// 🎨 NEW: Enhanced Navigation Button Component
+// ðŸŽ¨ NEW: Enhanced Navigation Button Component
 const NavButton = ({
   onClick,
   disabled,
@@ -247,7 +247,7 @@ const NavButton = ({
   );
 };
 
-// 🎨 MAIN COMPONENT
+// ðŸŽ¨ MAIN COMPONENT
 export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   const toast = useToast();
   const [step, setStep] = useState(1);
@@ -351,10 +351,11 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
       return;
     }
 
-    // Generate a semi-random ID that ensures good color distribution
-    // Use a combination of current timestamp and a small random number
-    // to ensure IDs are unique and spread out for color assignment.
-    const newId = Date.now() + Math.floor(Math.random() * 100000);
+    // Generate sequential ID to ensure each subject gets a unique color
+    // This ensures good color distribution across subjects
+    const newId = subjects.length > 0
+      ? Math.max(...subjects.map(s => s.id!)) + 1
+      : 1;
 
     setSubjects(prev => [...prev, { ...newSubject, id: newId }]);
     setNewSubject({ name: "", code: "", credits: 3, difficulty: 3 });
@@ -433,7 +434,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
         await db.schedule.bulkAdd(scheduleSlots);
       });
 
-      toast.success('🚀 Orbit initialized successfully!');
+      toast.success('ðŸš€ Orbit initialized successfully!');
       setTimeout(onComplete, 800);
     } catch (error) {
       toast.error('Failed to initialize orbit');
@@ -860,11 +861,21 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
                         const subjectColor = getSubjectColor(s.id!);
                         const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
 
+                        // Dynamic hover gradients based on subject color
+                        const hoverGradient = {
+                          indigo: 'hover:from-indigo-600 hover:to-indigo-700 hover:border-indigo-400/60 hover:shadow-indigo-500/30',
+                          cyan: 'hover:from-cyan-600 hover:to-cyan-700 hover:border-cyan-400/60 hover:shadow-cyan-500/30',
+                          emerald: 'hover:from-emerald-600 hover:to-emerald-700 hover:border-emerald-400/60 hover:shadow-emerald-500/30',
+                          amber: 'hover:from-amber-600 hover:to-amber-700 hover:border-amber-400/60 hover:shadow-amber-500/30',
+                          rose: 'hover:from-rose-600 hover:to-rose-700 hover:border-rose-400/60 hover:shadow-rose-500/30',
+                          violet: 'hover:from-violet-600 hover:to-violet-700 hover:border-violet-400/60 hover:shadow-violet-500/30',
+                        };
+
                         return (
                           <button
                             key={s.id}
                             onClick={() => selectSubjectForSlot(s.id!)}
-                            className={`p-5 bg-gradient-to-br from-white/5 to-white/[0.02] border-2 ${colorClasses.borderLight} hover:${colorClasses.border} rounded-2xl font-bold text-white/90 hover:bg-gradient-to-br hover:from-indigo-600 hover:to-purple-600 hover:border-indigo-400/60 hover:text-white hover:scale-[1.02] hover:shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 ease-out active:scale-98 flex flex-col items-start gap-2 group/sub min-h-[100px]`}
+                            className={`p-5 bg-gradient-to-br from-white/5 to-white/[0.02] border-2 ${colorClasses.borderLight} hover:${colorClasses.border} rounded-2xl font-bold text-white/90 hover:bg-gradient-to-br ${hoverGradient[subjectColor]} hover:text-white hover:scale-[1.02] hover:shadow-lg transition-all duration-300 ease-out active:scale-98 flex flex-col items-start gap-2 group/sub min-h-[100px]`}
                           >
                             <span className="text-[10px] text-white/50 font-mono uppercase tracking-wider group-hover/sub:text-white/80 transition-colors">
                               {s.code}
