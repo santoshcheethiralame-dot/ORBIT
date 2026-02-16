@@ -145,7 +145,7 @@ export const AboutView = () => {
                 <h3 className="text-xl font-bold text-white">Origin Story</h3>
               </div>
               <p className="text-zinc-400 leading-relaxed">
-                Orbit began as a practical response to a familiar student problem: spending more time managing study logistics than actually studying. What started as a personal toolkit evolved into a focused system designed to reduce friction and preserve momentumÃ¢â‚¬â€especially for night owls who study past midnight.
+                Orbit began as a practical response to a familiar student problem: spending more time managing study logistics than actually studying. What started as a personal toolkit evolved into a focused system designed to reduce friction and preserve momentum  especially for night owls who study past midnight.
               </p>
             </div>
           </FrostedTile>
@@ -266,9 +266,9 @@ export const AboutView = () => {
                 Track quality ratings, completion rates, and time-of-day patterns. Adaptive difficulty adjustment based on your session history.
               </p>
               <div className="space-y-1">
-                <div className="text-xs text-purple-400">Ã¢â‚¬Â¢ Quality rating system (1-5 stars)</div>
-                <div className="text-xs text-purple-400">Ã¢â‚¬Â¢ Burnout detection (0-100 score)</div>
-                <div className="text-xs text-purple-400">Ã¢â‚¬Â¢ Study streak tracking</div>
+                <div className="text-xs text-purple-400">• Quality rating system (1-5 stars)</div>
+                <div className="text-xs text-purple-400">• Burnout detection (0-100 score)</div>
+                <div className="text-xs text-purple-400">• Study streak tracking</div>
               </div>
             </div>
           </FrostedTile>
@@ -283,9 +283,9 @@ export const AboutView = () => {
                 SM-2 algorithm automatically schedules reviews based on comprehension levels. Never forget what you've learned.
               </p>
               <div className="space-y-1">
-                <div className="text-xs text-amber-400">Ã¢â‚¬Â¢ Intelligent review scheduling</div>
-                <div className="text-xs text-amber-400">Ã¢â‚¬Â¢ Comprehension-based intervals</div>
-                <div className="text-xs text-amber-400">Ã¢â‚¬Â¢ Topic mastery tracking</div>
+                <div className="text-xs text-amber-400">• Intelligent review scheduling</div>
+                <div className="text-xs text-amber-400">• Comprehension-based intervals</div>
+                <div className="text-xs text-amber-400">• Topic mastery tracking</div>
               </div>
             </div>
           </FrostedTile>
@@ -300,9 +300,9 @@ export const AboutView = () => {
                 World-class prompt engineering with smart AI provider recommendations. Get the perfect study companion for each subject.
               </p>
               <div className="space-y-1">
-                <div className="text-xs text-indigo-400">Ã¢â‚¬Â¢ ChatGPT, Claude, Gemini support</div>
-                <div className="text-xs text-indigo-400">Ã¢â‚¬Â¢ Bloom's Taxonomy integration</div>
-                <div className="text-xs text-indigo-400">Ã¢â‚¬Â¢ Custom prompt templates</div>
+                <div className="text-xs text-indigo-400">• ChatGPT, Claude, Gemini support</div>
+                <div className="text-xs text-indigo-400">• Bloom's Taxonomy integration</div>
+                <div className="text-xs text-indigo-400">• Custom prompt templates</div>
               </div>
             </div>
           </FrostedTile>
@@ -379,7 +379,7 @@ export const AboutView = () => {
               },
               {
                 q: "What's the Night-Owl Principle?",
-                a: "Your study day starts at 4 AM (configurable), not midnight. Studying at 3 AM still counts as 'today'Ã¢â‚¬â€no broken streaks."
+                a: "Your study day starts at 4 AM (configurable), not midnight. Studying at 3 AM still counts as 'today' , no broken streaks."
               },
               {
                 q: "How does the AI assistant work?",

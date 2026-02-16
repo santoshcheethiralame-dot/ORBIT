@@ -1,3 +1,6 @@
+// Dashboard: Main mission control showing today's study blocks, progress stats, and smart insights.
+// Handles block completion, snoozing, backlog management, and displays AI-generated study recommendations.
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { DailyPlan, StudyBlock, Subject, StudyLog } from "./types";
 import { WeekPreviewModal } from "./WeekPreviewModal";
@@ -37,10 +40,6 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { DashboardInsights } from "./DashboardInsights";
 import { FrostedTile, FrostedMini, getSubjectColor, SUBJECT_COLOR_CLASSES, SubjectColor } from "./components";
 
-// ============================================
-// CONSTANTS
-// ============================================
-
 const PULL_REFRESH_THRESHOLD = 60;
 const SWIPE_THRESHOLD = 75;
 const SWIPE_DETECTION_MIN = 15;
@@ -48,10 +47,6 @@ const VISIBLE_BLOCKS_DEFAULT = 4;
 const PROGRESS_ANIMATION_INTERVAL = 20;
 const STREAK_ANIMATION_INTERVAL = 50;
 const MAX_STREAK_DAYS = 365;
-
-// ============================================
-// SUB-COMPONENTS
-// ============================================
 
 const AssignmentProgressBar = React.memo(({
   assignmentId,
@@ -145,7 +140,6 @@ const BacklogItem = React.memo(({
 
   return (
     <div className="relative overflow-hidden rounded-2xl">
-      {/* Swipe Action Hints - Background only, no overlap */}
       <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-emerald-500/15 to-transparent flex items-center justify-start pl-5 pointer-events-none">
         <div className={`w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30 transition-transform duration-300 ${swipeOffset > 10 ? 'scale-110' : 'scale-100'}`}>
           <ArrowRight className="text-emerald-400" size={18} strokeWidth={2.5} />
@@ -158,7 +152,6 @@ const BacklogItem = React.memo(({
         </div>
       </div>
 
-      {/* Main Card - Clean, no extra buttons */}
       <div
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -177,10 +170,8 @@ const BacklogItem = React.memo(({
         `}
         onClick={() => !isDragging && onAdd(block)}
       >
-        {/* Color Indicator - Left */}
         <div className={`w-1 h-12 rounded-full ${colorClasses.bg}`} />
 
-        {/* Content - Full width, no buttons */}
         <div className="flex-1 min-w-0">
           <div className={`text-base font-semibold ${colorClasses.text} truncate mb-1`}>
             {block.subjectName}
@@ -188,7 +179,7 @@ const BacklogItem = React.memo(({
 
           <div className="flex items-center gap-2 text-xs text-zinc-500">
             <span className="uppercase tracking-wide font-medium">{block.type}</span>
-            <span>â€¢</span>
+            <span>•</span>
             <span className="flex items-center gap-1">
               <Clock size={12} />
               {block.duration}m
@@ -202,11 +193,6 @@ const BacklogItem = React.memo(({
 
 BacklogItem.displayName = 'BacklogItem';
 
-// PERFECTED INFINITE HORIZONTAL MESSAGE CAROUSEL
-// - Smooth constant scrolling
-// - True infinite loop
-// - Mobile: 1 tile, Desktop: 3 tiles
-// ============================================
 const MessageCarousel = ({ tiles }: { tiles: React.ReactElement[] }) => {
   const [offset, setOffset] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -214,7 +200,6 @@ const MessageCarousel = ({ tiles }: { tiles: React.ReactElement[] }) => {
   const animationRef = useRef<number | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Detect mobile
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -222,7 +207,6 @@ const MessageCarousel = ({ tiles }: { tiles: React.ReactElement[] }) => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Create infinite loop by tripling the tiles
   const infiniteTiles = useMemo(() => {
     if (tiles.length === 0) return [];
     return [...tiles, ...tiles, ...tiles];
@@ -230,17 +214,14 @@ const MessageCarousel = ({ tiles }: { tiles: React.ReactElement[] }) => {
 
   const tilesPerView = isMobile ? 1 : 3;
 
-  // Constant movement animation
   useEffect(() => {
     if (isPaused || tiles.length === 0) return;
 
-    // Faster speeds for better UX - mobile even faster since 1 tile
     const speed = isMobile ? 0.17 : 0.06;
 
     const animate = () => {
       setOffset((prev) => {
         const newOffset = prev + speed;
-        // Reset when we've scrolled through one set of tiles
         const resetPoint = (tiles.length / tilesPerView) * 100;
         if (newOffset >= resetPoint) {
           return newOffset - resetPoint;
@@ -287,7 +268,6 @@ const MessageCarousel = ({ tiles }: { tiles: React.ReactElement[] }) => {
         ))}
       </div>
 
-      {/* Pause indicator */}
       {isPaused && !isMobile && (
         <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs text-white/70 font-medium pointer-events-none z-10">
           Paused
@@ -297,14 +277,9 @@ const MessageCarousel = ({ tiles }: { tiles: React.ReactElement[] }) => {
   );
 };
 
-// ============================================
-// SIMPLE SIDEBAR - JUST 3 TILES, NO CAROUSEL
-// Shows top 3 priority tiles
-// ============================================
 const SidebarTiles = ({ tiles }: { tiles: React.ReactElement[] }) => {
   if (tiles.length === 0) return null;
 
-  // Always show top 3 tiles
   const displayTiles = tiles.slice(0, 3);
 
   return (
@@ -317,10 +292,6 @@ const SidebarTiles = ({ tiles }: { tiles: React.ReactElement[] }) => {
     </div>
   );
 };
-
-// ============================================
-// HELPER: Greeting
-// ============================================
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -338,10 +309,6 @@ const getGreeting = () => {
   return "Night Operations";
 };
 
-// ============================================
-// MAIN DASHBOARD COMPONENT
-// ============================================
-
 export const Dashboard = ({
   plan,
   onStartFocus,
@@ -355,10 +322,6 @@ export const Dashboard = ({
   logs: StudyLog[];
   onRefresh: () => void;
 }) => {
-  // ============================================
-  // STATE MANAGEMENT
-  // ============================================
-
   const [backlog, setBacklog] = useState<StudyBlock[]>([]);
   const [showBacklog, setShowBacklog] = useState(false);
   const [animatedProgress, setAnimatedProgress] = useState(0);
@@ -374,10 +337,6 @@ export const Dashboard = ({
   const [isLoadingWeek, setIsLoadingWeek] = useState(false);
 
   const toast = useToast();
-
-  // ============================================
-  // DATA QUERIES
-  // ============================================
 
   const assignments = useLiveQuery(() =>
     db.assignments.filter(a => !a.completed).toArray()
@@ -422,10 +381,6 @@ export const Dashboard = ({
     upcomingReviews.filter(t => t.nextReview <= todayStr),
     [upcomingReviews, todayStr]
   );
-
-  // ============================================
-  // COMPUTED VALUES
-  // ============================================
 
   const nextBlock = useMemo(() =>
     plan.blocks.find((b) => !b.completed),
@@ -473,10 +428,6 @@ export const Dashboard = ({
   const visibleBlocks = showAllBlocks ? plan.blocks : plan.blocks.slice(0, VISIBLE_BLOCKS_DEFAULT);
   const hasMoreBlocks = plan.blocks.length > VISIBLE_BLOCKS_DEFAULT;
 
-  // ============================================
-  // MESSAGE TILES
-  // ============================================
-
   interface MessageTile {
     priority: number;
     type: 'critical' | 'workload' | 'adjustments' | 'status' | 'insight';
@@ -494,7 +445,6 @@ export const Dashboard = ({
     const readinessImpact = plan.loadAnalysis?.readinessImpact ?? 0;
     const hasAdjustments = (plan.performanceAdjustments?.length ?? 0) > 0;
 
-    // TILE 1: CRITICAL STATUS
     if (criticalSubjects.length > 0) {
       tiles.push({
         priority: 10,
@@ -511,7 +461,7 @@ export const Dashboard = ({
                   {criticalSubjects.length} {criticalSubjects.length === 1 ? 'subject needs' : 'subjects need'} urgent review to prevent knowledge decay
                 </div>
                 <div className="text-xs text-red-400/50 mt-2 font-medium">
-                   {criticalSubjects.slice(0, 2).join(', ')}{criticalSubjects.length > 2 ? ` +${criticalSubjects.length - 2} more` : ''}
+                  {criticalSubjects.slice(0, 2).join(', ')}{criticalSubjects.length > 2 ? ` +${criticalSubjects.length - 2} more` : ''}
                 </div>
               </div>
             </div>
@@ -520,7 +470,6 @@ export const Dashboard = ({
       });
     }
 
-    // TILE 2: WORKLOAD STATUS
     if (isExtremeLoad) {
       tiles.push({
         priority: 9,
@@ -627,7 +576,6 @@ export const Dashboard = ({
       });
     }
 
-    // TILE 3: SMART ADJUSTMENTS
     if (hasAdjustments) {
       const count = plan.performanceAdjustments!.length;
       tiles.push({
@@ -654,7 +602,6 @@ export const Dashboard = ({
       });
     }
 
-    // TILE 4: DATA BACKUP SUGGESTION (NEW)
     tiles.push({
       priority: 7,
       type: 'status',
@@ -670,7 +617,7 @@ export const Dashboard = ({
                 Protect your progress! Make a manual backup every 2-3 days to ensure your data is safe.
               </div>
               <div className="text-xs text-emerald-400/50 mt-2 font-medium">
-                Visit Settings {'>'} Data Governance
+                Visit Settings &gt; Data Governance
               </div>
             </div>
           </div>
@@ -678,13 +625,9 @@ export const Dashboard = ({
       )
     });
 
-    // Make sure we always have exactly 3 tiles for smooth carousel
-    // Track which tiles we've added using unique identifiers
     const tileIds = new Set<string>();
 
-    // Only add extra tiles if we have less than 3
     while (tiles.length < 3) {
-      // TILE: ASSIGNMENT FOCUS
       const assignmentBlocks = plan.blocks.filter(b => b.type === 'assignment').length;
 
       if (assignmentBlocks > 0 && !tileIds.has('assignment')) {
@@ -714,7 +657,6 @@ export const Dashboard = ({
         continue;
       }
 
-      // TILE: STUDY SESSIONS
       if (!tileIds.has('study')) {
         tiles.push({
           priority: 4,
@@ -726,12 +668,12 @@ export const Dashboard = ({
                   <Brain size={20} className="text-blue-400" strokeWidth={2.5} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-base text-blue-300 mb-1.5">🧠 Study Sessions Planned</div>
+                  <div className="font-bold text-base text-blue-300 mb-1.5">Study Sessions Planned</div>
                   <div className="text-sm text-blue-200/70 leading-relaxed">
                     {plan.blocks.length} focused blocks covering {subjects.filter(s => plan.blocks.some(b => b.subjectId === s.id)).length} subjects
                   </div>
                   <div className="text-xs text-blue-400/50 mt-2 font-medium">
-                    ðŸŽ“ Comprehensive learning schedule
+                    Comprehensive learning schedule
                   </div>
                 </div>
               </div>
@@ -742,7 +684,6 @@ export const Dashboard = ({
         continue;
       }
 
-      // TILE: UPCOMING REVIEWS
       if (upcomingReviews.length > 0 && !tileIds.has('reviews')) {
         tiles.push({
           priority: 5,
@@ -754,12 +695,12 @@ export const Dashboard = ({
                   <Clock size={20} className="text-amber-400" strokeWidth={2.5} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-base text-amber-300 mb-1.5">â° Reviews Coming Up</div>
+                  <div className="font-bold text-base text-amber-300 mb-1.5">Reviews Coming Up</div>
                   <div className="text-sm text-amber-200/70 leading-relaxed">
                     {upcomingReviews.length} topics scheduled for review in the next 7 days
                   </div>
                   <div className="text-xs text-amber-400/50 mt-2 font-medium">
-                    ðŸ“… {dueToday.length} due today
+                    {dueToday.length} due today
                   </div>
                 </div>
               </div>
@@ -770,7 +711,6 @@ export const Dashboard = ({
         continue;
       }
 
-      // Fallback: Generic ready tile
       if (!tileIds.has('ready')) {
         tiles.push({
           priority: 1,
@@ -782,12 +722,12 @@ export const Dashboard = ({
                   <CheckCircle size={20} className="text-zinc-400" strokeWidth={2.5} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-base text-zinc-300 mb-1.5">âœ… Ready to Begin</div>
+                  <div className="font-bold text-base text-zinc-300 mb-1.5">Ready to Begin</div>
                   <div className="text-sm text-zinc-400 leading-relaxed">
                     Your study plan is optimized and ready for action
                   </div>
                   <div className="text-xs text-zinc-500 mt-2 font-medium">
-                    🎉 Let's get started!
+                    Let's get started!
                   </div>
                 </div>
               </div>
@@ -798,12 +738,8 @@ export const Dashboard = ({
       }
     }
 
-    return tiles.sort((a, b) => b.priority - a.priority).slice(0, 3); // Always exactly 3 tiles
+    return tiles.sort((a, b) => b.priority - a.priority).slice(0, 3);
   }, [plan, criticalSubjects, subjects, totalCount, upcomingReviews, dueToday]);
-
-  // ============================================
-  // SIDEBAR TILES
-  // ============================================
 
   interface SidebarTile {
     priority: number;
@@ -813,7 +749,6 @@ export const Dashboard = ({
   const sidebarTiles = useMemo(() => {
     const tiles: SidebarTile[] = [];
 
-    // 1. Reviews Due
     if (dueToday.length > 0) {
       tiles.push({
         priority: 10,
@@ -848,7 +783,7 @@ export const Dashboard = ({
                         duration: 30,
                         completed: false,
                         priority: 0,
-                        notes: `ðŸ“– ${topic.name}`,
+                        notes: `${topic.name}`,
                         topicId: topic.name.toLowerCase().replace(/\s+/g, '-'),
                         reviewNumber: topic.reviewCount,
                       };
@@ -867,7 +802,6 @@ export const Dashboard = ({
       });
     }
 
-    // 2. Daily Goal
     tiles.push({
       priority: 8,
       content: (
@@ -898,7 +832,6 @@ export const Dashboard = ({
       )
     });
 
-    // 3. Streak
     tiles.push({
       priority: 7,
       content: (
@@ -932,7 +865,6 @@ export const Dashboard = ({
       )
     });
 
-    // 4. In Progress Assignments
     if (inProgressAssignments.length > 0) {
       tiles.push({
         priority: 9,
@@ -977,7 +909,6 @@ export const Dashboard = ({
       });
     }
 
-    // 5. Readiness Impact - ONLY IF NO BACKLOG (to maintain exactly 3 tiles)
     if (backlog.length === 0 && plan.loadAnalysis?.readinessImpact && plan.loadAnalysis.readinessImpact > 0) {
       tiles.push({
         priority: 6,
@@ -1004,7 +935,6 @@ export const Dashboard = ({
       });
     }
 
-    // 6. Backlog - ALWAYS INCLUDED
     tiles.push({
       priority: backlog.length > 0 ? 5 : 1,
       content: (
@@ -1037,10 +967,6 @@ export const Dashboard = ({
 
     return tiles.sort((a, b) => b.priority - a.priority);
   }, [dueToday, animatedProgress, animatedStreak, inProgressAssignments, backlog, plan, subjects, onStartFocus, completedCount, totalCount, showBacklog]);
-
-  // ============================================
-  // EFFECTS
-  // ============================================
 
   useEffect(() => {
     const loadReadiness = async () => {
@@ -1079,10 +1005,6 @@ export const Dashboard = ({
       clearInterval(streakTimer);
     };
   }, [progressPercent, streak]);
-
-  // ============================================
-  // HANDLERS
-  // ============================================
 
   const fetchBacklog = async () => {
     try {
@@ -1354,14 +1276,10 @@ export const Dashboard = ({
     return null;
   };
 
-  // PRE-CALCULATE NEXT MISSION STYLES
   const nextSubject = nextBlock ? subjects.find(s => s.id === nextBlock.subjectId) : null;
   const nextColor = (nextSubject ? getSubjectColor(nextSubject.id!) : 'indigo') as any;
   const nextClasses = SUBJECT_COLOR_CLASSES[nextColor as SubjectColor] || SUBJECT_COLOR_CLASSES['indigo'];
 
-  // ============================================
-  // RENDER
-  // ============================================
   return (
     <div
       onTouchStart={handleTouchStart}
@@ -1369,7 +1287,6 @@ export const Dashboard = ({
       onTouchEnd={handleTouchEnd}
       className="pb-32 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-8"
     >
-      {/* Pull to Refresh Indicator */}
       {pullDistance > 0 && (
         <div
           className="fixed top-20 left-1/2 -translate-x-1/2 z-50 transition-all"
@@ -1385,7 +1302,6 @@ export const Dashboard = ({
         </div>
       )}
 
-      {/* HEADER */}
       <PageHeader
         title={<>{getGreeting()}, <span className="text-indigo-400">Commander</span></>}
         meta={
@@ -1400,7 +1316,7 @@ export const Dashboard = ({
             {getDayTypeBadge()}
             {getLoadBadge()}
             {refreshing && (
-              <span className="text-xs text-indigo-400 font-mono">syncingâ€¦</span>
+              <span className="text-xs text-indigo-400 font-mono">syncing...</span>
             )}
           </>
         }
@@ -1413,18 +1329,13 @@ export const Dashboard = ({
         }
       />
 
-      {/* MESSAGE TILES WITH PERFECTED HORIZONTAL CAROUSEL */}
       <MessageCarousel tiles={messageTiles.map((tile, idx) => (
         <React.Fragment key={`msg-${idx}`}>{tile.content}</React.Fragment>
       ))} />
 
-      {/* DASHBOARD INSIGHTS */}
       <DashboardInsights />
 
-      {/* MAIN CONTENT GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-        {/* LEFT: NEXT MISSION */}
         <div className="lg:col-span-8">
           {nextBlock ? (
             <FrostedTile variant={nextColor} className="p-8 hover:-translate-y-1 relative overflow-hidden group transition-all duration-300">
@@ -1515,7 +1426,6 @@ export const Dashboard = ({
           )}
         </div>
 
-        {/* RIGHT: SIDEBAR WITH PERFECTED VERTICAL CAROUSEL */}
         <div className="lg:col-span-4">
           <SidebarTiles tiles={sidebarTiles.map((tile, idx) => (
             <React.Fragment key={`sidebar-${idx}`}>{tile.content}</React.Fragment>
@@ -1523,11 +1433,8 @@ export const Dashboard = ({
         </div>
       </div>
 
-
-
       {showBacklog && (
         <>
-          {/* Lock body scroll */}
           <style>{`
             body { 
               overflow: hidden !important;
@@ -1542,13 +1449,9 @@ export const Dashboard = ({
               if (e.target === e.currentTarget) setShowBacklog(false);
             }}
           >
-            {/* Backdrop */}
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
 
-            {/* Modal - Always centered in viewport */}
             <div className="relative w-full max-w-2xl bg-zinc-950/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-zinc-800/50 overflow-hidden max-h-[85vh] flex flex-col animate-in zoom-in-95 fade-in duration-300">
-
-              {/* Header - Clean & Minimal */}
               <div className="flex items-center justify-between p-6 md:p-7 border-b border-zinc-800/70 bg-zinc-950/80 backdrop-blur-sm flex-shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
@@ -1568,7 +1471,6 @@ export const Dashboard = ({
                 </button>
               </div>
 
-              {/* Content - Clean Scrollable Area */}
               <div className="flex-1 overflow-y-auto p-6 md:p-7">
                 {backlog.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 px-4">
@@ -1594,7 +1496,6 @@ export const Dashboard = ({
                 )}
               </div>
 
-              {/* Footer - Clean Instructions */}
               {backlog.length > 0 && (
                 <div className="p-5 md:p-6 border-t border-zinc-800/70 bg-zinc-950/80 backdrop-blur-sm flex-shrink-0">
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
@@ -1618,7 +1519,6 @@ export const Dashboard = ({
         </>
       )}
 
-      {/* TODAY'S SCHEDULE */}
       <FrostedTile className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-bold flex items-center gap-3">
@@ -1684,7 +1584,7 @@ export const Dashboard = ({
                         {b.subjectName}
                       </div>
                       <div className="text-xs text-zinc-500 uppercase mt-1 tracking-wide font-medium">
-                        {b.type} â€¢ {b.duration}m
+                        {b.type} • {b.duration}m
                       </div>
 
                       {b.type === 'assignment' && b.assignmentId && (
@@ -1775,7 +1675,6 @@ export const Dashboard = ({
         )}
       </FrostedTile>
 
-      {/* FOOTER TIP */}
       <div className="flex justify-center pt-4">
         <div className="flex items-center gap-3 px-5 py-3 rounded-full bg-white/[0.03] border border-white/5 text-zinc-500 text-sm backdrop-blur-sm hover:bg-white/[0.05] hover:border-white/10 transition-all">
           <Coffee size={18} strokeWidth={2.5} />
@@ -1783,7 +1682,6 @@ export const Dashboard = ({
         </div>
       </div>
 
-      {/* MODALS */}
       {showWeekPreview && weekPreview && (
         <WeekPreviewModal
           weekPreview={weekPreview}

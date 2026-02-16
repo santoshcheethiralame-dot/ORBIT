@@ -154,7 +154,6 @@ export const SettingsView = () => {
         throw new Error('Invalid backup file');
       }
 
-      // ÃƒÂ¢Ã…â€œÃ¢€Â¦ Use transaction for atomicity
       await db.transaction(
         'rw',
         [db.subjects, db.logs, db.assignments, db.plans],
@@ -585,7 +584,7 @@ export const SettingsView = () => {
                 <div className="text-xs md:text-sm text-zinc-300 min-w-0">
                   <p className="font-bold mb-1.5 md:mb-2">How to unblock:</p>
                   <ol className="text-zinc-400 space-y-1 md:space-y-1.5 list-decimal list-inside text-[11px] md:text-xs">
-                    <li className="truncate md:whitespace-normal">Click <strong>ÃƒÂ°Ã…Â¸Ã¢€ÂÃ¢€â„¢</strong> in address bar</li>
+                    <li>Click <strong>🔒</strong> in address bar</li>
                     <li className="truncate md:whitespace-normal">Change to "Allow"</li>
                     <li className="truncate md:whitespace-normal">Refresh page</li>
                   </ol>
@@ -1011,7 +1010,7 @@ export const SettingsView = () => {
                     {[
                       { text: `${stats.subjects} subjects with resources`, count: stats.subjects },
                       { text: `${stats.logs} study sessions`, count: stats.logs },
-                      { text: 'All settings and preferences', count: 'ÃƒÂ¢Ã…â€œ—' },
+                      { text: 'All settings and preferences', count: '✓' },
                     ].map((item, i) => (
                       <div key={i} className="flex items-center gap-3 text-sm text-zinc-300 p-3 bg-white/[0.02] rounded-lg border border-white/5" style={{ animationDelay: `${i * 50}ms` }}>
                         <CheckCircle size={18} className="text-cyan-400 flex-shrink-0" />

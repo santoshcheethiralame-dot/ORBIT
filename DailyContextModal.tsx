@@ -769,8 +769,8 @@ export const DailyContextModal = ({
               style={{ minWidth: 140 }}
             >
               {(dayType === "isa" || dayType === "esa") && !focusSubjectId
-                ? "Ã¢Å¡Â Ã¯Â¸Â Select Subject"
-                : "Ã°Å¸Å¡â‚¬ Initialize"}
+                ? "📦 Select Subject"
+                : "🚀 Initialize"}
             </Button>
 
             <button

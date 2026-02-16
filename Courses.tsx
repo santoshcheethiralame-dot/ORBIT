@@ -1,8 +1,5 @@
-// CoursesView_Enhanced.tsx Ã¢â‚¬â€œ DASHBOARD DESIGN LANGUAGE APPLIED Ã¢Å“Â¨
-// Ã°Å¸Å½Â¨ Cohesive frosted glass morphism
-// Ã°Å¸â€œÅ¡ Enhanced resource viewer with fullscreen
-// Ã°Å¸â€™Â« Smooth animations throughout
-// Ã°Å¸Å½Â¯ Polished stat cards and interactions
+// CoursesView: Academic hub for managing subjects, resources, grades, and syllabus tracking.
+// Supports file uploads, previews, grade calculations, and exam readiness predictions.
 
 import React, { useEffect, useState } from "react";
 import {
@@ -24,7 +21,6 @@ type SubjectReadiness = { score: number; status: string };
 import { useToast } from './Toast';
 import { FrostedTile, FrostedMini, PageHeader, MetaText, getSubjectColor, SUBJECT_COLOR_CLASSES } from './components';
 
-// Ã¢Å“Â¨ Enhanced Prediction Modal with Dashboard Design
 const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300 p-6">
     <div className="w-full max-w-lg animate-in slide-in-from-bottom-4 duration-500">
@@ -338,8 +334,6 @@ export default function CoursesView_Enhanced() {
     }
   };
 
-
-  // Auto-open PowerPoint files - useEffect MUST be before conditional returns (Rules of Hooks)
   React.useEffect(() => {
     if (selectedResource?.type !== 'link') {
       const isPPT = selectedResource && isPowerPoint(selectedResource.fileType);
@@ -349,7 +343,6 @@ export default function CoursesView_Enhanced() {
     }
   }, [selectedResource?.id, selectedResource?.fileType]);
 
-  // Ã¢Å“Â¨ ENHANCED Resource Viewer with Dashboard Design
   if (selectedResource && selectedResource.type !== 'link') {
     const isPPT = isPowerPoint(selectedResource.fileType);
     const canPreview = !isPPT && (
@@ -358,10 +351,8 @@ export default function CoursesView_Enhanced() {
       selectedResource.fileType?.startsWith("video")
     );
 
-
     return (
       <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center animate-in fade-in duration-300 p-4 md:p-8">
-        {/* Floating Header with Dashboard Design */}
         <div className="fixed top-4 md:top-8 left-4 md:left-8 right-4 md:right-8 z-[60] flex items-center justify-between gap-4">
           <FrostedTile className="flex items-center gap-3 px-4 md:px-6 py-3 md:py-4 min-w-0 flex-1 shadow-xl hover:border-white/15 transition-all">
             {isPPT && <Presentation size={18} className="text-orange-400 flex-shrink-0" />}
@@ -387,7 +378,6 @@ export default function CoursesView_Enhanced() {
           </div>
         </div>
 
-        {/* Content Container */}
         <div className="w-full max-w-6xl h-[85vh] my-auto">
           <FrostedTile className="h-full flex flex-col overflow-hidden">
             <div className="flex-1 bg-zinc-950 p-4 md:p-6 rounded-3xl overflow-hidden flex items-center justify-center min-h-0">
@@ -439,7 +429,6 @@ export default function CoursesView_Enhanced() {
     );
   }
 
-  // Subject Detail View with Enhanced Dashboard Design
   if (selectedSubject) {
     const subjectColor = getSubjectColor(selectedSubject.id!);
     const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
@@ -455,7 +444,6 @@ export default function CoursesView_Enhanced() {
           <span>Back to Courses</span>
         </button>
 
-        {/* Enhanced Header */}
         <div className="flex items-center gap-4 md:gap-6 mb-8">
           <div className={`w-16 h-16 md:w-20 md:h-20 ${colorClasses.bg} rounded-3xl flex items-center justify-center font-bold text-black text-xl md:text-2xl shadow-xl shrink-0 animate-in zoom-in duration-500`}>
             {getInitials(selectedSubject.name)}
@@ -470,7 +458,6 @@ export default function CoursesView_Enhanced() {
           </div>
         </div>
 
-        {/* Enhanced Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-10">
           {[
             { label: "Progress", value: `${computeProgress(selectedSubject)}%`, color: "indigo", icon: Target },
@@ -498,8 +485,6 @@ export default function CoursesView_Enhanced() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-
-          {/* Enhanced Syllabus Section */}
           <FrostedTile className="p-6 md:p-8 hover:border-indigo-500/30 hover:-translate-y-1 animate-in fade-in slide-in-from-left duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="relative z-10">
@@ -560,7 +545,6 @@ export default function CoursesView_Enhanced() {
             </div>
           </FrostedTile>
 
-          {/* Enhanced Grades Section */}
           <FrostedTile className="p-6 md:p-8 hover:border-emerald-500/30 hover:-translate-y-1 animate-in fade-in slide-in-from-right duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="relative z-10">
@@ -656,7 +640,6 @@ export default function CoursesView_Enhanced() {
             </div>
           </FrostedTile>
 
-          {/* Enhanced Resources Section */}
           <FrostedTile className="lg:col-span-2 p-6 md:p-8 hover:border-purple-500/30 hover:-translate-y-1 animate-in fade-in duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="relative z-10">
@@ -759,7 +742,6 @@ export default function CoursesView_Enhanced() {
             </div>
           </FrostedTile>
 
-          {/* Enhanced Session Notes */}
           <FrostedTile className="lg:col-span-2 p-6 md:p-8 hover:border-amber-500/30 hover:-translate-y-1 animate-in fade-in duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="relative z-10">
@@ -821,7 +803,6 @@ export default function CoursesView_Enhanced() {
     );
   }
 
-  // MAIN COURSES GRID with Enhanced Design
   const filtered = subjects
     .filter((s) =>
       (s.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -848,7 +829,6 @@ export default function CoursesView_Enhanced() {
         }
       />
 
-      {/* Prediction Modal */}
       {showPrediction !== null && (
         <PredictionModal
           subject={subjects.find(s => s.id === showPrediction)}
@@ -857,7 +837,6 @@ export default function CoursesView_Enhanced() {
         />
       )}
 
-      {/* Enhanced Search & Sort */}
       <div className="flex flex-col sm:flex-row gap-3 md:gap-4 animate-in fade-in duration-300">
         <div className="relative flex-1">
           <Search className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
@@ -928,7 +907,7 @@ export default function CoursesView_Enhanced() {
                           {s.name}
                         </div>
                         <div className="text-xs md:text-sm text-zinc-500 font-mono tracking-wider font-semibold">
-                          {s.code || "NO CODE"} Ã¢â‚¬Â¢ {s.credits ?? 0} CREDITS
+                          {s.code || "NO CODE"} • {s.credits ?? 0} CREDITS
                         </div>
                       </div>
                     </div>

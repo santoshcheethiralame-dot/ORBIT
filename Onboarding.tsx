@@ -1071,7 +1071,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
                             </span>
                             <div className="flex items-center gap-2 mt-auto">
                               <span className="text-[10px] text-white/40 group-hover/sub:text-white/60">{s.credits} cr</span>
-                              <span className="text-[10px] text-white/40 group-hover/sub:text-white/60">Ã¢â‚¬Â¢</span>
+                              <span className="text-[10px] text-white/40 group-hover/sub:text-white/60">•</span>
                               <span className="text-[10px] text-white/40 group-hover/sub:text-white/60">Lvl {s.difficulty}</span>
                             </div>
                           </button>

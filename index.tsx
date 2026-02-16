@@ -69,7 +69,7 @@ const App = () => {
   const [showRolloverModal, setShowRolloverModal] = useState(false);
   const [subjectIntelligence, setSubjectIntelligence] = useState<SubjectIntelligence | undefined>();
 
-  // âœ… Add refs for preventing race conditions
+  // ✅ Add refs for preventing race conditions
   const rolloverCheckInProgress = useRef(false);
   const planGenerationInProgress = useRef(false);
   const loadDataInProgress = useRef(false);
@@ -111,7 +111,7 @@ const App = () => {
     const handler = (e: any) => {
       e.preventDefault();
       (window as any).deferredPrompt = e;
-      console.log('âœ… PWA Install Prompt captured');
+      console.log('✅ PWA Install Prompt captured');
     };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
@@ -173,7 +173,7 @@ const App = () => {
           db.logs.limit(1).toArray().catch(() => []),
           db.topics.limit(1).toArray().catch(() => []),
         ]);
-        console.log('âœ… Database schema validated');
+        console.log('✅ Database schema validated');
 
         const [semesterCount, subjectCount] = await Promise.all([
           db.semesters.count(),
@@ -812,9 +812,9 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
     navigator.serviceWorker
       .register("/sw.js")
       .then((registration) => {
-        console.log("âœ… SW registered:", registration.scope);
+        console.log("✅ SW registered:", registration.scope);
 
-        // âœ… Cleanup previous interval if exists
+        // ✅ Cleanup previous interval if exists
         if (updateCheckInterval) {
           clearInterval(updateCheckInterval);
         }
@@ -854,7 +854,7 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
       });
   });
 
-  // âœ… Cleanup on page unload
+  // ✅ Cleanup on page unload
   window.addEventListener('beforeunload', () => {
     if (updateCheckInterval) {
       clearInterval(updateCheckInterval);
