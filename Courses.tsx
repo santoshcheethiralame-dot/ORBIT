@@ -273,29 +273,71 @@ export default function CoursesView_Enhanced() {
     toast.success("Resource deleted");
   };
 
-  const openExternally = (r: any) => {
+  // New unified resource opener — mirrors FocusSession behavior:
+  // - supports link type -> open external URL in new tab
+  // - supports fileData (base64) -> creates Blob, opens in new tab using object URL
+  // - for Office docs, triggers download via anchor element
+  const openResourceInNewTab = (r: any) => {
+    if (!r) return;
+
+    // Links: open as-is
     if (r.type === 'link') {
-      window.open(r.url, '_blank');
+      if (!r.url || r.url.trim() === '') {
+        toast.error("No URL available");
+        return;
+      }
+      window.open(r.url, '_blank', 'noopener,noreferrer');
       return;
     }
 
-    const url = base64ToBlobUrl(r.fileData, r.fileType);
-    if (!url) {
-      toast.error("Unable to preview file");
+    // If there's base64 fileData, convert -> Blob -> open
+    if (r.fileData && r.fileType) {
+      const base64Data = r.fileData.includes('base64,')
+        ? r.fileData.split('base64,')[1]
+        : r.fileData;
+
+      try {
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: r.fileType });
+        const blobUrl = URL.createObjectURL(blob);
+
+        if (isOfficeDoc(r.fileType)) {
+          // trigger download for office docs
+          const link = document.createElement("a");
+          link.href = blobUrl;
+          link.download = r.title || "file";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          toast.info("Office document downloaded");
+          // revoke after slight delay
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+        } else {
+          // open in new tab for previewable files
+          window.open(blobUrl, "_blank", "noopener,noreferrer");
+          // revoke after small delay to ensure the new tab can fetch it
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+        }
+        return;
+      } catch (error) {
+        console.error('Error opening file:', error);
+        toast.error("Unable to preview file");
+        return;
+      }
+    }
+
+    // fallback: if resource has a URL field
+    if (r.url && r.url.trim() !== '') {
+      window.open(r.url, '_blank', 'noopener,noreferrer');
       return;
     }
 
-    if (isOfficeDoc(r.fileType)) {
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = r.title || "file";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.info("Office document downloaded");
-    } else {
-      window.open(url, "_blank");
-    }
+    toast.error("Resource cannot be opened");
   };
 
   const toggleSyllabus = async (u: any) => {
@@ -334,15 +376,18 @@ export default function CoursesView_Enhanced() {
     }
   };
 
+  // Auto-download presentations (mirror previous behavior) but now use openResourceInNewTab
   React.useEffect(() => {
     if (selectedResource?.type !== 'link') {
       const isPPT = selectedResource && isPowerPoint(selectedResource.fileType);
       if (isPPT) {
-        openExternally(selectedResource);
+        openResourceInNewTab(selectedResource);
       }
     }
-  }, [selectedResource?.id, selectedResource?.fileType]);
+  }, [selectedResource?.id, selectedResource?.fileType]); // note: triggers only when selectedResource changes
 
+  // NOTE: changed below — we open everything externally on click (full-page view / download).
+  // The modal/preview remains in file for manual use, but default click opens in new tab.
   if (selectedResource && selectedResource.type !== 'link') {
     const isPPT = isPowerPoint(selectedResource.fileType);
     const canPreview = !isPPT && (
@@ -391,7 +436,7 @@ export default function CoursesView_Enhanced() {
                     Your download should start automatically. If it doesn't, click the button below.
                   </p>
                   <button
-                    onClick={() => openExternally(selectedResource)}
+                    onClick={() => openResourceInNewTab(selectedResource)}
                     className="px-8 md:px-10 py-4 md:py-5 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 rounded-2xl transition-all font-bold text-base md:text-lg border border-indigo-500/30 hover:scale-105 active:scale-95 duration-300 flex items-center justify-center gap-3 min-h-[64px] shadow-lg hover:shadow-indigo-500/20"
                   >
                     <Download size={22} />
@@ -414,7 +459,7 @@ export default function CoursesView_Enhanced() {
                   <h3 className="text-xl md:text-2xl font-bold text-white mb-3">Preview not supported</h3>
                   <p className="text-sm md:text-base text-zinc-500 mb-8 leading-relaxed">This file type cannot be previewed in the browser</p>
                   <button
-                    onClick={() => openExternally(selectedResource)}
+                    onClick={() => openResourceInNewTab(selectedResource)}
                     className="px-8 md:px-10 py-4 md:py-5 bg-indigo-500/20 hover:bg-indigo-500/30 rounded-2xl transition-all font-bold text-base border border-indigo-500/30 hover:scale-105 active:scale-95 duration-300 flex items-center justify-center gap-3 min-h-[64px]"
                   >
                     <Download size={22} />
@@ -664,7 +709,10 @@ export default function CoursesView_Enhanced() {
                       <FrostedMini className="flex items-center justify-between p-4 md:p-5 hover:bg-zinc-800 transition-all group border-zinc-800/50 hover:scale-[1.01] duration-300 min-h-[64px] md:min-h-[72px] hover:-translate-y-0.5">
                         <div
                           className="flex items-center gap-3 md:gap-4 flex-1 cursor-pointer min-w-0"
-                          onClick={() => r.type === 'link' ? openExternally(r) : setSelectedResource(r)}
+                          onClick={() => {
+                            // open links and files externally for full-page view
+                            openResourceInNewTab(r);
+                          }}
                         >
                           {r.type === 'link' ? (
                             <Link size={20} className="text-cyan-400 shrink-0" />

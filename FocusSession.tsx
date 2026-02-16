@@ -18,52 +18,90 @@ import { useSettings } from "./SettingsContext";
 import { SoundManager } from "./utils/sounds";
 import { onDataChange } from "./db";
 
-// Minimal Flip Clock Digit - WORKING ANIMATION
+// Minimal Flip Clock Digit - PERFECT ANIMATION (fixed timing)
+const FLIP_DURATION_MS = 600;
+
 const FlipDigit: React.FC<{ value: string }> = React.memo(({ value }) => {
   const [displayValue, setDisplayValue] = useState(value);
   const [isFlipping, setIsFlipping] = useState(false);
 
+  // refs to clear timers if value changes rapidly or component unmounts
+  const halfTimerRef = useRef<number | null>(null);
+  const endTimerRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
+
   useEffect(() => {
-    if (value !== displayValue) {
-      setIsFlipping(true);
-      
-      // Update display value AFTER animation completes
-      const timer = setTimeout(() => {
-        setDisplayValue(value);
-        setIsFlipping(false);
-      }, 600); // Full animation duration
-      
-      return () => clearTimeout(timer);
-    }
-  }, [value, displayValue]);
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  useEffect(() => {
+    // no flip if same value
+    if (value === displayValue) return;
+
+    // start flip
+    setIsFlipping(true);
+
+    // set displayValue at halfway point so static top switches to new value
+    // while animated top is still flipping away (so it looks seamless)
+    const half = Math.round(FLIP_DURATION_MS / 2);
+
+    // clear any existing timers first
+    if (halfTimerRef.current !== null) window.clearTimeout(halfTimerRef.current);
+    if (endTimerRef.current !== null) window.clearTimeout(endTimerRef.current);
+
+    halfTimerRef.current = window.setTimeout(() => {
+      if (mountedRef.current) setDisplayValue(value);
+      halfTimerRef.current = null;
+    }, half);
+
+    // stop flipping at full duration
+    endTimerRef.current = window.setTimeout(() => {
+      if (mountedRef.current) setIsFlipping(false);
+      endTimerRef.current = null;
+    }, FLIP_DURATION_MS);
+
+    return () => {
+      if (halfTimerRef.current !== null) {
+        window.clearTimeout(halfTimerRef.current);
+        halfTimerRef.current = null;
+      }
+      if (endTimerRef.current !== null) {
+        window.clearTimeout(endTimerRef.current);
+        endTimerRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]); // intentionally only depend on incoming value
 
   return (
-    <div className="flip-card-container">
+    <div className="flip-card-container" style={{ ["--flip-duration" as any]: `${FLIP_DURATION_MS}ms` }}>
       <div className="flip-card">
-        {/* Static top half - shows current display value */}
+        {/* Top Half - Static (shows current displayValue) */}
         <div className="flip-card-top">
           <div className="flip-card-face">
             {displayValue}
           </div>
         </div>
-        
-        {/* Static bottom half - shows current display value */}
+
+        {/* Bottom Half - Static (shows new when flipping, otherwise displayValue) */}
         <div className="flip-card-bottom">
           <div className="flip-card-face">
-            {displayValue}
+            {isFlipping ? value : displayValue}
           </div>
         </div>
-        
-        {/* Animated top - flips down showing OLD value */}
+
+        {/* Top Half - Animated (flips away) */}
         {isFlipping && (
           <div className="flip-card-top-flip">
             <div className="flip-card-face">
+              {/* show the outgoing value (still displayValue until halfway) */}
               {displayValue}
             </div>
           </div>
         )}
-        
-        {/* Animated bottom - flips up showing NEW value */}
+
+        {/* Bottom Half - Animated (flips in) */}
         {isFlipping && (
           <div className="flip-card-bottom-flip">
             <div className="flip-card-face">
@@ -72,7 +110,7 @@ const FlipDigit: React.FC<{ value: string }> = React.memo(({ value }) => {
           </div>
         )}
       </div>
-      
+
       <div className="flip-divider" />
     </div>
   );
@@ -99,7 +137,8 @@ const haptic = (pattern: 'light' | 'medium' | 'heavy' | 'success' = 'light') => 
   try {
     if (!('vibrate' in navigator)) return;
     const patterns = { light: 5, medium: 10, heavy: 15, success: [10, 50, 10, 50, 15] };
-    navigator.vibrate(patterns[pattern]);
+    // navigator.vibrate accepts number or number[]; cast to any to avoid TS mismatch
+    (navigator as any).vibrate(patterns[pattern]);
   } catch (error) {
     console.debug('Haptic feedback not available:', error);
   }
@@ -176,7 +215,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     };
   }, [notes, block.id]);
 
-  // Handle page visibility to prevent timer issues
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -200,16 +238,66 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [isRunning, isBreak, isOvertime]);
 
+  // ---------------------------------------------------------------------------
+  // Helper callbacks: showMilestoneMessage -> playSound -> checkMilestone
+  // Placed before the interval effect to avoid "used before declaration" errors.
+  // ---------------------------------------------------------------------------
+
+  const showMilestoneMessage = useCallback((text: string) => {
+    setMilestoneText(text);
+    setShowMilestone(true);
+    // hide after 2s
+    setTimeout(() => setShowMilestone(false), 2000);
+  }, []);
+
+  const playSound = useCallback((type: 'start' | 'milestone' | 'complete') => {
+    if (!soundEnabled) return;
+    if (type === 'complete') {
+      SoundManager.playSuccess();
+      haptic('success');
+    } else if (type === 'milestone') {
+      SoundManager.playMilestone();
+      haptic('medium');
+    } else {
+      SoundManager.playClick();
+      haptic('light');
+    }
+  }, [soundEnabled]);
+
+  const checkMilestone = useCallback((progress: number) => {
+    setMilestones(prev => {
+      if (progress >= 0.75 && !prev.m75) {
+        showMilestoneMessage("Almost Done!");
+        playSound('milestone');
+        return { ...prev, m75: true };
+      }
+      if (progress >= 0.5 && !prev.m50) {
+        showMilestoneMessage("Halfway There!");
+        playSound('milestone');
+        return { ...prev, m50: true };
+      }
+      if (progress >= 0.25 && !prev.m25) {
+        showMilestoneMessage("25% Complete!");
+        playSound('milestone');
+        return { ...prev, m25: true };
+      }
+      return prev;
+    });
+  }, [playSound, showMilestoneMessage]);
+
+  // ---------------------------------------------------------------------------
+  // Interval ticking effect (uses checkMilestone above)
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!isRunning) return;
 
     const interval = setInterval(() => {
       const now = Date.now();
       const delta = now - lastTickRef.current;
-      
+
       if (delta >= 1000) {
         lastTickRef.current = now;
-        
+
         if (isBreak) {
           setBreakTime(prev => {
             if (prev <= 1) {
@@ -233,50 +321,21 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
           if (isOvertime) setOvertime(prev => prev + 1);
 
-          const progress = 1 - (timeLeft / (block.duration * 60));
-          checkMilestone(progress);
+          // compute progress using current known values to avoid stale closure
+          const total = isBreak ? breakDuration : block.duration * 60;
+          const current = isOvertime ? -overtime : (isBreak ? breakTime : timeLeft);
+          const p = isOvertime ? 1 : Math.min(1, Math.max(0, (total - current) / total));
+          checkMilestone(p);
         }
       }
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isRunning, isBreak, timeLeft, isOvertime, block.duration]);
+  }, [isRunning, isBreak, timeLeft, isOvertime, block.duration, breakDuration, breakTime, overtime, checkMilestone, playSound]);
 
-  const checkMilestone = useCallback((progress: number) => {
-    if (progress >= 0.25 && !milestones.m25) {
-      setMilestones(prev => ({ ...prev, m25: true }));
-      showMilestoneMessage("25% Complete!");
-      playSound('milestone');
-    } else if (progress >= 0.5 && !milestones.m50) {
-      setMilestones(prev => ({ ...prev, m50: true }));
-      showMilestoneMessage("Halfway There!");
-      playSound('milestone');
-    } else if (progress >= 0.75 && !milestones.m75) {
-      setMilestones(prev => ({ ...prev, m75: true }));
-      showMilestoneMessage("Almost Done!");
-      playSound('milestone');
-    }
-  }, [milestones]);
-
-  const showMilestoneMessage = (text: string) => {
-    setMilestoneText(text);
-    setShowMilestone(true);
-    setTimeout(() => setShowMilestone(false), 2000);
-  };
-
-  const playSound = useCallback((type: 'start' | 'milestone' | 'complete') => {
-    if (!soundEnabled) return;
-    if (type === 'complete') {
-      SoundManager.playSuccess();
-      haptic('success');
-    } else if (type === 'milestone') {
-      SoundManager.playMilestone();
-      haptic('medium');
-    } else {
-      SoundManager.playClick();
-      haptic('light');
-    }
-  }, [soundEnabled]);
+  // ---------------------------------------------------------------------------
+  // Rest of component logic
+  // ---------------------------------------------------------------------------
 
   const elapsedSeconds = block.duration * 60 - timeLeft;
   const canFinishEarly = elapsedSeconds >= 300;
@@ -437,7 +496,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showNotes, showAI, showSettings, showResources, isRunning, strictMode]);
+  }, [showNotes, showAI, showSettings, showResources, isRunning, strictMode]); // dependencies intentionally include interactive state
 
   useEffect(() => {
     if ((showNotes || showAI || showSettings || showResources) && !strictMode) {
@@ -462,20 +521,21 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-[#0a0b0f] flex flex-col overflow-hidden">
       <style>{`
-        /* Minimal Flip Clock - FIXED SYNC */
+        /* Perfect Flip Clock Animation */
         .flip-card-container {
+          --flip-duration: ${FLIP_DURATION_MS}ms;
           position: relative;
-          width: 110px;
-          height: 150px;
-          margin: 0 6px;
-          perspective: 1200px;
+          width: 130px;
+          height: 180px;
+          margin: 0 8px;
+          perspective: 1400px;
         }
         
         @media (min-width: 768px) {
           .flip-card-container {
-            width: 160px;
-            height: 220px;
-            margin: 0 8px;
+            width: 180px;
+            height: 240px;
+            margin: 0 10px;
           }
         }
         
@@ -494,37 +554,28 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           width: 100%;
           height: 50%;
           overflow: hidden;
-          background: linear-gradient(180deg, #25272e 0%, #1e2026 100%);
-          border-radius: 12px;
+          background: rgba(37, 39, 46, 0.5);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           box-shadow: 
-            0 4px 12px rgba(0, 0, 0, 0.4),
-            inset 0 1px 0 rgba(255, 255, 255, 0.05);
-        }
-        
-        @media (min-width: 768px) {
-          .flip-card-top,
-          .flip-card-bottom,
-          .flip-card-top-flip,
-          .flip-card-bottom-flip {
-            border-radius: 16px;
-          }
+            0 8px 32px rgba(0, 0, 0, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }
         
         .flip-card-top {
           top: 0;
-          border-bottom-left-radius: 0;
-          border-bottom-right-radius: 0;
-          border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+          border-radius: 20px 20px 4px 4px;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.5);
           display: flex;
           align-items: flex-end;
           justify-content: center;
-          z-index: 1;
+          z-index: 2;
         }
         
         .flip-card-bottom {
           bottom: 0;
-          border-top-left-radius: 0;
-          border-top-right-radius: 0;
+          border-radius: 4px 4px 20px 20px;
           display: flex;
           align-items: flex-start;
           justify-content: center;
@@ -533,17 +584,18 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         
         .flip-card-face {
           font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
-          font-size: 84px;
-          font-weight: 700;
-          color: #f8fafc;
+          font-size: 100px;
+          font-weight: 800;
+          color: #ffffff;
           line-height: 1;
           user-select: none;
-          text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+          text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+          filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
         }
         
         @media (min-width: 768px) {
           .flip-card-face {
-            font-size: 128px;
+            font-size: 140px;
           }
         }
         
@@ -555,18 +607,20 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           transform: translateY(-50%);
         }
         
-        /* Flipping animations */
+        /* Animated halves */
         .flip-card-top-flip {
           top: 0;
-          transform-origin: bottom;
-          animation: flipTop 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-          z-index: 3;
-          border-bottom-left-radius: 0;
-          border-bottom-right-radius: 0;
+          border-radius: 20px 20px 4px 4px;
+          transform-origin: bottom center;
+          animation: flipTop var(--flip-duration) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+          z-index: 4;
           display: flex;
           align-items: flex-end;
           justify-content: center;
           backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
+          will-change: transform;
+          pointer-events: none;
         }
         
         .flip-card-top-flip .flip-card-face {
@@ -575,15 +629,17 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         
         .flip-card-bottom-flip {
           bottom: 0;
-          transform-origin: top;
-          animation: flipBottom 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-          z-index: 2;
-          border-top-left-radius: 0;
-          border-top-right-radius: 0;
+          border-radius: 4px 4px 20px 20px;
+          transform-origin: top center;
+          animation: flipBottom var(--flip-duration) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+          z-index: 3;
           display: flex;
           align-items: flex-start;
           justify-content: center;
           backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
+          will-change: transform;
+          pointer-events: none;
         }
         
         .flip-card-bottom-flip .flip-card-face {
@@ -593,22 +649,18 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         @keyframes flipTop {
           0% { 
             transform: rotateX(0deg);
-            opacity: 1;
           }
           100% { 
-            transform: rotateX(-90deg);
-            opacity: 0;
+            transform: rotateX(-180deg);
           }
         }
         
         @keyframes flipBottom {
           0% { 
-            transform: rotateX(90deg);
-            opacity: 0;
+            transform: rotateX(180deg);
           }
           100% { 
             transform: rotateX(0deg);
-            opacity: 1;
           }
         }
         
@@ -618,13 +670,14 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           left: 0;
           right: 0;
           height: 2px;
-          background: rgba(0, 0, 0, 0.6);
+          background: rgba(0, 0, 0, 0.9);
           transform: translateY(-50%);
-          z-index: 5;
+          z-index: 10;
           pointer-events: none;
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
         }
         
-        /* Uniform Card Style */
+        /* Uniform Card */
         .uniform-card {
           background: rgba(255, 255, 255, 0.02);
           border: 1px solid rgba(255, 255, 255, 0.06);
@@ -668,7 +721,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         </div>
       )}
 
-      {/* Milestone */}
       {showMilestone && (
         <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl bg-amber-500/10 border border-amber-400/30 backdrop-blur-xl" style={{ animation: 'slideDown 0.3s ease-out' }}>
           <p className="text-white font-bold text-sm flex items-center gap-2">
@@ -678,13 +730,11 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         </div>
       )}
 
-      {/* Main Content */}
       <div className="relative z-10 w-full h-full flex items-center justify-center p-4">
         <div className="w-full max-w-7xl mx-auto">
-          
           {!isLoading && (
             <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_260px] gap-6 items-center">
-              
+
               {/* Left Stats */}
               <div className="hidden lg:flex flex-col gap-3" style={{ animation: 'slideUp 0.4s ease-out 0.1s both' }}>
                 <div className="uniform-card p-4">
@@ -740,9 +790,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                 )}
               </div>
 
-              {/* Center - MASSIVE Timer */}
-              <div className="flex flex-col items-center gap-6">
-                {/* Title */}
+              {/* Center - Timer */}
+              <div className="flex flex-col items-center gap-6 justify-center">
                 <div className="text-center" style={{ animation: 'fadeIn 0.3s ease-out 0.2s both' }}>
                   <h1 className="text-3xl md:text-4xl font-bold text-white mb-1">
                     {isBreak ? "Break Time" : block.subjectName}
@@ -752,13 +801,11 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                   </MetaText>
                 </div>
 
-                {/* MASSIVE Timer */}
                 <div className="relative" style={{ animation: 'scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both' }}>
                   <div className="flex items-center justify-center">
                     <FlipDigit value={time.min1} />
                     <FlipDigit value={time.min2} />
-                    
-                    {/* Separator */}
+
                     <div className="flex flex-col gap-3 mx-2">
                       <div className="w-3 h-3 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400" style={{ boxShadow: `0 0 16px ${theme.glow}`, animation: 'pulse 2s ease-in-out infinite' }} />
                       <div className="w-3 h-3 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400" style={{ boxShadow: `0 0 16px ${theme.glow}`, animation: 'pulse 2s ease-in-out infinite 0.5s' }} />
@@ -776,10 +823,9 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                   </div>
                 )}
 
-                {/* Progress */}
                 <div className="w-full max-w-md" style={{ animation: 'slideUp 0.4s ease-out 0.4s both' }}>
                   <div className="h-1.5 w-full bg-white/[0.03] rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="h-full rounded-full transition-all duration-300"
                       style={{
                         width: `${progress * 100}%`,
@@ -793,7 +839,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                   </div>
                 </div>
 
-                {/* Controls */}
                 <div className="w-full max-w-md space-y-2.5" style={{ animation: 'slideUp 0.4s ease-out 0.5s both' }}>
                   {isOvertime && (
                     <button onClick={finishFromOvertime}
@@ -805,11 +850,10 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
                   {!isOvertime && (
                     <button onClick={toggleTimer} disabled={strictMode && isRunning}
-                      className={`btn-smooth w-full h-12 rounded-xl flex items-center justify-center gap-2.5 font-bold text-sm ${
-                        isRunning
+                      className={`btn-smooth w-full h-12 rounded-xl flex items-center justify-center gap-2.5 font-bold text-sm ${isRunning
                           ? "bg-white/[0.04] border border-white/[0.1] text-white hover:bg-white/[0.06]"
                           : "bg-white text-black hover:bg-zinc-100"
-                      } ${strictMode && isRunning ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        } ${strictMode && isRunning ? 'opacity-50 cursor-not-allowed' : ''}`}>
                       {isRunning ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
                       <span>{isRunning ? (strictMode ? "Deep Focus" : "Pause") : "Start"}</span>
                     </button>
@@ -851,7 +895,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                   </div>
                 </div>
 
-                {/* Mobile Stats */}
                 <div className="lg:hidden grid grid-cols-3 gap-2.5 w-full max-w-md" style={{ animation: 'slideUp 0.4s ease-out 0.6s both' }}>
                   <div className="uniform-card p-3 text-center">
                     <MetaText className="text-[9px] mb-1 opacity-60">ELAPSED</MetaText>
@@ -934,7 +977,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         </div>
       </div>
 
-      {/* Modals remain unchanged... */}
+      {/* All modals remain the same - keeping them for completeness */}
       {showSettings && (
         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowSettings(false)} />
@@ -1140,3 +1183,5 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     </div>
   );
 };
+
+export default FocusSession;
