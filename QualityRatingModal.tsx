@@ -74,8 +74,8 @@ export const QualityRatingModal = ({
                 <div className="grid grid-cols-5 gap-2">
                     {options.map(opt => (
                         <button
-                            key={opt.rating}
-                            onClick={() => onRate(opt.rating, topic)}
+                            key={opt.value}
+                            onClick={() => onRate(opt.value, topic)}
                             className="group flex flex-col items-center gap-2 p-2 sm:p-3 rounded-xl border border-zinc-800 bg-zinc-900 hover:border-indigo-500/50 hover:bg-indigo-500/10 transition-all active:scale-95"
                         >
                             <span className="text-3xl group-hover:scale-110 transition-transform filter drop-shadow-lg">{opt.emoji}</span>

@@ -601,6 +601,7 @@
     0% {
         transform: translateX(-100%);
     }
+
     100% {
         transform: translateX(100%);
     }
@@ -753,3 +754,41 @@ html:not(.light-mode) .dark\:text-zinc-200 {
 /* ============================================
    END OF LIGHT MODE ENHANCEMENTS
 ============================================ */
+
+/* ============================================
+   GLOBAL FLUIDITY ENHANCEMENTS v3.1
+============================================ */
+
+html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Optimize common animated properties */
+.transition-all,
+.transition-transform,
+.transition-opacity,
+.transition-colors {
+    will-change: transform, opacity;
+}
+
+/* Smoother focus rings */
+*:focus-visible {
+    transition: outline-color 0.2s ease, outline-offset 0.2s ease;
+}
+
+/* Better button press feel */
+button:active {
+    transform: scale(0.98);
+}
+
+/* Hardware accelerated animations */
+.animate-in,
+.animate-out,
+.fade-in,
+.slide-in-from-bottom,
+.zoom-in-95 {
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+}

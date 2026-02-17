@@ -1,8 +1,15 @@
-# 🧠 The Orbit Brain v3.0: Technical Deep Dive
+# 🧠 The BRAIN (v3.1)
 
-> **"The calendar is dead. Long live Context."**
+> **Technical Architecture & Cognitive Model of Orbit**
 
-This document provides a comprehensive technical overview of Orbit's triple-brain decision engine. If you're looking for user-facing features, check the [main README](./README.md). This is for developers, contributors, and the technically curious.
+This document details how Orbit "thinks." It explains the algorithms, data structures, and decision-making heuristics used to generate schedules, predict burnouts, and manage energy.
+
+## 🏗️ System Architecture
+
+Orbit v3.1 is built on a **Triple-Brain Architecture**:
+1. **Macro Brain (Strategist)**: Looks at weeks/semesters. Handles long-term deadlines and project balancing.
+2. **Micro Brain (Tactician)**: Looks at *today*. Handles hourly scheduling, breaks, and immediate energy management.
+3. **Fluid Core (Renderer)**: Handles the sub-millisecond visual feedback loop (Flip Clock, Animations) to maintain flow state.
 
 ---
 
@@ -643,3 +650,12 @@ This document is a living spec. If something is unclear:
 3. Open a [Discussion](https://github.com/santoshcheethirala/orbit/discussions)
 
 **Built with ❤️ by developers who actually study.**
+
+## 🛡️ Data Persistence (v3.1)
+
+To ensure **zero data loss**, Orbit v3.1 implements a multi-layer safety net:
+
+1. **IndexedDB (Dexie)**: Primary transactional storage.
+2. **LocalSnapshot**: Every 2 seconds of inactivity, the entire DB state is serialized to `localStorage` as a catastrophic recovery point.
+3. **BroadcastChannel**: Real-time state synchronization across multiple open tabs prevents race conditions.
+4. **Migration Safety**: DB upgrades automatically backup data before applying schema changes, reverting if any error occurs.

@@ -53,7 +53,7 @@ export const AboutView = () => {
             <div className="hidden md:flex flex-col items-end">
               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Current Version</span>
               <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-400/10 px-2 py-0.5 rounded-md border border-indigo-400/20">
-                v4.0.1-STABLE
+                v3.1-FLUID
               </span>
             </div>
           </div>
@@ -68,8 +68,8 @@ export const AboutView = () => {
           <FrostedTile variant="indigo">
             <div className="relative z-10 p-8">
               <h2 className="text-2xl md:text-3xl font-display font-bold text-white mb-6 leading-tight">
-                Order from{" "}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-cyan-300 animate-gradient">Entropy</span>
+                Orbit v3.1:{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-cyan-300 animate-gradient">Fluid Intelligence</span>
               </h2>
 
               <div className="prose prose-invert prose-lg max-w-none">
@@ -204,11 +204,11 @@ export const AboutView = () => {
               </div>
               <div className="space-y-3">
                 {[
-                  { icon: Flame, text: "Spaced Repetition Engine", status: "Active" },
-                  { icon: Award, text: "Performance Analytics", status: "Active" },
+                  { icon: Clock, text: "Mechanical Flip Timer", status: "Done" },
+                  { icon: Sparkles, text: "Fluid UI Core", status: "Done" },
                   { icon: MessageSquare, text: "AI Study Assistant", status: "Active" },
-                  { icon: Network, text: "Mobile PWA Support", status: "Q1 2026" },
-                  { icon: Shield, text: "Encrypted Cloud Sync", status: "Q2 2026" },
+                  { icon: Network, text: "Mobile PWA Support", status: "Q2 2026" },
+                  { icon: Shield, text: "Encrypted Cloud Sync", status: "Q3 2026" },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center justify-between p-3 bg-orange-500/5 rounded-xl border border-orange-500/10 hover:bg-orange-500/10 transition-all">
                     <div className="flex items-center gap-3">
@@ -259,16 +259,16 @@ export const AboutView = () => {
           <FrostedTile variant="purple" className="p-6">
             <div className="relative z-10">
               <div className="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center mb-5 text-purple-400 border border-purple-500/30 shadow-lg shadow-purple-500/10">
-                <Activity size={28} />
+                <Clock size={28} />
               </div>
-              <h3 className="text-lg font-bold text-white mb-3">Performance Analytics</h3>
+              <h3 className="text-lg font-bold text-white mb-3">Mechanical Flip Clock</h3>
               <p className="text-sm text-zinc-400 leading-relaxed mb-3">
-                Track quality ratings, completion rates, and time-of-day patterns. Adaptive difficulty adjustment based on your session history.
+                A hyper-realistic 3D timer that anchors you in flow state. Sub-millisecond precision with satisfying mechanical feedback.
               </p>
               <div className="space-y-1">
-                <div className="text-xs text-purple-400">• Quality rating system (1-5 stars)</div>
-                <div className="text-xs text-purple-400">• Burnout detection (0-100 score)</div>
-                <div className="text-xs text-purple-400">• Study streak tracking</div>
+                <div className="text-xs text-purple-400">• Dynamic lighting & shadows</div>
+                <div className="text-xs text-purple-400">• 60fps GPU animation</div>
+                <div className="text-xs text-purple-400">• Distraction-free mode</div>
               </div>
             </div>
           </FrostedTile>
@@ -331,14 +331,14 @@ export const AboutView = () => {
             </div>
           </FrostedTile>
 
-          <FrostedTile variant="purple" className="p-6">
+          <FrostedTile variant="cyan" className="p-6">
             <div className="relative z-10">
-              <div className="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center mb-5 text-purple-400 border border-purple-500/30 shadow-lg shadow-purple-500/10">
-                <Cpu size={28} />
+              <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 flex items-center justify-center mb-5 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/10">
+                <Sparkles size={28} />
               </div>
-              <h3 className="text-lg font-bold text-white mb-3">Engineered Precision</h3>
+              <h3 className="text-lg font-bold text-white mb-3">Fluid UI Core</h3>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                Optimized for sub-100ms interactions. Focus sessions feature gentle audio cues, milestone tracking, and smart circadian ordering.
+                Spring-physics animations and GPU-accelerated transitions. Every interaction is tuned for a 60fps experience that feels alive.
               </p>
             </div>
           </FrostedTile>
@@ -407,9 +407,9 @@ export const AboutView = () => {
             <span className="text-xs text-zinc-500 font-mono tracking-wider">LOCAL_FIRST</span>
           </div>
           <div className="w-px h-4 bg-white/10"></div>
-          <span className="text-xs text-zinc-500 font-mono tracking-wider">ORBIT v4.0.1-STABLE</span>
+          <span className="text-xs text-zinc-500 font-mono tracking-wider">ORBIT v3.1-FLUID</span>
           <div className="w-px h-4 bg-white/10"></div>
-          <span className="text-xs text-zinc-500 font-mono tracking-wider">BUILD_2026.02</span>
+          <span className="text-xs text-zinc-500 font-mono tracking-wider">BUILD_2026.02.17</span>
         </div>
       </div>
     </div>

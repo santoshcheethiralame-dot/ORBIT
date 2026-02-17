@@ -239,40 +239,4 @@ export const WeekPreviewModal = ({
     );
 };
 
-// Demo Component
-export default function App() {
-    const [isOpen, setIsOpen] = React.useState(true);
-
-    const mockWeekPreview: WeekPreview = {
-        days: [
-            { date: '2026-01-20', dayName: 'Monday', totalMinutes: 180, loadLevel: 'normal', hasESA: false, hasISA: true },
-            { date: '2026-01-21', dayName: 'Tuesday', totalMinutes: 240, loadLevel: 'heavy', hasESA: true, hasISA: false },
-            { date: '2026-01-22', dayName: 'Wednesday', totalMinutes: 120, loadLevel: 'light', hasESA: false, hasISA: false },
-            { date: '2026-01-23', dayName: 'Thursday', totalMinutes: 360, loadLevel: 'extreme', hasESA: true, hasISA: true },
-            { date: '2026-01-24', dayName: 'Friday', totalMinutes: 200, loadLevel: 'normal', hasESA: false, hasISA: false },
-            { date: '2026-01-25', dayName: 'Saturday', totalMinutes: 90, loadLevel: 'light', hasESA: false, hasISA: false },
-            { date: '2026-01-26', dayName: 'Sunday', totalMinutes: 150, loadLevel: 'normal', hasESA: false, hasISA: false }
-        ],
-        peakDay: 'Thursday',
-        warnings: ['Projects neglected all week: ORBIT, THEMIS'],
-        neglectedProjects: ['ORBIT', 'THEMIS']
-    };
-
-    return (
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-2 xs:p-3 sm:p-4">
-            <button
-                onClick={() => setIsOpen(true)}
-                className="px-5 xs:px-6 py-2.5 xs:py-3 bg-indigo-500 text-white rounded-lg xs:rounded-xl font-bold hover:bg-indigo-600 transition-colors text-sm xs:text-base"
-            >
-                Open Week Preview
-            </button>
-
-            {isOpen && (
-                <WeekPreviewModal
-                    weekPreview={mockWeekPreview}
-                    onClose={() => setIsOpen(false)}
-                />
-            )}
-        </div>
-    );
-}
+// Demo Component removed - Orbit uses real data integration via simulateWeek()

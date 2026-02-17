@@ -1,10 +1,18 @@
 <div align="center">
 
-# 🛰️ Orbit v3.0
+# 🛰️ Orbit v3.1
 
-### **Your brain doesn't work 9-to-5. Your study planner shouldn't either.**
+> **The specialized planning intelligence for high-performance students.**
 
-**Stop fighting rigid calendars. Start studying with context-aware AI that adapts to your energy, deadlines, and real life.**
+Orbit is not just a todo list. It is a **focus engine** designed to maximize deep work, enforce rest, and adapt to your energy levels. It uses a triple-brain AI architecture to plan your day, predict burnouts, and guide you through complex subjects.
+
+![Orbit Dashboard](https://i.imgur.com/example-dashboard.png)
+
+## 🚀 New in v3.1
+- **Mechanical Flip Clock**: A hyper-realistic 3D flip timer for focus sessions with sub-millisecond precision.
+- **AI Study Assistant**: A spring-animated, GPU-accelerated modal for instant study guidance and topic breakdown.
+- **Fluid UI Core**: Global smooth scrolling, optimized transitions, and enhanced light/dark mode fluidity.
+- **Data Hardening**: Robust local persistence with snapshot recovery and multi-tab synchronization.
 
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
