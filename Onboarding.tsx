@@ -640,7 +640,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   };
 
   return (
-    <div className={`min-h-screen text-white p-4 sm:p-8 flex flex-col justify-center mx-auto relative overflow-hidden transition-all duration-700 ease-out ${step === 3 ? 'max-w-7xl' : 'max-w-4xl'}`}>
+    <div className="w-full min-h-screen text-white flex flex-col justify-center relative overflow-hidden">
       <SpaceBackground />
 
       {/* Content */}
@@ -648,7 +648,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
 
         {/* STEP 1: Mission Parameters */}
         {step === 1 && (
-          <div className="w-full max-w-xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="w-full max-w-xl mx-auto px-4 sm:px-8 py-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
             {/* Import/Export UI */}
             {showImportOption && (
@@ -756,13 +756,15 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
 
         {/* STEP 2: Subject Loadout */}
         {step === 2 && (
-          <div className="space-y-8">
-            {/* Title */}
-            <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <h2 className="text-4xl font-bold bg-gradient-to-r from-white via-indigo-200 to-purple-200 bg-clip-text text-transparent mb-3">
-                Subject Loadout
-              </h2>
-              <p className="text-zinc-400">Configure your knowledge modules</p>
+          <div className="w-full max-w-4xl mx-auto px-4 sm:px-8 py-8">
+            <div className="space-y-8">
+              {/* Title */}
+              <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <h2 className="text-4xl font-bold bg-gradient-to-r from-white via-indigo-200 to-purple-200 bg-clip-text text-transparent mb-3">
+                  Subject Loadout
+                </h2>
+                <p className="text-zinc-400">Configure your knowledge modules</p>
+              </div>
             </div>
 
             {/* Input Form */}
@@ -877,13 +879,15 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
 
         {/* STEP 3: The Grid */}
         {step === 3 && (
-          <div className="space-y-6">
-            {/* Title */}
-            <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <h2 className="text-4xl font-bold bg-gradient-to-r from-white via-indigo-200 to-purple-200 bg-clip-text text-transparent mb-3">
-                The Grid
-              </h2>
-              <p className="text-zinc-400">Map your temporal frequencies</p>
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-8 py-8">
+            <div className="space-y-6">
+              {/* Title */}
+              <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <h2 className="text-4xl font-bold bg-gradient-to-r from-white via-indigo-200 to-purple-200 bg-clip-text text-transparent mb-3">
+                  The Grid
+                </h2>
+                <p className="text-zinc-400">Map your temporal frequencies</p>
+              </div>
             </div>
 
             {/* Validation Status */}
@@ -1110,13 +1114,15 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
 
         {/* STEP 4: Projects */}
         {step === 4 && (
-          <div className="space-y-8">
-            {/* Title */}
-            <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <h2 className="text-4xl font-bold bg-gradient-to-r from-white via-indigo-200 to-purple-200 bg-clip-text text-transparent mb-3">
-                Project Calibration
-              </h2>
-              <p className="text-zinc-400">Initialize mission objectives (optional)</p>
+          <div className="w-full max-w-4xl mx-auto px-4 sm:px-8 py-8">
+            <div className="space-y-8">
+              {/* Title */}
+              <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <h2 className="text-4xl font-bold bg-gradient-to-r from-white via-indigo-200 to-purple-200 bg-clip-text text-transparent mb-3">
+                  Project Calibration
+                </h2>
+                <p className="text-zinc-400">Initialize mission objectives (optional)</p>
+              </div>
             </div>
 
             {/* Input Form */}

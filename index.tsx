@@ -452,12 +452,9 @@ const App = () => {
 
   if (view === "onboarding")
     return (
-      <Onboarding
-        onComplete={() => {
-          setView("dashboard");
-          void loadData();
-        }}
-      />
+      <div className="fixed inset-0 overflow-y-auto bg-black">
+        <Onboarding onComplete={() => { setView("dashboard"); void loadData(); }} />
+      </div>
     );
 
   if (view === "focus" && activeBlock) {
