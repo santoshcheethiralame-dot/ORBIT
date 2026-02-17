@@ -717,25 +717,30 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <style>{`
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slide-up { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes slide-up {
+          from { opacity: 0; transform: translateY(16px) scale(0.97); }
+          60% { opacity: 1; transform: translateY(-3px) scale(1.005); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
         @keyframes glow-pulse { 0%, 100% { box-shadow: 0 0 20px var(--glow-color); } 50% { box-shadow: 0 0 40px var(--glow-color); } }
         .provider-card:hover { transform: translateY(-2px); transition: transform 200ms ease; }
         .provider-card:active { transform: translateY(0) scale(0.98); }
-        .tab-button { position: relative; transition: all 200ms ease; }
+        .tab-button { position: relative; transition: all 150ms ease; }
         .tab-button.active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, #a855f7, #3b82f6); }
         .recommended-badge { animation: glow-pulse 2s ease-in-out infinite; }
       `}</style>
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-md"
-        style={{ animation: 'fade-in 200ms ease-out' }}
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        style={{ animation: 'fade-in 150ms ease-out', willChange: 'opacity' }}
         onClick={onClose}
       />
       <div
         className="relative z-10 w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl border border-white/10 shadow-2xl flex flex-col"
         style={{
           background: 'linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(12,12,16,0.95) 100%)',
-          backdropFilter: 'blur(30px)',
-          animation: 'slide-up 300ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+          backdropFilter: 'blur(20px)',
+          animation: 'slide-up 280ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+          willChange: 'transform, opacity',
         }}
       >
         <div className="relative px-8 py-6 border-b border-white/10">

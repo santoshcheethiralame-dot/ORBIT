@@ -23,10 +23,10 @@ const FLIP_DURATION_MS = 600;
 
 const FlipDigit: React.FC<{ value: string }> = React.memo(({ value }) => {
   const [displayValue, setDisplayValue] = useState(value);
+  const [prevValue, setPrevValue] = useState(value);
   const [isFlipping, setIsFlipping] = useState(false);
 
-  // refs to clear timers if value changes rapidly or component unmounts
-  const halfTimerRef = useRef<number | null>(null);
+  // ref to clear the end timer if value changes rapidly or component unmounts
   const endTimerRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
 
@@ -39,21 +39,16 @@ const FlipDigit: React.FC<{ value: string }> = React.memo(({ value }) => {
     // no flip if same value
     if (value === displayValue) return;
 
-    // start flip
+    // Store the outgoing value for the animated overlay
+    setPrevValue(displayValue);
+    // Immediately update displayValue to the NEW value.
+    // The static top shows this new value, but it's hidden behind the
+    // animated overlay (z-index 4) which shows prevValue flipping away.
+    setDisplayValue(value);
     setIsFlipping(true);
 
-    // set displayValue at halfway point so static top switches to new value
-    // while animated top is still flipping away (so it looks seamless)
-    const half = Math.round(FLIP_DURATION_MS / 2);
-
-    // clear any existing timers first
-    if (halfTimerRef.current !== null) window.clearTimeout(halfTimerRef.current);
+    // clear any existing timer first
     if (endTimerRef.current !== null) window.clearTimeout(endTimerRef.current);
-
-    halfTimerRef.current = window.setTimeout(() => {
-      if (mountedRef.current) setDisplayValue(value);
-      halfTimerRef.current = null;
-    }, half);
 
     // stop flipping at full duration
     endTimerRef.current = window.setTimeout(() => {
@@ -62,10 +57,6 @@ const FlipDigit: React.FC<{ value: string }> = React.memo(({ value }) => {
     }, FLIP_DURATION_MS);
 
     return () => {
-      if (halfTimerRef.current !== null) {
-        window.clearTimeout(halfTimerRef.current);
-        halfTimerRef.current = null;
-      }
       if (endTimerRef.current !== null) {
         window.clearTimeout(endTimerRef.current);
         endTimerRef.current = null;
@@ -84,28 +75,27 @@ const FlipDigit: React.FC<{ value: string }> = React.memo(({ value }) => {
           </div>
         </div>
 
-        {/* Bottom Half - Static (shows new when flipping, otherwise displayValue) */}
+        {/* Bottom Half - Static (always shows current displayValue = new value) */}
         <div className="flip-card-bottom">
           <div className="flip-card-face">
-            {isFlipping ? value : displayValue}
+            {displayValue}
           </div>
         </div>
 
-        {/* Top Half - Animated (flips away) */}
+        {/* Top Half - Animated (shows OLD value, flips away to reveal new value behind) */}
         {isFlipping && (
           <div className="flip-card-top-flip">
             <div className="flip-card-face">
-              {/* show the outgoing value (still displayValue until halfway) */}
-              {displayValue}
+              {prevValue}
             </div>
           </div>
         )}
 
-        {/* Bottom Half - Animated (flips in) */}
+        {/* Bottom Half - Animated (shows NEW value, flips in from top) */}
         {isFlipping && (
           <div className="flip-card-bottom-flip">
             <div className="flip-card-face">
-              {value}
+              {displayValue}
             </div>
           </div>
         )}
@@ -643,18 +633,34 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         @keyframes flipTop {
           0% { 
             transform: rotateX(0deg);
+            filter: brightness(1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          }
+          50% {
+            filter: brightness(0.7);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
           }
           100% { 
             transform: rotateX(-180deg);
+            filter: brightness(0.5);
+            box-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
           }
         }
         
         @keyframes flipBottom {
           0% { 
             transform: rotateX(180deg);
+            filter: brightness(0.5);
+            box-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+          }
+          50% {
+            filter: brightness(0.7);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
           }
           100% { 
             transform: rotateX(0deg);
+            filter: brightness(1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
           }
         }
         
@@ -845,8 +851,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                   {!isOvertime && (
                     <button onClick={toggleTimer} disabled={strictMode && isRunning}
                       className={`btn-smooth w-full h-12 rounded-xl flex items-center justify-center gap-2.5 font-bold text-sm ${isRunning
-                          ? "bg-white/[0.04] border border-white/[0.1] text-white hover:bg-white/[0.06]"
-                          : "bg-white text-black hover:bg-zinc-100"
+                        ? "bg-white/[0.04] border border-white/[0.1] text-white hover:bg-white/[0.06]"
+                        : "bg-white text-black hover:bg-zinc-100"
                         } ${strictMode && isRunning ? 'opacity-50 cursor-not-allowed' : ''}`}>
                       {isRunning ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
                       <span>{isRunning ? (strictMode ? "Deep Focus" : "Pause") : "Start"}</span>
