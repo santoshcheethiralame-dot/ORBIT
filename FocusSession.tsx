@@ -499,12 +499,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   }, [showNotes, showAI, showSettings, showResources, isRunning, strictMode]); // dependencies intentionally include interactive state
 
   useEffect(() => {
-    if ((showNotes || showAI || showSettings || showResources) && !strictMode) {
-      setIsRunning(false);
-    }
-  }, [showNotes, showAI, showSettings, showResources, strictMode]);
-
-  useEffect(() => {
     if (!isRunning && !isBreak) {
       document.title = "Orbit";
       return;

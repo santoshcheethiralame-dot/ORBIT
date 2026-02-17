@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Semester, Subject, Project } from "./types";
-import { db } from "./db";
+import { db, saveDbSnapshot } from "./db";
 import { Button, Input, Slider, GlassCard, getSubjectColor, SUBJECT_COLOR_CLASSES } from "./components";
 import { X, Zap, Calendar, BookOpen, Target, ChevronRight, ChevronLeft, Check, AlertCircle, Rocket, Sparkles, Radio, Orbit, Plus, Minus, Upload, Download, Database } from "lucide-react";
 import { SpaceBackground } from "./SpaceBackground";
@@ -9,11 +9,20 @@ import { useToast } from "./Toast";
 // Progress indicator removed
 
 // Utility functions for backup import/export
-const exportBackup = async () => {
+export const exportBackup = async () => {
   try {
+    // Collect ALL localStorage keys relevant to Orbit
+    const localStorageData: Record<string, string> = {};
+    const lsKeys = ['orbit-settings-v2', 'orbit-prefs', 'orbit_last_check_date'];
+    for (const key of lsKeys) {
+      const val = localStorage.getItem(key);
+      if (val !== null) localStorageData[key] = val;
+    }
+
     const data = {
-      version: "1.0",
+      version: "2.0",
       timestamp: Date.now(),
+      // ALL 10 database tables — nothing omitted
       semesters: await db.semesters.toArray(),
       subjects: await db.subjects.toArray(),
       projects: await db.projects.toArray(),
@@ -22,8 +31,12 @@ const exportBackup = async () => {
       logs: await db.logs.toArray(),
       assignments: await db.assignments.toArray(),
       topics: await db.topics.toArray(),
+      blockOutcomes: await db.blockOutcomes.toArray(),
+      studyBlocks: await db.studyBlocks.toArray(),
+      // localStorage settings
+      localStorage: localStorageData,
     };
-    
+
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -31,7 +44,7 @@ const exportBackup = async () => {
     a.download = `orbit-backup-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    
+
     return true;
   } catch (err) {
     console.error('Export failed:', err);
@@ -39,76 +52,80 @@ const exportBackup = async () => {
   }
 };
 
-const importBackup = async (file: File): Promise<{ success: boolean; message: string }> => {
+export const importBackup = async (file: File): Promise<{ success: boolean; message: string }> => {
   try {
     const text = await file.text();
     const data = JSON.parse(text);
-    
+
     console.log('Import backup data:', data);
-    
+
+    // Helper: restore localStorage keys from backup
+    const restoreLocalStorage = (lsData: Record<string, string> | undefined) => {
+      if (!lsData) return;
+      try {
+        for (const [key, value] of Object.entries(lsData)) {
+          localStorage.setItem(key, value);
+        }
+      } catch (e) {
+        console.warn('Could not restore localStorage:', e);
+      }
+    };
+
     // Check if this is the v4.0.1 format with settings and nested data
     if (data.version && data.exportDate && data.data) {
       // New format with nested structure (v4.0.1)
       const backupData = data.data;
-      
+
       // Map the new format to database tables
       await db.transaction('rw', [
-        db.subjects, db.plans, db.logs, db.assignments
+        db.subjects, db.plans, db.logs, db.assignments,
+        db.blockOutcomes, db.studyBlocks, db.semesters,
+        db.projects, db.schedule, db.topics
       ], async () => {
         // Clear existing data
-        await db.subjects.clear();
-        await db.plans.clear();
-        await db.logs.clear();
-        await db.assignments.clear();
-        
-        // Import subjects
-        if (backupData.subjects?.length) {
-          await db.subjects.bulkAdd(backupData.subjects);
-        }
-        
-        // Import logs
-        if (backupData.logs?.length) {
-          await db.logs.bulkAdd(backupData.logs);
-        }
-        
-        // Import assignments
-        if (backupData.assignments?.length) {
-          await db.assignments.bulkAdd(backupData.assignments);
-        }
-        
-        // Import plans
-        if (backupData.plans?.length) {
-          await db.plans.bulkAdd(backupData.plans);
-        }
+        await Promise.all([
+          db.subjects.clear(), db.plans.clear(), db.logs.clear(),
+          db.assignments.clear(), db.blockOutcomes.clear(), db.studyBlocks.clear(),
+          db.semesters.clear(), db.projects.clear(), db.schedule.clear(), db.topics.clear()
+        ]);
+
+        // Import everything available
+        if (backupData.subjects?.length) await db.subjects.bulkAdd(backupData.subjects);
+        if (backupData.logs?.length) await db.logs.bulkAdd(backupData.logs);
+        if (backupData.assignments?.length) await db.assignments.bulkAdd(backupData.assignments);
+        if (backupData.plans?.length) await db.plans.bulkAdd(backupData.plans);
+        if (backupData.semesters?.length) await db.semesters.bulkAdd(backupData.semesters);
+        if (backupData.projects?.length) await db.projects.bulkAdd(backupData.projects);
+        if (backupData.schedule?.length) await db.schedule.bulkAdd(backupData.schedule);
+        if (backupData.topics?.length) await db.topics.bulkAdd(backupData.topics);
+        if (backupData.blockOutcomes?.length) await db.blockOutcomes.bulkAdd(backupData.blockOutcomes);
+        if (backupData.studyBlocks?.length) await db.studyBlocks.bulkAdd(backupData.studyBlocks);
       });
-      
-      // Also restore settings if they exist
+
+      // Restore settings
       if (data.settings) {
-        try {
-          localStorage.setItem('orbit-prefs', JSON.stringify(data.settings));
-        } catch (e) {
-          console.warn('Could not restore settings:', e);
-        }
+        try { localStorage.setItem('orbit-prefs', JSON.stringify(data.settings)); } catch { }
       }
-      
+      if (data.localStorage) restoreLocalStorage(data.localStorage);
+
       return { success: true, message: `Restored ${backupData.subjects?.length || 0} subjects and ${backupData.plans?.length || 0} plans!` };
-    } 
-    // Check for simple format with version/timestamp
+    }
+    // v2.0 or v1.0 format with tables at root level
     else if (data.version || data.timestamp) {
-      // Old simple format with tables at root level
       await db.transaction('rw', [
         db.semesters, db.subjects, db.projects, db.schedule,
-        db.plans, db.logs, db.assignments, db.topics
+        db.plans, db.logs, db.assignments, db.topics,
+        db.blockOutcomes, db.studyBlocks
       ], async () => {
-        await db.semesters.clear();
-        await db.subjects.clear();
-        await db.projects.clear();
-        await db.schedule.clear();
-        await db.plans.clear();
-        await db.logs.clear();
-        await db.assignments.clear();
-        await db.topics.clear();
-        
+        // Clear ALL tables
+        await Promise.all([
+          db.semesters.clear(), db.subjects.clear(), db.projects.clear(),
+          db.schedule.clear(), db.plans.clear(), db.logs.clear(),
+          db.assignments.clear(), db.topics.clear(),
+          db.blockOutcomes.clear(), db.studyBlocks.clear()
+        ]);
+
+        // Restore ALL tables
         if (data.semesters?.length) await db.semesters.bulkAdd(data.semesters);
         if (data.subjects?.length) await db.subjects.bulkAdd(data.subjects);
         if (data.projects?.length) await db.projects.bulkAdd(data.projects);
@@ -117,10 +134,15 @@ const importBackup = async (file: File): Promise<{ success: boolean; message: st
         if (data.logs?.length) await db.logs.bulkAdd(data.logs);
         if (data.assignments?.length) await db.assignments.bulkAdd(data.assignments);
         if (data.topics?.length) await db.topics.bulkAdd(data.topics);
+        if (data.blockOutcomes?.length) await db.blockOutcomes.bulkAdd(data.blockOutcomes);
+        if (data.studyBlocks?.length) await db.studyBlocks.bulkAdd(data.studyBlocks);
       });
-      
+
+      // Restore localStorage if present (v2.0+)
+      if (data.localStorage) restoreLocalStorage(data.localStorage);
+
       return { success: true, message: 'Backup restored successfully!' };
-    } 
+    }
     else {
       return { success: false, message: 'Invalid backup file format - missing version or exportDate' };
     }
@@ -389,7 +411,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   const [timetableError, setTimetableError] = useState('');
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  
+
   // Import/Export state
   const [showImportOption, setShowImportOption] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -471,7 +493,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     const result = await importBackup(file);
     if (result.success) {
       toast.success(result.message);
@@ -578,7 +600,8 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
         await db.schedule.bulkAdd(scheduleSlots);
       });
 
-      toast.success('ÃƒÂ°Ã…Â¸Ã…Â¡Ã¢â€šÂ¬ Orbit initialized successfully!');
+      toast.success('Orbit initialized successfully!');
+      saveDbSnapshot();
       setTimeout(onComplete, 800);
     } catch (error) {
       toast.error('Failed to initialize orbit');
@@ -626,7 +649,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
         {/* STEP 1: Mission Parameters */}
         {step === 1 && (
           <div className="w-full max-w-xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
-            
+
             {/* Import/Export UI */}
             {showImportOption && (
               <div className="mb-6">
@@ -667,7 +690,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
                 </GlassCard>
               </div>
             )}
-            
+
             {/* Title Section */}
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center p-3 mb-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl animate-float">

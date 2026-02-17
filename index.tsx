@@ -1,5 +1,19 @@
 // index.tsx - FUTURISTIC GLASSMORPHIC FLOATING NAVBAR (Hybrid Enhancement: Active Gradient Border)
 
+// ─── ORIGIN GUARD: force all users to localhost to prevent split-brain data ───
+// IndexedDB + localStorage are origin-scoped, so 192.168.x.x:3000 and localhost:3000
+// are completely separate databases. This redirect prevents data loss.
+if (
+  typeof window !== 'undefined' &&
+  window.location.hostname !== 'localhost' &&
+  window.location.hostname !== '127.0.0.1' &&
+  !window.location.hostname.endsWith('.vercel.app') && // allow deployed versions
+  !window.location.hostname.endsWith('.netlify.app') &&
+  window.location.protocol !== 'file:'
+) {
+  window.location.replace(`http://localhost:${window.location.port}${window.location.pathname}${window.location.search}`);
+}
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom/client";
 import { SettingsProvider } from './SettingsContext';
@@ -13,7 +27,7 @@ import {
   Clock,
   ArrowRight,
 } from "lucide-react";
-import { db } from "./db";
+import { db, saveDbSnapshot, restoreDbFromSnapshot } from "./db";
 import { Subject, DailyPlan, StudyBlock, StudyLog, DailyContext } from "./types";
 import { updateAssignmentProgress } from "./brain";
 import { generateEnhancedPlan } from "./brain-ultimate";
@@ -149,6 +163,9 @@ const App = () => {
           setTodayPlan(null);
         }
       }
+
+      // Auto-save snapshot after every successful load
+      saveDbSnapshot();
     } catch (err) {
       console.error('âŒ LoadData failed:', err);
       toast.error('Failed to load data. Please refresh the page.');
@@ -182,7 +199,15 @@ const App = () => {
 
         // Only force onboarding if NO core data exists
         if (semesterCount === 0 && subjectCount === 0) {
-          setView("onboarding");
+          // Attempt auto-recovery from localStorage snapshot
+          console.log('🔍 No data in IndexedDB, checking localStorage snapshot...');
+          const recovered = await restoreDbFromSnapshot();
+          if (recovered) {
+            console.log('✅ Auto-recovered from localStorage snapshot!');
+            await loadData();
+          } else {
+            setView("onboarding");
+          }
         } else {
           await loadData();
         }
@@ -289,6 +314,7 @@ const App = () => {
 
       setTodayPlan(plan);
       setNeedsContext(false);
+      saveDbSnapshot();
 
       // âœ¨ NEW: Success toast
       toast.success(`Daily plan ready: ${plan.blocks.length} blocks scheduled`);
@@ -404,6 +430,7 @@ const App = () => {
 
         SoundManager.playSuccess();
         await loadData();
+        saveDbSnapshot();
         setActiveBlock(null);
         setView(activeTab as any);
       } catch (err) {

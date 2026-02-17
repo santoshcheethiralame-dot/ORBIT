@@ -35,7 +35,7 @@ export class OrbitDB extends Dexie {
     }).upgrade(async tx => {
       const logsBackup = await tx.table("logs").toArray();
       const assignmentsBackup = await tx.table("assignments").toArray();
-      
+
       try {
         await tx.table("logs").toCollection().modify(log => {
           if (typeof log.timestamp !== "number") {
@@ -77,10 +77,89 @@ export function notifyDataChange(type: string, data?: any) {
 }
 
 export function onDataChange(callback: () => void) {
-  if (!syncChannel) return () => {};
+  if (!syncChannel) return () => { };
   const handler = (e: MessageEvent) => {
     if (e.data.type) callback();
   };
   syncChannel.addEventListener('message', handler);
   return () => syncChannel.removeEventListener('message', handler);
+}
+
+// ─── Auto-Snapshot: localStorage safety net for cross-origin recovery ────────
+const SNAPSHOT_KEY = 'orbit-db-snapshot';
+let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Serialize ALL database tables to localStorage.
+ * Debounced — safe to call frequently; only writes after 2s of quiet.
+ */
+export function saveDbSnapshot() {
+  if (snapshotTimer) clearTimeout(snapshotTimer);
+  snapshotTimer = setTimeout(async () => {
+    try {
+      const snap = {
+        version: "2.0",
+        timestamp: Date.now(),
+        semesters: await db.semesters.toArray(),
+        subjects: await db.subjects.toArray(),
+        projects: await db.projects.toArray(),
+        schedule: await db.schedule.toArray(),
+        plans: await db.plans.toArray(),
+        logs: await db.logs.toArray(),
+        assignments: await db.assignments.toArray(),
+        topics: await db.topics.toArray(),
+        blockOutcomes: await db.blockOutcomes.toArray(),
+        studyBlocks: await db.studyBlocks.toArray(),
+      };
+      localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snap));
+      console.log('📸 DB snapshot saved to localStorage');
+    } catch (err) {
+      console.warn('⚠️ Failed to save DB snapshot:', err);
+    }
+  }, 2000);
+}
+
+/**
+ * Restore all database tables from a localStorage snapshot.
+ * Returns true if data was restored, false if no snapshot exists.
+ */
+export async function restoreDbFromSnapshot(): Promise<boolean> {
+  try {
+    const raw = localStorage.getItem(SNAPSHOT_KEY);
+    if (!raw) return false;
+
+    const data = JSON.parse(raw);
+    // Basic validity check — must have subjects
+    if (!data.subjects?.length) return false;
+
+    await db.transaction('rw', [
+      db.semesters, db.subjects, db.projects, db.schedule,
+      db.plans, db.logs, db.assignments, db.topics,
+      db.blockOutcomes, db.studyBlocks
+    ], async () => {
+      await Promise.all([
+        db.semesters.clear(), db.subjects.clear(), db.projects.clear(),
+        db.schedule.clear(), db.plans.clear(), db.logs.clear(),
+        db.assignments.clear(), db.topics.clear(),
+        db.blockOutcomes.clear(), db.studyBlocks.clear()
+      ]);
+
+      if (data.semesters?.length) await db.semesters.bulkAdd(data.semesters);
+      if (data.subjects?.length) await db.subjects.bulkAdd(data.subjects);
+      if (data.projects?.length) await db.projects.bulkAdd(data.projects);
+      if (data.schedule?.length) await db.schedule.bulkAdd(data.schedule);
+      if (data.plans?.length) await db.plans.bulkAdd(data.plans);
+      if (data.logs?.length) await db.logs.bulkAdd(data.logs);
+      if (data.assignments?.length) await db.assignments.bulkAdd(data.assignments);
+      if (data.topics?.length) await db.topics.bulkAdd(data.topics);
+      if (data.blockOutcomes?.length) await db.blockOutcomes.bulkAdd(data.blockOutcomes);
+      if (data.studyBlocks?.length) await db.studyBlocks.bulkAdd(data.studyBlocks);
+    });
+
+    console.log('✅ DB restored from localStorage snapshot');
+    return true;
+  } catch (err) {
+    console.error('❌ Failed to restore from snapshot:', err);
+    return false;
+  }
 }
