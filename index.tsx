@@ -35,6 +35,7 @@ import { Onboarding } from "./Onboarding";
 import { Dashboard } from "./Dashboard";
 import { FocusSession } from "./FocusSession";
 import CoursesView from "./Courses";
+import ProjectsView from "./ProjectsView";
 import { StatsView } from "./Stats";
 import { SpaceBackground } from "./SpaceBackground";
 import { DailyContextModal } from "./DailyContextModal";
@@ -52,12 +53,14 @@ import { getISTEffectiveDate, isPlanCurrent } from "./utils/time";
 const DESKTOP_TABS = [
   { id: "dashboard", icon: LayoutGrid, label: "Dashboard", activeGradient: "from-blue-500 to-cyan-500" },
   { id: "courses", icon: BookOpen, label: "Courses", activeGradient: "from-purple-500 to-pink-500" },
+  { id: "projects", icon: BookOpen, label: "Projects", activeGradient: "from-indigo-500 to-blue-500" },
   { id: "stats", icon: BarChart2, label: "Analytics", activeGradient: "from-orange-500 to-red-500" },
 ];
 // MOBILE_TABS: no "about" included because we'll do a special info button in mobile nav
 const MOBILE_TABS = [
   { id: "dashboard", icon: LayoutGrid, label: "Home", activeGradient: "from-blue-500 to-cyan-500" },
   { id: "courses", icon: BookOpen, label: "Courses", activeGradient: "from-purple-500 to-pink-500" },
+  { id: "projects", icon: BookOpen, label: "Projects", activeGradient: "from-indigo-500 to-blue-500" },
   { id: "stats", icon: BarChart2, label: "Stats", activeGradient: "from-orange-500 to-red-500" },
   { id: "settings", icon: Settings, label: "Settings", activeGradient: "from-green-500 to-emerald-500" },
 ];
@@ -67,13 +70,14 @@ const App = () => {
     | "onboarding"
     | "dashboard"
     | "courses"
+    | "projects"
     | "stats"
     | "focus"
     | "settings"
     | "about"
   >("dashboard");
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "courses" | "stats" | "about" | "settings"
+    "dashboard" | "courses" | "projects" | "stats" | "about" | "settings"
   >("dashboard");
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [logs, setLogs] = useState<StudyLog[]>([]);
@@ -700,6 +704,9 @@ const App = () => {
           )}
           {activeTab === "courses" && (
             <CoursesViewComponent subjects={subjects} logs={logs} />
+          )}
+          {activeTab === "projects" && (
+            <ProjectsView />
           )}
           {activeTab === "stats" && (
             <StatsView logs={logs} subjects={subjects} />

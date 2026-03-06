@@ -2,12 +2,12 @@
 // Handles block completion, snoozing, backlog management, and displays AI-generated study recommendations.
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { DailyPlan, StudyBlock, Subject, StudyLog } from "./types";
+import { SubjectReadiness, StudyBlock, Subject, StudyLog, DailyPlan, DailyContext } from './types';
 import { WeekPreviewModal } from "./WeekPreviewModal";
 import { BlockReason, PageHeader, MetaText, HeaderChip } from "./components";
 import { getISTTime, getISTEffectiveDate } from "./utils/time";
 import { EmptyBacklog, EmptyTodayPlan } from './EmptyStates';
-import { getAllReadinessScores, SubjectReadiness, updateAssignmentProgress } from './brain';
+import { getAllReadinessScores, updateAssignmentProgress } from './brain';
 import { useToast } from './Toast';
 import { safeDB, withToast } from './utils/dbErrorHandler';
 import {

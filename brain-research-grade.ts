@@ -22,6 +22,7 @@ import {
     Subject,
     Assignment,
     StudyLog,
+    SubjectReadiness,
 } from "./types";
 import { getISTEffectiveDate } from "./utils/time";
 
@@ -898,12 +899,12 @@ export async function generateEnhancedDailyPlan(
     return result.blocks;
 }
 
-export async function getAllReadinessScores(): Promise<Record<number, { score: number; status: string }>> {
+export async function getAllReadinessScores(): Promise<Record<number, SubjectReadiness>> {
     const subjects = await db.subjects.toArray();
     const logs = await db.logs.toArray();
     const effectiveDate = getISTEffectiveDate();
 
-    const result: Record<number, { score: number; status: string }> = {};
+    const result: Record<number, SubjectReadiness> = {};
 
     for (const subject of subjects) {
         const readiness = calculateProbabilisticReadiness(
@@ -914,7 +915,9 @@ export async function getAllReadinessScores(): Promise<Record<number, { score: n
         );
         result[subject.id!] = {
             score: readiness.score,
-            status: readiness.status
+            status: readiness.status,
+            decay: readiness.decayComponent,
+            lastStudiedDays: readiness.lastStudiedDays
         };
     }
 

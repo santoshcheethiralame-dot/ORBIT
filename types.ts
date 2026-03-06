@@ -67,10 +67,12 @@ export interface ExamEntry {
 export interface Project {
   id?: number;
   name: string;
-  subjectId?: number;
-  progression: number;
-  effort: 'low' | 'med' | 'high';
+  subjectId: number;
+  totalEffortMinutes: number;
+  completedEffortMinutes: number;
   deadline?: string;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  completed: boolean;
 }
 
 export interface ScheduleSlot {
@@ -84,7 +86,7 @@ export interface StudyBlock {
   id: string;
   subjectId: number;
   subjectName: string;
-  type: 'review' | 'project' | 'prep' | 'recovery' | 'assignment';
+  type: 'review' | 'project' | 'prep' | 'recovery' | 'assignment' | 'break';
   duration: number;
   completed: boolean;
   date?: string;
@@ -125,7 +127,7 @@ export interface Assignment {
 
 export interface DailyContext {
   mood: 'low' | 'normal' | 'high';
-  dayType: 'normal' | 'isa' | 'esa';
+  dayType: 'normal' | 'isa' | 'esa' | 'pd';
   focusSubjectId?: number;
   isHoliday: boolean;
   isSick: boolean;
@@ -154,6 +156,13 @@ export interface DailyPlan {
     oldDuration: number;
     newDuration: number;
   }[];
+}
+
+export interface SubjectReadiness {
+  score: number;
+  decay: number;
+  status: "critical" | "maintaining" | "mastered";
+  lastStudiedDays: number;
 }
 
 export interface StudyTopic {

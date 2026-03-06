@@ -12,11 +12,11 @@ import {
   AlertCircle,
   Settings as SettingsIcon,
 } from "lucide-react";
-import { Subject, DailyContext, ExamEntry } from "./types";
+import { Subject, DailyContext, ExamEntry, SubjectReadiness } from "./types";
 import { Input, Button } from "./components";
 import { SpaceBackground } from "./SpaceBackground";
 import { db } from "./db";
-import { getAllReadinessScores, SubjectReadiness } from "./brain";
+import { getAllReadinessScores } from "./brain";
 
 interface DailyContextModalProps {
   subjects: Subject[];
@@ -275,7 +275,7 @@ export const DailyContextModal = ({
 
   // State for manual configuration
   const [mood, setMood] = useState<"low" | "normal" | "high">("normal");
-  const [dayType, setDayType] = useState<"normal" | "isa" | "esa">("normal");
+  const [dayType, setDayType] = useState<"normal" | "isa" | "esa" | "pd">("normal");
   const [readinessScores, setReadinessScores] = useState<
     Record<number, SubjectReadiness>
   >({});
@@ -446,6 +446,10 @@ export const DailyContextModal = ({
   const canSubmit = () => {
     if (dayType === "isa" || dayType === "esa") {
       return focusSubjectId && focusSubjectId > 0;
+    }
+    // `pd` allows optional focus subject
+    if (dayType === "pd") {
+      return true;
     }
     return true;
   };
@@ -745,8 +749,39 @@ export const DailyContextModal = ({
             </div>
           </div>
 
+          <div className="grid grid-cols-4 gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5 relative">
+            {(["normal", "isa", "esa", "pd"] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => setDayType(type)}
+                className={`py-3 px-2 rounded-xl text-sm font-bold transition-all duration-300 relative z-10 ${dayType === type
+                  ? "text-white shadow-lg"
+                  : "text-zinc-500 hover:text-white"
+                  }`}
+              >
+                {dayType === type && (
+                  <div
+                    className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl -z-10 shadow-[0_0_15px_rgba(99,102,241,0.5)]"
+                    style={{
+                      animation: "popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+                    }}
+                  />
+                )}
+                <span className="relative z-10 drop-shadow-sm">
+                  {type === "normal"
+                    ? "Normal"
+                    : type === "isa"
+                      ? "ISA Prep"
+                      : type === "esa"
+                        ? "ESA Prep"
+                        : "Proj Focus"}
+                </span>
+              </button>
+            ))}
+          </div>
+
           {/* EXAM FOCUS SUBJECT */}
-          {(dayType === "isa" || dayType === "esa") && (
+          {(dayType === "isa" || dayType === "esa" || dayType === "pd") && (
             <div
               id="focus-subject-selector"
               className="mb-6 relative z-10 animate-fade-in"

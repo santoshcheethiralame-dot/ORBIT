@@ -10,6 +10,7 @@ import {
   WeekPreview,
   StudyTopic,
   ExamEntry,
+  SubjectReadiness,
 } from "./types";
 import { getISTEffectiveDate } from "./utils/time";
 import { notifyDataChange } from "./db";
@@ -174,13 +175,6 @@ type LoadAnalysis = {
   subjectImpacts?: Record<number, number>; // Per-subject readiness impact
 };
 
-export type SubjectReadiness = {
-  score: number;
-  decay: number;
-  status: "critical" | "maintaining" | "mastered";
-  lastStudiedDays: number;
-};
-
 export type PlanResult = {
   blocks: StudyBlock[];
   loadAnalysis: LoadAnalysis;
@@ -339,7 +333,7 @@ export function calculateReadiness(
   const goal = READINESS_GOAL_HOURS_PER_CREDIT * Math.max(credits, 1);
   let volume = Math.min(totalStudiedHours / goal, 1);
 
-  // Factor 2: Recency (decay based on last study)
+  // Factor 2: Recency (decay based on Ebbinghaus forgetting curve)
   const lastStudy = logs
     .filter(l => l.subjectId === subject.id)
     .sort((a, b) => b.timestamp - a.timestamp)[0];
@@ -352,9 +346,17 @@ export function calculateReadiness(
     lastStudiedDays = daysBetweenDates(effectiveDate, lastDate);
   }
 
-  // Exponential decay (harder subjects decay faster)
-  let decayRate = (subject.difficulty >= 4 ? 0.7 : 0.9);
-  let decay = Math.pow(decayRate, lastStudiedDays || 0);
+  // Modified Ebbinghaus curve: decay = 1 / (1 + (days / retentionScale))
+  // The more volume (totalStudiedHours) you have, the slower it decays
+  // Max retention scale cap to prevent indefinite memory
+  const retentionScale = Math.max(1, Math.min(totalStudiedHours * 2, 20));
+  const baseDecay = 1 / (1 + (lastStudiedDays / retentionScale));
+
+  // Harder subjects decay slightly faster
+  const difficultyMultiplier = subject.difficulty >= 4 ? 0.85 : 1.0;
+  let decay = Math.max(0.1, baseDecay * difficultyMultiplier);
+
+  if (lastStudiedDays === 999) decay = 0; // Never studied
 
   // Final Score: Volume × Decay
   let score = Math.round(volume * 100 * decay);
@@ -387,26 +389,31 @@ export function predictReadiness(
   daysFromNow: number,
   hoursPerDay: number
 ): { projectedScore: number; breakdown: string } {
-  const credits = subject.credits || 3;
+  const credits = Math.max(subject.credits || 3, 1);
   const goalHours = credits * READINESS_GOAL_HOURS_PER_CREDIT;
 
   // Current state
-  let currentVolume = currentReadiness.score / 100 / currentReadiness.decay;
+  const score = currentReadiness.score || 0;
+  const decay = currentReadiness.decay || 1.0;
+  let currentVolume = score / 100 / decay;
   let currentHours = currentVolume * goalHours;
 
   // Simulate day-by-day
-  let projectedScore = currentReadiness.score;
+  let projectedScore = score;
 
   for (let day = 1; day <= daysFromNow; day++) {
     // Add study hours
     currentHours += hoursPerDay;
     currentVolume = Math.min(currentHours / goalHours, 1);
 
-    // Apply decay (assumes you don't study this topic every day)
-    const decayRate = subject.difficulty >= 4 ? 0.7 : 0.9;
-    const decay = Math.pow(decayRate, 1); // 1 day of decay
+    // Apply slight decay only if NOT studying that day
+    let dailyDecayModifier = 1.0;
+    if (hoursPerDay === 0) {
+      // Ebbinghaus approximation for a single day transition
+      dailyDecayModifier = subject.difficulty >= 4 ? 0.90 : 0.95;
+    }
 
-    projectedScore = currentVolume * 100 * decay;
+    projectedScore = currentVolume * 100 * dailyDecayModifier;
   }
 
   projectedScore = Math.min(Math.round(projectedScore), 100);
@@ -503,6 +510,9 @@ async function addSpacedRepetitionReviews(
   for (const topic of dueTopics) {
     const subject = subjects.find(s => s.id === topic.subjectId);
     if (!subject) continue;
+
+    // 🔥 FIX: Respect excluded subjects (e.g. completed exams in ESA mode)
+    if (constraints.excludedSubjectIds.includes(subject.id!)) continue;
 
     // Calculate duration based on comprehension history
     const avgComprehension = topic.comprehensionHistory.length > 0
@@ -709,6 +719,17 @@ export function resolveConstraints(ctx: DailyContext): DayConstraints {
     };
   }
 
+  if (ctx.dayType === "pd") {
+    return {
+      maxMinutes: 300, // Large budget for projects
+      maxBlocks: 5,
+      maxBlockDuration: 90, // Longer continuous blocks for deep work
+      allowProjects: true,
+      forceFocusSubject: ctx.focusSubjectId !== undefined, // Optional focal project
+      excludedSubjectIds: [],
+    };
+  }
+
   return {
     maxMinutes,
     maxBlocks,
@@ -756,26 +777,44 @@ function tryInsertWithDisplacement(
     return true;
   }
 
-  for (let i = blocks.length - 1; i >= 0; i--) {
+  let bestVictimIdx = -1;
+  let bestVictimScore = -Infinity;
+
+  for (let i = 0; i < blocks.length; i++) {
     const victim = blocks[i];
 
+    // Only displace blocks with lower priority numerically (higher value)
     if ((victim.priority ?? 99) > (candidate.priority ?? 99)) {
-      const newMinutes =
-        usedMinutes.value - victim.duration + candidate.duration;
+      const newMinutes = usedMinutes.value - victim.duration + candidate.duration;
 
       if (newMinutes <= constraints.maxMinutes) {
-        blocks.splice(i, 1);
+        // Score: we want to minimize priority lost, and minimize wasted time
+        // High priority number = low importance. So big difference is good.
+        const priorityDiff = (victim.priority ?? 99) - (candidate.priority ?? 99);
+        const durationDiff = Math.abs(candidate.duration - victim.duration);
 
-        candidate.displaced = {
-          type: victim.type,
-          subjectName: victim.subjectName,
-        };
+        const score = (priorityDiff * 100) - durationDiff;
 
-        blocks.push(candidate);
-        usedMinutes.value = newMinutes;
-        return true;
+        if (score > bestVictimScore) {
+          bestVictimScore = score;
+          bestVictimIdx = i;
+        }
       }
     }
+  }
+
+  if (bestVictimIdx !== -1) {
+    const victim = blocks[bestVictimIdx];
+    blocks.splice(bestVictimIdx, 1);
+
+    candidate.displaced = {
+      type: victim.type,
+      subjectName: victim.subjectName,
+    };
+
+    blocks.push(candidate);
+    usedMinutes.value = usedMinutes.value - victim.duration + candidate.duration;
+    return true;
   }
 
   return false;
@@ -796,18 +835,52 @@ export const generateDailyPlan = async (
     const blocks: StudyBlock[] = [];
     const usedMinutes = { value: 0 };
 
-    const subjects = await dbInstance.subjects.toArray();
-    const assignments = await dbInstance.assignments
-      .filter((a) => !a.completed)
-      .toArray();
-    const projects = await dbInstance.projects.toArray();
-    const logs = await dbInstance.logs.toArray();
-    const schedule = await dbInstance.schedule.toArray();
+    const [
+      subjects,
+      assignments,
+      projects,
+      logs,
+      schedule,
+      outcomes
+    ] = await Promise.all([
+      dbInstance.subjects.toArray(),
+      dbInstance.assignments.filter((a) => !a.completed).toArray(),
+      dbInstance.projects.toArray(),
+      dbInstance.logs.toArray(),
+      dbInstance.schedule.toArray(),
+      dbInstance.blockOutcomes.toArray()
+    ]);
 
-    // 💡 Calculate readiness for all subjects upfront
     const readinessMap: Record<number, SubjectReadiness> = {};
     for (const subject of subjects) {
       readinessMap[Number(subject.id)] = calculateReadiness(subject, logs, effectiveDate);
+    }
+
+    // 💡 Performance Analytics (Learn from User Behavior)
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recentOutcomes = outcomes.filter(o => o.timestamp >= thirtyDaysAgo);
+
+    const performanceMap: Record<number, { avgQuality: number, skipRate: number, totalSessions: number }> = {};
+    for (const sub of subjects) {
+      const subOutcomes = recentOutcomes.filter(o => o.subjectId === Number(sub.id));
+      const totalSessions = subOutcomes.length;
+      if (totalSessions === 0) {
+        performanceMap[Number(sub.id)] = { avgQuality: 3, skipRate: 0, totalSessions: 0 };
+        continue;
+      }
+
+      const skipped = subOutcomes.filter(o => o.skipped).length;
+      const completed = subOutcomes.filter(o => !o.skipped);
+
+      const avgQuality = completed.length > 0
+        ? completed.reduce((sum, o) => sum + (o.completionQuality || 3), 0) / completed.length
+        : 3;
+
+      performanceMap[Number(sub.id)] = {
+        avgQuality,
+        skipRate: skipped / totalSessions,
+        totalSessions
+      };
     }
 
     const [y, m, d] = effectiveDate.split("-").map(Number);
@@ -820,35 +893,62 @@ export const generateDailyPlan = async (
     const createBlock = (
       sub: Subject,
       type: StudyBlock["type"],
-      duration: number,
+      baseDuration: number,
       priority: number,
       meta?: Partial<StudyBlock> // This meta now allows topicId
-    ): StudyBlock => ({
-      id: makeId(),
-      subjectId: Number(sub.id),
-      subjectName: sub.name,
-      type,
-      duration,
-      completed: false,
-      priority,
-      ...meta, // topicId, reviewNumber, etc., are passed here
-    });
+    ): StudyBlock => {
+
+      let finalDuration = baseDuration;
+
+      // Auto-adjust duration based on past performance
+      const perf = performanceMap[Number(sub.id)];
+      if (perf && perf.totalSessions >= 3 && type !== 'break' && type !== 'recovery') {
+        if (perf.avgQuality >= 4 && perf.skipRate < 0.2) {
+          // High performer -> push harder
+          finalDuration = Math.min(baseDuration + 10, constraints.maxBlockDuration);
+        } else if (perf.avgQuality <= 2.5 || perf.skipRate > 0.3) {
+          // Struggling -> reduce friction, shorter blocks
+          finalDuration = Math.max(baseDuration - 15, 20);
+        }
+      }
+
+      return {
+        id: makeId(),
+        subjectId: Number(sub.id),
+        subjectName: sub.name,
+        type,
+        duration: finalDuration,
+        completed: false,
+        priority,
+        ...meta, // topicId, reviewNumber, etc., are passed here
+      };
+    };
     /* ============================
       0. DROPPED BLOCK RECOVERY
     ============================ */
 
-    // Check yesterday's plan for dropped blocks
-    const yesterdayDate = new Date(y, m - 1, d);
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
-    const yesterdayPlan = await dbInstance.plans.get(yesterdayStr);
-
+    // Check the last 3 days' plans for dropped blocks
     const droppedBlocks: StudyBlock[] = [];
-    if (yesterdayPlan?.droppedBlocks && yesterdayPlan.droppedBlocks.length > 0) {
-      for (const droppedId of yesterdayPlan.droppedBlocks) {
-        const droppedBlock = yesterdayPlan.blocks.find(b => b.id === droppedId);
-        if (droppedBlock && !droppedBlock.completed) {
-          droppedBlocks.push(droppedBlock);
+
+    for (let backDays = 1; backDays <= 3; backDays++) {
+      const pastDate = new Date(y, m - 1, d);
+      pastDate.setDate(pastDate.getDate() - backDays);
+      const pastStr = pastDate.toISOString().split('T')[0];
+      const pastPlan = await dbInstance.plans.get(pastStr);
+
+      if (pastPlan?.droppedBlocks && pastPlan.droppedBlocks.length > 0) {
+        for (const droppedId of pastPlan.droppedBlocks) {
+          // Prevent duplicates if a block was dropped multiple times
+          if (droppedBlocks.some(b => b.id === droppedId)) continue;
+
+          const droppedBlock = pastPlan.blocks.find(b => b.id === droppedId);
+          if (droppedBlock && !droppedBlock.completed) {
+            droppedBlocks.push({
+              ...droppedBlock,
+              // Keep original priority, but degrade priority boost for older drops
+              priority: Math.min((droppedBlock.priority ?? 9) + (backDays - 1), 99)
+            });
+          }
         }
       }
     }
@@ -1089,45 +1189,80 @@ export const generateDailyPlan = async (
 
     if (constraints.allowProjects && projects.length > 0) {
       for (const p of projects) {
-        const lastLog = logs
-          .filter((l) => l.projectId === p.id)
-          .sort((a, b) => b.timestamp - a.timestamp)[0];
-
-        const lastDate = lastLog
-          ? new Date(lastLog.timestamp).toISOString().split("T")[0]
-          : null;
-
-        let daysIdle =
-          lastDate ? daysBetweenDates(effectiveDate, lastDate) : p.progression === 0 ? 1 : 3;
-
-        let isNewProject = !lastLog && p.progression === 0;
-        let isStalled = !lastLog && p.progression > 0;
-
-        if (daysIdle < 3 && !isNewProject) continue;
+        if (p.completed) continue;
+        const progressionPercentage = Math.round((p.completedEffortMinutes / p.totalEffortMinutes) * 100);
 
         const sub = subjects.find((s) => Number(s.id) === Number(p.subjectId));
         if (!sub) continue;
 
-        let priority = DOMINANCE.PROJECT;
+        // PD Mode Logic: Is this project the user's specific focal target?
+        const isFocalProject = context.dayType === 'pd' && context.focusSubjectId === p.subjectId;
+
+        let priority = isFocalProject ? DOMINANCE.PROJECT_DECAY + 5 : DOMINANCE.PROJECT;
+        let projectDuration = p.priority === "urgent" || p.priority === "high" ? 90 : p.priority === "low" ? 30 : DEFAULT_PROJECT_MIN;
         let reason = "";
         let notes = "";
 
-        if (daysIdle >= 7) {
-          priority = DOMINANCE.PROJECT_DECAY;
-          reason = `⚠️ Critical: Project abandoned for ${daysIdle} days`;
-          notes = `Abandoned ${daysIdle}d`;
-        } else if (isStalled) {
-          priority = DOMINANCE.PROJECT_DECAY + 1;
-          reason = `⚠️ Stalled project`;
-          notes = `Stalled at ${p.progression}%`;
-        } else if (isNewProject) {
-          notes = "Start project";
-          reason = "New project — establish momentum";
+        // 1. DEADLINE-DRIVEN BACKWARD PLANNING
+        if (p.deadline) {
+          const daysLeft = daysBetweenDates(effectiveDate, p.deadline);
+
+          if (daysLeft < 0) {
+            priority = DOMINANCE.PROJECT_DECAY + 10; // OVERDUE
+            reason = "⚠️ OVERDUE PROJECT";
+            notes = "LATE";
+          } else if (daysLeft <= 3) {
+            priority = DOMINANCE.PROJECT_DECAY + 5; // CRITICAL
+            reason = `⚠️ CRITICAL: Project due in ${daysLeft} days`;
+            notes = `Due in ${daysLeft}d`;
+            projectDuration = Math.max(projectDuration, 90); // Force longer blocks near deadline
+          } else if (daysLeft <= 7) {
+            priority = DOMINANCE.PROJECT_DECAY;
+            reason = `Project due in ${daysLeft} days`;
+            notes = `Due next week`;
+            projectDuration = Math.max(projectDuration, 60);
+          }
+
+          // If we have a deadline, we don't care about "idle" time as much, 
+          // we just schedule it if it's due soon, or if it's a PD day.
+          if (daysLeft > 7 && !isFocalProject) {
+            // Not urgent yet, skip unless PD mode
+            continue;
+          }
+        }
+        // 2. IDLE-BASED HEURISTIC (For open-ended projects without deadlines)
+        else {
+          const lastLog = logs
+            .filter((l) => l.projectId === p.id)
+            .sort((a, b) => b.timestamp - a.timestamp)[0];
+
+          const lastDate = lastLog ? new Date(lastLog.timestamp).toISOString().split("T")[0] : null;
+          let daysIdle = lastDate ? daysBetweenDates(effectiveDate, lastDate) : progressionPercentage === 0 ? 1 : 3;
+
+          let isNewProject = !lastLog && progressionPercentage === 0;
+          let isStalled = !lastLog && progressionPercentage > 0;
+
+          if (daysIdle < 3 && !isNewProject && !isFocalProject) continue;
+
+          if (daysIdle >= 7) {
+            priority = DOMINANCE.PROJECT_DECAY;
+            reason = `⚠️ Critical: Project abandoned for ${daysIdle} days`;
+            notes = `Abandoned ${daysIdle}d`;
+          } else if (isStalled) {
+            priority = DOMINANCE.PROJECT_DECAY + 1;
+            reason = `⚠️ Stalled project`;
+            notes = `Stalled at ${progressionPercentage}%`;
+          } else if (isNewProject) {
+            notes = "Start project";
+            reason = "New project — establish momentum";
+          }
         }
 
-        let projectDuration = DEFAULT_PROJECT_MIN;
-        if (p.effort === "high") projectDuration = 90;
-        if (p.effort === "low") projectDuration = 30;
+        // On a Project Day, massively increase project durations
+        if (context.dayType === 'pd') {
+          projectDuration = Math.min(projectDuration * 2, constraints.maxBlockDuration);
+          if (!reason) reason = "Project Focus Day";
+        }
 
         tryInsertWithDisplacement(
           blocks,
@@ -1301,9 +1436,9 @@ export const generateDailyPlan = async (
         blocks,
         createBlock(sub, dropped.type, dropped.duration, priority, {
           notes: `↩️ Recovered: ${dropped.notes || dropped.type}`,
-          reason: `Dropped from ${yesterdayStr} — re-incorporated with boosted priority`,
+          reason: `Dropped from ${dropped.droppedFrom || 'past plan'} — re-incorporated with boosted priority`,
           droppedBlockId: dropped.id,
-          droppedFrom: yesterdayStr,
+          droppedFrom: dropped.droppedFrom || 'unknown',
         }),
         constraints,
         usedMinutes
@@ -1415,8 +1550,61 @@ async function orderBlocksCircadian(
   memory.sort(byPriority);
   creative.sort(byPriority);
 
-  // Optimal order: Warmup → Analytical (hard) → Memory → Creative
-  return [...warmup, ...analytical, ...memory, ...creative];
+  // Time-Aware Circadian Ordering
+  const hour = new Date().getHours();
+  let initialOrder: StudyBlock[] = [];
+
+  if (hour >= 18) {
+    // Evening (6 PM+): Memory -> Creative -> Analytical
+    // Delay heavy mental load, focus on retention and lighter work
+    initialOrder = [...warmup, ...memory, ...creative, ...analytical];
+  } else if (hour >= 13) {
+    // Afternoon (1 PM - 6 PM): Creative -> Analytical -> Memory
+    // Post-lunch dip is better for creative work before returning to analytical
+    initialOrder = [...warmup, ...creative, ...analytical, ...memory];
+  } else {
+    // Morning (Optimal): Analytical (hard) -> Memory -> Creative
+    // Front-load the heaviest cognitive work
+    initialOrder = [...warmup, ...analytical, ...memory, ...creative];
+  }
+
+  // 🧘 BREAK INJECTION ENGINE
+  const finalOrder: StudyBlock[] = [];
+  let continuousMinutes = 0;
+  let heavyBlocksCount = 0;
+
+  for (let i = 0; i < initialOrder.length; i++) {
+    const block = initialOrder[i];
+    finalOrder.push(block);
+
+    continuousMinutes += block.duration;
+
+    const sub = subjects.find(s => s.id === block.subjectId);
+    if (sub && sub.difficulty >= 3) heavyBlocksCount++;
+
+    // Don't add a break if this is the last block
+    if (i < initialOrder.length - 1) {
+      if (continuousMinutes >= 90 || heavyBlocksCount >= 2) {
+        finalOrder.push({
+          id: `break-${Date.now()}-${i}`,
+          subjectId: -1,
+          subjectName: "Break",
+          type: "break",
+          duration: 10,
+          completed: false,
+          priority: Math.max(0, block.priority - 1), // Keeps it attached to the previous block logically
+          notes: continuousMinutes >= 90 ? "Cognitive cooling" : "Heavy load recovery",
+          reason: "Scheduled break to prevent burnout"
+        } as StudyBlock);
+
+        // Reset counters after a break
+        continuousMinutes = 0;
+        heavyBlocksCount = 0;
+      }
+    }
+  }
+
+  return finalOrder;
 }
 
 /* ======================================================

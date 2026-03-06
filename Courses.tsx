@@ -9,7 +9,7 @@ import {
   Maximize2, Minimize2, ChevronLeft
 } from "lucide-react";
 import { db } from "./db";
-import { ResourceType } from "./types";
+import { ResourceType, SubjectReadiness } from "./types";
 import { useLiveQuery } from "dexie-react-hooks";
 import { safeDB, withToast } from './utils/dbErrorHandler';
 import {
@@ -17,80 +17,90 @@ import {
   EmptyNotes, EmptySyllabus
 } from './EmptyStates';
 import { getAllReadinessScores } from './brain-research-grade';
-type SubjectReadiness = { score: number; status: string };
 import { useToast } from './Toast';
 import { FrostedTile, FrostedMini, PageHeader, MetaText, getSubjectColor, SUBJECT_COLOR_CLASSES } from './components';
 
-const PredictionModal = ({ subject, currentReadiness, onClose }: any) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300 p-6">
-    <div className="w-full max-w-lg animate-in slide-in-from-bottom-4 duration-500">
-      <FrostedTile className="overflow-hidden">
-        <div className="p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-indigo-500/10 to-transparent">
-          <div>
-            <h2 className="text-2xl font-bold text-white mb-1">Readiness Predictor</h2>
-            <p className="text-sm text-zinc-500">Forecast your exam confidence</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
-          >
-            <X size={20} />
-          </button>
-        </div>
+import { predictReadiness } from './brain';
 
-        <div className="p-6 space-y-6">
-          <div>
-            <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2 font-bold">Subject</div>
-            <div className="text-xl font-bold text-white">{subject?.name || 'Unknown'}</div>
-          </div>
+const PredictionModal = ({ subject, currentReadiness, onClose }: any) => {
+  const prediction = subject && currentReadiness
+    ? predictReadiness(currentReadiness, subject, 7, 1)
+    : { projectedScore: 0, breakdown: "Waiting for data..." };
 
-          <FrostedMini className="p-5 hover:border-white/15 hover:-translate-y-1">
-            <div className="text-xs text-zinc-500 uppercase tracking-wider mb-3 font-bold">Current Readiness</div>
-            <div className="flex items-end gap-4">
-              <div className={`text-5xl font-bold font-mono tabular-nums ${currentReadiness?.status === 'critical' ? 'text-red-400' :
-                currentReadiness?.status === 'maintaining' ? 'text-yellow-400' :
-                  'text-emerald-400'
-                }`}>
-                {currentReadiness?.score || 0}%
-              </div>
-              <div className={`text-xs mb-2 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider ${currentReadiness?.status === 'critical' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
-                currentReadiness?.status === 'maintaining' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
-                  'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                }`}>
-                {currentReadiness?.status || 'unknown'}
-              </div>
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300 p-6">
+      <div className="w-full max-w-lg animate-in slide-in-from-bottom-4 duration-500">
+        <FrostedTile className="overflow-hidden">
+          <div className="p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-indigo-500/10 to-transparent">
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-1">Readiness Predictor</h2>
+              <p className="text-sm text-zinc-500">Forecast your exam confidence</p>
             </div>
-            {currentReadiness?.lastStudiedDays !== undefined && (
-              <div className="text-sm text-zinc-400 mt-4 flex items-center gap-2">
-                <Clock size={14} />
-                Last studied: {currentReadiness.lastStudiedDays === 0 ? 'Today' : `${currentReadiness.lastStudiedDays} days ago`}
-              </div>
-            )}
-          </FrostedMini>
+            <button
+              onClick={onClose}
+              className="p-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-          <div>
-            <div className="text-sm font-bold text-zinc-300 flex items-center gap-2 mb-3">
-              <TrendingUp size={16} className="text-emerald-400" />
-              Study 1h/day for 7 days:
+          <div className="p-6 space-y-6">
+            <div>
+              <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2 font-bold">Subject</div>
+              <div className="text-xl font-bold text-white">{subject?.name || 'Unknown'}</div>
             </div>
-            <FrostedMini className="p-5 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border-emerald-500/20 hover:border-emerald-500/30 hover:-translate-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-emerald-300">Projected Readiness</span>
-                <span className="text-4xl font-bold text-emerald-400 tabular-nums">
-                  {Math.min(100, (currentReadiness?.score || 0) + 25)}%
-                </span>
+
+            <FrostedMini className="p-5 hover:border-white/15 hover:-translate-y-1">
+              <div className="text-xs text-zinc-500 uppercase tracking-wider mb-3 font-bold">Current Readiness</div>
+              <div className="flex items-end gap-4">
+                <div className={`text-5xl font-bold font-mono tabular-nums ${currentReadiness?.status === 'critical' ? 'text-red-400' :
+                  currentReadiness?.status === 'maintaining' ? 'text-yellow-400' :
+                    'text-emerald-400'
+                  }`}>
+                  {currentReadiness?.score !== undefined ? Math.round(currentReadiness.score) : 0}%
+                </div>
+                <div className={`text-xs mb-2 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider ${currentReadiness?.status === 'critical' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                  currentReadiness?.status === 'maintaining' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
+                    'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  }`}>
+                  {currentReadiness?.status || 'unknown'}
+                </div>
               </div>
+              {currentReadiness?.lastStudiedDays !== undefined && (
+                <div className="text-sm text-zinc-400 mt-4 flex items-center gap-2">
+                  <Clock size={14} />
+                  Last studied: {currentReadiness.lastStudiedDays === 0 ? 'Today' : `${currentReadiness.lastStudiedDays} days ago`}
+                </div>
+              )}
             </FrostedMini>
-          </div>
 
-          <div className="text-xs text-zinc-500 italic p-4 bg-zinc-800/30 rounded-xl border border-white/5">
-            This is a simplified prediction. Actual results depend on comprehension, retention, and review quality.
+            <div>
+              <div className="text-sm font-bold text-zinc-300 flex items-center gap-2 mb-3">
+                <TrendingUp size={16} className="text-emerald-400" />
+                Study 1h/day for 7 days:
+              </div>
+              <FrostedMini className="p-5 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border-emerald-500/20 hover:border-emerald-500/30 hover:-translate-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-emerald-300">Projected Readiness</span>
+                  <span className="text-4xl font-bold text-emerald-400 tabular-nums">
+                    {prediction.projectedScore}%
+                  </span>
+                </div>
+              </FrostedMini>
+            </div>
+
+            <div className="text-xs text-zinc-400 whitespace-pre-line p-4 bg-zinc-800/30 rounded-xl border border-white/5 font-mono">
+              {prediction.breakdown}
+            </div>
+            <div className="text-xs text-zinc-500 italic px-4">
+              AI engine uses Ebbinghaus memory curve mapped against your credit load.
+            </div>
           </div>
-        </div>
-      </FrostedTile>
+        </FrostedTile>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const base64ToBlobUrl = (dataUrl: string, mime: string) => {
   try {

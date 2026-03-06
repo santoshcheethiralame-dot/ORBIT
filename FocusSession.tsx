@@ -286,30 +286,31 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
       const delta = now - lastTickRef.current;
 
       if (delta >= 1000) {
-        lastTickRef.current = now;
+        const secondsPassed = Math.floor(delta / 1000);
+        lastTickRef.current = now - (delta % 1000); // Preserve the remainder for more accurate sub-second tracking
 
         if (isBreak) {
           setBreakTime(prev => {
-            if (prev <= 1) {
+            if (prev <= secondsPassed) {
               setIsBreak(false);
               setIsRunning(false);
               playSound('complete');
               return 0;
             }
-            return prev - 1;
+            return prev - secondsPassed;
           });
         } else {
           setTimeLeft(prev => {
-            if (prev <= 1 && !isOvertime) {
+            if (prev <= secondsPassed && !isOvertime) {
               setIsOvertime(true);
               setOvertime(0);
               playSound('complete');
               return 0;
             }
-            return prev > 0 ? prev - 1 : 0;
+            return prev > 0 ? Math.max(0, prev - secondsPassed) : 0;
           });
 
-          if (isOvertime) setOvertime(prev => prev + 1);
+          if (isOvertime) setOvertime(prev => prev + secondsPassed);
 
           // compute progress using current known values to avoid stale closure
           const total = isBreak ? breakDuration : block.duration * 60;
