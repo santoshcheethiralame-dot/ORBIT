@@ -12,7 +12,7 @@ import {
   AlertCircle,
   Settings as SettingsIcon,
 } from "lucide-react";
-import { Subject, DailyContext } from "./types";
+import { Subject, DailyContext, ExamEntry } from "./types";
 import { Input, Button } from "./components";
 import { SpaceBackground } from "./SpaceBackground";
 import { db } from "./db";
@@ -319,12 +319,29 @@ export const DailyContextModal = ({
   );
   const [examDays, setExamDays] = useState<number | "">("");
   const [hasAssignment, setHasAssignment] = useState(false);
+  const [examSchedule, setExamSchedule] = useState<ExamEntry[]>([]);
+  const [showExamScheduler, setShowExamScheduler] = useState(false);
+  const [newExamSubjectId, setNewExamSubjectId] = useState<number>(subjects[0]?.id || 0);
+  const [newExamDate, setNewExamDate] = useState("");
   const [newAssignment, setNewAssignment] = useState({
     subjectId: subjects[0]?.id,
     title: "",
     dueDate: "",
     estimatedEffort: 120,
   });
+
+  // Load existing exam schedule
+  useEffect(() => {
+    const loadExams = async () => {
+      try {
+        const exams = await db.exams.toArray();
+        setExamSchedule(exams);
+      } catch (err) {
+        console.error('Failed to load exams:', err);
+      }
+    };
+    loadExams();
+  }, []);
 
   const handlePresetSelect = (presetKey: string) => {
     const preset = PRESETS[presetKey as keyof typeof PRESETS];
@@ -375,6 +392,11 @@ export const DailyContextModal = ({
       });
     }
 
+    // Save exam schedule entries if in ESA mode
+    if (dayType === "esa" && examSchedule.length > 0) {
+      // Exams are already saved individually when added
+    }
+
     onGenerate({
       mood,
       dayType,
@@ -385,6 +407,40 @@ export const DailyContextModal = ({
       bunkedSubjectId: bunked ? bunkedSubjectId : undefined,
       daysToExam: examDays !== "" ? Number(examDays) : undefined,
     });
+  };
+
+  const addExamEntry = async () => {
+    if (!newExamSubjectId || !newExamDate) return;
+
+    // Check for duplicate
+    const existing = examSchedule.find(
+      e => e.subjectId === newExamSubjectId && e.examDate === newExamDate
+    );
+    if (existing) return;
+
+    const entry: ExamEntry = {
+      subjectId: newExamSubjectId,
+      examDate: newExamDate,
+      examType: 'esa',
+      completed: false,
+    };
+
+    try {
+      const id = await db.exams.add(entry);
+      setExamSchedule(prev => [...prev, { ...entry, id: id as number }]);
+      setNewExamDate("");
+    } catch (err) {
+      console.error('Failed to add exam:', err);
+    }
+  };
+
+  const removeExamEntry = async (examId: number) => {
+    try {
+      await db.exams.delete(examId);
+      setExamSchedule(prev => prev.filter(e => e.id !== examId));
+    } catch (err) {
+      console.error('Failed to remove exam:', err);
+    }
   };
 
   const canSubmit = () => {
@@ -739,6 +795,105 @@ export const DailyContextModal = ({
                   value={examDays}
                   onChange={(e: any) => setExamDays(e.target.value)}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* ESA EXAM SCHEDULE */}
+          {dayType === "esa" && (
+            <div className="mb-6 relative z-10 animate-fade-in">
+              <div className="p-6 rounded-2xl border-2 bg-red-500/5 border-red-500/20 backdrop-blur-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <label className="text-xs font-bold text-red-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                    <Flame size={14} />
+                    Exam Schedule
+                  </label>
+                  <button
+                    onClick={() => setShowExamScheduler(!showExamScheduler)}
+                    className="text-xs font-bold text-red-300 hover:text-white px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all"
+                  >
+                    {showExamScheduler ? "Hide" : examSchedule.length > 0 ? `${examSchedule.filter(e => !e.completed).length} exams` : "+ Add Exams"}
+                  </button>
+                </div>
+
+                {/* Existing exams */}
+                {examSchedule.filter(e => !e.completed).length > 0 && (
+                  <div className="space-y-2 mb-4">
+                    {examSchedule.filter(e => !e.completed).map(exam => {
+                      const sub = subjects.find(s => s.id === exam.subjectId);
+                      return (
+                        <div key={exam.id} className="flex items-center justify-between p-3 bg-red-500/10 rounded-xl border border-red-500/15">
+                          <div>
+                            <span className="text-sm text-red-200 font-semibold">{sub?.name || 'Unknown'}</span>
+                            <span className="text-xs text-red-400/60 ml-2 font-mono">{exam.examDate}</span>
+                          </div>
+                          <button
+                            onClick={() => exam.id && removeExamEntry(exam.id)}
+                            className="p-1.5 hover:bg-red-500/20 rounded-lg transition-all text-red-400 hover:text-white"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Completed exams */}
+                {examSchedule.filter(e => e.completed).length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-[10px] text-emerald-400/60 font-bold uppercase tracking-wider mb-2">Completed</p>
+                    <div className="space-y-1">
+                      {examSchedule.filter(e => e.completed).map(exam => {
+                        const sub = subjects.find(s => s.id === exam.subjectId);
+                        return (
+                          <div key={exam.id} className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/5 text-emerald-400/50 text-xs">
+                            <span>✓ {sub?.name || 'Unknown'}</span>
+                            <span className="font-mono">{exam.examDate}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add new exam */}
+                {showExamScheduler && (
+                  <div className="flex flex-col gap-3 p-4 bg-red-500/5 rounded-xl border border-red-500/15 animate-fade-in">
+                    <select
+                      className="w-full bg-black/40 border-2 border-white/10 text-white p-3 rounded-xl outline-none text-sm font-semibold min-h-[48px]"
+                      value={newExamSubjectId}
+                      onChange={(e) => setNewExamSubjectId(Number(e.target.value))}
+                    >
+                      <option value={0}>-- Select Subject --</option>
+                      {subjects.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.code})
+                        </option>
+                      ))}
+                    </select>
+                    <Input
+                      type="date"
+                      placeholder="Exam Date"
+                      className="p-3 text-sm bg-black/30 border-2 border-white/10 rounded-xl min-h-[48px]"
+                      value={newExamDate}
+                      onChange={(e: any) => setNewExamDate(e.target.value)}
+                    />
+                    <button
+                      onClick={addExamEntry}
+                      disabled={!newExamSubjectId || !newExamDate}
+                      className="w-full py-3 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-xl font-bold text-sm uppercase tracking-wider transition-all border border-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px]"
+                    >
+                      + Add Exam Date
+                    </button>
+                  </div>
+                )}
+
+                {examSchedule.filter(e => !e.completed).length === 0 && !showExamScheduler && (
+                  <p className="text-xs text-red-400/40 italic text-center py-2">
+                    No exams scheduled. Add your exam dates for smarter planning.
+                  </p>
+                )}
               </div>
             </div>
           )}

@@ -9,6 +9,7 @@ import {
   DayPreview,
   WeekPreview,
   StudyTopic,
+  ExamEntry,
 } from "./types";
 import { getISTEffectiveDate } from "./utils/time";
 import { notifyDataChange } from "./db";
@@ -162,6 +163,7 @@ type DayConstraints = {
   maxBlockDuration: number;
   allowProjects: boolean;
   forceFocusSubject: boolean;
+  excludedSubjectIds: number[]; // subjects to skip (e.g. completed exams)
 };
 
 type LoadAnalysis = {
@@ -209,6 +211,7 @@ const DEFAULT_ASSIGNMENT_EFFORT_MIN = 120;
 
 const DOMINANCE = {
   ESA: 0,
+  PREP: 0.5,
   ASSIGNMENT_URGENT: 1,
   ASSIGNMENT: 2,
   ASSIGNMENT_BACKLOG: 2.5,
@@ -217,7 +220,6 @@ const DOMINANCE = {
   PROJECT: 5,
   RECOVERY: 5.5,
   REVIEW: 6,
-  PREP: 7,
   FALLBACK: 90,
 };
 
@@ -618,6 +620,47 @@ export async function getAllReadinessScores(dbInstance: OrbitDB = db): Promise<R
   CONSTRAINT RESOLUTION
 ====================================================== */
 
+/* ======================================================
+  EXAM CONTEXT HELPER
+====================================================== */
+
+interface ExamContext {
+  upcomingExams: (ExamEntry & { daysUntil: number; subjectName: string })[];
+  completedExamSubjectIds: number[];
+  allExamsDone: boolean;
+}
+
+async function getExamContext(effectiveDate: string, dbInstance: OrbitDB = db): Promise<ExamContext> {
+  const exams = await dbInstance.exams.toArray();
+  const subjects = await dbInstance.subjects.toArray();
+  const subjectMap = new Map(subjects.map(s => [s.id!, s.name]));
+
+  // Auto-complete exams whose date has passed
+  for (const exam of exams) {
+    if (!exam.completed && exam.examDate < effectiveDate) {
+      exam.completed = true;
+      if (exam.id) await dbInstance.exams.update(exam.id, { completed: true });
+    }
+  }
+
+  const completedExamSubjectIds = exams
+    .filter(e => e.completed)
+    .map(e => e.subjectId);
+
+  const upcomingExams = exams
+    .filter(e => !e.completed && e.examDate >= effectiveDate)
+    .map(e => ({
+      ...e,
+      daysUntil: daysBetweenDates(e.examDate, effectiveDate),
+      subjectName: subjectMap.get(e.subjectId) || 'Unknown',
+    }))
+    .sort((a, b) => a.daysUntil - b.daysUntil);
+
+  const allExamsDone = exams.length > 0 && upcomingExams.length === 0;
+
+  return { upcomingExams, completedExamSubjectIds, allExamsDone };
+}
+
 export function resolveConstraints(ctx: DailyContext): DayConstraints {
   let maxMinutes = 180;
   let maxBlocks = 4;
@@ -640,6 +683,7 @@ export function resolveConstraints(ctx: DailyContext): DayConstraints {
       maxBlockDuration: 45,
       allowProjects: false,
       forceFocusSubject: false,
+      excludedSubjectIds: [],
     };
   }
 
@@ -650,16 +694,18 @@ export function resolveConstraints(ctx: DailyContext): DayConstraints {
       maxBlockDuration: 90,
       allowProjects: ctx.daysToExam !== undefined && ctx.daysToExam > 2,
       forceFocusSubject: true,
+      excludedSubjectIds: [],
     };
   }
 
   if (ctx.dayType === "isa") {
     return {
       maxMinutes: 300,
-      maxBlocks: 5,
+      maxBlocks: 6,
       maxBlockDuration: 60,
-      allowProjects: true,
+      allowProjects: false,
       forceFocusSubject: true,
+      excludedSubjectIds: [],
     };
   }
 
@@ -669,6 +715,7 @@ export function resolveConstraints(ctx: DailyContext): DayConstraints {
     maxBlockDuration,
     allowProjects: true,
     forceFocusSubject: false,
+    excludedSubjectIds: [],
   };
 }
 
@@ -787,41 +834,134 @@ export const generateDailyPlan = async (
       ...meta, // topicId, reviewNumber, etc., are passed here
     });
     /* ============================
-      1. ESA / ISA FOCUS
+      0. DROPPED BLOCK RECOVERY
     ============================ */
 
-    if (constraints.forceFocusSubject && context.focusSubjectId) {
+    // Check yesterday's plan for dropped blocks
+    const yesterdayDate = new Date(y, m - 1, d);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+    const yesterdayPlan = await dbInstance.plans.get(yesterdayStr);
+
+    const droppedBlocks: StudyBlock[] = [];
+    if (yesterdayPlan?.droppedBlocks && yesterdayPlan.droppedBlocks.length > 0) {
+      for (const droppedId of yesterdayPlan.droppedBlocks) {
+        const droppedBlock = yesterdayPlan.blocks.find(b => b.id === droppedId);
+        if (droppedBlock && !droppedBlock.completed) {
+          droppedBlocks.push(droppedBlock);
+        }
+      }
+    }
+
+    /* ============================
+      0.5 EXAM CONTEXT
+    ============================ */
+
+    const examContext = await getExamContext(effectiveDate, dbInstance);
+    // During ESA period, exclude completed-exam subjects
+    if (context.dayType === 'esa' && !examContext.allExamsDone) {
+      constraints.excludedSubjectIds = examContext.completedExamSubjectIds;
+    }
+
+    /* ============================
+      1. ISA EXCLUSIVE MODE
+    ============================ */
+
+    if (context.dayType === "isa" && context.focusSubjectId) {
       const sub = subjects.find(
         (s) => Number(s.id) === Number(context.focusSubjectId)
       );
 
-      if (sub && context.dayType === "esa") {
-        let remaining = constraints.maxMinutes * 0.7;
+      if (sub) {
+        // ISA = 100% exclusive. Fill the entire plan with focus subject only.
+        let remaining = constraints.maxMinutes;
 
-        while (remaining >= 60) {
+        while (remaining >= ISA_PREP_MIN && blocks.length < constraints.maxBlocks) {
+          const blockDuration = Math.min(ISA_PREP_MIN, remaining);
+          blocks.push(
+            createBlock(sub, "prep", blockDuration, DOMINANCE.PREP, {
+              notes: "ISA Prep",
+              reason: "ISA mode — 100% focused preparation",
+            })
+          );
+          usedMinutes.value += blockDuration;
+          remaining -= blockDuration;
+        }
+
+        // ISA is exclusive — skip everything else, return immediately
+        const ordered = await orderBlocksCircadian(blocks, subjects);
+        const loadAnalysis = await analyzeLoad(ordered, context, constraints, readinessMap, dbInstance);
+        console.log(`🎯 ISA Exclusive: ${ordered.length} blocks, ${usedMinutes.value} minutes for ${sub.name}`);
+        return { blocks: ordered, loadAnalysis };
+      }
+    }
+
+    /* ============================
+      1.5 ESA MULTI-DAY INTELLIGENCE
+    ============================ */
+
+    if (constraints.forceFocusSubject && context.focusSubjectId && context.dayType === "esa") {
+      const sub = subjects.find(
+        (s) => Number(s.id) === Number(context.focusSubjectId)
+      );
+
+      if (sub) {
+        const daysToExam = context.daysToExam ?? 1;
+
+        // Proximity-based focus allocation:
+        // <= 1 day: 100% focus (70% of max time)
+        // 2 days:   80% focus
+        // 3+ days:  60% focus
+        let focusRatio: number;
+        if (daysToExam <= 1) {
+          focusRatio = 0.70;
+        } else if (daysToExam === 2) {
+          focusRatio = 0.80;
+        } else {
+          focusRatio = 0.60;
+        }
+
+        let esaRemaining = constraints.maxMinutes * focusRatio;
+
+        while (esaRemaining >= 60 && blocks.length < constraints.maxBlocks) {
+          const blockDuration = Math.min(90, esaRemaining);
           tryInsertWithDisplacement(
             blocks,
-            createBlock(sub, "review", 90, DOMINANCE.ESA, {
+            createBlock(sub, "review", blockDuration, DOMINANCE.ESA, {
               notes: "ESA Focus",
-              reason: "ESA in ≤ 2 days — majority of time reserved",
+              reason: `ESA in ${daysToExam} day(s) — ${Math.round(focusRatio * 100)}% time reserved`,
             }),
             constraints,
             usedMinutes
           );
-          remaining -= 90;
+          esaRemaining -= blockDuration;
         }
-      }
 
-      if (sub && context.dayType === "isa") {
-        tryInsertWithDisplacement(
-          blocks,
-          createBlock(sub, "prep", ISA_PREP_MIN, DOMINANCE.PREP, {
-            notes: "ISA Prep",
-            reason: "ISA upcoming — focused preparation",
-          }),
-          constraints,
-          usedMinutes
-        );
+        // If days >= 3, fill remaining time with other non-excluded subjects
+        if (daysToExam >= 3) {
+          const otherSubjects = subjects.filter(
+            s => Number(s.id) !== Number(context.focusSubjectId) &&
+              !constraints.excludedSubjectIds.includes(Number(s.id))
+          ).sort(
+            (a, b) => (readinessMap[Number(a.id)]?.score ?? 100) - (readinessMap[Number(b.id)]?.score ?? 100)
+          );
+
+          for (const otherSub of otherSubjects) {
+            if (blocks.length >= constraints.maxBlocks) break;
+            if (usedMinutes.value >= constraints.maxMinutes) break;
+
+            const readiness = readinessMap[Number(otherSub.id)];
+            tryInsertWithDisplacement(
+              blocks,
+              createBlock(otherSub, "review", 45, DOMINANCE.REVIEW, {
+                notes: "ESA Support",
+                reason: `Maintaining ${otherSub.name} during ESA period (readiness: ${readiness?.score ?? '?'}%)`,
+              }),
+              constraints,
+              usedMinutes
+            );
+          }
+        }
       }
     }
 
@@ -837,7 +977,7 @@ export const generateDailyPlan = async (
             .filter((s) => Number(s.day) === todayIdx)
             .map((s) => Number(s.subjectId))
         )
-      );
+      ).filter(sid => !constraints.excludedSubjectIds.includes(sid));
 
       // Add critical review blocks FIRST
       for (const sid of todaySubs) {
@@ -1013,7 +1153,7 @@ export const generateDailyPlan = async (
             .filter((s) => Number(s.day) === todayIdx)
             .map((s) => Number(s.subjectId))
         )
-      );
+      ).filter(sid => !constraints.excludedSubjectIds.includes(sid));
 
       for (const sid of todaySubs) {
         const sub = subjects.find((s) => Number(s.id) === sid);
@@ -1068,9 +1208,10 @@ export const generateDailyPlan = async (
 
       const scheduledSubjectIds = new Set<number>(blocks.map(b => b.subjectId));
 
-      // Sort subjects by readiness (weakest first)
+      // Sort subjects by readiness (weakest first), excluding completed-exam subjects
       let unscheduledSubjects = subjects.filter(
-        (s) => !scheduledSubjectIds.has(Number(s.id))
+        (s) => !scheduledSubjectIds.has(Number(s.id)) &&
+          !constraints.excludedSubjectIds.includes(Number(s.id))
       );
 
       unscheduledSubjects.sort(
@@ -1135,6 +1276,34 @@ export const generateDailyPlan = async (
         createBlock(emergencySub, "review", 45, 99, {
           notes: "Maintenance Review",
           reason: "Light study day — keeping momentum alive"
+        }),
+        constraints,
+        usedMinutes
+      );
+    }
+
+    /* ============================
+      7. DROPPED BLOCK RECOVERY
+    ============================ */
+
+    for (const dropped of droppedBlocks) {
+      // Skip if this subject is excluded
+      if (constraints.excludedSubjectIds.includes(dropped.subjectId)) continue;
+
+      const sub = subjects.find(s => Number(s.id) === dropped.subjectId);
+      if (!sub) continue;
+
+      // Boost priority for dropped blocks
+      let priority = (dropped.priority ?? DOMINANCE.REVIEW) - 1; // Slightly higher priority
+      if (dropped.type === 'assignment') priority = DOMINANCE.ASSIGNMENT_URGENT;
+
+      tryInsertWithDisplacement(
+        blocks,
+        createBlock(sub, dropped.type, dropped.duration, priority, {
+          notes: `↩️ Recovered: ${dropped.notes || dropped.type}`,
+          reason: `Dropped from ${yesterdayStr} — re-incorporated with boosted priority`,
+          droppedBlockId: dropped.id,
+          droppedFrom: yesterdayStr,
         }),
         constraints,
         usedMinutes
@@ -1394,136 +1563,184 @@ export async function analyzeLoad(
 export const simulateWeek = async (): Promise<WeekPreview> => {
   const warnings: string[] = [];
   const days: DayPreview[] = [];
+
+  // Pre-fetch ALL data once (the key performance optimization)
+  const [subjects, assignments, projects, logs, schedule, topics, exams] = await Promise.all([
+    db.subjects.toArray(),
+    db.assignments.filter(a => !a.completed).toArray(),
+    db.projects.toArray(),
+    db.logs.toArray(),
+    db.schedule.toArray(),
+    db.topics.toArray(),
+    db.exams.toArray(),
+  ]);
+
+  const subjectMap = new Map(subjects.map(s => [s.id!, s]));
+  const effectiveDate = getISTEffectiveDate();
+  const today = new Date(effectiveDate + 'T00:00:00');
+
+  // Pre-compute readiness
+  const readinessMap: Record<number, SubjectReadiness> = {};
+  for (const subject of subjects) {
+    readinessMap[Number(subject.id)] = calculateReadiness(subject, logs, effectiveDate);
+  }
+
+  // Completed exam subject IDs
+  const completedExamSubjectIds = exams
+    .filter(e => e.completed || e.examDate < effectiveDate)
+    .map(e => e.subjectId);
+
   const projectWorkCounts: Record<string, number> = {};
-
-  const subjects = await db.subjects.toArray();
-  const assignments = await db.assignments.filter(a => !a.completed).toArray();
-  const projects = await db.projects.toArray();
-  const logs = await db.logs.toArray();
-  const schedule = await db.schedule.toArray();
-
-  const today = new Date(getISTEffectiveDate() + 'T00:00:00');
-
-  projects.forEach(p => {
-    projectWorkCounts[p.name] = 0;
-  });
-
-  // Calculate recent burnout/stress levels
-  const recentLogs = logs.filter(l => {
-    const logDate = new Date(l.date);
-    const daysAgo = Math.floor((today.getTime() - logDate.getTime()) / (1000 * 60 * 60 * 24));
-    return daysAgo <= 7;
-  });
-  const recentDailyMinutes = recentLogs.reduce((sum, l) => sum + l.duration, 0) / 7;
+  projects.forEach(p => { projectWorkCounts[p.name] = 0; });
 
   for (let i = 0; i < 7; i++) {
     const simDate = new Date(today);
     simDate.setDate(today.getDate() + i);
     const dateStr = simDate.toISOString().split('T')[0];
     const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][simDate.getDay()];
-    const isWeekend = simDate.getDay() === 0 || simDate.getDay() === 6;
+    const dayIdx = simDate.getDay() === 0 ? 6 : simDate.getDay() - 1;
 
-    // Dynamic context based on day characteristics
-    let mood: 'low' | 'normal' | 'high' = 'normal';
+    // --- Fast estimation without calling generateDailyPlan ---
+
     let dayType: 'normal' | 'isa' | 'esa' = 'normal';
-    let focusSubjectId: number | undefined = undefined;
+    let focusSubjectId: number | undefined;
+    let totalMinutes = 0;
+    const subjectMinutes: Record<number, number> = {};
 
-    // Detect assignments due on this day
-    const dueThatDay = assignments.filter(a => a.dueDate === dateStr);
-    const dueNextDay = assignments.filter(a => {
-      const nextDayDate = new Date(simDate);
-      nextDayDate.setDate(simDate.getDate() + 1);
-      return a.dueDate === nextDayDate.toISOString().split('T')[0];
-    });
-    const dueSoon = assignments.filter(a => {
-      const assignmentDate = new Date(a.dueDate);
-      const daysUntil = Math.floor((assignmentDate.getTime() - simDate.getTime()) / (1000 * 60 * 60 * 24));
+    // Check exam schedule for this day
+    const examOnDay = exams.find(e => e.examDate === dateStr && !e.completed);
+    const examSoon = exams.filter(e => {
+      if (e.completed || e.examDate < dateStr) return false;
+      const daysUntil = daysBetweenDates(e.examDate, dateStr);
       return daysUntil >= 0 && daysUntil <= 2;
     });
 
-    // ISA detection (2+ assignments due that day)
-    if (dueThatDay.length >= 2) {
-      dayType = 'isa';
-      if (dueThatDay[0]) {
-        focusSubjectId = dueThatDay[0].subjectId;
-      }
+    if (examOnDay) {
+      dayType = examOnDay.examType === 'esa' ? 'esa' : 'isa';
+      focusSubjectId = examOnDay.subjectId;
+    } else if (examSoon.length > 0) {
+      const nearest = examSoon.sort((a, b) =>
+        daysBetweenDates(a.examDate, dateStr) - daysBetweenDates(b.examDate, dateStr)
+      )[0];
+      dayType = nearest.examType;
+      focusSubjectId = nearest.subjectId;
     }
 
-    // ESA detection (urgent deadline within 2 days)
-    if (dueSoon.length > 0 && dueSoon.some(a => {
-      const daysUntil = Math.floor((new Date(a.dueDate).getTime() - simDate.getTime()) / (1000 * 60 * 60 * 24));
-      return daysUntil <= 1;
-    })) {
-      dayType = 'esa';
-      const urgentAssignment = dueSoon.find(a => {
-        const daysUntil = Math.floor((new Date(a.dueDate).getTime() - simDate.getTime()) / (1000 * 60 * 60 * 24));
-        return daysUntil <= 1;
+    // Fallback: detect from assignments
+    if (dayType === 'normal') {
+      const dueThatDay = assignments.filter(a => a.dueDate === dateStr);
+      const dueSoon = assignments.filter(a => {
+        const daysUntil = daysBetweenDates(a.dueDate, dateStr);
+        return daysUntil >= 0 && daysUntil <= 1;
       });
-      if (urgentAssignment) {
-        focusSubjectId = urgentAssignment.subjectId;
+
+      if (dueThatDay.length >= 2) {
+        dayType = 'isa';
+        focusSubjectId = dueThatDay[0]?.subjectId;
+      } else if (dueSoon.length > 0) {
+        dayType = 'esa';
+        focusSubjectId = dueSoon[0]?.subjectId;
       }
     }
 
-    // Mood variation based on workload patterns
-    if (i === 0) {
-      // Today - use recent patterns
-      mood = recentDailyMinutes > 240 ? 'low' : recentDailyMinutes < 120 ? 'high' : 'normal';
-    } else if (isWeekend) {
-      // Weekends - lighter mood unless urgent work
-      mood = dayType === 'esa' ? 'normal' : 'high';
-    } else if (i >= 3 && recentDailyMinutes > 180) {
-      // Mid-week fatigue if heavy recent load
-      mood = 'low';
-    } else if (dayType === 'esa' || dayType === 'isa') {
-      // Exam/assessment days - normal to high focus
-      mood = 'high';
+    // Estimate minutes based on day type
+    if (dayType === 'isa' && focusSubjectId) {
+      // ISA exclusive: ~300 minutes of focus subject
+      totalMinutes = 300;
+      subjectMinutes[focusSubjectId] = 300;
+    } else if (dayType === 'esa' && focusSubjectId) {
+      // ESA: 360 minutes total, 70% focus
+      totalMinutes = 360;
+      subjectMinutes[focusSubjectId] = 252;
+      // Add some time for other subjects
+      const otherSubs = subjects.filter(s => Number(s.id) !== focusSubjectId && !completedExamSubjectIds.includes(Number(s.id)));
+      const remainingMinutes = 108;
+      otherSubs.slice(0, 2).forEach(s => {
+        const mins = Math.round(remainingMinutes / Math.min(2, otherSubs.length));
+        subjectMinutes[Number(s.id)] = mins;
+      });
     } else {
-      // Natural variation
-      mood = i % 3 === 0 ? 'high' : i % 3 === 1 ? 'normal' : 'low';
+      // Normal day: estimate from schedule
+      const scheduledSubs = Array.from(new Set(
+        schedule.filter(s => Number(s.day) === dayIdx).map(s => Number(s.subjectId))
+      )).filter(sid => !completedExamSubjectIds.includes(sid));
+
+      for (const sid of scheduledSubs) {
+        const sub = subjectMap.get(sid);
+        if (!sub) continue;
+        const readiness = readinessMap[sid];
+        const mins = readiness?.status === 'critical' ? 45 : 30;
+        subjectMinutes[sid] = (subjectMinutes[sid] || 0) + mins;
+        totalMinutes += mins;
+      }
+
+      // Add urgent assignment time
+      for (const asm of assignments) {
+        if (!asm.dueDate) continue;
+        const daysLeft = daysBetweenDates(asm.dueDate, dateStr);
+        if (daysLeft >= 0 && daysLeft <= 3) {
+          const chunk = daysLeft <= 1 ? 60 : 30;
+          subjectMinutes[asm.subjectId] = (subjectMinutes[asm.subjectId] || 0) + chunk;
+          totalMinutes += chunk;
+        }
+      }
+
+      // Ensure minimum study time on non-holiday days
+      if (totalMinutes < 90) totalMinutes = 90;
     }
 
-    const simContext: DailyContext = {
-      mood,
-      dayType,
-      focusSubjectId,
-      isHoliday: false,
-      isSick: false,
-    };
+    // Count reviews due by this date
+    const reviewsDue = topics.filter(t => t.nextReview <= dateStr).length;
 
-    const result = await generateDailyPlan(simContext);
-    const blocks = result.blocks;
-    const loadAnalysis = result.loadAnalysis;
+    // Add review time estimate
+    if (dayType === 'normal') {
+      totalMinutes += Math.min(reviewsDue * 25, 75); // ~25 min per review, capped
+    }
 
-    const urgentCount = blocks.filter(
-      b => b.type === 'assignment' && (b.priority ?? 99) <= DOMINANCE.ASSIGNMENT_URGENT
-    ).length;
+    // Urgent assignment count
+    const urgentCount = assignments.filter(a => {
+      const daysLeft = daysBetweenDates(a.dueDate, dateStr);
+      return daysLeft >= 0 && daysLeft <= 1;
+    }).length;
 
-    blocks
-      .filter(b => b.type === 'project' && b.notes)
-      .forEach(b => {
-        const projectName = b.subjectName || b.notes?.split(' ')[0] || 'Unknown';
-        projectWorkCounts[projectName] = (projectWorkCounts[projectName] || 0) + 1;
+    // Project tracking
+    if (dayType === 'normal') {
+      projects.forEach(p => {
+        if (subjectMinutes[Number(p.subjectId)]) {
+          projectWorkCounts[p.name] = (projectWorkCounts[p.name] || 0) + 1;
+        }
       });
+    }
 
-    const dayPreview: DayPreview = {
+    // Determine load level
+    let loadLevel: 'light' | 'normal' | 'heavy' | 'extreme' = 'normal';
+    if (totalMinutes >= 300) loadLevel = 'extreme';
+    else if (totalMinutes >= 200) loadLevel = 'heavy';
+    else if (totalMinutes <= 90) loadLevel = 'light';
+
+    // Build subject breakdown
+    const subjectBreakdown = Object.entries(subjectMinutes).map(([sid, mins]) => ({
+      subjectId: Number(sid),
+      subjectName: subjectMap.get(Number(sid))?.name || 'Unknown',
+      minutes: mins,
+    })).sort((a, b) => b.minutes - a.minutes);
+
+    days.push({
       date: dateStr,
       dayName,
-      blockCount: blocks.length,
-      totalMinutes: blocks.reduce((sum, b) => sum + b.duration, 0),
-      loadLevel: loadAnalysis.loadLevel,
+      blockCount: Math.ceil(totalMinutes / 45),
+      totalMinutes,
+      loadLevel,
       hasESA: dayType === 'esa',
       hasISA: dayType === 'isa',
       urgentAssignments: urgentCount,
-      projects: blocks
-        .filter(b => b.type === 'project')
-        .map(b => b.subjectName)
-        .filter((v, i, arr) => arr.indexOf(v) === i),
-    };
-
-    days.push(dayPreview);
+      projects: dayType === 'normal' ? projects.filter(p => subjectMinutes[Number(p.subjectId)]).map(p => p.name) : [],
+      subjectBreakdown,
+      reviewsDue,
+    });
   }
 
-  // Analysis
+  // Analysis & Warnings
   const overloadDays: string[] = [];
   let consecutiveHeavy = 0;
 
@@ -1531,7 +1748,6 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
     if (d.loadLevel === 'heavy' || d.loadLevel === 'extreme') {
       overloadDays.push(d.dayName);
       consecutiveHeavy++;
-
       if (consecutiveHeavy >= 3) {
         warnings.push(`⚠️ Heavy load 3 days in a row (${d.dayName} week)`);
       }
@@ -1545,13 +1761,22 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
     warnings.push(`📋 ${d.urgentAssignments} urgent assignments on ${d.dayName}`);
   });
 
-  const neglectedProjects: string[] = [];
-  Object.entries(projectWorkCounts).forEach(([name, count]) => {
-    if (count === 0) {
-      neglectedProjects.push(name);
-    }
+  // Reviews accumulation warning
+  const reviewPeaks = days.filter(d => (d.reviewsDue ?? 0) >= 5);
+  reviewPeaks.forEach(d => {
+    warnings.push(`📊 ${d.reviewsDue} reviews accumulating by ${d.dayName}`);
   });
 
+  // Exam overlap warnings
+  const examDays = days.filter(d => d.hasESA || d.hasISA);
+  if (examDays.length >= 3) {
+    warnings.push(`🔥 ${examDays.length} exam-heavy days this week`);
+  }
+
+  const neglectedProjects: string[] = [];
+  Object.entries(projectWorkCounts).forEach(([name, count]) => {
+    if (count === 0) neglectedProjects.push(name);
+  });
   if (neglectedProjects.length > 0) {
     warnings.push(`🎯 Projects neglected all week: ${neglectedProjects.join(', ')}`);
   }
@@ -1562,8 +1787,7 @@ export const simulateWeek = async (): Promise<WeekPreview> => {
   });
 
   const peakDay = days.reduce((max, d) =>
-    d.totalMinutes > max.totalMinutes ? d : max
-    , days[0]);
+    d.totalMinutes > max.totalMinutes ? d : max, days[0]);
 
   return {
     days,

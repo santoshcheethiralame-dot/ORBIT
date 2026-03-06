@@ -56,6 +56,14 @@ export interface Subject {
   createdAt?: string;
 }
 
+export interface ExamEntry {
+  id?: number;
+  subjectId: number;
+  examDate: string;     // YYYY-MM-DD
+  examType: 'isa' | 'esa';
+  completed: boolean;   // auto-set when date passes
+}
+
 export interface Project {
   id?: number;
   name: string;
@@ -95,6 +103,9 @@ export interface StudyBlock {
   isBacklogChunk?: boolean;
   totalEffortRemaining?: number;
 
+  droppedBlockId?: string;   // original block ID if this was snoozed
+  droppedFrom?: string;      // date it was dropped from (YYYY-MM-DD)
+
   reason?: string;
   displaced?: {
     type: StudyBlock['type'];
@@ -129,6 +140,7 @@ export interface DailyPlan {
   warning?: string;
   loadLevel?: 'light' | 'normal' | 'heavy' | 'extreme';
   loadScore?: number;
+  droppedBlocks?: string[];  // block IDs that were dropped/snoozed from this day
   loadAnalysis?: {
     loadScore: number;
     loadLevel: 'light' | 'normal' | 'heavy' | 'extreme';
@@ -186,6 +198,8 @@ export interface DayPreview {
   hasISA: boolean;
   urgentAssignments: number;
   projects: string[];
+  subjectBreakdown?: { subjectId: number; subjectName: string; minutes: number }[];
+  reviewsDue?: number;
 }
 
 export interface WeekPreview {

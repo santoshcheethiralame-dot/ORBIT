@@ -3,7 +3,7 @@ import Dexie, { Table } from "dexie";
 import {
   Semester, Subject, ScheduleSlot, DailyPlan,
   StudyLog, Project, Assignment, StudyTopic,
-  StudyBlock, BlockOutcome
+  StudyBlock, BlockOutcome, ExamEntry
 } from "./types";
 
 export class OrbitDB extends Dexie {
@@ -17,6 +17,7 @@ export class OrbitDB extends Dexie {
   topics!: Table<StudyTopic, number>;
   blockOutcomes!: Table<BlockOutcome, string>;
   studyBlocks!: Table<StudyBlock, string>;
+  exams!: Table<ExamEntry, number>;
 
   constructor(name: string = "OrbitDB") {
     super(name);
@@ -61,6 +62,21 @@ export class OrbitDB extends Dexie {
         if (assignmentsBackup.length) await tx.table("assignments").bulkAdd(assignmentsBackup);
         throw err;
       }
+    });
+
+    // v10: Add exams table for ISA/ESA exam schedule tracking
+    this.version(10).stores({
+      semesters: "++id",
+      subjects: "++id, name, code",
+      projects: "++id, subjectId",
+      schedule: "++id, day, slot",
+      assignments: "id, subjectId, dueDate, estimatedEffort, progressMinutes, completed",
+      plans: "date",
+      logs: "++id, timestamp, date, subjectId, type, topicId",
+      topics: "++id, subjectId, name, nextReview",
+      blockOutcomes: "++id, blockId, subjectId, timestamp, date, completed, skipped, timeOfDay",
+      studyBlocks: "id, date, completed, subjectId, type",
+      exams: "++id, subjectId, examDate, examType, completed",
     });
   }
 }
@@ -110,6 +126,7 @@ export function saveDbSnapshot() {
         topics: await db.topics.toArray(),
         blockOutcomes: await db.blockOutcomes.toArray(),
         studyBlocks: await db.studyBlocks.toArray(),
+        exams: await db.exams.toArray(),
       };
       localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snap));
       console.log('📸 DB snapshot saved to localStorage');
@@ -135,13 +152,13 @@ export async function restoreDbFromSnapshot(): Promise<boolean> {
     await db.transaction('rw', [
       db.semesters, db.subjects, db.projects, db.schedule,
       db.plans, db.logs, db.assignments, db.topics,
-      db.blockOutcomes, db.studyBlocks
+      db.blockOutcomes, db.studyBlocks, db.exams
     ], async () => {
       await Promise.all([
         db.semesters.clear(), db.subjects.clear(), db.projects.clear(),
         db.schedule.clear(), db.plans.clear(), db.logs.clear(),
         db.assignments.clear(), db.topics.clear(),
-        db.blockOutcomes.clear(), db.studyBlocks.clear()
+        db.blockOutcomes.clear(), db.studyBlocks.clear(), db.exams.clear()
       ]);
 
       if (data.semesters?.length) await db.semesters.bulkAdd(data.semesters);
@@ -154,6 +171,7 @@ export async function restoreDbFromSnapshot(): Promise<boolean> {
       if (data.topics?.length) await db.topics.bulkAdd(data.topics);
       if (data.blockOutcomes?.length) await db.blockOutcomes.bulkAdd(data.blockOutcomes);
       if (data.studyBlocks?.length) await db.studyBlocks.bulkAdd(data.studyBlocks);
+      if (data.exams?.length) await db.exams.bulkAdd(data.exams);
     });
 
     console.log('✅ DB restored from localStorage snapshot');

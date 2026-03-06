@@ -1134,37 +1134,32 @@ export const Dashboard = ({
       const block = currentPlan.blocks.find((b) => b.id === blockId);
       if (!block) return;
 
+      // Remove the block from today's active schedule
       const updatedTodayBlocks = currentPlan.blocks.filter((b) => b.id !== blockId);
-      await db.plans.put({ ...currentPlan, blocks: updatedTodayBlocks });
 
-      const istNow = getISTTime();
-      const tomorrowDate = new Date(istNow);
-      tomorrowDate.setDate(istNow.getDate() + 1);
-      const tomorrowStr = tomorrowDate.toISOString().split("T")[0];
+      // Record the block ID as dropped — the planner will recover it tomorrow
+      const droppedBlocks = [...(currentPlan.droppedBlocks || []), blockId];
 
-      const tomorrowPlan = (await db.plans.get(tomorrowStr)) || {
-        date: tomorrowStr,
-        blocks: [],
-        context: plan.context
-      };
-      const moved = {
-        ...block,
-        id: Math.random().toString(36).substr(2, 9),
-        completed: false
-      };
-      await db.plans.put({ ...tomorrowPlan, blocks: [...tomorrowPlan.blocks, moved] });
+      await db.plans.put({
+        ...currentPlan,
+        blocks: updatedTodayBlocks,
+        droppedBlocks,
+      });
 
-      toast.success('Block moved to tomorrow', {
+      toast.success('Block dropped — planner will recover it tomorrow', {
         label: 'UNDO',
         onClick: async () => {
           try {
             const todayStr = getISTEffectiveDate();
             const currentPlan = await db.plans.get(todayStr);
             if (currentPlan) {
-              const movedBlock = { ...moved, id: blockId };
+              // Restore the block and remove from droppedBlocks
+              const restoredBlocks = [...currentPlan.blocks, block];
+              const updatedDropped = (currentPlan.droppedBlocks || []).filter(id => id !== blockId);
               await db.plans.put({
                 ...currentPlan,
-                blocks: [...currentPlan.blocks, movedBlock]
+                blocks: restoredBlocks,
+                droppedBlocks: updatedDropped,
               });
               onRefresh();
               toast.info('Block restored');
@@ -1176,10 +1171,10 @@ export const Dashboard = ({
       });
       onRefresh();
     } catch (err) {
-      console.error("Failed to snooze block", err);
-      toast.error('Failed to snooze block');
+      console.error("Failed to drop block", err);
+      toast.error('Failed to drop block');
     }
-  }, [plan.context, onRefresh, toast]);
+  }, [onRefresh, toast]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
