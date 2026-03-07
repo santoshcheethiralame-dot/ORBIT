@@ -94,7 +94,7 @@ export const SettingsView = () => {
       emailBody += `Description:\n${bugReportData.description}\n\n`;
       emailBody += `--\nUser Email: ${bugReportData.email}\n\n`;
       emailBody += `App Stats: ${stats.subjects} subjects, ${stats.logs} sessions, ${stats.totalHours}h\n`;
-      emailBody += `Version: v4.0.1`;
+      emailBody += `Version: v${__APP_VERSION__}`;
 
       window.location.href = `mailto:santoshcheethirala.me@gmail.com?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
 
@@ -118,15 +118,27 @@ export const SettingsView = () => {
       const logs = await db.logs.toArray();
       const assignments = await db.assignments.toArray();
       const plans = await db.plans.toArray();
+      const topics = await db.topics.toArray();
+      const projects = await db.projects.toArray();
+      const schedule = await db.schedule.toArray();
+      const blockOutcomes = await db.blockOutcomes.toArray();
+      const studyBlocks = await db.studyBlocks.toArray();
+      const semesters = await db.semesters.toArray();
+      const exams = await db.exams.toArray();
+      const userSettings = await db.settings.toArray();
 
-      const exportData = {
-        version: '4.0.1',
+      const exportPayload = {
+        version: __APP_VERSION__,
         exportDate: new Date().toISOString(),
-        settings,
-        data: { subjects, logs, assignments, plans }
+        appSettings: settings,
+        data: {
+          subjects, logs, assignments, plans,
+          topics, projects, schedule, blockOutcomes,
+          studyBlocks, semesters, exams, settings: userSettings
+        }
       };
 
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -156,45 +168,52 @@ export const SettingsView = () => {
 
       await db.transaction(
         'rw',
-        [db.subjects, db.logs, db.assignments, db.plans],
+        [
+          db.subjects, db.logs, db.assignments, db.plans,
+          db.topics, db.projects, db.schedule, db.blockOutcomes,
+          db.studyBlocks, db.semesters, db.exams, db.settings
+        ],
         async () => {
-          // Clear existing data
           await Promise.all([
-            db.subjects.clear(),
-            db.logs.clear(),
-            db.assignments.clear(),
-            db.plans.clear(),
+            db.subjects.clear(), db.logs.clear(), db.assignments.clear(),
+            db.plans.clear(), db.topics.clear(), db.projects.clear(),
+            db.schedule.clear(), db.blockOutcomes.clear(),
+            db.studyBlocks.clear(), db.semesters.clear(), db.exams.clear(),
+            db.settings.clear(),
           ]);
 
-          // Import new data
-          const importPromises = [];
-
-          if (imported.data.subjects?.length) {
-            importPromises.push(db.subjects.bulkAdd(imported.data.subjects));
-          }
-          if (imported.data.logs?.length) {
-            importPromises.push(db.logs.bulkAdd(imported.data.logs));
-          }
-          if (imported.data.assignments?.length) {
-            importPromises.push(db.assignments.bulkAdd(imported.data.assignments));
-          }
-          if (imported.data.plans?.length) {
-            importPromises.push(db.plans.bulkAdd(imported.data.plans));
-          }
-
-          await Promise.all(importPromises);
+          const d = imported.data;
+          const ops = [];
+          if (d.subjects?.length) ops.push(db.subjects.bulkAdd(d.subjects));
+          if (d.logs?.length) ops.push(db.logs.bulkAdd(d.logs));
+          if (d.assignments?.length) ops.push(db.assignments.bulkAdd(d.assignments));
+          if (d.plans?.length) ops.push(db.plans.bulkAdd(d.plans));
+          if (d.topics?.length) ops.push(db.topics.bulkAdd(d.topics));
+          if (d.projects?.length) ops.push(db.projects.bulkAdd(d.projects));
+          if (d.schedule?.length) ops.push(db.schedule.bulkAdd(d.schedule));
+          if (d.blockOutcomes?.length) ops.push(db.blockOutcomes.bulkAdd(d.blockOutcomes));
+          if (d.studyBlocks?.length) ops.push(db.studyBlocks.bulkAdd(d.studyBlocks));
+          if (d.semesters?.length) ops.push(db.semesters.bulkAdd(d.semesters));
+          if (d.exams?.length) ops.push(db.exams.bulkAdd(d.exams));
+          if (d.settings?.length) ops.push(db.settings.bulkAdd(d.settings));
+          await Promise.all(ops);
         }
       );
 
-      if (imported.settings) {
-        Object.entries(imported.settings).forEach(([category, values]: [string, any]) => {
-          Object.entries(values).forEach(([key, value]) => {
-            updateSetting(`${category}.${key}`, value);
-          });
+      // Restore app UI settings (theme, notifications, etc.) if present
+      const appSettingsSrc = imported.appSettings ?? imported.settings;
+      if (appSettingsSrc && typeof appSettingsSrc === 'object' && !Array.isArray(appSettingsSrc)) {
+        Object.entries(appSettingsSrc).forEach(([category, values]: [string, any]) => {
+          if (typeof values === 'object' && values !== null) {
+            Object.entries(values).forEach(([key, value]) => {
+              updateSetting(`${category}.${key}`, value);
+            });
+          }
         });
       }
 
-      toast.success(`Imported ${imported.data.subjects?.length || 0} subjects, ${imported.data.logs?.length || 0} logs`);
+      const d = imported.data;
+      toast.success(`Imported ${d.subjects?.length || 0} subjects, ${d.logs?.length || 0} logs, ${d.topics?.length || 0} topics`);
       setShowImportModal(false);
       setTimeout(() => window.location.reload(), 1000);
     } catch (err) {
@@ -209,7 +228,7 @@ export const SettingsView = () => {
       // ÃƒÂ¢Ã…â€œÃ¢€Â¦ Use transaction for atomicity - Clear ALL tables
       await db.transaction(
         'rw',
-        [db.semesters, db.subjects, db.projects, db.schedule, db.logs, db.assignments, db.plans, db.topics, db.blockOutcomes, db.studyBlocks],
+        [db.semesters, db.subjects, db.projects, db.schedule, db.logs, db.assignments, db.plans, db.topics, db.blockOutcomes, db.studyBlocks, db.exams, db.settings],
         async () => {
           await Promise.all([
             db.semesters.clear(),
@@ -222,6 +241,8 @@ export const SettingsView = () => {
             db.topics.clear(),
             db.blockOutcomes.clear(),
             db.studyBlocks.clear(),
+            db.exams.clear(),
+            db.settings.clear(),
           ]);
         }
       );

@@ -1,4 +1,3 @@
-
 /// <reference types="vite/client" />
 
 // Extend Vite's ImportMetaEnv for custom environment variables
@@ -16,3 +15,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
     readonly env: ImportMetaEnv
 }
+
+// Injected at build time by vite.config.ts define
+declare const __APP_VERSION__: string;

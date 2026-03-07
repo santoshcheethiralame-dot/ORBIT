@@ -18,8 +18,10 @@ export const GlassCard = ({ children, className = "", onClick }: { children: Rea
 export const SUBJECT_COLORS = ['indigo', 'cyan', 'emerald', 'amber', 'rose', 'violet'] as const;
 export type SubjectColor = typeof SUBJECT_COLORS[number];
 
-export const getSubjectColor = (id: number): SubjectColor =>
-  SUBJECT_COLORS[id % SUBJECT_COLORS.length];
+/** Returns the palette color for a subject.
+ *  Prefers subject.colorIndex if set; falls back to id % length auto-assignment. */
+export const getSubjectColor = (id: number, colorIndex?: number): SubjectColor =>
+  SUBJECT_COLORS[(colorIndex !== undefined ? colorIndex : id) % SUBJECT_COLORS.length];
 
 export const SUBJECT_COLOR_CLASSES: Record<SubjectColor, { bg: string; border: string; text: string; bgLight: string; borderLight: string }> = {
   indigo: { bg: 'bg-indigo-500', border: 'border-indigo-500/40', text: 'text-indigo-400', bgLight: 'bg-indigo-500/10', borderLight: 'border-indigo-500/20' },

@@ -792,3 +792,97 @@ button:active {
     will-change: transform, opacity;
     backface-visibility: hidden;
 }
+/* ============================================
+   THEME SYSTEM: space + midnight
+   Applied via data-theme="space" / data-theme="midnight" on <html>
+============================================ */
+
+/* Space theme: deep blue/indigo nebula palette */
+[data-theme="space"] {
+    --bg-primary: #030712;
+    --bg-secondary: #0c1120;
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --border-color: rgba(99, 102, 241, 0.15);
+    --glass-bg: rgba(99, 102, 241, 0.04);
+}
+
+[data-theme="space"] body,
+[data-theme="space"] #root {
+    background-color: #030712;
+}
+
+[data-theme="space"] .bg-black {
+    background-color: #030712 !important;
+}
+
+[data-theme="space"] .bg-zinc-900 {
+    background-color: #0c1120 !important;
+}
+
+[data-theme="space"] .bg-zinc-800 {
+    background-color: #111827 !important;
+}
+
+[data-theme="space"] .border-white\/10 {
+    border-color: rgba(99, 102, 241, 0.2) !important;
+}
+
+[data-theme="space"] .bg-white\/5 {
+    background-color: rgba(99, 102, 241, 0.06) !important;
+}
+
+/* Midnight theme: true black OLED with warm amber accents */
+[data-theme="midnight"] {
+    --bg-primary: #000000;
+    --bg-secondary: #0a0a0a;
+    --text-primary: #fafaf9;
+    --text-secondary: #a8a29e;
+    --border-color: rgba(245, 158, 11, 0.12);
+    --glass-bg: rgba(245, 158, 11, 0.03);
+}
+
+[data-theme="midnight"] body,
+[data-theme="midnight"] #root {
+    background-color: #000000;
+}
+
+[data-theme="midnight"] .bg-black {
+    background-color: #000000 !important;
+}
+
+[data-theme="midnight"] .bg-zinc-900 {
+    background-color: #0a0a0a !important;
+}
+
+[data-theme="midnight"] .bg-zinc-800 {
+    background-color: #111111 !important;
+}
+
+[data-theme="midnight"] .border-white\/10 {
+    border-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+[data-theme="midnight"] .bg-white\/5 {
+    background-color: rgba(245, 158, 11, 0.05) !important;
+}
+
+/* ============================================
+   COMPACT MODE
+   Applied via data-compact="true" on <html>
+============================================ */
+
+[data-compact="true"] .p-4 { padding: 0.5rem !important; }
+[data-compact="true"] .p-5 { padding: 0.625rem !important; }
+[data-compact="true"] .p-6 { padding: 0.75rem !important; }
+[data-compact="true"] .space-y-4 > * + * { margin-top: 0.5rem !important; }
+[data-compact="true"] .space-y-6 > * + * { margin-top: 0.75rem !important; }
+[data-compact="true"] .text-2xl { font-size: 1.25rem !important; }
+[data-compact="true"] .text-3xl { font-size: 1.5rem !important; }
+[data-compact="true"] .text-4xl { font-size: 1.875rem !important; }
+[data-compact="true"] .gap-4 { gap: 0.5rem !important; }
+[data-compact="true"] .gap-6 { gap: 0.75rem !important; }
+[data-compact="true"] .mb-4 { margin-bottom: 0.5rem !important; }
+[data-compact="true"] .mb-6 { margin-bottom: 0.75rem !important; }
+[data-compact="true"] .rounded-2xl { border-radius: 0.75rem !important; }
+[data-compact="true"] .rounded-3xl { border-radius: 1rem !important; }

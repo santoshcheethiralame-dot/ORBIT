@@ -9,7 +9,7 @@ import {
   ArrowDownRight, Minus, Coffee, Battery, BatteryCharging, Sparkles, BookOpen,
   Percent, RefreshCw,
 } from "lucide-react";
-import { db } from "./db";
+import { db, getUserSettings, updateUserSettings } from "./db";
 import { safeDB, withToast } from './utils/dbErrorHandler';
 import { useLiveQuery } from "dexie-react-hooks";
 import { EmptyStats } from "./EmptyStates";
@@ -24,11 +24,36 @@ import {
 import {
   calculateReadiness,
   getAllReadinessScores,
-  SubjectReadiness,
 } from "./brain";
-let getSubjectPerformance: any;
-let detectBurnout: any;
-let getEnergyProfile: any;
+import { SubjectReadiness } from "./types";
+// These are initialized with safe fallbacks so they never throw before the
+// brain-enhanced-integration module finishes its dynamic import.
+let getSubjectPerformance: (subjectId: number, days: number, db: any) => Promise<any> = async (subjectId, _days, db) => {
+  const logs = await db.logs.where('subjectId').equals(subjectId).toArray();
+  const total = logs.length || 1;
+  const avg = logs.reduce((s: number, l: any) => s + l.duration, 0) / total;
+  return {
+    subjectId, avgCompletionRate: 1.0, avgQuality: 3,
+    avgActualDuration: avg, targetDuration: 45,
+    durationRatio: 1.0, skipRate: 0,
+    bestTimeOfDay: null, recommendedDuration: Math.round(avg),
+  };
+};
+let detectBurnout: (days: number, db: any) => Promise<any> = async (days, db) => {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  const sinceStr = since.toISOString().split('T')[0];
+  const logs = await db.logs.where('date').aboveOrEqual(sinceStr).toArray();
+  const uniqueDates = new Set(logs.map((l: any) => l.date)).size;
+  const atRisk = uniqueDates / days < 0.3;
+  return {
+    skipRate: 0, avgSessionRatio: 1.0, lowMoodDays: 0,
+    streakBreaks: days - uniqueDates,
+    score: atRisk ? 70 : 10, atRisk,
+    recommendation: atRisk ? 'Consider a rest day.' : 'Healthy balance.',
+  };
+};
+let getEnergyProfile: () => any = () => ({ morning: 100, afternoon: 80, evening: 60, night: 40 });
 
 type SubjectPerformance = {
   subjectId: number;
@@ -533,10 +558,11 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   const [subjectPerformances, setSubjectPerformances] = useState<Record<number, SubjectPerformance>>({});
   const [burnoutSignals, setBurnoutSignals] = useState<BurnoutSignals | null>(null);
 
-  const settings = useLiveQuery(async () => {
-    try { return (await (db as any).settings?.get("user")) || null; } catch { return null; }
-  });
-  const weeklyTargetHours = settings?.weeklyTargetHours ?? 7;
+  // Read weeklyTargetHours from the real settings table (db.settings, key="user")
+  const userSettings = useLiveQuery(() => getUserSettings()) ?? null;
+  const weeklyTargetHours = userSettings?.weeklyTargetHours ?? 7;
+  const [editingTarget, setEditingTarget] = useState(false);
+  const [targetDraft, setTargetDraft] = useState<string>('');
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -586,41 +612,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
           fetchData();
         })
         .catch(() => {
-          getSubjectPerformance = async (subjectId: number) => {
-            const logs = await db.logs.where('subjectId').equals(subjectId).toArray();
-            const total = logs.length || 1;
-            const avg = logs.reduce((s, l) => s + l.duration, 0) / total;
-            return {
-              subjectId,
-              avgCompletionRate: 1.0,
-              avgQuality: 3,
-              avgActualDuration: avg,
-              targetDuration: 45,
-              durationRatio: 1.0,
-              skipRate: 0,
-              bestTimeOfDay: null,
-              recommendedDuration: Math.round(avg),
-            };
-          };
-          detectBurnout = async () => {
-            const since = new Date();
-            since.setDate(since.getDate() - 7);
-            const sinceStr = since.toISOString().split('T')[0];
-            const logs = await db.logs.where('date').aboveOrEqual(sinceStr).toArray();
-            const uniqueDates = new Set(logs.map(l => l.date)).size;
-            const consistency = uniqueDates / 7;
-            const atRisk = consistency < 0.3;
-            return {
-              skipRate: 0,
-              avgSessionRatio: 1.0,
-              lowMoodDays: 0,
-              streakBreaks: 7 - uniqueDates,
-              score: atRisk ? 70 : 10,
-              atRisk,
-              recommendation: atRisk ? "Consider a rest day." : "Healthy balance."
-            };
-          };
-          getEnergyProfile = () => ({ morning: 100, afternoon: 80, evening: 60, night: 40 });
+          // Module unavailable — fallback implementations already initialized at module level.
           setBrainEnhancedLoaded(true);
           fetchData();
         });
@@ -847,19 +839,51 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     }
   }, [avgDailyHours, productivityPattern.consistency, weeklyTargetHours]);
 
-  const handleScheduleReview = (subjectId: number, subjectName: string) => {
-    toast.success(`Review scheduled for ${subjectName}`);
-    window.dispatchEvent(new CustomEvent('schedule-review', { detail: { subjectId, subjectName } }));
+  const handleScheduleReview = async (subjectId: number, subjectName: string) => {
+    try {
+      // Find all topics for this subject that are overdue or due today and reset nextReview to today
+      const today = new Date().toISOString().split('T')[0];
+      const overdue = await db.topics
+        .where('subjectId').equals(subjectId)
+        .and(t => t.nextReview <= today)
+        .toArray();
+      if (overdue.length > 0) {
+        await Promise.all(overdue.map(t => db.topics.update(t.id!, { nextReview: today })));
+        toast.success(`${overdue.length} review(s) moved to today for ${subjectName}`);
+      } else {
+        // No overdue topics — create a generic review topic
+        await db.topics.add({
+          subjectId,
+          name: `${subjectName} — General Review`,
+          lastStudied: today,
+          nextReview: today,
+          easeFactor: 1.8,
+          reviewCount: 0,
+          comprehensionHistory: [],
+        });
+        toast.success(`Review topic created for ${subjectName}`);
+      }
+    } catch (err) {
+      console.error('handleScheduleReview failed:', err);
+      toast.error('Could not schedule review');
+    }
   };
 
   const handleAdjustBlockDuration = (subjectId: number) => {
-    toast.success('Opening block duration settings...');
-    window.dispatchEvent(new CustomEvent('adjust-duration', { detail: { subjectId } }));
+    // Navigate to Settings by dispatching a navigation event that index.tsx listens for
+    window.dispatchEvent(new CustomEvent('orbit:navigate', { detail: { tab: 'settings' } }));
+    toast.success('Tip: Adjust block sizes in Settings → Study');
   };
 
-  const handleApplyGoalSuggestion = () => {
+  const handleApplyGoalSuggestion = async () => {
     const newTarget = parseFloat(adaptiveGoalSuggestion.suggested);
-    toast.success(`Weekly target updated to ${newTarget}h`);
+    try {
+      await updateUserSettings({ weeklyTargetHours: newTarget });
+      toast.success(`Weekly target updated to ${newTarget}h`);
+    } catch (err) {
+      console.error('Failed to save weekly target:', err);
+      toast.error('Could not save weekly target');
+    }
   };
 
   const handleHeatmapClick = (date: string, minutes: number) => {
@@ -927,6 +951,46 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       toast.error("Export failed");
     }
   };
+
+  const exportICalendar = async () => {
+    try {
+      const [exams, subjects] = await Promise.all([db.exams.toArray(), db.subjects.toArray()]);
+      const subjectMap = Object.fromEntries(subjects.map(s => [s.id!, s.name]));
+      const esc = (s: string) => s.replace(/[,;\\]/g, m => '\\' + m);
+      const lines: string[] = [
+        'BEGIN:VCALENDAR', 'VERSION:2.0',
+        'PRODID:-//Orbit Study Planner//EN',
+        'CALSCALE:GREGORIAN', 'X-WR-CALNAME:Orbit Exams',
+      ];
+      exams.filter(e => !e.completed).forEach(exam => {
+        const dtStamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        lines.push(
+          'BEGIN:VEVENT',
+          `UID:orbit-exam-${exam.id}@orbitstudyplanner`,
+          `DTSTAMP:${dtStamp}`,
+          `DTSTART;VALUE=DATE:${exam.examDate.replace(/-/g, '')}`,
+          `DTEND;VALUE=DATE:${exam.examDate.replace(/-/g, '')}`,
+          `SUMMARY:${esc(`${exam.examType.toUpperCase()} - ${subjectMap[exam.subjectId] ?? 'Unknown'}`)}`,
+          'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY',
+          'DESCRIPTION:Exam tomorrow!', 'END:VALARM',
+          'END:VEVENT'
+        );
+      });
+      lines.push('END:VCALENDAR');
+      const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `orbit-exams-${new Date().toISOString().split('T')[0]}.ics`;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+      toast.success(`Exported ${exams.filter(e => !e.completed).length} exam(s) to calendar`);
+    } catch (err) {
+      console.error('iCal export failed:', err);
+      toast.error('Failed to export calendar');
+    }
+  };
+
 
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections);
@@ -1074,9 +1138,17 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
             </div>
             <button onClick={exportCSV}
               className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-zinc-200 hover:text-indigo-200 hover:bg-white/10 hover:border-indigo-500/30 transition-all duration-300 flex items-center gap-2 group"
+              title="Export stats as CSV"
             >
               <Download size={14} className="group-hover:translate-y-0.5 transition-transform" />
-              <span className="hidden sm:inline">Export</span>
+              <span className="hidden sm:inline">CSV</span>
+            </button>
+            <button onClick={exportICalendar}
+              className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-zinc-200 hover:text-emerald-200 hover:bg-white/10 hover:border-emerald-500/30 transition-all duration-300 flex items-center gap-2 group"
+              title="Export exam schedule as .ics calendar file"
+            >
+              <Calendar size={14} className="group-hover:scale-110 transition-transform" />
+              <span className="hidden sm:inline">iCal</span>
             </button>
             <button
               onClick={async () => {
@@ -1228,9 +1300,44 @@ Keep pushing! 💪`;
                     <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-1">
                       {timeRangeInfo.title}
                     </div>
-                    <div className="text-xs text-zinc-500 font-semibold">
-                      {timeRangeInfo.subtitle}
-                    </div>
+                    {/* Inline editable weekly target */}
+                    {editingTarget ? (
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          const v = parseFloat(targetDraft);
+                          if (!isNaN(v) && v > 0 && v <= 80) {
+                            await updateUserSettings({ weeklyTargetHours: v });
+                            toast.success(`Weekly target set to ${v}h`);
+                          }
+                          setEditingTarget(false);
+                        }}
+                        className="flex items-center gap-1.5 mt-0.5"
+                      >
+                        <input
+                          autoFocus
+                          type="number"
+                          min="1"
+                          max="80"
+                          step="0.5"
+                          value={targetDraft}
+                          onChange={e => setTargetDraft(e.target.value)}
+                          onBlur={() => setEditingTarget(false)}
+                          className="w-16 bg-zinc-800 border border-indigo-500/40 rounded-lg px-2 py-0.5 text-xs text-white font-mono outline-none focus:border-indigo-500"
+                        />
+                        <span className="text-xs text-zinc-400 font-semibold">h/week</span>
+                        <button type="submit" className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 transition-colors">✓</button>
+                      </form>
+                    ) : (
+                      <button
+                        onClick={() => { setTargetDraft(String(weeklyTargetHours)); setEditingTarget(true); }}
+                        className="text-xs text-zinc-500 font-semibold hover:text-indigo-300 transition-colors flex items-center gap-1 group mt-0.5"
+                        title="Click to edit weekly target"
+                      >
+                        {timeRangeInfo.subtitle}
+                        <span className="opacity-0 group-hover:opacity-100 text-[9px] text-indigo-400 transition-opacity">✎ edit</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* INTEGRATED TIME RANGE SELECTOR */}

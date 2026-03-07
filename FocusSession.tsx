@@ -147,6 +147,9 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const [breakTime, setBreakTime] = useState(0);
   const breakDuration = useMemo(() => settings.study.breakDuration * 60, [settings.study.breakDuration]);
   const [strictMode, setStrictMode] = useState(settings.study.strictModeDefault);
+  // Ref so the interval callback always sees the current value without a stale closure
+  const autoStartBreaksRef = useRef(settings.study.autoStartBreaks);
+  useEffect(() => { autoStartBreaksRef.current = settings.study.autoStartBreaks; }, [settings.study.autoStartBreaks]);
   const [soundEnabled, setSoundEnabled] = useState(settings.audio.enabled);
   const [showNotes, setShowNotes] = useState(false);
   const [showAI, setShowAI] = useState(false);
@@ -170,7 +173,20 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const lastTickRef = useRef(Date.now());
 
   useEffect(() => {
-    const cleanup = onDataChange(() => console.log('Data changed in another tab'));
+    if (!strictMode || !isRunning) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'Focus session is active. Are you sure you want to leave?';
+      return e.returnValue;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [strictMode, isRunning]);
+
+  useEffect(() => {
+    const cleanup = onDataChange(() => { });
     return cleanup;
   }, []);
 
@@ -302,6 +318,13 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         } else {
           setTimeLeft(prev => {
             if (prev <= secondsPassed && !isOvertime) {
+              if (autoStartBreaksRef.current) {
+                // Auto-start break without entering overtime
+                setIsBreak(true);
+                setBreakTime(breakDuration);
+                playSound('complete');
+                return 0;
+              }
               setIsOvertime(true);
               setOvertime(0);
               playSound('complete');

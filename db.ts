@@ -6,6 +6,21 @@ import {
   StudyBlock, BlockOutcome, ExamEntry
 } from "./types";
 
+// ─── User Preferences stored in IndexedDB ────────────────────────────────────
+// Single-row key-value store (key = "user"). Keeps user prefs durable and
+// exportable alongside the rest of the academic data.
+export interface UserSettings {
+  key: string;                              // always "user"
+  weeklyTargetHours: number;               // default 7
+  activeSemesterId?: number;               // currently selected semester
+  subjectColors?: Record<number, string>;  // user-chosen hex colors per subject id
+}
+
+export const DEFAULT_USER_SETTINGS: UserSettings = {
+  key: "user",
+  weeklyTargetHours: 7,
+};
+
 export class OrbitDB extends Dexie {
   semesters!: Table<Semester, number>;
   subjects!: Table<Subject, number>;
@@ -18,6 +33,7 @@ export class OrbitDB extends Dexie {
   blockOutcomes!: Table<BlockOutcome, string>;
   studyBlocks!: Table<StudyBlock, string>;
   exams!: Table<ExamEntry, number>;
+  settings!: Table<UserSettings, string>;  // keyed by "user"
 
   constructor(name: string = "OrbitDB") {
     super(name);
@@ -78,6 +94,22 @@ export class OrbitDB extends Dexie {
       studyBlocks: "id, date, completed, subjectId, type",
       exams: "++id, subjectId, examDate, examType, completed",
     });
+
+    // v11: Add settings table for user preferences (weeklyTargetHours, subjectColors, etc.)
+    this.version(11).stores({
+      semesters: "++id",
+      subjects: "++id, name, code",
+      projects: "++id, subjectId",
+      schedule: "++id, day, slot",
+      assignments: "id, subjectId, dueDate, estimatedEffort, progressMinutes, completed",
+      plans: "date",
+      logs: "++id, timestamp, date, subjectId, type, topicId",
+      topics: "++id, subjectId, name, nextReview",
+      blockOutcomes: "++id, blockId, subjectId, timestamp, date, completed, skipped, timeOfDay",
+      studyBlocks: "id, date, completed, subjectId, type",
+      exams: "++id, subjectId, examDate, examType, completed",
+      settings: "key",  // single-row, key="user"
+    });
   }
 }
 
@@ -127,6 +159,7 @@ export function saveDbSnapshot() {
         blockOutcomes: await db.blockOutcomes.toArray(),
         studyBlocks: await db.studyBlocks.toArray(),
         exams: await db.exams.toArray(),
+        settings: await db.settings.toArray(),
       };
       localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snap));
       console.log('📸 DB snapshot saved to localStorage');
@@ -152,13 +185,14 @@ export async function restoreDbFromSnapshot(): Promise<boolean> {
     await db.transaction('rw', [
       db.semesters, db.subjects, db.projects, db.schedule,
       db.plans, db.logs, db.assignments, db.topics,
-      db.blockOutcomes, db.studyBlocks, db.exams
+      db.blockOutcomes, db.studyBlocks, db.exams, db.settings
     ], async () => {
       await Promise.all([
         db.semesters.clear(), db.subjects.clear(), db.projects.clear(),
         db.schedule.clear(), db.plans.clear(), db.logs.clear(),
         db.assignments.clear(), db.topics.clear(),
-        db.blockOutcomes.clear(), db.studyBlocks.clear(), db.exams.clear()
+        db.blockOutcomes.clear(), db.studyBlocks.clear(), db.exams.clear(),
+        db.settings.clear()
       ]);
 
       if (data.semesters?.length) await db.semesters.bulkAdd(data.semesters);
@@ -172,6 +206,7 @@ export async function restoreDbFromSnapshot(): Promise<boolean> {
       if (data.blockOutcomes?.length) await db.blockOutcomes.bulkAdd(data.blockOutcomes);
       if (data.studyBlocks?.length) await db.studyBlocks.bulkAdd(data.studyBlocks);
       if (data.exams?.length) await db.exams.bulkAdd(data.exams);
+      if (data.settings?.length) await db.settings.bulkAdd(data.settings);
     });
 
     console.log('✅ DB restored from localStorage snapshot');
@@ -179,5 +214,26 @@ export async function restoreDbFromSnapshot(): Promise<boolean> {
   } catch (err) {
     console.error('❌ Failed to restore from snapshot:', err);
     return false;
+  }
+}
+// ─── User Settings helpers ────────────────────────────────────────────────────
+
+/** Read the single user-preferences row, falling back to defaults if not yet created. */
+export async function getUserSettings(): Promise<UserSettings> {
+  try {
+    const row = await db.settings.get("user");
+    return row ? { ...DEFAULT_USER_SETTINGS, ...row } : DEFAULT_USER_SETTINGS;
+  } catch {
+    return DEFAULT_USER_SETTINGS;
+  }
+}
+
+/** Partially update user preferences (deep-safe: merges with existing values). */
+export async function updateUserSettings(partial: Partial<Omit<UserSettings, 'key'>>): Promise<void> {
+  try {
+    const existing = await getUserSettings();
+    await db.settings.put({ ...existing, ...partial, key: "user" });
+  } catch (err) {
+    console.error("Failed to update user settings:", err);
   }
 }

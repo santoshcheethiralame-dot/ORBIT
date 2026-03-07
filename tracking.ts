@@ -111,7 +111,7 @@ function calculateNextReview(
     intervalDays = Math.round(previousInterval * newEaseFactor);
   }
 
-  intervalDays = Math.min(intervalDays, 30);
+  intervalDays = Math.min(intervalDays, 180);
 
   const [year, month, day] = lastReviewDate.split('-').map(Number);
   const lastDate = new Date(Date.UTC(year, month - 1, day));

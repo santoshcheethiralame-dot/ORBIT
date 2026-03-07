@@ -1,22 +1,20 @@
 // index.tsx - FUTURISTIC GLASSMORPHIC FLOATING NAVBAR (Hybrid Enhancement: Active Gradient Border)
 
-// ─── ORIGIN GUARD: force all users to localhost to prevent split-brain data ───
-// IndexedDB + localStorage are origin-scoped, so 192.168.x.x:3000 and localhost:3000
-// are completely separate databases. This redirect prevents data loss.
-if (
-  typeof window !== 'undefined' &&
-  window.location.hostname !== 'localhost' &&
-  window.location.hostname !== '127.0.0.1' &&
-  !window.location.hostname.endsWith('.vercel.app') && // allow deployed versions
-  !window.location.hostname.endsWith('.netlify.app') &&
-  window.location.protocol !== 'file:'
-) {
-  window.location.replace(`http://localhost:${window.location.port}${window.location.pathname}${window.location.search}`);
+// ─── ORIGIN GUARD (dev-only) ─────────────────────────────────────────────────
+// Redirects LAN IPs → localhost only in local dev (port 3000/5173).
+// Production deployments (any domain) are never redirected.
+if (typeof window !== 'undefined') {
+  const { hostname, protocol, port, pathname, search } = window.location;
+  const isLanIp = /^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
+  const isDev = port === '3000' || port === '5173';
+  if (isLanIp && isDev && protocol !== 'file:') {
+    window.location.replace(`http://localhost:${port}${pathname}${search}`);
+  }
 }
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom/client";
-import { SettingsProvider } from './SettingsContext';
+import { SettingsProvider, useSettings } from './SettingsContext';
 import {
   LayoutGrid,
   BookOpen,
@@ -26,6 +24,10 @@ import {
   Play,
   Clock,
   ArrowRight,
+  Calendar,
+  Brain,
+  FolderKanban,
+  ListTodo,
 } from "lucide-react";
 import { db, saveDbSnapshot, restoreDbFromSnapshot } from "./db";
 import { Subject, DailyPlan, StudyBlock, StudyLog, DailyContext } from "./types";
@@ -36,7 +38,9 @@ import { Dashboard } from "./Dashboard";
 import { FocusSession } from "./FocusSession";
 import CoursesView from "./Courses";
 import ProjectsView from "./ProjectsView";
+import ScheduleView from "./ScheduleView";
 import { StatsView } from "./Stats";
+import { ReviewQueueView } from "./SpacedRepetition";
 import { SpaceBackground } from "./SpaceBackground";
 import { DailyContextModal } from "./DailyContextModal";
 import { AboutView } from "./AboutView";
@@ -52,17 +56,17 @@ import { getISTEffectiveDate, isPlanCurrent } from "./utils/time";
 
 const DESKTOP_TABS = [
   { id: "dashboard", icon: LayoutGrid, label: "Dashboard", activeGradient: "from-blue-500 to-cyan-500" },
-  { id: "courses", icon: BookOpen, label: "Courses", activeGradient: "from-purple-500 to-pink-500" },
-  { id: "projects", icon: BookOpen, label: "Projects", activeGradient: "from-indigo-500 to-blue-500" },
-  { id: "stats", icon: BarChart2, label: "Analytics", activeGradient: "from-orange-500 to-red-500" },
+  { id: "courses",   icon: BookOpen,   label: "Courses",   activeGradient: "from-purple-500 to-pink-500" },
+  { id: "projects",  icon: FolderKanban, label: "Projects", activeGradient: "from-indigo-500 to-blue-500" },
+  { id: "stats",     icon: BarChart2,  label: "Analytics", activeGradient: "from-orange-500 to-red-500" },
 ];
-// MOBILE_TABS: no "about" included because we'll do a special info button in mobile nav
+// MOBILE_TABS
 const MOBILE_TABS = [
-  { id: "dashboard", icon: LayoutGrid, label: "Home", activeGradient: "from-blue-500 to-cyan-500" },
-  { id: "courses", icon: BookOpen, label: "Courses", activeGradient: "from-purple-500 to-pink-500" },
-  { id: "projects", icon: BookOpen, label: "Projects", activeGradient: "from-indigo-500 to-blue-500" },
-  { id: "stats", icon: BarChart2, label: "Stats", activeGradient: "from-orange-500 to-red-500" },
-  { id: "settings", icon: Settings, label: "Settings", activeGradient: "from-green-500 to-emerald-500" },
+  { id: "dashboard", icon: LayoutGrid,   label: "Home",     activeGradient: "from-blue-500 to-cyan-500"   },
+  { id: "courses",   icon: BookOpen,     label: "Courses",  activeGradient: "from-purple-500 to-pink-500" },
+  { id: "projects",  icon: FolderKanban, label: "Projects", activeGradient: "from-indigo-500 to-blue-500" },
+  { id: "stats",     icon: BarChart2,    label: "Stats",    activeGradient: "from-orange-500 to-red-500"  },
+  { id: "settings",  icon: Settings,     label: "Settings", activeGradient: "from-green-500 to-emerald-500" },
 ];
 
 const App = () => {
@@ -71,13 +75,15 @@ const App = () => {
     | "dashboard"
     | "courses"
     | "projects"
+    | "schedule"
+    | "review"
     | "stats"
     | "focus"
     | "settings"
     | "about"
   >("dashboard");
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "courses" | "projects" | "stats" | "about" | "settings"
+    "dashboard" | "courses" | "projects" | "schedule" | "review" | "stats" | "about" | "settings"
   >("dashboard");
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [logs, setLogs] = useState<StudyLog[]>([]);
@@ -94,6 +100,14 @@ const App = () => {
 
   // âœ¨ NEW: Access toast from context
   const toast = useToast();
+  const { settings } = useSettings();
+
+  // Apply theme + compact mode to <html> element whenever settings change
+  useEffect(() => {
+    const html = document.documentElement;
+    html.setAttribute('data-theme', settings.display.theme);
+    html.setAttribute('data-compact', String(settings.display.compactMode));
+  }, [settings.display.theme, settings.display.compactMode]);
 
   useEffect(() => {
     try {
@@ -102,6 +116,82 @@ const App = () => {
       SoundManager.setEnabled(enabled);
     } catch (e) { }
   }, []);
+
+  // Auto-mark past exams as completed on app start
+  useEffect(() => {
+    const autoMarkExams = async () => {
+      try {
+        const today = getISTEffectiveDate();
+        const pastExams = await db.exams
+          .filter(e => !e.completed && e.examDate < today)
+          .toArray();
+        if (pastExams.length > 0) {
+          await Promise.all(
+            pastExams.map(e => db.exams.update(e.id!, { completed: true }))
+          );
+        }
+      } catch (err) {
+        console.error('Failed to auto-mark past exams:', err);
+      }
+    };
+    autoMarkExams();
+  }, []);
+
+  // Auto-backup: download a full JSON backup on schedule if the setting is enabled
+  useEffect(() => {
+    const BACKUP_KEY = 'orbit-last-auto-backup';
+    const runAutoBackup = async () => {
+      if (!settings.advanced.autoBackup) return;
+      const freqDays = settings.advanced.backupFrequency ?? 7;
+      const last = localStorage.getItem(BACKUP_KEY);
+      const now = Date.now();
+      if (last && now - parseInt(last) < freqDays * 24 * 60 * 60 * 1000) return;
+
+      try {
+        const [
+          subjectsArr, logsArr, assignmentsArr, plansArr, topicsArr,
+          projectsArr, scheduleArr, blockOutcomesArr, studyBlocksArr, semestersArr, examsArr,
+        ] = await Promise.all([
+          db.subjects.toArray(), db.logs.toArray(), db.assignments.toArray(),
+          db.plans.toArray(), db.topics.toArray(), db.projects.toArray(),
+          db.schedule.toArray(), db.blockOutcomes.toArray(), db.studyBlocks.toArray(),
+          db.semesters.toArray(), db.exams.toArray(),
+        ]);
+
+        const payload = {
+          version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0',
+          exportDate: new Date().toISOString(),
+          autoBackup: true,
+          data: {
+            subjects: subjectsArr, logs: logsArr, assignments: assignmentsArr,
+            plans: plansArr, topics: topicsArr, projects: projectsArr,
+            schedule: scheduleArr, blockOutcomes: blockOutcomesArr,
+            studyBlocks: studyBlocksArr, semesters: semestersArr, exams: examsArr,
+          },
+        };
+
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `orbit-auto-backup-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        localStorage.setItem(BACKUP_KEY, String(now));
+        toast.success('Auto-backup downloaded');
+      } catch (err) {
+        console.error('Auto-backup failed:', err);
+      }
+    };
+
+    runAutoBackup();
+    const interval = setInterval(runAutoBackup, 60 * 60 * 1000); // re-check hourly
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.advanced.autoBackup, settings.advanced.backupFrequency]);
 
   // ðŸ” Load subject intelligence whenever a focus block starts
   useEffect(() => {
@@ -129,7 +219,6 @@ const App = () => {
     const handler = (e: any) => {
       e.preventDefault();
       (window as any).deferredPrompt = e;
-      console.log('✅ PWA Install Prompt captured');
     };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
@@ -137,7 +226,6 @@ const App = () => {
 
   const loadData = async () => {
     if (loadDataInProgress.current) {
-      console.log('â­ï¸  Load already in progress, skipping');
       return;
     }
 
@@ -152,10 +240,6 @@ const App = () => {
       const todayStr = getISTEffectiveDate();
       const existing = await db.plans.get(todayStr);
 
-      console.log("ðŸ“Š LoadData:", {
-        effectiveDate: todayStr,
-        existingPlan: existing?.date,
-      });
 
       if (existing && isPlanCurrent(existing.date)) {
         setTodayPlan(existing);
@@ -183,7 +267,6 @@ const App = () => {
       try {
         // ðŸ†• ADD: Database health check
         const dbVersion = db.verno;
-        console.log(`ðŸ“Š Database version: ${dbVersion}`);
 
         // Try to access each table to ensure schema is valid
         await Promise.all([
@@ -194,7 +277,6 @@ const App = () => {
           db.logs.limit(1).toArray().catch(() => []),
           db.topics.limit(1).toArray().catch(() => []),
         ]);
-        console.log('✅ Database schema validated');
 
         const [semesterCount, subjectCount] = await Promise.all([
           db.semesters.count(),
@@ -204,10 +286,8 @@ const App = () => {
         // Only force onboarding if NO core data exists
         if (semesterCount === 0 && subjectCount === 0) {
           // Attempt auto-recovery from localStorage snapshot
-          console.log('🔍 No data in IndexedDB, checking localStorage snapshot...');
           const recovered = await restoreDbFromSnapshot();
           if (recovered) {
-            console.log('✅ Auto-recovered from localStorage snapshot!');
             await loadData();
           } else {
             setView("onboarding");
@@ -238,7 +318,6 @@ const App = () => {
 
     const checkRollover = async () => {
       if (rolloverCheckInProgress.current) {
-        console.log('â­ï¸  Rollover check already in progress');
         return;
       }
 
@@ -323,15 +402,12 @@ const App = () => {
       // âœ¨ NEW: Success toast
       toast.success(`Daily plan ready: ${plan.blocks.length} blocks scheduled`);
 
-      try {
-        const prefs = JSON.parse(localStorage.getItem("orbit-prefs") || "{}");
-        if (prefs.notifications?.dailyPlanReady) {
-          NotificationManager.send(
-            "Mission Brief Ready",
-            `${plan.blocks.length} study blocks scheduled for today`
-          );
-        }
-      } catch (e) { }
+      if (settings.notifications.enabled && settings.notifications.dailyGoals) {
+        NotificationManager.send(
+          "Mission Brief Ready",
+          `${plan.blocks.length} study blocks scheduled for today`
+        );
+      }
     } catch (err) {
       console.error("Plan generation failed:", err);
       // âœ¨ NEW: Error toast
@@ -419,18 +495,15 @@ const App = () => {
           },
         });
 
-        try {
-          const prefs = JSON.parse(localStorage.getItem("orbit-prefs") || "{}");
-          if (prefs.notifications?.streakMilestones) {
-            const newStreak = calculateStreak();
-            if ([7, 14, 30, 60, 100].includes(newStreak)) {
-              NotificationManager.send(
-                `ðŸ”¥ ${newStreak}-Day Streak!`,
-                "Consistency unlocked. Keep the momentum going."
-              );
-            }
+        if (settings.notifications.enabled && settings.notifications.sessionReminders) {
+          const newStreak = calculateStreak();
+          if ([7, 14, 30, 60, 100].includes(newStreak)) {
+            NotificationManager.send(
+              `\U0001F525 ${newStreak}-Day Streak!`,
+              "Consistency unlocked. Keep the momentum going."
+            );
           }
-        } catch (e) { }
+        }
 
         SoundManager.playSuccess();
         await loadData();
@@ -450,6 +523,23 @@ const App = () => {
     setActiveTab(tabId);
     setView(tabId as any);
   };
+
+  // ─── Cross-component navigation via CustomEvents ──────────────────────────
+  // Child views dispatch these events to trigger tab switches without prop drilling.
+  useEffect(() => {
+    const handleNavigate = (e: Event) => {
+      const tab = (e as CustomEvent).detail?.tab as typeof activeTab | undefined;
+      if (tab) switchTab(tab);
+    };
+    const handleToDashboard = () => switchTab('dashboard');
+    window.addEventListener('orbit:navigate', handleNavigate);
+    window.addEventListener('navigate-to-dashboard', handleToDashboard);
+    return () => {
+      window.removeEventListener('orbit:navigate', handleNavigate);
+      window.removeEventListener('navigate-to-dashboard', handleToDashboard);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isOnboarding = view === "onboarding" || needsContext;
   const showNavigation = !isOnboarding && view !== "focus";
@@ -520,12 +610,12 @@ const App = () => {
       )}
 
       {/* DESKTOP NAV - FLOATING GLASSMORPHIC PILL */}
-      <header className="hidden md:block fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-5xl px-4 animate-float">
+      <header className="hidden md:block fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-4xl px-4 animate-float">
         <div className="
-          relative overflow-hidden
-          px-6 py-3
+          relative
+          px-5 py-2.5
           rounded-[2rem]
-          bg-white/[0.03]
+          bg-white/[0.04]
           backdrop-blur-2xl
           border border-white/10
           shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]
@@ -534,76 +624,98 @@ const App = () => {
           hover:border-white/20
         ">
           {/* Animated Gradient Background */}
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5 opacity-0 hover:opacity-100 transition-opacity duration-700" />
-          {/* Glow Effect */}
-          <div className="absolute -inset-[1px] bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20 rounded-[2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+          <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5 opacity-0 hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+          {/* Bottom Border Glow */}
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
 
-          <div className="relative z-10 flex items-center justify-between">
-            {/* LEFT: Brand + Nav */}
-            <div className="flex items-center gap-8">
-              {/* Animated Brand */}
-              <div className="flex items-center gap-3 group/brand">
-                <div className="
-                  relative w-10 h-10 rounded-full
-                  bg-gradient-to-br from-white via-indigo-100 to-purple-100
-                  flex items-center justify-center
-                  font-bold text-black
-                  shadow-lg shadow-indigo-500/20
-                  transition-all duration-500
-                  group-hover/brand:scale-110 group-hover/brand:rotate-12
-                  group-hover/brand:shadow-indigo-500/40
-                ">
-                  <span className="relative z-10">O</span>
-                  {/* Orbit Ring Animation */}
-                  <div className="absolute inset-0 rounded-full border-2 border-indigo-400/30 animate-ping" />
-                </div>
-                <span className="text-xl font-display font-bold bg-gradient-to-r from-white via-indigo-100 to-purple-100 bg-clip-text text-transparent">
-                  Orbit
-                </span>
+          <div className="relative z-10 flex items-center justify-between gap-4">
+            {/* LEFT: Brand */}
+            <div className="flex items-center gap-2.5 shrink-0 group/brand">
+              <div className="
+                relative w-9 h-9 rounded-full
+                bg-gradient-to-br from-white via-indigo-100 to-purple-100
+                flex items-center justify-center
+                font-bold text-black text-sm
+                shadow-lg shadow-indigo-500/20
+                transition-all duration-500
+                group-hover/brand:scale-110 group-hover/brand:rotate-12
+                group-hover/brand:shadow-indigo-500/40
+              ">
+                <span className="relative z-10">O</span>
+                <div className="absolute inset-0 rounded-full border border-indigo-400/20" />
               </div>
-              {/* Glassmorphic Nav Pills */}
-              {showNavigation && (
-                <nav className="flex items-center gap-2">
-                  {DESKTOP_TABS.map((tab) => {
-                    const active = activeTab === tab.id;
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => switchTab(tab.id as any)}
-                        className={`
-                          relative group/tab
-                          flex items-center gap-2 px-5 py-2.5 rounded-2xl
-                          text-sm font-semibold
-                          transition-all duration-300
-                          ${active
-                            ? 'bg-white/10 text-white shadow-lg backdrop-blur-xl'
-                            : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                          }
-                        `}
-                      >
-                        {/* Active Gradient Border */}
-                        {active && (
-                          <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${tab.activeGradient} opacity-10`} />
-                        )}
-                        <tab.icon
-                          size={18}
-                          className={`relative z-10 transition-transform duration-300 ${active ? 'scale-110' : 'group-hover/tab:scale-110'}`}
-                        />
-                        <span className="relative z-10">{tab.label}</span>
-                        {/* Hover Glow */}
-                        {!active && (
-                          <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${tab.activeGradient} opacity-0 group-hover/tab:opacity-10 transition-opacity duration-300`} />
-                        )}
-                      </button>
-                    );
-                  })}
-                </nav>
-              )}
+              <span className="text-base font-display font-bold bg-gradient-to-r from-white via-indigo-100 to-purple-100 bg-clip-text text-transparent">
+                Orbit
+              </span>
             </div>
-            {/* RIGHT: CTA + Actions */}
+
+            {/* CENTRE: Nav tabs */}
+            {showNavigation && (
+              <nav className="flex items-center gap-1">
+                {DESKTOP_TABS.map((tab) => {
+                  const active = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => switchTab(tab.id as any)}
+                      className={`
+                        relative group/tab
+                        flex items-center gap-1.5 px-4 py-2 rounded-2xl
+                        text-[13px] font-semibold
+                        transition-all duration-300
+                        ${active
+                          ? 'bg-white/10 text-white shadow-sm'
+                          : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                        }
+                      `}
+                    >
+                      {active && (
+                        <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${tab.activeGradient} opacity-10`} />
+                      )}
+                      {!active && (
+                        <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${tab.activeGradient} opacity-0 group-hover/tab:opacity-[0.07] transition-opacity duration-300`} />
+                      )}
+                      <tab.icon
+                        size={15}
+                        className={`relative z-10 transition-transform duration-300 ${active ? 'scale-110' : 'group-hover/tab:scale-110'}`}
+                      />
+                      <span className="relative z-10">{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            )}
+
+            {/* RIGHT: Actions + CTA */}
             {showNavigation ? (
-              <div className="flex items-center gap-3">
-                {/* FLOATING PRIMARY CTA */}
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Icon group */}
+                <div className="flex items-center gap-1 p-1 rounded-2xl bg-white/5 border border-white/10">
+                  <button
+                    onClick={() => switchTab("about" as any)}
+                    className={`
+                      relative p-2 rounded-xl transition-all duration-300
+                      ${activeTab === "about" ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'}
+                    `}
+                    title="About"
+                  >
+                    <Info size={16} />
+                    {activeTab === "about" && <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-500/20 blur-sm" />}
+                  </button>
+                  <button
+                    onClick={() => switchTab("settings" as any)}
+                    className={`
+                      relative p-2 rounded-xl transition-all duration-300
+                      ${activeTab === "settings" ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'}
+                    `}
+                    title="Settings"
+                  >
+                    <Settings size={16} />
+                    {activeTab === "settings" && <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 blur-sm" />}
+                  </button>
+                </div>
+
+                {/* Focus CTA */}
                 {todayPlan && todayPlan.blocks.find(b => !b.completed) && (
                   <button
                     onClick={() => {
@@ -616,70 +728,27 @@ const App = () => {
                     }}
                     className="
                       relative group/cta overflow-hidden
-                      flex items-center gap-2 px-6 py-3 rounded-2xl
+                      flex items-center gap-2 px-5 py-2 rounded-2xl
                       bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600
-                      text-white font-bold text-sm
+                      text-white font-bold text-[13px]
                       shadow-lg shadow-indigo-500/30
                       transition-all duration-300
                       hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/50
                       active:scale-95
                     "
                   >
-                    {/* Shimmer Effect */}
-                    <div className="absolute inset-0 -translate-x-full group-hover/cta:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                    <Play size={16} fill="currentColor" className="relative z-10 animate-pulse" />
+                    <div className="absolute inset-0 -translate-x-full group-hover/cta:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                    <Play size={13} fill="currentColor" className="relative z-10" />
                     <span className="relative z-10">Start Focus</span>
-                    {/* Glow Rings */}
-                    <div className="absolute inset-0 rounded-2xl ring-2 ring-white/20 animate-ping opacity-75" />
                   </button>
                 )}
-
-                {/* Glassmorphic Icon Buttons */}
-                <div className="flex items-center gap-2 p-1 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-                  <button
-                    onClick={() => switchTab("about" as any)}
-                    className={`
-                      relative p-2.5 rounded-xl transition-all duration-300
-                      ${activeTab === "about"
-                        ? 'bg-white/10 text-white shadow-lg'
-                        : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                      }
-                    `}
-                    title="About"
-                  >
-                    <Info size={18} />
-                    {activeTab === "about" && (
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-500/20 blur-sm" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => switchTab("settings" as any)}
-                    className={`
-                      relative p-2.5 rounded-xl transition-all duration-300
-                      ${activeTab === "settings"
-                        ? 'bg-white/10 text-white shadow-lg'
-                        : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                      }
-                    `}
-                    title="Settings"
-                  >
-                    <Settings size={18} />
-                    {activeTab === "settings" && (
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 blur-sm" />
-                    )}
-                  </button>
-                </div>
               </div>
             ) : (
-              <div className="px-4 py-2 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-                <span className="text-xs font-mono text-zinc-500 uppercase tracking-wider">
-                  System Locked
-                </span>
+              <div className="px-4 py-2 rounded-2xl bg-white/5 border border-white/10">
+                <span className="text-xs font-mono text-zinc-500 uppercase tracking-wider">System Locked</span>
               </div>
             )}
           </div>
-          {/* Bottom Border Glow */}
-          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         </div>
       </header>
 
@@ -708,6 +777,12 @@ const App = () => {
           {activeTab === "projects" && (
             <ProjectsView />
           )}
+          {activeTab === "schedule" && (
+            <ScheduleView />
+          )}
+          {activeTab === "review" && (
+            <ReviewQueueView />
+          )}
           {activeTab === "stats" && (
             <StatsView logs={logs} subjects={subjects} />
           )}
@@ -735,7 +810,7 @@ const App = () => {
           ">
             {/* Gradient Background */}
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5" />
-            <div className="relative z-10 flex justify-around items-center">
+            <div className="relative z-10 flex items-center overflow-x-auto scrollbar-none gap-0.5">
               {MOBILE_TABS.map((tab) => {
                 const active = activeTab === tab.id;
                 return (
@@ -745,7 +820,7 @@ const App = () => {
                     className={`
                       relative
                       flex flex-col items-center justify-center gap-1.5
-                      py-3 px-4 rounded-2xl min-w-[70px]
+                      py-2.5 px-3 rounded-2xl min-w-[62px]
                       transition-all duration-300
                       ${active ? "text-white scale-105" : "text-zinc-500"}
                     `}
@@ -843,7 +918,6 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
     navigator.serviceWorker
       .register("/sw.js")
       .then((registration) => {
-        console.log("✅ SW registered:", registration.scope);
 
         // ✅ Cleanup previous interval if exists
         if (updateCheckInterval) {
@@ -907,7 +981,6 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
     if (prompt) {
       prompt.prompt();
       const { outcome } = await prompt.userChoice;
-      console.log(`User response for PWA: ${outcome}`);
       (window as any).deferredPrompt = null;
     } else {
       console.warn('âŒ PWA prompt not available');

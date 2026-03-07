@@ -18,7 +18,7 @@ import {
 } from './EmptyStates';
 import { getAllReadinessScores } from './brain-research-grade';
 import { useToast } from './Toast';
-import { FrostedTile, FrostedMini, PageHeader, MetaText, getSubjectColor, SUBJECT_COLOR_CLASSES } from './components';
+import { FrostedTile, FrostedMini, PageHeader, MetaText, getSubjectColor, SUBJECT_COLOR_CLASSES, SUBJECT_COLORS } from './components';
 
 import { predictReadiness } from './brain';
 
@@ -485,7 +485,7 @@ export default function CoursesView_Enhanced() {
   }
 
   if (selectedSubject) {
-    const subjectColor = getSubjectColor(selectedSubject.id!);
+    const subjectColor = getSubjectColor(selectedSubject.id!, selectedSubject.colorIndex);
     const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
     const gpa = calculateGPA(selectedSubject.grades || []);
 
@@ -500,8 +500,26 @@ export default function CoursesView_Enhanced() {
         </button>
 
         <div className="flex items-center gap-4 md:gap-6 mb-8">
-          <div className={`w-16 h-16 md:w-20 md:h-20 ${colorClasses.bg} rounded-3xl flex items-center justify-center font-bold text-black text-xl md:text-2xl shadow-xl shrink-0 animate-in zoom-in duration-500`}>
-            {getInitials(selectedSubject.name)}
+          <div className="relative group/avatar shrink-0">
+            <div className={`w-16 h-16 md:w-20 md:h-20 ${colorClasses.bg} rounded-3xl flex items-center justify-center font-bold text-black text-xl md:text-2xl shadow-xl animate-in zoom-in duration-500`}>
+              {getInitials(selectedSubject.name)}
+            </div>
+            {/* Color picker swatches on hover */}
+            <div className="absolute left-0 top-full mt-2 hidden group-hover/avatar:flex gap-1.5 p-2 rounded-2xl bg-zinc-900/95 border border-white/10 backdrop-blur-xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
+              {SUBJECT_COLORS.map((c, idx) => (
+                <button
+                  key={c}
+                  onClick={async () => {
+                    await db.subjects.update(selectedSubject.id!, { colorIndex: idx });
+                    toast.success(`Color updated`);
+                  }}
+                  className={`w-7 h-7 rounded-lg border-2 transition-all hover:scale-110 ${SUBJECT_COLOR_CLASSES[c].bg}
+                    ${(selectedSubject.colorIndex !== undefined ? selectedSubject.colorIndex : selectedSubject.id!) % SUBJECT_COLORS.length === idx
+                      ? 'border-white shadow-lg' : 'border-transparent'}`}
+                  title={c}
+                />
+              ))}
+            </div>
           </div>
           <div className="min-w-0 animate-in slide-in-from-left duration-500">
             <h1 className="text-3xl md:text-5xl font-bold font-display mb-2 truncate">{selectedSubject.name || "Untitled"}</h1>
@@ -509,6 +527,7 @@ export default function CoursesView_Enhanced() {
               <span className="font-mono font-semibold">{selectedSubject.code || "NO CODE"}</span>
               <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
               <span>{selectedSubject.credits ?? 0} credits</span>
+              <span className="text-[10px] text-zinc-600 font-medium hidden sm:inline">(hover avatar to change color)</span>
             </div>
           </div>
         </div>
@@ -670,22 +689,52 @@ export default function CoursesView_Enhanced() {
                 <EmptyGrades />
               ) : (
                 <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {selectedSubject.grades && selectedSubject.grades.length > 0 && (
+                    <div className="flex items-center justify-between px-2 py-3 mb-2 border-b border-zinc-800">
+                      <span className="text-xs text-zinc-500 uppercase tracking-wider font-bold">Average</span>
+                      <span className="font-mono font-bold text-emerald-400 text-lg">
+                        {gpa}%
+                        <span className="ml-2 text-xs font-normal text-zinc-500">
+                          ({selectedSubject.grades.length} {selectedSubject.grades.length === 1 ? 'entry' : 'entries'})
+                        </span>
+                      </span>
+                    </div>
+                  )}
                   {(selectedSubject.grades || []).map((g: any, i: number) => (
                     <div
                       key={g.id}
                       className="animate-in fade-in slide-in-from-right duration-300"
                       style={{ animationDelay: `${i * 30}ms` }}
                     >
-                      <FrostedMini className="flex justify-between items-center hover:bg-zinc-800 hover:scale-[1.02] min-h-[72px] md:min-h-[80px]">
+                      <FrostedMini className="flex justify-between items-center hover:bg-zinc-800 hover:scale-[1.02] min-h-[72px] md:min-h-[80px] group">
                         <div>
                           <div className="font-bold text-sm md:text-base mb-1">{g.type}</div>
                           <div className="text-xs text-zinc-500 uppercase tracking-wider font-mono">{g.date}</div>
                         </div>
-                        <div className="text-xl md:text-2xl font-mono font-bold tabular-nums">
-                          {g.score}<span className="text-zinc-500 text-base md:text-lg">/{g.maxScore}</span>
-                          <span className="text-xs md:text-sm text-emerald-400 ml-2 md:ml-3 bg-emerald-500/10 px-2 md:px-3 py-1 md:py-1.5 rounded-xl">
-                            {((g.score / g.maxScore) * 100).toFixed(0)}%
-                          </span>
+                        <div className="flex items-center gap-3">
+                          <div className="text-xl md:text-2xl font-mono font-bold tabular-nums">
+                            {g.score}<span className="text-zinc-500 text-base md:text-lg">/{g.maxScore}</span>
+                            <span className={`text-xs md:text-sm ml-2 md:ml-3 px-2 md:px-3 py-1 md:py-1.5 rounded-xl ${
+                              (g.score / g.maxScore) >= 0.75
+                                ? 'text-emerald-400 bg-emerald-500/10'
+                                : (g.score / g.maxScore) >= 0.5
+                                  ? 'text-amber-400 bg-amber-500/10'
+                                  : 'text-red-400 bg-red-500/10'
+                            }`}>
+                              {((g.score / g.maxScore) * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                          <button
+                            onClick={async () => {
+                              await db.subjects.update(selectedSubject.id!, {
+                                grades: (selectedSubject.grades || []).filter((x: any) => x.id !== g.id),
+                              });
+                              toast.success('Grade removed');
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-500/10 rounded-xl transition-all min-h-[40px] min-w-[40px] flex items-center justify-center"
+                          >
+                            <Trash2 size={15} className="text-red-400" />
+                          </button>
                         </div>
                       </FrostedMini>
                     </div>
@@ -938,9 +987,32 @@ export default function CoursesView_Enhanced() {
           <EmptyCourses />
         )
       ) : (
-        <div className="grid md:grid-cols-2 gap-6 md:gap-8">
+        <>
+          {/* ── Aggregate GPA Banner ──────────────────────────────────────── */}
+          {(() => {
+            const withGrades = filtered.filter(s => s.grades && s.grades.length > 0);
+            if (withGrades.length < 2) return null;
+            const { weightedSum, totalCredits } = withGrades.reduce((acc, s) => {
+              const credits = s.credits ?? 1;
+              const avg = s.grades!.reduce((sum: number, g: any) => sum + (g.score / g.maxScore) * 100, 0) / s.grades!.length;
+              return { weightedSum: acc.weightedSum + avg * credits, totalCredits: acc.totalCredits + credits };
+            }, { weightedSum: 0, totalCredits: 0 });
+            const weightedGPA = (weightedSum / totalCredits).toFixed(1);
+            const color = parseFloat(weightedGPA) >= 75 ? 'emerald' : parseFloat(weightedGPA) >= 55 ? 'amber' : 'rose';
+            return (
+              <div className={`mb-6 p-4 md:p-5 rounded-2xl border flex items-center justify-between animate-in fade-in
+                ${color === 'emerald' ? 'bg-emerald-500/5 border-emerald-500/20' : color === 'amber' ? 'bg-amber-500/5 border-amber-500/20' : 'bg-rose-500/5 border-rose-500/20'}`}>
+                <div>
+                  <div className="text-xs uppercase tracking-wider font-bold text-zinc-400 mb-0.5">Overall Weighted GPA</div>
+                  <div className="text-xs text-zinc-500">{withGrades.length} of {filtered.length} subjects graded · {totalCredits} credit{totalCredits !== 1 ? 's' : ''} weighted</div>
+                </div>
+                <div className={`text-4xl font-bold font-mono tabular-nums ${color === 'emerald' ? 'text-emerald-400' : color === 'amber' ? 'text-amber-400' : 'text-rose-400'}`}>{weightedGPA}%</div>
+              </div>
+            );
+          })()}
+          <div className="grid md:grid-cols-2 gap-6 md:gap-8">
           {filtered.map((s, i) => {
-            const subjectColor = getSubjectColor(s.id!);
+            const subjectColor = getSubjectColor(s.id!, s.colorIndex);
             const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
             const progress = computeProgress(s);
             const gpa = calculateGPA(s.grades || []);
@@ -1019,7 +1091,8 @@ export default function CoursesView_Enhanced() {
               </FrostedTile>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

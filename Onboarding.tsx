@@ -6,6 +6,14 @@ import { X, Zap, Calendar, BookOpen, Target, ChevronRight, ChevronLeft, Check, A
 import { SpaceBackground } from "./SpaceBackground";
 import { useToast } from "./Toast";
 
+// Local onboarding-only form type — maps to Project on save
+interface OnboardingProject {
+  id?: number;
+  name: string;
+  progression: number;           // 0–100, converted to completedEffortMinutes on save
+  effort: 'low' | 'med' | 'high'; // converted to priority on save
+}
+
 // Progress indicator removed
 
 // Utility functions for backup import/export
@@ -22,7 +30,7 @@ export const exportBackup = async () => {
     const data = {
       version: "2.0",
       timestamp: Date.now(),
-      // ALL 10 database tables — nothing omitted
+      // ALL 11 database tables — nothing omitted
       semesters: await db.semesters.toArray(),
       subjects: await db.subjects.toArray(),
       projects: await db.projects.toArray(),
@@ -33,6 +41,7 @@ export const exportBackup = async () => {
       topics: await db.topics.toArray(),
       blockOutcomes: await db.blockOutcomes.toArray(),
       studyBlocks: await db.studyBlocks.toArray(),
+      exams: await db.exams.toArray(),
       // localStorage settings
       localStorage: localStorageData,
     };
@@ -56,8 +65,6 @@ export const importBackup = async (file: File): Promise<{ success: boolean; mess
   try {
     const text = await file.text();
     const data = JSON.parse(text);
-
-    console.log('Import backup data:', data);
 
     // Helper: restore localStorage keys from backup
     const restoreLocalStorage = (lsData: Record<string, string> | undefined) => {
@@ -115,14 +122,14 @@ export const importBackup = async (file: File): Promise<{ success: boolean; mess
       await db.transaction('rw', [
         db.semesters, db.subjects, db.projects, db.schedule,
         db.plans, db.logs, db.assignments, db.topics,
-        db.blockOutcomes, db.studyBlocks
+        db.blockOutcomes, db.studyBlocks, db.exams
       ], async () => {
         // Clear ALL tables
         await Promise.all([
           db.semesters.clear(), db.subjects.clear(), db.projects.clear(),
           db.schedule.clear(), db.plans.clear(), db.logs.clear(),
           db.assignments.clear(), db.topics.clear(),
-          db.blockOutcomes.clear(), db.studyBlocks.clear()
+          db.blockOutcomes.clear(), db.studyBlocks.clear(), db.exams.clear()
         ]);
 
         // Restore ALL tables
@@ -136,6 +143,7 @@ export const importBackup = async (file: File): Promise<{ success: boolean; mess
         if (data.topics?.length) await db.topics.bulkAdd(data.topics);
         if (data.blockOutcomes?.length) await db.blockOutcomes.bulkAdd(data.blockOutcomes);
         if (data.studyBlocks?.length) await db.studyBlocks.bulkAdd(data.studyBlocks);
+        if (data.exams?.length) await db.exams.bulkAdd(data.exams);
       });
 
       // Restore localStorage if present (v2.0+)
@@ -399,8 +407,8 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   const [semester, setSemester] = useState<Semester>({ name: "", major: "", startDate: "", endDate: "" });
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [newSubject, setNewSubject] = useState<Subject>({ name: "", code: "", credits: 3, difficulty: 3 });
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [newProject, setNewProject] = useState<Project>({ name: "", progression: 0, effort: 'med' });
+  const [projects, setProjects] = useState<OnboardingProject[]>([]);
+  const [newProject, setNewProject] = useState<OnboardingProject>({ name: "", progression: 0, effort: 'med' });
 
   // Timetable State
   const [timetable, setTimetable] = useState<number[][]>(Array(7).fill(0).map(() => Array(8).fill(0)));
@@ -580,8 +588,19 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
         }
 
         for (const p of projects) {
-          const { id, ...data } = p;
-          await db.projects.add(data as Project);
+          const effortToMinutes = { low: 60, med: 180, high: 360 };
+          const effortToPriority: Record<string, Project['priority']> = { low: 'low', med: 'normal', high: 'high' };
+          const totalMinutes = effortToMinutes[p.effort] ?? 180;
+          const completedMinutes = Math.round((p.progression / 100) * totalMinutes);
+          const projectData: Omit<Project, 'id'> = {
+            name: p.name,
+            subjectId: 0,
+            totalEffortMinutes: totalMinutes,
+            completedEffortMinutes: completedMinutes,
+            priority: effortToPriority[p.effort] ?? 'normal',
+            completed: p.progression >= 100,
+          };
+          await db.projects.add(projectData);
         }
 
         const scheduleSlots: any[] = [];

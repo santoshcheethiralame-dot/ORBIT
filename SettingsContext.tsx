@@ -100,6 +100,27 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 const STORAGE_KEY = 'orbit-settings-v2';
 
+// Deep-merge two objects: default values are used for any key missing in `override`.
+// Only plain objects are recursed into — primitives and arrays are taken from `override`.
+function deepMerge<T extends Record<string, any>>(defaults: T, override: Partial<T>): T {
+  const result: any = { ...defaults };
+  for (const key of Object.keys(defaults) as (keyof T)[]) {
+    const d = defaults[key];
+    const o = override[key];
+    if (o === undefined) {
+      result[key] = d; // missing in saved data → use default
+    } else if (
+      typeof d === 'object' && d !== null && !Array.isArray(d) &&
+      typeof o === 'object' && o !== null && !Array.isArray(o)
+    ) {
+      result[key] = deepMerge(d as Record<string, any>, o as Record<string, any>);
+    } else {
+      result[key] = o;
+    }
+  }
+  return result as T;
+}
+
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const toast = useToast();
@@ -110,7 +131,9 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+        // Deep merge: ensures any new keys added to DEFAULT_SETTINGS survive
+        // when loading an older saved object that doesn't have them yet.
+        setSettings(deepMerge(DEFAULT_SETTINGS, parsed) as AppSettings);
       }
 
       // Check actual notification permission
@@ -137,6 +160,22 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       console.error('Failed to save settings:', err);
     }
   }, [settings]);
+
+  // Apply theme + compact mode to <html> element whenever they change
+  useEffect(() => {
+    const html = document.documentElement;
+    const theme = settings.display?.theme ?? 'dark';
+    if (theme === 'dark') {
+      html.removeAttribute('data-theme');
+    } else {
+      html.setAttribute('data-theme', theme);
+    }
+    if (settings.display?.compactMode) {
+      html.setAttribute('data-compact', 'true');
+    } else {
+      html.removeAttribute('data-compact');
+    }
+  }, [settings.display?.theme, settings.display?.compactMode]);
 
   const updateSetting = (path: string, value: any) => {
     setSettings(prev => {

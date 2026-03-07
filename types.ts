@@ -52,6 +52,7 @@ export interface Subject {
   resources?: Resource[];
   grades?: Grade[];
   color?: string;
+  colorIndex?: number;   // User-selected palette index (0–5). Overrides auto-assignment.
   notes?: string;
   createdAt?: string;
 }
@@ -174,6 +175,9 @@ export interface StudyTopic {
   easeFactor: number;
   reviewCount: number;
   comprehensionHistory: number[];
+  // Flashcard fields (optional — topics created before this field are question-less)
+  question?: string;   // The prompt/front of the flashcard
+  answer?: string;     // The revealed answer/back of the flashcard
 }
 
 export interface StudyLog {
