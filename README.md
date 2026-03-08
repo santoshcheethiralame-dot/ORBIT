@@ -6,11 +6,6 @@
 
 Orbit is not just a todo list. It is a **focus engine** designed to maximize deep work, enforce rest, and adapt to your energy levels. It uses a triple-brain AI architecture to plan your day, predict burnouts, and guide you through complex subjects.
 
-## 🚀 New in v3.2
-- **AI Insight Banner**: Personalized daily coaching messages powered by OpenRouter — warns of decay, suggests quick wins, and motivates based on real session patterns.
-- **Typewriter UI**: Insights render with a typewriter effect and session-level caching so they don't re-fetch on every render.
-- **Exam & Settings Tables**: DB upgraded to v11 with dedicated `exams` and `settings` tables for persistent user preferences and exam schedule tracking.
-
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![100% Local](https://img.shields.io/badge/100%25-Local--First-00C853?style=flat-square&logo=database)](/)
@@ -18,6 +13,43 @@ Orbit is not just a todo list. It is a **focus engine** designed to maximize dee
 
 [Try Demo](#-quick-start) • [Features](#-what-makes-orbit-different) • [How It Works](./BRAIN.md) • [Install](#-installation)
 
+---
+
+</div>
+
+## 🚀 New in v3.2
+- **AI Insight Banner**: Personalized daily coaching messages powered by OpenRouter — warns of decay, suggests quick wins, and motivates based on real session patterns.
+- **Typewriter UI**: Insights render with a typewriter effect and session-level caching so they don't re-fetch on every render.
+- **Exam & Settings Tables**: DB upgraded to v11 with dedicated `exams` and `settings` tables for persistent user preferences and exam schedule tracking.
+
+## ✨ What's New in v3.1
+- **Mechanical Flip Clock**: A hyper-realistic 3D flip timer for focus sessions with sub-millisecond precision.
+- **AI Study Assistant**: A spring-animated, GPU-accelerated modal for instant study guidance and topic breakdown.
+- **Fluid UI Core**: Global smooth scrolling, optimized transitions, and enhanced light/dark mode fluidity.
+- **Data Hardening**: Robust local persistence with snapshot recovery and multi-tab synchronization.
+
+## ✨ What's New in v3.0
+
+### 🧠 Triple-Brain AI System
+Orbit uses **three integrated intelligence layers** that work together:
+
+1. **Core Brain** - Readiness calculations & priority-based planning
+2. **Enhanced Integration** - Performance tracking, energy management, quality ratings
+3. **Research-Grade** - Probabilistic models & formal optimization algorithms
+
+**Adaptive Strategy Selection:**
+- **New users (< 5 days)**: Research-grade algorithms with smart defaults
+- **Active users (5-30 days)**: Enhanced performance-based adjustments
+- **Power users (30+ days)**: Full hybrid optimization with ML feedback
+
+### 🎯 Features Added in v3.0
+- ✅ **Import/Export Backup System** - Seamless device switching
+- ✅ **Confidence Scoring** - See how confident the AI is in your plan (70–95%)
+- ✅ **Performance Adjustments** - Block durations auto-tune based on your history
+- ✅ **Comprehensive Load Analysis** - Burnout risk, interleaving, energy budgets
+- ✅ **Quality Rating System** - Rate session quality (1–5 scale) for better predictions
+
+---
 
 ## 🎨 What Makes Orbit Different
 
@@ -79,8 +111,8 @@ npm install && npm run dev
 
 **First Session:**
 1. Add subjects (Courses tab)
-2. Calibrate your day (Dashboard - Set context: energy/mood)
-3. Start a focus session (Pick a mission - Focus)
+2. Calibrate your day (Dashboard → Set context: energy/mood)
+3. Start a focus session (Pick a mission → Focus)
 4. Rate your session quality (helps the AI learn)
 
 That's it. No tutorials. No setup hell.
@@ -98,7 +130,7 @@ That's it. No tutorials. No setup hell.
 | **Focus Session Protocol** | Distraction-free, full-screen study mode | Preserves flow state, tracks quality |
 | **Performance Tracking** | Quality ratings & completion analytics | AI tunes block sizes to your patterns |
 | **Spaced Repetition** | Ebbinghaus curve-based review scheduling | Actually retain what you learn |
-| **AI Study Assistant** | Claude/OpenRouter-powered concept clarification | Get unstuck instantly |
+| **AI Study Assistant** | OpenRouter-powered concept clarification | Get unstuck instantly |
 | **Analytics Dashboard** | Focus scores, streaks, subject heatmaps | See patterns, adjust strategy |
 | **Import/Export** | Backup/restore your entire study history | Never lose your data |
 
@@ -114,15 +146,15 @@ graph TD
     B -->|< 5 days| C[Research-Grade Brain]
     B -->|5-30 days| D[Enhanced Brain]
     B -->|30+ days| E[Hybrid Brain]
-    
+
     C --> F[Smart Defaults]
     D --> G[Performance Tuning]
     E --> H[Full Optimization]
-    
+
     F --> I[Your Daily Plan]
     G --> I
     H --> I
-    
+
     I --> J[Study Sessions]
     J --> K[Quality Ratings]
     K --> L[Performance Data]
@@ -140,7 +172,7 @@ graph TD
 
 ## 🛠️ Built With
 
-```typescript
+```
 Frontend:    React 19 + TypeScript 5.8
 Database:    Dexie.js (IndexedDB wrapper) — v11 schema
 Styling:     Tailwind CSS
@@ -150,10 +182,10 @@ Brain:       Custom algorithms + research-grade models
 ```
 
 **Why Local-First?**
-- ⚡ **Instant** - 0ms latency on every action
-- 🔒 **Private** - Your study patterns stay on your device
-- 💰 **Free** - No subscriptions, no cloud costs
-- ✈️ **Offline** - Works on planes, trains, no WiFi needed
+- ⚡ **Instant** — 0ms latency on every action
+- 🔒 **Private** — Your study patterns stay on your device
+- 💰 **Free** — No subscriptions, no cloud costs
+- ✈️ **Offline** — Works on planes, trains, no WiFi needed
 
 ---
 
@@ -171,27 +203,27 @@ Brain:       Custom algorithms + research-grade models
 ## 💡 Why Blocks Instead of Time Slots?
 
 Traditional planners force you into rigid time slots:
-- ❌ "Study Math 2-4 PM" - What if you're tired at 2 PM?
-- ❌ "Review Physics Monday" - What if there's a surprise quiz Tuesday?
-- ❌ "30 min per subject" - What if you need 60 min for hard topics?
+- ❌ "Study Math 2–4 PM" — What if you're tired at 2 PM?
+- ❌ "Review Physics Monday" — What if there's a surprise quiz Tuesday?
+- ❌ "30 min per subject" — What if you need 60 min for hard topics?
 
 **Orbit uses "Study Blocks" instead:**
 - ✅ **Context-Aware**: Generated fresh each day based on YOUR energy
 - ✅ **Priority-Driven**: Most urgent subjects get scheduled first
 - ✅ **Adaptive Sizing**: Block duration matches subject difficulty + your performance
-- ✅ **Displacement Logic**: When time runs out, least critical blocks get displaced (not forgotten — just postponed)
+- ✅ **Displacement Logic**: When time runs out, least critical blocks are postponed — not forgotten
 
 **Example:**
 ```
 Morning (High Energy):
-  Block 1: Physics (Hard) - 45 min
-  Block 2: Math (Hard) - 45 min
+  Block 1: Physics (Hard)     — 45 min
+  Block 2: Math (Hard)        — 45 min
 
-Afternoon (Normal Energy):  
-  Block 3: Chemistry (Medium) - 60 min
+Afternoon (Normal Energy):
+  Block 3: Chemistry (Medium) — 60 min
 
 Evening (Low Energy):
-  Block 4: History (Easy) - 30 min
+  Block 4: History (Easy)     — 30 min
   [Economics displaced to tomorrow — ran out of time]
 ```
 
@@ -203,17 +235,17 @@ Evening (Low Energy):
 
 Orbit learns from every session:
 
-```typescript
+```
 After Each Focus Session:
-1. Did you complete it? (Completion Rate)
-2. How hard was it? (Quality Rating 1-5)
-3. How long did it actually take?
+  1. Did you complete it?   → Completion Rate
+  2. How hard was it?       → Quality Rating 1–5
+  3. How long did it take?  → Actual Duration
 
 The Brain Learns:
-- If you consistently quit early -> Reduce block size
-- If you finish with time to spare -> Increase duration  
-- If quality is low -> Schedule during peak energy
-- If quality is high -> Maintain or extend
+  Consistently quit early    → Reduce block size
+  Finish with time to spare  → Increase duration
+  Low quality rating         → Schedule during peak energy
+  High quality rating        → Maintain or extend
 ```
 
 ---

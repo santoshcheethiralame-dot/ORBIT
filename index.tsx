@@ -38,7 +38,7 @@ import { Dashboard } from "./Dashboard";
 import { FocusSession } from "./FocusSession";
 import CoursesView from "./Courses";
 import ProjectsView from "./ProjectsView";
-import ScheduleView from "./ScheduleView";
+import ScheduleView from "./ScheduleVIew";
 import { StatsView } from "./Stats";
 import { ReviewQueueView } from "./SpacedRepetition";
 import { SpaceBackground } from "./SpaceBackground";
