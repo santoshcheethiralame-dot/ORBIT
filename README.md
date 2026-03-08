@@ -11,12 +11,6 @@ Orbit is not just a todo list. It is a **focus engine** designed to maximize dee
 - **Typewriter UI**: Insights render with a typewriter effect and session-level caching so they don't re-fetch on every render.
 - **Exam & Settings Tables**: DB upgraded to v11 with dedicated `exams` and `settings` tables for persistent user preferences and exam schedule tracking.
 
-## ✨ What's New in v3.1
-- **Mechanical Flip Clock**: A hyper-realistic 3D flip timer for focus sessions with sub-millisecond precision.
-- **AI Study Assistant**: A spring-animated, GPU-accelerated modal for instant study guidance and topic breakdown.
-- **Fluid UI Core**: Global smooth scrolling, optimized transitions, and enhanced light/dark mode fluidity.
-- **Data Hardening**: Robust local persistence with snapshot recovery and multi-tab synchronization.
-
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![100% Local](https://img.shields.io/badge/100%25-Local--First-00C853?style=flat-square&logo=database)](/)
@@ -24,32 +18,6 @@ Orbit is not just a todo list. It is a **focus engine** designed to maximize dee
 
 [Try Demo](#-quick-start) • [Features](#-what-makes-orbit-different) • [How It Works](./BRAIN.md) • [Install](#-installation)
 
----
-
-</div>
-
-## ✨ What's New in v3.0
-
-### 🧠 Triple-Brain AI System
-Orbit uses **three integrated intelligence layers** that work together:
-
-1. **Core Brain** - Readiness calculations & priority-based planning
-2. **Enhanced Integration** - Performance tracking, energy management, quality ratings  
-3. **Research-Grade** - Probabilistic models & formal optimization algorithms
-
-**Adaptive Strategy Selection:**
-- **New users (< 5 days)**: Research-grade algorithms with smart defaults
-- **Active users (5-30 days)**: Enhanced performance-based adjustments
-- **Power users (30+ days)**: Full hybrid optimization with ML feedback
-
-### 🎯 New Features
-- ✅ **Import/Export Backup System** - Seamless device switching
-- ✅ **Confidence Scoring** - See how confident the AI is in your plan (70-95%)
-- ✅ **Performance Adjustments** - Block durations auto-tune based on your history
-- ✅ **Comprehensive Load Analysis** - Burnout risk, interleaving, energy budgets
-- ✅ **Quality Rating System** - Rate session quality (1-5 scale) for better predictions
-
----
 
 ## 🎨 What Makes Orbit Different
 
