@@ -11,10 +11,11 @@ import {
   BurnoutSignals,
   InterleavingAnalysis,
   DailyPlan,
-  EnhancedLoadAnalysis
+  EnhancedLoadAnalysis,
+  SubjectReadiness
 } from "./types";
 import { getISTEffectiveDate } from "./utils/time";
-import { generateDailyPlan as originalGeneratePlan, analyzeLoad as coreAnalyzeLoad, SubjectReadiness } from "./brain";
+import { generateDailyPlan as originalGeneratePlan, analyzeLoad as coreAnalyzeLoad } from "./brain";
 
 /* ======================================================
   QUALITY RATING OPTIONS & HELPERS
@@ -146,22 +147,22 @@ export function validateEnergyBudget(
 } {
   const profile = getEnergyProfile();
   const subjectMap = new Map(subjects.map(s => [s.id!, s]));
-  
+
   // Calculate total available energy (simplified: average across day)
   const avgEnergy = (profile.morning + profile.afternoon + profile.evening + profile.night) / 4;
   const budget = avgEnergy * 3; // Budget in "energy points"
-  
+
   // Calculate allocated energy
   let allocated = 0;
   blocks.forEach(block => {
     const subject = subjectMap.get(block.subjectId);
     if (!subject) return;
-    
+
     // Energy cost = duration × difficulty factor
     const difficultyCost = 1 + ((subject.difficulty - 1) * 0.25);
     allocated += block.duration * difficultyCost;
   });
-  
+
   return {
     budget,
     allocated,
@@ -265,20 +266,20 @@ export async function getSubjectPerformance(
 
     const completedOutcomes = outcomes.filter(o => o.completed);
     const skippedOutcomes = outcomes.filter(o => o.skipped);
-    
+
     const avgCompletionRate = completedOutcomes.length / outcomes.length;
     const skipRate = skippedOutcomes.length / outcomes.length;
-    
+
     const avgQuality =
       completedOutcomes.length > 0
         ? completedOutcomes.reduce((sum, o) => sum + o.completionQuality, 0) /
-          completedOutcomes.length
+        completedOutcomes.length
         : 3;
-        
+
     const avgActualDuration =
       completedOutcomes.length > 0
         ? completedOutcomes.reduce((sum, o) => sum + o.actualDuration, 0) /
-          completedOutcomes.length
+        completedOutcomes.length
         : 45;
 
     // Calculate recent trend (last 7 days vs previous 7 days)
@@ -329,7 +330,7 @@ function calculateQualityTrend(
 
   // Sort by timestamp
   const sorted = outcomes.sort((a, b) => a.timestamp - b.timestamp);
-  
+
   // Split into two halves
   const midpoint = Math.floor(sorted.length / 2);
   const firstHalf = sorted.slice(0, midpoint);
@@ -384,7 +385,7 @@ export async function detectBurnout(
 
     const skipped = outcomes.filter(o => o.skipped).length;
     const skipRate = skipped / outcomes.length;
-    
+
     const lowQuality = outcomes.filter(o => o.completed && o.completionQuality <= 2).length;
     const lowQualityRate = outcomes.filter(o => o.completed).length > 0
       ? lowQuality / outcomes.filter(o => o.completed).length
@@ -394,7 +395,7 @@ export async function detectBurnout(
     let score = 0;
     score += skipRate * 50; // Skipping is a major indicator
     score += lowQualityRate * 30; // Low quality work
-    
+
     // Check for consecutive skipped days
     const dateMap = new Map<string, BlockOutcome[]>();
     outcomes.forEach(o => {
@@ -403,15 +404,15 @@ export async function detectBurnout(
       }
       dateMap.get(o.date)!.push(o);
     });
-    
+
     let consecutiveSkipDays = 0;
     let maxConsecutiveSkips = 0;
     const sortedDates = Array.from(dateMap.keys()).sort();
-    
+
     sortedDates.forEach(date => {
       const dayOutcomes = dateMap.get(date)!;
       const allSkipped = dayOutcomes.every(o => o.skipped);
-      
+
       if (allSkipped) {
         consecutiveSkipDays++;
         maxConsecutiveSkips = Math.max(maxConsecutiveSkips, consecutiveSkipDays);
@@ -419,12 +420,12 @@ export async function detectBurnout(
         consecutiveSkipDays = 0;
       }
     });
-    
+
     score += maxConsecutiveSkips * 10;
     score = Math.min(100, Math.round(score));
 
     const atRisk = score >= 50;
-    
+
     let recommendation = "";
     if (atRisk) {
       if (skipRate > 0.5) {
@@ -553,18 +554,18 @@ export function applyInterleaving(blocks: StudyBlock[]): StudyBlock[] {
   // Interleave: alternate between subjects
   const result: StudyBlock[] = [];
   const subjects = Array.from(bySubject.keys());
-  
+
   let subjectIndex = 0;
   while (result.length < blocks.length) {
     const currentSubject = subjects[subjectIndex % subjects.length];
     const subjectBlocks = bySubject.get(currentSubject)!;
-    
+
     if (subjectBlocks.length > 0) {
       result.push(subjectBlocks.shift()!);
     }
-    
+
     subjectIndex++;
-    
+
     // Remove empty subjects
     if (subjectBlocks.length === 0) {
       bySubject.delete(currentSubject);
@@ -598,7 +599,7 @@ export async function generateEnhancedPlan(
 }> {
   // Generate base plan
   const basePlan = await originalGeneratePlan(context, dbInstance);
-  
+
   let blocks = basePlan.blocks;
   const performanceAdjustments: Array<{
     subjectId: number;
@@ -611,11 +612,11 @@ export async function generateEnhancedPlan(
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
     const performance = await getSubjectPerformance(block.subjectId, 30, dbInstance);
-    
+
     if (performance.totalSessions >= 3) {
       const oldDuration = block.duration;
       let newDuration = oldDuration;
-      
+
       // Adjust based on quality
       if (performance.avgQuality >= 4 && performance.skipRate < 0.2) {
         // High performer - can handle slightly longer
@@ -624,12 +625,12 @@ export async function generateEnhancedPlan(
         // Struggling - reduce duration
         newDuration = Math.max(oldDuration - 15, 20);
       }
-      
+
       if (newDuration !== oldDuration) {
         blocks[i] = { ...block, duration: newDuration };
         performanceAdjustments.push({
           subjectId: block.subjectId,
-          reason: performance.avgQuality <= 2 
+          reason: performance.avgQuality <= 2
             ? `Low quality sessions (${performance.avgQuality.toFixed(1)}/5) — reduced duration`
             : `High performance (${performance.avgQuality.toFixed(1)}/5) — increased duration`,
           oldDuration,
@@ -686,7 +687,7 @@ export async function getDashboardInsights(
   try {
     const subjects = await dbInstance.subjects.toArray();
     const burnout = await detectBurnout(7, dbInstance);
-    
+
     // Get performance for all subjects
     const performances = await Promise.all(
       subjects.map(async s => ({
@@ -698,7 +699,7 @@ export async function getDashboardInsights(
 
     // Filter subjects with enough data
     const withData = performances.filter(p => p.performance.totalSessions >= 3);
-    
+
     // Top performers (high quality, low skip rate)
     const topPerformers = withData
       .filter(p => p.performance.avgQuality >= 4 && p.performance.skipRate < 0.3)
@@ -731,7 +732,7 @@ export async function getDashboardInsights(
       .where("timestamp")
       .above(thisWeekCutoff.getTime())
       .toArray();
-    
+
     const lastWeekOutcomes = await dbInstance.blockOutcomes
       .where("timestamp")
       .between(lastWeekCutoff.getTime(), thisWeekCutoff.getTime())
@@ -740,11 +741,11 @@ export async function getDashboardInsights(
     const totalMinutes = thisWeekOutcomes.reduce((sum, o) => sum + o.actualDuration, 0);
     const avgQualityThisWeek = thisWeekOutcomes.filter(o => o.completed).length > 0
       ? thisWeekOutcomes.filter(o => o.completed).reduce((sum, o) => sum + o.completionQuality, 0) /
-        thisWeekOutcomes.filter(o => o.completed).length
+      thisWeekOutcomes.filter(o => o.completed).length
       : 0;
     const avgQualityLastWeek = lastWeekOutcomes.filter(o => o.completed).length > 0
       ? lastWeekOutcomes.filter(o => o.completed).reduce((sum, o) => sum + o.completionQuality, 0) /
-        lastWeekOutcomes.filter(o => o.completed).length
+      lastWeekOutcomes.filter(o => o.completed).length
       : 0;
 
     return {
@@ -815,9 +816,9 @@ export async function getQualityDistribution(
       .toArray();
 
     const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    
+
     outcomes.forEach(outcome => {
-      distribution[outcome.completionQuality] = 
+      distribution[outcome.completionQuality] =
         (distribution[outcome.completionQuality] || 0) + 1;
     });
 
@@ -852,11 +853,11 @@ export async function getStudyStreak(
     }
 
     const dates = [...new Set(outcomes.map(o => o.date))].sort();
-    
+
     let currentStreak = 0;
     let longestStreak = 0;
     let tempStreak = 1;
-    
+
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
@@ -866,7 +867,7 @@ export async function getStudyStreak(
         const currentDate = new Date(dates[i + 1]);
         const previousDate = new Date(dates[i]);
         const diffDays = Math.floor((currentDate.getTime() - previousDate.getTime()) / 86400000);
-        
+
         if (diffDays === 1) {
           currentStreak++;
         } else {
@@ -879,7 +880,7 @@ export async function getStudyStreak(
       const currentDate = new Date(dates[i]);
       const previousDate = new Date(dates[i - 1]);
       const diffDays = Math.floor((currentDate.getTime() - previousDate.getTime()) / 86400000);
-      
+
       if (diffDays === 1) {
         tempStreak++;
         longestStreak = Math.max(longestStreak, tempStreak);
@@ -955,7 +956,7 @@ export async function getAllTimeStats(
 
     const completedOutcomes = allOutcomes.filter(o => o.completed);
     const totalMinutes = completedOutcomes.reduce((sum, o) => sum + o.actualDuration, 0);
-    const avgQuality = 
+    const avgQuality =
       completedOutcomes.length > 0
         ? completedOutcomes.reduce((sum, o) => sum + o.completionQuality, 0) / completedOutcomes.length
         : 0;
@@ -988,36 +989,36 @@ export default {
   getQualityRatingByValue,
   getQualityEmoji,
   getQualityColor,
-  
+
   // Energy Management
   getEnergyProfile,
   saveEnergyProfile,
   validateEnergyBudget,
-  
+
   // Recording Outcomes
   recordBlockOutcome,
-  
+
   // Performance Analytics
   getSubjectPerformance,
   getRecentOutcomes,
   getQualityDistribution,
-  
+
   // Burnout & Wellness
   detectBurnout,
-  
+
   // Interleaving
   analyzeInterleaving,
   applyInterleaving,
-  
+
   // Enhanced Planning
   generateEnhancedPlan,
-  
+
   // Dashboard
   getDashboardInsights,
-  
+
   // Streaks & Consistency
   getStudyStreak,
-  
+
   // Utilities
   deleteOldOutcomes,
   getAllTimeStats,

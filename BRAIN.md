@@ -1,15 +1,17 @@
-# 🧠 The BRAIN (v3.1)
+# 🧠 The BRAIN (v3.2)
 
 > **Technical Architecture & Cognitive Model of Orbit**
 
-This document details how Orbit "thinks." It explains the algorithms, data structures, and decision-making heuristics used to generate schedules, predict burnouts, and manage energy.
+This document details how Orbit "thinks." It explains the algorithms, data structures, and decision-making heuristics used to generate schedules, predict burnouts, manage energy, and deliver personalized AI coaching.
 
 ## 🏗️ System Architecture
 
-Orbit v3.1 is built on a **Triple-Brain Architecture**:
+Orbit v3.2 is built on a **Triple-Brain Architecture** with a live AI coaching layer:
+
 1. **Macro Brain (Strategist)**: Looks at weeks/semesters. Handles long-term deadlines and project balancing.
 2. **Micro Brain (Tactician)**: Looks at *today*. Handles hourly scheduling, breaks, and immediate energy management.
 3. **Fluid Core (Renderer)**: Handles the sub-millisecond visual feedback loop (Flip Clock, Animations) to maintain flow state.
+4. **AI Insight Layer (Coach)**: OpenRouter-powered daily coaching that reads readiness scores and session history to surface personalized warnings, tips, and motivation.
 
 ---
 
@@ -17,13 +19,14 @@ Orbit v3.1 is built on a **Triple-Brain Architecture**:
 
 1. [Architecture Philosophy](#architecture-philosophy)
 2. [The Triple-Brain System (v3.0)](#the-triple-brain-system-v30)
-3. [Data Flow & Processing Pipeline](#data-flow--processing-pipeline)
-4. [The Displacement Algorithm](#the-displacement-algorithm)
-5. [Heuristic Scoring System](#heuristic-scoring-system)
-6. [Performance Tracking & Adaptation](#performance-tracking--adaptation)
-7. [Spaced Repetition Implementation](#spaced-repetition-implementation)
-8. [Database Schema](#database-schema)
-9. [API Reference](#api-reference)
+3. [AI Insight Banner (v3.2)](#ai-insight-banner-v32)
+4. [Data Flow & Processing Pipeline](#data-flow--processing-pipeline)
+5. [The Displacement Algorithm](#the-displacement-algorithm)
+6. [Heuristic Scoring System](#heuristic-scoring-system)
+7. [Performance Tracking & Adaptation](#performance-tracking--adaptation)
+8. [Spaced Repetition Implementation](#spaced-repetition-implementation)
+9. [Database Schema](#database-schema)
+10. [API Reference](#api-reference)
 
 ---
 
@@ -60,12 +63,17 @@ graph TD
     
     Output --> UI[User Interface]
     Output --> DB
+
+    DB -->|Readiness + Logs| Insight[AI Insight Banner]
+    Insight -->|OpenRouter API| Coach[Daily Coaching Card]
+    Coach --> UI
 ```
 
 **Key Design Decisions:**
 - **No async in core algorithm**: All DB reads happen upfront
 - **Immutable data structures**: Plans are never mutated, only replaced
 - **Staged refinement**: Each layer adds intelligence without breaking previous stages
+- **Session-cached insights**: OpenRouter responses are cached in `sessionStorage` to avoid redundant API calls
 
 ---
 
@@ -164,6 +172,58 @@ When you have sufficient data, all three layers work together:
 
 ---
 
+## AI Insight Banner (v3.2)
+
+The `AIInsightBanner` component adds a **live coaching layer** on top of the planning engine. It runs after the plan is rendered and provides one personalized sentence of guidance each session.
+
+### How It Works
+
+```
+db.subjects + db.logs
+        │
+        ▼
+getAllReadinessScores()
+        │
+        ▼
+generateInsight() → OpenRouter API (max 100 tokens)
+        │
+        ▼
+{ type: 'warning' | 'tip' | 'motivation', text, subject }
+        │
+        ▼
+Typewriter reveal → sessionStorage cache
+```
+
+### Insight Classification
+
+| Type | Trigger | Color |
+|------|---------|-------|
+| `warning` | Any subject readiness < 40% | Amber |
+| `tip` | Readiness 40–55%, actionable suggestion | Violet |
+| `motivation` | Strong readiness + 60+ min studied today | Emerald |
+
+### Prompt Engineering
+
+The OpenRouter prompt is deterministic given the same inputs and enforces strict constraints:
+
+```
+- Max 20 words
+- Name the weakest subject explicitly when warning
+- Suggest a concrete action when tipping
+- Never be generic
+- Return only valid JSON: { type, text, subject }
+```
+
+### Caching Strategy
+
+Insights are stored in `sessionStorage` under the key `orbit-ai-insight`. A new insight is only fetched when:
+- The page is first loaded (no cache hit)
+- The user manually taps the refresh button
+
+This avoids unnecessary API calls while keeping the insight relevant for the current study session.
+
+---
+
 ## Data Flow & Processing Pipeline
 
 ### Stage 1: Context Parsing
@@ -256,17 +316,14 @@ const generateUltimatePlan = async (context: DailyContext) => {
   let confidence: number;
   
   if (dataSpan < 5) {
-    // Use research-grade with smart defaults
     const plan = await generateResearchGradePlan(context);
     blocks = plan.blocks;
     confidence = 0.7;
   } else if (dataSpan < 30) {
-    // Use core brain + performance adjustments
     const corePlan = await generateDailyPlan(context);
     blocks = await applyPerformanceAdjustments(corePlan.blocks);
     confidence = 0.8;
   } else {
-    // Full hybrid: research + performance
     const researchPlan = await generateResearchGradePlan(context);
     blocks = await applyAggressiveAdjustments(researchPlan.blocks);
     confidence = 0.95;
@@ -279,106 +336,7 @@ const generateUltimatePlan = async (context: DailyContext) => {
     energyBudget: validateEnergyBudget(blocks),
     ...coreMetrics
   };
-  
-  return { blocks, loadAnalysis, confidence };
-};
 ```
-
----
-
-## The Displacement Algorithm
-
-### Core Concept: Bucket Overflow Management
-
-Traditional calendars "find slots." Orbit **fills a bucket until overflow**, then uses **priority hierarchy** to decide what stays.
-
-**Priority Tiers (Highest to Lowest):**
-```typescript
-enum BlockPriority {
-  EXAM_TODAY = 1000,         // Exam/ISA/ESA today
-  URGENT_ASSIGNMENT = 800,   // Due < 24h
-  SRS_DUE_TODAY = 700,       // Spaced repetition reviews
-  HIGH_DECAY = 600,          // Ignored > 5 days
-  MODERATE_DECAY = 400,      // Ignored 3-5 days
-  STANDARD_STUDY = 300,      // Regular subjects
-  OPTIONAL_READING = 100     // Background learning
-}
-```
-
-**Displacement Logic:**
-```typescript
-const displaceBlocks = (
-  blocks: StudyBlock[],
-  maxMinutes: number
-): StudyBlock[] => {
-  // Sort by priority (descending)
-  const sorted = [...blocks].sort((a, b) => b.priority - a.priority);
-  
-  const kept: StudyBlock[] = [];
-  const displaced: StudyBlock[] = [];
-  let usedMinutes = 0;
-  
-  for (const block of sorted) {
-    if (usedMinutes + block.duration <= maxMinutes) {
-      kept.push(block);
-      usedMinutes += block.duration;
-    } else {
-      displaced.push({
-        ...block,
-        reason: `Time budget exceeded (${usedMinutes}/${maxMinutes} min used)`
-      });
-    }
-  }
-  
-  console.log(`Kept ${kept.length}, Displaced ${displaced.length} blocks`);
-  
-  return kept;
-};
-```
-
-**Visual Example:**
-```
-Day Capacity: 300 minutes
-
-Initial Queue (by priority):
-1. Physics (EXAM_TODAY, 90min)      → KEPT (total: 90)
-2. Math (HIGH_DECAY, 60min)         → KEPT (total: 150)
-3. Chemistry (MODERATE_DECAY, 90min)→ KEPT (total: 240)
-4. History (STANDARD, 60min)        → KEPT (total: 300)
-5. Economics (OPTIONAL, 45min)      → DISPLACED (would exceed 300)
-
-Final Plan: 4 blocks, 300 minutes
-```
-
----
-
-## Heuristic Scoring System
-
-### Composite Priority Score Formula
-
-```typescript
-const calculateCompositePriority = (subject: EnrichedSubject): number => {
-  const weights = {
-    userPriority: 10,      // Manual overrides are king
-    decayScore: 5,         // Neglect matters
-    difficulty: 3,         // Harder = slight boost
-    avgQuality: -2         // High performers get less time
-  };
-  
-  return (
-    subject.priority * weights.userPriority +
-    subject.decayScore * weights.decayScore +
-    subject.difficulty * weights.difficulty +
-    (5 - subject.avgQualityRating) * weights.avgQuality
-  );
-};
-```
-
-**Why These Weights?**
-- **User Priority (10x)**: Respects manual overrides
-- **Decay (5x)**: Prevents long-term neglect
-- **Difficulty (3x)**: Harder subjects get slight boost
-- **Quality (-2x)**: Subjects you're crushing get less time
 
 ---
 
@@ -472,7 +430,6 @@ const enforceInterleaving = (blocks: StudyBlock[]): StudyBlock[] => {
     if (block.subjectId === lastSubjectId) {
       sameSubjectCount++;
       if (sameSubjectCount >= 2) {
-        // Find different subject to insert
         const different = blocks.find(b => 
           b.subjectId !== lastSubjectId && 
           !result.includes(b)
@@ -524,13 +481,11 @@ const updateSRS = (
     repetitions = 0;
     interval = 1; // Review tomorrow
   } else {
-    // Increase difficulty factor
     easeFactor = Math.min(2.5, 
       easeFactor + (0.1 * (comprehensionRating - 2))
     );
     repetitions++;
     
-    // Calculate next interval
     if (repetitions === 1) {
       interval = 1;
     } else if (repetitions === 2) {
@@ -551,37 +506,73 @@ const updateSRS = (
 
 ## Database Schema
 
-### Dexie.js Configuration
+### Dexie.js Configuration — v11
 
 ```typescript
 class OrbitDB extends Dexie {
-  semesters!: Table<Semester, number>;
-  subjects!: Table<Subject, number>;
-  projects!: Table<Project, number>;
-  schedule!: Table<ScheduleSlot, number>;
-  assignments!: Table<Assignment, string>;
-  plans!: Table<DailyPlan, string>;
-  logs!: Table<StudyLog, number>;
-  topics!: Table<StudyTopic, number>;
+  semesters!:     Table<Semester, number>;
+  subjects!:      Table<Subject, number>;
+  projects!:      Table<Project, number>;
+  schedule!:      Table<ScheduleSlot, number>;
+  assignments!:   Table<Assignment, string>;
+  plans!:         Table<DailyPlan, string>;
+  logs!:          Table<StudyLog, number>;       // study session logs
+  topics!:        Table<StudyTopic, number>;
   blockOutcomes!: Table<BlockOutcome, string>;
-  
+  studyBlocks!:   Table<StudyBlock, string>;
+  exams!:         Table<ExamEntry, number>;      // v10: ISA/ESA exam schedule
+  settings!:      Table<UserSettings, string>;   // v11: user preferences
+
   constructor() {
     super('OrbitDB');
-    
-    this.version(9).stores({
-      semesters: '++id',
-      subjects: '++id, name, code',
-      projects: '++id, subjectId',
-      schedule: '++id, day, slot',
-      assignments: 'id, subjectId, dueDate',
-      plans: 'date',
-      logs: '++id, timestamp, date, subjectId',
-      topics: '++id, subjectId, nextReview',
-      blockOutcomes: '++id, blockId, timestamp, date, completed'
+
+    // v11 (current) — full schema
+    this.version(11).stores({
+      semesters:     '++id',
+      subjects:      '++id, name, code',
+      projects:      '++id, subjectId',
+      schedule:      '++id, day, slot',
+      assignments:   'id, subjectId, dueDate, estimatedEffort, progressMinutes, completed',
+      plans:         'date',
+      logs:          '++id, timestamp, date, subjectId, type, topicId',
+      topics:        '++id, subjectId, name, nextReview',
+      blockOutcomes: '++id, blockId, subjectId, timestamp, date, completed, skipped, timeOfDay',
+      studyBlocks:   'id, date, completed, subjectId, type',
+      exams:         '++id, subjectId, examDate, examType, completed',
+      settings:      'key',   // single-row, key = "user"
     });
   }
 }
 ```
+
+### UserSettings Schema
+
+```typescript
+interface UserSettings {
+  key: string;                              // always "user"
+  weeklyTargetHours: number;               // default 7
+  activeSemesterId?: number;
+  subjectColors?: Record<number, string>;  // user-chosen hex per subject
+}
+```
+
+### Migration Safety
+
+Every version upgrade:
+1. Backs up affected tables before modifying them
+2. Applies schema changes inside a transaction
+3. Reverts to the backup and rethrows if any step fails
+
+---
+
+## 🛡️ Data Persistence
+
+To ensure **zero data loss**, Orbit implements a multi-layer safety net:
+
+1. **IndexedDB (Dexie v11)**: Primary transactional storage across all 12 tables.
+2. **LocalSnapshot**: Every 2 seconds of inactivity, the entire DB state is serialized to `localStorage` as a catastrophic recovery point.
+3. **BroadcastChannel**: Real-time state synchronization across multiple open tabs prevents race conditions.
+4. **Migration Safety**: DB upgrades automatically backup data before applying schema changes, reverting if any error occurs.
 
 ---
 
@@ -609,13 +600,21 @@ Generates a complete daily study plan using the triple-brain system.
 }
 ```
 
-#### `getUnifiedReadiness(): Promise<Record<number, SubjectReadiness>>`
+#### `getAllReadinessScores(): Promise<Record<number, SubjectReadiness>>`
 
-Gets readiness scores using the best available system.
+Returns readiness scores for all subjects using the best available system.
 
 #### `recordBlockOutcome(outcome: BlockOutcome): Promise<void>`
 
 Records session completion and quality data for learning.
+
+#### `getUserSettings(): Promise<UserSettings>`
+
+Reads the single user-preferences row from the `settings` table, falling back to defaults.
+
+#### `updateUserSettings(partial): Promise<void>`
+
+Partially updates user preferences with deep-merge safety.
 
 ---
 
@@ -628,8 +627,9 @@ Records session completion and quality data for learning.
 | Enhanced plan | 150ms | Active users |
 | Hybrid plan | 300ms | Power users |
 | Database batch load | 120ms | Cold start |
+| AI insight (OpenRouter) | 800-2000ms | Session-cached after first load |
 
-**Target:** All plans under 500ms on mid-range devices.
+**Target:** All plans under 500ms on mid-range devices. Insights non-blocking (rendered after 1.2s delay).
 
 ---
 
@@ -639,6 +639,7 @@ Records session completion and quality data for learning.
 2. **Multi-Day Optimization**: Optimize across a week, not just one day
 3. **Reinforcement Learning**: Let the system learn optimal strategies
 4. **Collaborative Filtering**: Learn from aggregate patterns
+5. **Insight Personalization**: Fine-tune OpenRouter prompts based on what coaching styles improve your completion rates
 
 ---
 
@@ -646,16 +647,7 @@ Records session completion and quality data for learning.
 
 This document is a living spec. If something is unclear:
 1. Check the [main README](./README.md) for user-facing docs
-2. Read the source: `brain-ultimate.ts`, `brain.ts`, `brain-enhanced-integration.ts`, `brain-research-grade.ts`
+2. Read the source: `brain-ultimate.ts`, `brain.ts`, `brain-enhanced-integration.ts`, `brain-research-grade.ts`, `AIInsightBanner.tsx`
 3. Open a [Discussion](https://github.com/santoshcheethirala/orbit/discussions)
 
 **Built with ❤️ by developers who actually study.**
-
-## 🛡️ Data Persistence (v3.1)
-
-To ensure **zero data loss**, Orbit v3.1 implements a multi-layer safety net:
-
-1. **IndexedDB (Dexie)**: Primary transactional storage.
-2. **LocalSnapshot**: Every 2 seconds of inactivity, the entire DB state is serialized to `localStorage` as a catastrophic recovery point.
-3. **BroadcastChannel**: Real-time state synchronization across multiple open tabs prevents race conditions.
-4. **Migration Safety**: DB upgrades automatically backup data before applying schema changes, reverting if any error occurs.

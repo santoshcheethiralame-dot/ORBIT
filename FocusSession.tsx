@@ -167,7 +167,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [hasStarted, setHasStarted] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
-  const [summaryData, setSummaryData] = useState<{ duration: number; quality: number; readinessGain: number; } | null>(null);
+  const [summaryData, setSummaryData] = useState<{ duration: number; quality: number; readinessGain: number; aiTip?: string; } | null>(null);
 
   const isMountedRef = useRef(true);
   const lastTickRef = useRef(Date.now());
@@ -437,7 +437,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     }
   }, [block, playSound]);
 
-  const handleQualityRating = async (rating: 1 | 2 | 3 | 4 | 5, topic?: string) => {
+  const handleQualityRating = async (rating: 1 | 2 | 3 | 4 | 5, topic?: string, aiTip?: string) => {
     await recordBlockOutcome(block, {
       actualDuration: completedDuration,
       completionQuality: rating,
@@ -458,13 +458,13 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     }
 
     const readinessGain = rating >= 4 ? 10 : rating >= 3 ? 6 : 3;
-    setSummaryData({ duration: completedDuration, quality: rating, readinessGain });
+    setSummaryData({ duration: completedDuration, quality: rating, readinessGain, aiTip: aiTip || '' });
     setShowQualityModal(false);
     setShowSummary(true);
     setTimeout(() => {
       setShowSummary(false);
       onComplete(completedDuration, sessionNotes);
-    }, 3500);
+    }, aiTip ? 4500 : 3500);
   };
 
   const handleResourceClick = (resource: Resource) => {
@@ -1191,6 +1191,12 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                   +{summaryData.readinessGain}%
                 </span>
               </FrostedMini>
+              {summaryData.aiTip && (
+                <div className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-indigo-500/8 border border-indigo-500/25 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <Sparkles size={13} className="text-indigo-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs leading-relaxed text-indigo-100/80">{summaryData.aiTip}</p>
+                </div>
+              )}
             </div>
           </FrostedTile>
         </div>

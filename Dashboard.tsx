@@ -38,6 +38,8 @@ import {
 import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
 import { DashboardInsights } from "./DashboardInsights";
+import { ScheduleOptimizer } from "./ScheduleOptimizer";
+import { AIInsightBanner } from "./AIInsightBanner";
 import { FrostedTile, FrostedMini, getSubjectColor, SUBJECT_COLOR_CLASSES, SubjectColor } from "./components";
 
 const PULL_REFRESH_THRESHOLD = 60;
@@ -1329,6 +1331,10 @@ export const Dashboard = ({
       ))} />
 
       <DashboardInsights />
+
+      <AIInsightBanner />
+
+      <ScheduleOptimizer />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-8">

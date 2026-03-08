@@ -1,12 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { Brain, Calendar, TrendingUp, CheckCircle, AlertCircle, Clock, Target } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Brain, Calendar, TrendingUp, CheckCircle, AlertCircle, Clock, Target, Sparkles, Wand2, RotateCcw, CheckCircle2, XCircle } from 'lucide-react';
 import { StudyTopic } from './types';
 import { db } from './db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { safeDB, withToast } from './utils/dbErrorHandler';
+import { geminiChat } from './gemini';
 
+// ─── AI: generate Q&A for a topic ────────────────────────────────────────────
+async function generateFlashcard(
+  topicName: string,
+  subjectName: string
+): Promise<{ question: string; answer: string } | null> {
+  const prompt = `Generate a precise, exam-quality flashcard for the topic "${topicName}" in "${subjectName}".
 
-// ─── AddFlashcardForm: create a new topic with optional flashcard content ────
+Return ONLY valid JSON with exactly these keys:
+{"question": "...", "answer": "..."}
+
+Rules:
+- question: a specific, exam-style question targeting the core concept (1 sentence, starts with How/What/Why/Define/Explain)
+- answer: a direct, memorable answer (2–3 sentences, max 80 words, no filler)
+No markdown, no code fences, no extra text.`;
+
+  try {
+    const raw = await geminiChat([{ role: 'user', parts: [{ text: prompt }] }], undefined, 220);
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    if (parsed.question && parsed.answer) return parsed;
+  } catch { /* fall through */ }
+  return null;
+}
+
+// ─── AddFlashcardForm ─────────────────────────────────────────────────────────
 export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; onDone?: () => void }) => {
   const subjects = useLiveQuery(() => db.subjects.toArray()) || [];
   const [name, setName] = useState('');
@@ -14,6 +38,31 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
   const [answer, setAnswer] = useState('');
   const [chosenSubjectId, setChosenSubjectId] = useState<number | ''>(subjectId ?? '');
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState(false);
+  const [aiGenerated, setAiGenerated] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  // Mark as manually edited after AI fills fields
+  const handleQuestionChange = (v: string) => { setQuestion(v); if (aiGenerated) setAiGenerated(false); };
+  const handleAnswerChange = (v: string) => { setAnswer(v); if (aiGenerated) setAiGenerated(false); };
+
+  const handleGenerate = async () => {
+    if (!name.trim()) return;
+    setGenerating(true);
+    setGenError(false);
+    const subjectName = subjects.find(s => s.id === Number(chosenSubjectId))?.name || '';
+    const result = await generateFlashcard(name.trim(), subjectName);
+    if (result) {
+      setQuestion(result.question);
+      setAnswer(result.answer);
+      setAiGenerated(true);
+    } else {
+      setGenError(true);
+    }
+    setGenerating(false);
+  };
 
   const handleSave = async () => {
     if (!name.trim() || !chosenSubjectId) return;
@@ -31,50 +80,121 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
         reviewCount: 0,
         comprehensionHistory: [],
       });
-      setName(''); setQuestion(''); setAnswer('');
-      onDone?.();
+      setSaved(true);
+      setTimeout(() => {
+        setName(''); setQuestion(''); setAnswer('');
+        setAiGenerated(false); setSaved(false);
+        onDone?.();
+        nameRef.current?.focus();
+      }, 900);
     } finally {
       setSaving(false);
     }
   };
 
+  const canGenerate = !!name.trim() && !generating;
+  const canSave = !!name.trim() && !!chosenSubjectId && !saving && !saved;
+
   return (
-    <div className="space-y-3 p-5 rounded-2xl bg-white/[0.03] border border-white/10 animate-in fade-in duration-300">
-      <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-4">New Flashcard</div>
+    <div className="space-y-3 p-5 rounded-2xl animate-in fade-in duration-300" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)' }}>
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">New Flashcard</span>
+        {aiGenerated && (
+          <span className="flex items-center gap-1 text-[10px] font-bold text-violet-400/80 px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.2)' }}>
+            <Sparkles size={9} />
+            AI Generated
+          </span>
+        )}
+      </div>
+
       <select
         value={chosenSubjectId}
         onChange={e => setChosenSubjectId(Number(e.target.value) || '')}
-        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-purple-500 transition-all"
+        className="w-full bg-zinc-800/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-purple-500/60 transition-all"
       >
         <option value="">Select subject…</option>
         {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
       </select>
-      <input
-        value={name}
-        onChange={e => setName(e.target.value)}
-        placeholder="Topic / concept name *"
-        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-purple-500 transition-all"
-      />
-      <textarea
-        value={question}
-        onChange={e => setQuestion(e.target.value)}
-        placeholder="Flashcard question (optional)"
-        rows={2}
-        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-purple-500 transition-all resize-none"
-      />
-      <textarea
-        value={answer}
-        onChange={e => setAnswer(e.target.value)}
-        placeholder="Answer / hint (optional)"
-        rows={2}
-        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-purple-500 transition-all resize-none"
-      />
+
+      {/* Topic name + AI generate inline */}
+      <div className="relative">
+        <input
+          ref={nameRef}
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && canGenerate) handleGenerate(); }}
+          placeholder="Topic / concept name *"
+          className="w-full bg-zinc-800/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 pr-24 text-sm text-white placeholder-zinc-600 outline-none focus:border-purple-500/60 transition-all"
+        />
+        <button
+          onClick={handleGenerate}
+          disabled={!canGenerate}
+          title={aiGenerated ? 'Regenerate with AI' : 'Generate Q&A with AI'}
+          className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          style={{
+            background: aiGenerated ? 'rgba(139,92,246,0.15)' : 'rgba(139,92,246,0.12)',
+            border: '1px solid rgba(139,92,246,0.25)',
+            color: 'rgba(196,181,253,0.9)',
+          }}
+        >
+          {generating ? (
+            <div className="w-3 h-3 rounded-full border-2 border-violet-400/30 border-t-violet-300 animate-spin" />
+          ) : aiGenerated ? (
+            <RotateCcw size={11} />
+          ) : (
+            <Wand2 size={11} />
+          )}
+          {generating ? '…' : aiGenerated ? 'Redo' : 'AI'}
+        </button>
+      </div>
+
+      {/* Error state */}
+      {genError && (
+        <div className="flex items-center gap-2 text-xs text-red-400/80 animate-in fade-in duration-200">
+          <XCircle size={12} />
+          Couldn't generate — check your connection or try again.
+        </div>
+      )}
+
+      {/* Q&A fields — highlighted when AI-generated */}
+      <div className={`space-y-2 transition-all duration-300 ${aiGenerated ? 'rounded-xl p-2.5 -mx-2.5' : ''}`}
+        style={aiGenerated ? { background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.12)' } : {}}>
+        <textarea
+          value={question}
+          onChange={e => handleQuestionChange(e.target.value)}
+          placeholder="Question (optional — or let AI generate)"
+          rows={2}
+          className="w-full bg-zinc-800/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 outline-none focus:border-purple-500/60 transition-all resize-none"
+        />
+        <textarea
+          value={answer}
+          onChange={e => handleAnswerChange(e.target.value)}
+          placeholder="Answer / hint (optional)"
+          rows={2}
+          className="w-full bg-zinc-800/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 outline-none focus:border-purple-500/60 transition-all resize-none"
+        />
+      </div>
+
+      {/* Save button */}
       <button
         onClick={handleSave}
-        disabled={!name.trim() || !chosenSubjectId || saving}
-        className="w-full py-3 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-300 font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+        disabled={!canSave}
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+        style={{
+          background: saved ? 'rgba(16,185,129,0.2)' : 'rgba(168,85,247,0.18)',
+          border: saved ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(168,85,247,0.3)',
+          color: saved ? 'rgb(110,231,183)' : 'rgb(216,180,254)',
+        }}
       >
-        {saving ? 'Saving…' : 'Add Flashcard'}
+        {saving ? (
+          <><div className="w-4 h-4 rounded-full border-2 border-purple-400/30 border-t-purple-300 animate-spin" />Saving…</>
+        ) : saved ? (
+          <><CheckCircle2 size={15} />Saved!</>
+        ) : (
+          'Add Flashcard'
+        )}
       </button>
     </div>
   );

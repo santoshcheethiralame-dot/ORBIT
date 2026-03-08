@@ -1,4 +1,4 @@
-// AboutView.tsx - v4.0.1 STABLE
+// AboutView.tsx - v3.2 STABLE
 import React, { useEffect, useState } from "react";
 import {
   Rocket, Shield, Database, Github, Mail, Globe,
@@ -16,7 +16,6 @@ export const AboutView = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [avgReadiness, setAvgReadiness] = useState(0);
 
-  // 1. Load basic stats
   useEffect(() => {
     const loadInfo = async () => {
       const s = await db.subjects.toArray();
@@ -42,7 +41,6 @@ export const AboutView = () => {
   return (
     <div className="pb-32 pt-8 px-4 lg:px-8 max-w-[1400px] mx-auto space-y-10">
 
-      {/* Fixed Header - properly aligned buttons */}
       <PageHeader
         title="About Orbit"
         meta={
@@ -53,7 +51,7 @@ export const AboutView = () => {
             <div className="hidden md:flex flex-col items-end">
               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Current Version</span>
               <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-400/10 px-2 py-0.5 rounded-md border border-indigo-400/20">
-                v3.1-FLUID
+                v3.2-INSIGHT
               </span>
             </div>
           </div>
@@ -68,8 +66,8 @@ export const AboutView = () => {
           <FrostedTile variant="indigo">
             <div className="relative z-10 p-8">
               <h2 className="text-2xl md:text-3xl font-display font-bold text-white mb-6 leading-tight">
-                Orbit v3.1:{" "}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-cyan-300 animate-gradient">Fluid Intelligence</span>
+                Orbit v3.2:{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-cyan-300 animate-gradient">Insight Intelligence</span>
               </h2>
 
               <div className="prose prose-invert prose-lg max-w-none">
@@ -79,7 +77,7 @@ export const AboutView = () => {
                 </p>
                 <p className="text-zinc-400 leading-relaxed">
                   Erratic schedules, group projects, and surprise deadlines are no longer obstacles. Orbit prioritizes{" "}
-                  <strong className="text-indigo-300">adaptive intelligence</strong> over rigid calendars, delivering short, achievable study blocks that fit your life.
+                  <strong className="text-indigo-300">adaptive intelligence</strong> over rigid calendars, delivering short, achievable study blocks that fit your life — now with a live AI coaching layer that tells you exactly what needs your attention today.
                 </p>
               </div>
             </div>
@@ -145,7 +143,7 @@ export const AboutView = () => {
                 <h3 className="text-xl font-bold text-white">Origin Story</h3>
               </div>
               <p className="text-zinc-400 leading-relaxed">
-                Orbit began as a practical response to a familiar student problem: spending more time managing study logistics than actually studying. What started as a personal toolkit evolved into a focused system designed to reduce friction and preserve momentum  especially for night owls who study past midnight.
+                Orbit began as a practical response to a familiar student problem: spending more time managing study logistics than actually studying. What started as a personal toolkit evolved into a focused system designed to reduce friction and preserve momentum — especially for night owls who study past midnight. Every algorithm, every animation, and every UI decision was made by one student, for students who refuse to let chaos win.
               </p>
             </div>
           </FrostedTile>
@@ -206,7 +204,8 @@ export const AboutView = () => {
                 {[
                   { icon: Clock, text: "Mechanical Flip Timer", status: "Done" },
                   { icon: Sparkles, text: "Fluid UI Core", status: "Done" },
-                  { icon: MessageSquare, text: "AI Study Assistant", status: "Active" },
+                  { icon: MessageSquare, text: "AI Study Assistant", status: "Done" },
+                  { icon: Brain, text: "AI Insight Banner", status: "Done" },
                   { icon: Network, text: "Mobile PWA Support", status: "Q2 2026" },
                   { icon: Shield, text: "Encrypted Cloud Sync", status: "Q3 2026" },
                 ].map((item, i) => (
@@ -215,7 +214,9 @@ export const AboutView = () => {
                       <item.icon size={16} className="text-orange-400 flex-shrink-0" />
                       <span className="text-sm text-zinc-300 font-medium">{item.text}</span>
                     </div>
-                    <span className="text-xs text-orange-400 font-bold whitespace-nowrap">{item.status}</span>
+                    <span className={`text-xs font-bold whitespace-nowrap ${item.status === 'Done' ? 'text-emerald-400' : 'text-orange-400'}`}>
+                      {item.status}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -234,8 +235,8 @@ export const AboutView = () => {
                 {[
                   "React 19.2.3",
                   "TypeScript 5.8.2",
-                  "Dexie.js (IndexedDB)",
-                  "Tailwind CSS 3.4"
+                  "Dexie.js v11 (IndexedDB)",
+                  "OpenRouter API (insights & assistant)",
                 ].map((tech, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm text-zinc-400 p-2 hover:bg-cyan-500/5 rounded-lg transition-all">
                     <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 flex-shrink-0" />
@@ -300,9 +301,27 @@ export const AboutView = () => {
                 World-class prompt engineering with smart AI provider recommendations. Get the perfect study companion for each subject.
               </p>
               <div className="space-y-1">
-                <div className="text-xs text-indigo-400">• ChatGPT, Claude, Gemini support</div>
+                <div className="text-xs text-indigo-400">• ChatGPT, Claude, OpenRouter support</div>
                 <div className="text-xs text-indigo-400">• Bloom's Taxonomy integration</div>
                 <div className="text-xs text-indigo-400">• Custom prompt templates</div>
+              </div>
+            </div>
+          </FrostedTile>
+
+          {/* NEW: AI Insight Banner */}
+          <FrostedTile variant="violet" className="p-6">
+            <div className="relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-violet-500/20 flex items-center justify-center mb-5 text-violet-400 border border-violet-500/30 shadow-lg shadow-violet-500/10">
+                <Sparkles size={28} />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-3">AI Insight Banner</h3>
+              <p className="text-sm text-zinc-400 leading-relaxed mb-3">
+                OpenRouter-powered daily coaching card that reads your readiness scores and session logs to deliver one sharp, personalized insight each session.
+              </p>
+              <div className="space-y-1">
+                <div className="text-xs text-violet-400">• Warns of subject decay (&lt;40% readiness)</div>
+                <div className="text-xs text-violet-400">• Suggests quick-win actions</div>
+                <div className="text-xs text-violet-400">• Session-cached — no repeat fetches</div>
               </div>
             </div>
           </FrostedTile>
@@ -330,18 +349,6 @@ export const AboutView = () => {
               </p>
             </div>
           </FrostedTile>
-
-          <FrostedTile variant="cyan" className="p-6">
-            <div className="relative z-10">
-              <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 flex items-center justify-center mb-5 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/10">
-                <Sparkles size={28} />
-              </div>
-              <h3 className="text-lg font-bold text-white mb-3">Fluid UI Core</h3>
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                Spring-physics animations and GPU-accelerated transitions. Every interaction is tuned for a 60fps experience that feels alive.
-              </p>
-            </div>
-          </FrostedTile>
         </div>
       </div>
 
@@ -363,11 +370,11 @@ export const AboutView = () => {
               },
               {
                 q: "Does it work offline?",
-                a: "Absolutely. Orbit is local-first, meaning it works perfectly without an internet connection. Your data never leaves your device."
+                a: "Absolutely. Orbit is local-first, meaning it works perfectly without an internet connection. Your data never leaves your device. The AI Insight Banner requires internet only when fetching a new insight."
               },
               {
                 q: "Can I sync across devices?",
-                a: "Not yet. Your data stays on this device. Encrypted cloud sync is planned for Q2 2026 as an optional feature."
+                a: "Not yet. Your data stays on this device. Encrypted cloud sync is planned for Q3 2026 as an optional feature."
               },
               {
                 q: "How does readiness tracking work?",
@@ -379,11 +386,11 @@ export const AboutView = () => {
               },
               {
                 q: "What's the Night-Owl Principle?",
-                a: "Your study day starts at 4 AM (configurable), not midnight. Studying at 3 AM still counts as 'today' , no broken streaks."
+                a: "Your study day starts at 4 AM (configurable), not midnight. Studying at 3 AM still counts as 'today' — no broken streaks."
               },
               {
-                q: "How does the AI assistant work?",
-                a: "It generates world-class prompts based on your subject, session type, and readiness. Smart provider recommendations ensure you use the best AI for each task."
+                q: "How does the AI Insight Banner work?",
+                a: "It reads your readiness scores and recent session logs, then calls OpenRouter to generate one sharp coaching sentence — a warning, a quick-win tip, or motivation. The result is cached for the session so it doesn't re-fetch on every render."
               },
               {
                 q: "What is spaced repetition?",
@@ -407,9 +414,9 @@ export const AboutView = () => {
             <span className="text-xs text-zinc-500 font-mono tracking-wider">LOCAL_FIRST</span>
           </div>
           <div className="w-px h-4 bg-white/10"></div>
-          <span className="text-xs text-zinc-500 font-mono tracking-wider">ORBIT v3.1-FLUID</span>
+          <span className="text-xs text-zinc-500 font-mono tracking-wider">ORBIT v3.2-INSIGHT</span>
           <div className="w-px h-4 bg-white/10"></div>
-          <span className="text-xs text-zinc-500 font-mono tracking-wider">BUILD_2026.02.17</span>
+          <span className="text-xs text-zinc-500 font-mono tracking-wider">BUILD_2026.03.09</span>
         </div>
       </div>
     </div>

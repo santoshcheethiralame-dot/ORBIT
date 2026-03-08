@@ -1,14 +1,17 @@
 <div align="center">
 
-# 🛰️ Orbit v3.1
+# 🛰️ Orbit v3.2
 
 > **The specialized planning intelligence for high-performance students.**
 
 Orbit is not just a todo list. It is a **focus engine** designed to maximize deep work, enforce rest, and adapt to your energy levels. It uses a triple-brain AI architecture to plan your day, predict burnouts, and guide you through complex subjects.
 
-![Orbit Dashboard](https://i.imgur.com/example-dashboard.png)
+## 🚀 New in v3.2
+- **AI Insight Banner**: Personalized daily coaching messages powered by OpenRouter — warns of decay, suggests quick wins, and motivates based on real session patterns.
+- **Typewriter UI**: Insights render with a typewriter effect and session-level caching so they don't re-fetch on every render.
+- **Exam & Settings Tables**: DB upgraded to v11 with dedicated `exams` and `settings` tables for persistent user preferences and exam schedule tracking.
 
-## 🚀 New in v3.1
+## ✨ What's New in v3.1
 - **Mechanical Flip Clock**: A hyper-realistic 3D flip timer for focus sessions with sub-millisecond precision.
 - **AI Study Assistant**: A spring-animated, GPU-accelerated modal for instant study guidance and topic breakdown.
 - **Fluid UI Core**: Global smooth scrolling, optimized transitions, and enhanced light/dark mode fluidity.
@@ -28,7 +31,7 @@ Orbit is not just a todo list. It is a **focus engine** designed to maximize dee
 ## ✨ What's New in v3.0
 
 ### 🧠 Triple-Brain AI System
-Orbit now uses **three integrated intelligence layers** that work together:
+Orbit uses **three integrated intelligence layers** that work together:
 
 1. **Core Brain** - Readiness calculations & priority-based planning
 2. **Enhanced Integration** - Performance tracking, energy management, quality ratings  
@@ -121,12 +124,13 @@ That's it. No tutorials. No setup hell.
 | Feature | What It Does | Why It Matters |
 |---------|-------------|----------------|
 | **Triple-Brain System** | 3 AI layers working together | Plans get smarter as you use Orbit |
+| **AI Insight Banner** | OpenRouter-powered daily coaching card | Warns decay, suggests quick wins, motivates |
 | **Daily Context Engine** | Calibrate energy/mood before generating plan | Plans match reality, not fantasy |
 | **Adaptive Displacement** | Auto-reschedules based on changing priorities | Exams don't sneak up on you |
 | **Focus Session Protocol** | Distraction-free, full-screen study mode | Preserves flow state, tracks quality |
 | **Performance Tracking** | Quality ratings & completion analytics | AI tunes block sizes to your patterns |
 | **Spaced Repetition** | Ebbinghaus curve-based review scheduling | Actually retain what you learn |
-| **AI Study Assistant** | Claude-powered concept clarification | Get unstuck instantly |
+| **AI Study Assistant** | Claude/OpenRouter-powered concept clarification | Get unstuck instantly |
 | **Analytics Dashboard** | Focus scores, streaks, subject heatmaps | See patterns, adjust strategy |
 | **Import/Export** | Backup/restore your entire study history | Never lose your data |
 
@@ -170,9 +174,10 @@ graph TD
 
 ```typescript
 Frontend:    React 19 + TypeScript 5.8
-Database:    Dexie.js (IndexedDB wrapper)
+Database:    Dexie.js (IndexedDB wrapper) — v11 schema
 Styling:     Tailwind CSS
 Build:       Vite 6.2
+AI:          OpenRouter (insight banner, study assistant)
 Brain:       Custom algorithms + research-grade models
 ```
 
@@ -206,7 +211,7 @@ Traditional planners force you into rigid time slots:
 - ✅ **Context-Aware**: Generated fresh each day based on YOUR energy
 - ✅ **Priority-Driven**: Most urgent subjects get scheduled first
 - ✅ **Adaptive Sizing**: Block duration matches subject difficulty + your performance
-- ✅ **Displacement Logic**: When time runs out, least critical blocks get displaced (not forgotten - just postponed)
+- ✅ **Displacement Logic**: When time runs out, least critical blocks get displaced (not forgotten — just postponed)
 
 **Example:**
 ```
@@ -219,7 +224,7 @@ Afternoon (Normal Energy):
 
 Evening (Low Energy):
   Block 4: History (Easy) - 30 min
-  [Economics displaced to tomorrow - ran out of time]
+  [Economics displaced to tomorrow — ran out of time]
 ```
 
 **The Result:** You study what matters most, when you have the energy for it, for as long as you need.
@@ -268,20 +273,23 @@ npm run build
 
 ## 🗺️ Roadmap
 
-**v3.0 (Current)**
+**v3.2 (Current)**
+- [x] AI Insight Banner (OpenRouter-powered daily coaching)
+- [x] Session-cached insights with typewriter reveal
+- [x] DB v11: `exams` + `settings` tables
+- [x] User preferences persistence (weeklyTargetHours, subjectColors)
+
+**v3.1 (Released)**
 - [x] Triple-brain AI system
 - [x] Performance-based adaptive planning
 - [x] Quality rating & feedback loop
 - [x] Import/export backup system
 - [x] Confidence scoring
-
-**v3.1 (Q2 2026)**
-- [ ] Mobile-optimized UI
-- [ ] Pomodoro timer integration
-- [ ] Advanced analytics dashboard
-- [ ] Custom study block templates
+- [x] Mechanical flip clock timer
+- [x] AI Study Assistant
 
 **v4.0 (Future)**
+- [ ] Mobile-optimized UI
 - [ ] Optional E2E encrypted cloud sync
 - [ ] Study group collaboration
 - [ ] Natural language planning ("I'm tired, give me 2 hours of easy stuff")
@@ -357,6 +365,6 @@ MIT © 2026 [Santosh Cheethirala](https://github.com/santoshcheethirala)
 
 ⭐ **Star this repo if Orbit helps you ace your exams**
 
-[⬆ Back to Top](#-orbit-v30)
+[⬆ Back to Top](#-orbit-v32)
 
 </div>

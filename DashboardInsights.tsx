@@ -1,243 +1,245 @@
-import React, { useEffect, useState, useMemo } from 'react';
+// DashboardInsights.tsx — Real AI-powered weekly insights via Gemini
+
+import React, { useEffect, useState, useRef } from 'react';
 import { db } from './db';
-import { Subject, StudyLog } from './types';
-import { AlertTriangle, TrendingUp, AlertCircle, Zap, CheckCircle, Coffee } from 'lucide-react';
+import { Subject } from './types';
+import { AlertTriangle, TrendingUp, AlertCircle, Sparkles, RefreshCw, Brain } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { geminiChat } from './gemini';
 
-interface BurnoutData {
-  atRisk: boolean;
-  score: number;
-  skipRate: number;
-  avgQuality: number;
-  recommendation: string;
+interface InsightCard {
+  type: 'burnout' | 'strong' | 'struggling' | 'tip';
+  title: string;
+  body: string;
+  metric?: string;
 }
 
-interface SubjectPerformance {
-  subjectId: number;
-  avgQuality: number;
-  sessionCount: number;
-  totalMinutes: number;
-}
-
-interface InsightsData {
-  burnout: BurnoutData;
-  topPerformers: SubjectPerformance[];
-  strugglingSubjects: SubjectPerformance[];
-}
-
-const calculateBurnout = (outcomes: any[]): BurnoutData => {
+// ─── Static fallback calculation (no AI) ──────────────────────────────────────
+function calcStaticInsights(outcomes: any[], subjects: Subject[]): InsightCard[] {
+  const cards: InsightCard[] = [];
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 7);
   const cutoffStr = cutoff.toISOString().split('T')[0];
-
   const recent = outcomes.filter(o => (o.date || '') >= cutoffStr);
-
-  if (recent.length === 0) {
-    return {
-      atRisk: false,
-      score: 0,
-      skipRate: 0,
-      avgQuality: 0,
-      recommendation: 'No recent activity to analyze.',
-    };
-  }
+  if (recent.length === 0) return [];
 
   const skipped = recent.filter(o => o.skipped).length;
   const skipRate = skipped / recent.length;
-
   const qualityValues = recent.filter(o => typeof o.completionQuality === 'number' && o.completionQuality > 0);
   const avgQuality = qualityValues.length > 0
-    ? qualityValues.reduce((s, o) => s + o.completionQuality, 0) / qualityValues.length
-    : 3;
+    ? qualityValues.reduce((s, o) => s + o.completionQuality, 0) / qualityValues.length : 3;
+  const completionRate = recent.filter(o => o.completed && !o.skipped).length / recent.length;
+  let burnoutScore = skipRate * 40 + Math.max(0, (3 - avgQuality) / 3) * 30 + (1 - completionRate) * 30;
 
-  const completedOnTime = recent.filter(o => o.completed && !o.skipped).length;
-  const completionRate = completedOnTime / recent.length;
-
-  // Burnout score: skip rate (40pts), low quality (30pts), low completion (30pts)
-  let burnoutScore = 0;
-  burnoutScore += skipRate * 40;
-  burnoutScore += Math.max(0, (3 - avgQuality) / 3) * 30;
-  burnoutScore += (1 - completionRate) * 30;
-
-  const atRisk = burnoutScore >= 45;
-
-  let recommendation = '';
-  if (atRisk) {
-    if (skipRate > 0.4) {
-      recommendation = 'High skip rate detected. Consider reducing daily workload by 20-30%.';
-    } else if (avgQuality < 2) {
-      recommendation = 'Session quality is low. Try shorter, more focused blocks.';
-    } else {
-      recommendation = 'Multiple burnout signals detected. Consider a lighter study day.';
-    }
-  } else {
-    recommendation = 'Burnout risk is low. Keep up the healthy habits!';
-  }
-
-  return {
-    atRisk,
-    score: Math.round(burnoutScore),
-    skipRate: parseFloat(skipRate.toFixed(2)),
-    avgQuality: parseFloat(avgQuality.toFixed(1)),
-    recommendation,
-  };
-};
-
-const calculateSubjectPerformance = (
-  outcomes: any[],
-  subjects: Subject[]
-): { topPerformers: SubjectPerformance[]; strugglingSubjects: SubjectPerformance[] } => {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 14);
-  const cutoffStr = cutoff.toISOString().split('T')[0];
-
-  const recent = outcomes.filter(o => (o.date || '') >= cutoffStr && !o.skipped);
-
-  if (recent.length === 0 || subjects.length === 0) {
-    return { topPerformers: [], strugglingSubjects: [] };
-  }
-
-  const subjectMap = new Map<number, { totalQuality: number; count: number; totalMinutes: number }>();
-
-  recent.forEach(o => {
-    if (typeof o.subjectId !== 'number') return;
-    const existing = subjectMap.get(o.subjectId) || { totalQuality: 0, count: 0, totalMinutes: 0 };
-    subjectMap.set(o.subjectId, {
-      totalQuality: existing.totalQuality + (o.completionQuality || 3),
-      count: existing.count + 1,
-      totalMinutes: existing.totalMinutes + (o.actualDuration || o.plannedDuration || 0),
+  if (burnoutScore >= 45) {
+    cards.push({
+      type: 'burnout',
+      title: 'Burnout Risk Detected',
+      body: skipRate > 0.4
+        ? 'High skip rate this week. Consider reducing daily workload by 20–30%.'
+        : avgQuality < 2
+          ? 'Session quality is low. Try shorter, more focused blocks.'
+          : 'Multiple stress signals detected. Consider a lighter study day.',
+      metric: `${Math.round(burnoutScore)}/100`,
     });
+  }
+
+  // Subject performance
+  const cutoff14 = new Date(); cutoff14.setDate(cutoff14.getDate() - 14);
+  const cut14Str = cutoff14.toISOString().split('T')[0];
+  const recent14 = outcomes.filter(o => (o.date || '') >= cut14Str && !o.skipped);
+  const subjectMap = new Map<number, { q: number; n: number; min: number }>();
+  recent14.forEach(o => {
+    if (typeof o.subjectId !== 'number') return;
+    const e = subjectMap.get(o.subjectId) || { q: 0, n: 0, min: 0 };
+    subjectMap.set(o.subjectId, { q: e.q + (o.completionQuality || 3), n: e.n + 1, min: e.min + (o.actualDuration || 0) });
   });
+  const perfs = Array.from(subjectMap.entries())
+    .filter(([, v]) => v.n >= 2)
+    .map(([id, v]) => ({ id, avg: v.q / v.n, n: v.n, min: Math.round(v.min) }))
+    .sort((a, b) => b.avg - a.avg);
 
-  const performances: SubjectPerformance[] = [];
-  subjectMap.forEach((stats, subjectId) => {
-    if (stats.count >= 2 && subjects.find(s => s.id === subjectId)) {
-      performances.push({
-        subjectId,
-        avgQuality: stats.totalQuality / stats.count,
-        sessionCount: stats.count,
-        totalMinutes: Math.round(stats.totalMinutes),
-      });
-    }
-  });
+  const strong = perfs.filter(p => p.avg >= 4).slice(0, 2);
+  const weak = perfs.filter(p => p.avg < 3).slice(0, 2);
 
-  if (performances.length === 0) return { topPerformers: [], strugglingSubjects: [] };
+  if (strong.length) {
+    const names = strong.map(p => subjects.find(s => s.id === p.id)?.name).filter(Boolean).join(', ');
+    cards.push({ type: 'strong', title: 'Strong Performance', body: `Consistently high quality in ${names}.`, metric: `${strong[0].avg.toFixed(1)}★ avg` });
+  }
+  if (weak.length) {
+    const names = weak.map(p => subjects.find(s => s.id === p.id)?.name).filter(Boolean).join(', ');
+    cards.push({ type: 'struggling', title: 'Needs Attention', body: `${names} showing low session quality. Consider shorter, more active sessions.`, metric: `${weak[0].avg.toFixed(1)}★ avg` });
+  }
 
-  performances.sort((a, b) => b.avgQuality - a.avgQuality);
+  return cards;
+}
 
-  return {
-    topPerformers: performances.filter(p => p.avgQuality >= 4.0).slice(0, 3),
-    strugglingSubjects: performances.filter(p => p.avgQuality < 3.0).slice(0, 3),
+// ─── Ask Gemini for insights ───────────────────────────────────────────────────
+async function fetchAIInsights(outcomes: any[], subjects: Subject[]): Promise<InsightCard[]> {
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
+  const cutoffStr = cutoff.toISOString().split('T')[0];
+  const recent = outcomes.filter(o => (o.date || '') >= cutoffStr);
+  if (recent.length < 3) return calcStaticInsights(outcomes, subjects);
+
+  // Summarise for the prompt (don't send raw DB objects)
+  const summary = {
+    totalSessions: recent.length,
+    skipped: recent.filter(o => o.skipped).length,
+    avgQuality: (recent.filter(o => o.completionQuality > 0).reduce((s, o) => s + o.completionQuality, 0) / Math.max(1, recent.filter(o => o.completionQuality > 0).length)).toFixed(1),
+    subjectBreakdown: subjects.slice(0, 8).map(s => {
+      const ss = recent.filter(o => o.subjectId === s.id);
+      const aq = ss.filter(o => o.completionQuality > 0);
+      return {
+        name: s.name,
+        sessions: ss.length,
+        avgQuality: aq.length ? (aq.reduce((a, o) => a + o.completionQuality, 0) / aq.length).toFixed(1) : null,
+        skipped: ss.filter(o => o.skipped).length,
+      };
+    }).filter(s => s.sessions > 0),
   };
+
+  const prompt = `You are a study performance analyst. A student's last 7 days of study data:
+${JSON.stringify(summary, null, 2)}
+
+Return EXACTLY a JSON array of 2–3 insight objects. Each object must have:
+- "type": one of "burnout", "strong", "struggling", "tip"
+- "title": short title (max 5 words)
+- "body": actionable insight (1–2 sentences, specific and practical)
+- "metric": optional short metric string like "67% skip rate" or "4.2★ avg"
+
+Rules:
+- Be specific, not generic. Reference actual subjects/numbers from the data.
+- "burnout" only if skip rate > 30% or quality avg < 2.5
+- "strong" for subjects with quality >= 4.0 and multiple sessions
+- "struggling" for subjects with quality < 3.0 and multiple sessions
+- "tip" for actionable scheduling advice based on the patterns
+- Return ONLY the JSON array, no markdown, no explanation.`;
+
+  try {
+    const raw = await geminiChat([{ role: 'user', parts: [{ text: prompt }] }], undefined, 512);
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  } catch {
+    // fall through to static
+  }
+  return calcStaticInsights(outcomes, subjects);
+}
+
+// ─── Card renderer ─────────────────────────────────────────────────────────────
+const InsightCardView = ({ card }: { card: InsightCard }) => {
+  const styles: Record<string, { border: string; bg: string; icon: React.ReactNode; title: string }> = {
+    burnout: { border: 'rgba(239,68,68,0.25)', bg: 'rgba(239,68,68,0.06)', icon: <AlertTriangle size={15} className="text-red-400" strokeWidth={2.5} />, title: 'text-red-300' },
+    strong: { border: 'rgba(16,185,129,0.25)', bg: 'rgba(16,185,129,0.06)', icon: <TrendingUp size={15} className="text-emerald-400" strokeWidth={2.5} />, title: 'text-emerald-300' },
+    struggling: { border: 'rgba(245,158,11,0.25)', bg: 'rgba(245,158,11,0.06)', icon: <AlertCircle size={15} className="text-amber-400" strokeWidth={2.5} />, title: 'text-amber-300' },
+    tip: { border: 'rgba(139,92,246,0.25)', bg: 'rgba(139,92,246,0.06)', icon: <Brain size={15} className="text-violet-400" strokeWidth={2.5} />, title: 'text-violet-300' },
+  };
+  const s = styles[card.type] || styles.tip;
+
+  return (
+    <div
+      className="rounded-2xl p-4 animate-in fade-in slide-in-from-bottom-2 duration-500"
+      style={{ background: s.bg, border: `1px solid ${s.border}` }}
+    >
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 mt-0.5">{s.icon}</div>
+        <div className="flex-1 min-w-0">
+          <div className={`font-bold text-sm mb-1 ${s.title}`}>{card.title}</div>
+          <div className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>{card.body}</div>
+          {card.metric && (
+            <div className="mt-1.5 text-[10px] font-mono font-bold" style={{ color: 'rgba(255,255,255,0.25)' }}>{card.metric}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 };
 
+// ─── Main component ────────────────────────────────────────────────────────────
 export const DashboardInsights = () => {
-  const [insightsData, setInsightsData] = useState<InsightsData | null>(null);
+  const [cards, setCards] = useState<InsightCard[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [aiPowered, setAiPowered] = useState(false);
+  const fetchedRef = useRef(false);
 
   const subjects = useLiveQuery(() => db.subjects.toArray()) || [];
   const outcomes = useLiveQuery(() => db.blockOutcomes.toArray()) || [];
 
   useEffect(() => {
-    if (outcomes.length === 0) {
-      setInsightsData(null);
-      return;
+    if (outcomes.length === 0 || fetchedRef.current) return;
+    fetchedRef.current = true;
+
+    const run = async () => {
+      setLoading(true);
+      try {
+        const result = await fetchAIInsights(outcomes, subjects);
+        // Check if it came from AI (more than what static would produce for same data)
+        const staticResult = calcStaticInsights(outcomes, subjects);
+        setAiPowered(JSON.stringify(result) !== JSON.stringify(staticResult));
+        setCards(result);
+      } catch {
+        setCards(calcStaticInsights(outcomes, subjects));
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, [outcomes.length, subjects.length]);
+
+  const refresh = async () => {
+    fetchedRef.current = false;
+    setCards([]);
+    setLoading(true);
+    try {
+      const result = await fetchAIInsights(outcomes, subjects);
+      const staticResult = calcStaticInsights(outcomes, subjects);
+      setAiPowered(JSON.stringify(result) !== JSON.stringify(staticResult));
+      setCards(result);
+    } catch {
+      setCards(calcStaticInsights(outcomes, subjects));
+    } finally {
+      setLoading(false);
+      fetchedRef.current = true;
     }
+  };
 
-    const burnout = calculateBurnout(outcomes);
-    const { topPerformers, strugglingSubjects } = calculateSubjectPerformance(outcomes, subjects);
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 px-1 py-3">
+        <div className="w-4 h-4 rounded-full border-2 border-violet-500/40 border-t-violet-400 animate-spin" />
+        <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.3)' }}>Analysing your week…</span>
+      </div>
+    );
+  }
 
-    setInsightsData({ burnout, topPerformers, strugglingSubjects });
-  }, [outcomes, subjects]);
-
-  if (!insightsData) return null;
-
-  const hasActionableInsights =
-    insightsData.burnout.atRisk ||
-    insightsData.topPerformers.length > 0 ||
-    insightsData.strugglingSubjects.length > 0;
-
-  if (!hasActionableInsights) return null;
+  if (cards.length === 0) return null;
 
   return (
-    <div className="space-y-4">
-      {insightsData.burnout.atRisk && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5 backdrop-blur-sm animate-in slide-in-from-top-2 fade-in duration-500">
-          <div className="flex items-start gap-4">
-            <AlertTriangle size={24} strokeWidth={2.5} className="text-red-400 shrink-0 mt-0.5" />
-            <div className="flex-1 space-y-2">
-              <div className="font-bold text-red-300 text-base">
-                ⚠️ Burnout Risk Detected ({insightsData.burnout.score}/100)
-              </div>
-              <div className="text-sm text-red-200/80 leading-relaxed">
-                {insightsData.burnout.recommendation}
-              </div>
-              <div className="mt-3 flex gap-4 text-xs text-red-400/60 font-mono">
-                <div>Skip rate: {(insightsData.burnout.skipRate * 100).toFixed(0)}%</div>
-                <div className="text-red-600">•</div>
-                <div>Avg quality: {insightsData.burnout.avgQuality}/5</div>
-              </div>
-            </div>
-          </div>
+    <div className="space-y-2.5">
+      {/* Section header */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          {aiPowered
+            ? <Sparkles size={12} style={{ color: '#a78bfa' }} strokeWidth={2.5} />
+            : <Brain size={12} style={{ color: 'rgba(255,255,255,0.3)' }} strokeWidth={2.5} />
+          }
+          <span className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: 'rgba(255,255,255,0.25)' }}>
+            {aiPowered ? 'AI Insights' : 'Weekly Insights'}
+          </span>
         </div>
-      )}
+        <button
+          onClick={refresh}
+          className="p-1 rounded-lg transition-all hover:bg-white/8"
+          style={{ color: 'rgba(255,255,255,0.2)' }}
+          title="Refresh insights"
+        >
+          <RefreshCw size={11} strokeWidth={2.5} />
+        </button>
+      </div>
 
-      {(insightsData.topPerformers.length > 0 || insightsData.strugglingSubjects.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {insightsData.topPerformers.length > 0 && (
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 backdrop-blur-sm">
-              <h4 className="font-bold text-emerald-300 mb-3 flex items-center gap-2 text-sm uppercase tracking-wider">
-                <TrendingUp size={16} strokeWidth={2.5} />
-                Strong Performance
-              </h4>
-              <div className="space-y-3">
-                {insightsData.topPerformers.map((perf: SubjectPerformance) => {
-                  const subject = subjects.find(s => s.id === perf.subjectId);
-                  return (
-                    <div key={perf.subjectId} className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="text-emerald-200 font-medium text-sm">{subject?.name}</div>
-                        <div className="text-emerald-400/60 text-xs mt-0.5">
-                          {perf.sessionCount} sessions • {perf.totalMinutes}m
-                        </div>
-                      </div>
-                      <div className="text-emerald-400 font-mono bg-emerald-500/10 px-2.5 py-1 rounded-lg text-sm font-bold">
-                        {perf.avgQuality.toFixed(1)} ⭐
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {insightsData.strugglingSubjects.length > 0 && (
-            <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5 backdrop-blur-sm">
-              <h4 className="font-bold text-yellow-300 mb-3 flex items-center gap-2 text-sm uppercase tracking-wider">
-                <AlertCircle size={16} strokeWidth={2.5} />
-                Needs Attention
-              </h4>
-              <div className="space-y-3">
-                {insightsData.strugglingSubjects.map((perf: SubjectPerformance) => {
-                  const subject = subjects.find(s => s.id === perf.subjectId);
-                  return (
-                    <div key={perf.subjectId} className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="text-yellow-200 font-medium text-sm">{subject?.name}</div>
-                        <div className="text-yellow-400/60 text-xs mt-0.5">
-                          {perf.sessionCount} sessions • {perf.totalMinutes}m
-                        </div>
-                      </div>
-                      <div className="text-yellow-400 font-mono bg-yellow-500/10 px-2.5 py-1 rounded-lg text-sm font-bold">
-                        {perf.avgQuality.toFixed(1)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+        {cards.map((card, i) => <InsightCardView key={i} card={card} />)}
+      </div>
     </div>
   );
 };
