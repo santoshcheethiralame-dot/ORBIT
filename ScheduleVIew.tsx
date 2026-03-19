@@ -9,6 +9,9 @@ import { FrostedTile, FrostedMini, PageHeader, MetaText, getSubjectColor, SUBJEC
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 // Full-day slots from 6:00 to 23:00 (1-hour blocks = 17 slots).
 // Students with early classes (7am lectures) or late labs are now covered.
+// SLOT CONTRACT: slot 0 = 06:00, slot N = (06 + N):00.
+// This must match ScheduleOptimizer.tsx (SLOT_START = 6) and
+// Onboarding.tsx (ONBOARDING_SLOT_START = 6). Never change independently.
 const SLOT_START_HOUR = 6;
 const SLOT_END_HOUR = 23; // last slot starts at 22:00
 const SLOT_LABELS: string[] = Array.from(

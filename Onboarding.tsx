@@ -12,6 +12,7 @@ interface OnboardingProject {
   name: string;
   progression: number;           // 0–100, converted to completedEffortMinutes on save
   effort: 'low' | 'med' | 'high'; // converted to priority on save
+  subjectId?: number;            // FIX: was missing, causing all projects to use subjectId: 0
 }
 
 // Progress indicator removed
@@ -408,12 +409,30 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [newSubject, setNewSubject] = useState<Subject>({ name: "", code: "", credits: 3, difficulty: 3 });
   const [projects, setProjects] = useState<OnboardingProject[]>([]);
-  const [newProject, setNewProject] = useState<OnboardingProject>({ name: "", progression: 0, effort: 'med' });
+  const [newProject, setNewProject] = useState<OnboardingProject>({ name: "", progression: 0, effort: 'med', subjectId: undefined });
 
   // Timetable State
-  const [timetable, setTimetable] = useState<number[][]>(Array(7).fill(0).map(() => Array(8).fill(0)));
-  const [timeLabels, setTimeLabels] = useState(["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"]);
-  const [slotIndices, setSlotIndices] = useState([0, 1, 2, 3, 4, 5, 6, 7]);
+  // FIX: slot indices must match ScheduleView.tsx (SLOT_START_HOUR = 6) and
+  // ScheduleOptimizer.tsx (SLOT_START = 6). Previously Onboarding labelled
+  // slot 0 as "09:00" while those files treat slot 0 as "06:00", so every
+  // class saved during onboarding appeared 3 hours early in the schedule grid.
+  //
+  // We now start at 06:00. The default 10 slots cover 06:00–15:00 which spans
+  // typical morning lectures to mid-afternoon labs. Users can add/remove slots.
+  const ONBOARDING_SLOT_START = 6; // must equal ScheduleView SLOT_START_HOUR
+  const INITIAL_SLOTS = 10;        // 06:00–15:00
+  const [timetable, setTimetable] = useState<number[][]>(
+    Array(7).fill(0).map(() => Array(INITIAL_SLOTS).fill(0))
+  );
+  const [timeLabels, setTimeLabels] = useState(() =>
+    Array.from({ length: INITIAL_SLOTS }, (_, i) => {
+      const h = ONBOARDING_SLOT_START + i;
+      return `${String(h).padStart(2, '0')}:00`;
+    })
+  );
+  const [slotIndices, setSlotIndices] = useState(() =>
+    Array.from({ length: INITIAL_SLOTS }, (_, i) => i)
+  );
   const [showWeekend, setShowWeekend] = useState(false);
   const [selectingSlot, setSelectingSlot] = useState<{ d: number, s: number } | null>(null);
   const [timetableError, setTimetableError] = useState('');
@@ -549,7 +568,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
     }
 
     setProjects(prev => [...prev, { ...newProject, id: Date.now() + Math.random() }]);
-    setNewProject({ name: "", progression: 0, effort: 'med' });
+    setNewProject({ name: "", progression: 0, effort: 'med', subjectId: undefined });
     toast.success("Project initialized");
   };
 
@@ -592,9 +611,12 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
           const effortToPriority: Record<string, Project['priority']> = { low: 'low', med: 'normal', high: 'high' };
           const totalMinutes = effortToMinutes[p.effort] ?? 180;
           const completedMinutes = Math.round((p.progression / 100) * totalMinutes);
+          // FIX: Map the temporary subject ID from the onboarding form to the
+          // real Dexie-assigned ID. Fall back to 0 only if no subject was selected.
+          const realSubjectId = p.subjectId ? (subjectMap.get(p.subjectId) ?? 0) : 0;
           const projectData: Omit<Project, 'id'> = {
             name: p.name,
-            subjectId: 0,
+            subjectId: realSubjectId,
             totalEffortMinutes: totalMinutes,
             completedEffortMinutes: completedMinutes,
             priority: effortToPriority[p.effort] ?? 'normal',
@@ -1157,6 +1179,26 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
                   }
                 }}
               />
+
+              {/* FIX: Subject selector — previously missing, causing all projects to be
+                  stored with subjectId: 0 and shown as "Unknown subject" in ProjectsView. */}
+              {subjects.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-white/60 mb-2 uppercase tracking-wider">
+                    Linked Subject (optional)
+                  </label>
+                  <select
+                    value={newProject.subjectId ?? ''}
+                    onChange={e => setNewProject({ ...newProject, subjectId: e.target.value ? Number(e.target.value) : undefined })}
+                    className="w-full bg-zinc-900/50 border border-white/10 text-white p-3.5 rounded-xl outline-none font-semibold text-sm min-h-[52px] transition-all hover:bg-zinc-900/60 focus:border-indigo-500/40"
+                  >
+                    <option value="">-- No subject (standalone) --</option>
+                    {subjects.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Progress Slider */}
               <div className="bg-white/5 rounded-2xl p-6 border border-white/10 group/slider hover:border-indigo-500/30 transition-all duration-300 ease-out">

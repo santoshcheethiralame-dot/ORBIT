@@ -94,7 +94,7 @@ export const SettingsView = () => {
       emailBody += `Description:\n${bugReportData.description}\n\n`;
       emailBody += `--\nUser Email: ${bugReportData.email}\n\n`;
       emailBody += `App Stats: ${stats.subjects} subjects, ${stats.logs} sessions, ${stats.totalHours}h\n`;
-      emailBody += `Version: v${__APP_VERSION__}`;
+      emailBody += `Version: v${(typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '3.2.0')}`;
 
       window.location.href = `mailto:santoshcheethirala.me@gmail.com?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
 
@@ -128,7 +128,7 @@ export const SettingsView = () => {
       const userSettings = await db.settings.toArray();
 
       const exportPayload = {
-        version: __APP_VERSION__,
+        version: (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '3.2.0'),
         exportDate: new Date().toISOString(),
         appSettings: settings,
         data: {
@@ -954,6 +954,84 @@ export const SettingsView = () => {
                 </label>
               </FrostedMini>
             ))}
+          </div>
+        </SettingSection>
+
+        {/* Display Settings — FIX: these settings were wired in SettingsContext but had no UI */}
+        <SettingSection
+          id="display"
+          title="Display Settings"
+          subtitle="THEME & APPEARANCE"
+          icon={Sun}
+          variant="cyan"
+        >
+          {/* Theme selector */}
+          <FrostedMini variant="cyan" className="p-4 md:p-5">
+            <div className="mb-3">
+              <div className="font-bold text-white text-sm md:text-base mb-1">Theme</div>
+              <div className="text-xs text-zinc-500">Visual style for the entire app</div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { value: 'dark',     label: 'Dark',     desc: 'Default dark' },
+                { value: 'space',    label: 'Space',    desc: 'Deep blue nebula' },
+                { value: 'midnight', label: 'Midnight', desc: 'OLED black + amber' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => updateSetting('display.theme', opt.value)}
+                  className={`p-3 rounded-xl border-2 text-center transition-all duration-300 hover:scale-105 active:scale-95 ${
+                    settings.display.theme === opt.value
+                      ? 'bg-cyan-500/20 border-cyan-400/50 text-white'
+                      : 'bg-white/5 border-white/10 text-zinc-400 hover:border-white/20'
+                  }`}
+                >
+                  <div className="text-xs font-bold mb-0.5">{opt.label}</div>
+                  <div className="text-[10px] text-zinc-500">{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+          </FrostedMini>
+
+          {/* Compact mode + animations */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            <FrostedMini variant="cyan">
+              <label className="flex items-center justify-between cursor-pointer p-3 md:p-4 group/toggle hover:bg-white/[0.01] transition-all">
+                <div className="flex-1 min-w-0 mr-2">
+                  <div className="font-bold text-white text-xs md:text-sm mb-0.5">Compact Mode</div>
+                  <div className="text-[10px] md:text-xs text-zinc-500">Reduce padding and font sizes</div>
+                </div>
+                <button
+                  onClick={() => updateSetting('display.compactMode', !settings.display.compactMode)}
+                  className={`relative w-11 h-6 rounded-full transition-all duration-300 ${
+                    settings.display.compactMode ? 'bg-cyan-500 shadow-lg shadow-cyan-500/30' : 'bg-zinc-800 border-2 border-zinc-700'
+                  } hover:scale-105 active:scale-95`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-lg transition-transform duration-300 ${
+                    settings.display.compactMode ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </label>
+            </FrostedMini>
+
+            <FrostedMini variant="cyan">
+              <label className="flex items-center justify-between cursor-pointer p-3 md:p-4 group/toggle hover:bg-white/[0.01] transition-all">
+                <div className="flex-1 min-w-0 mr-2">
+                  <div className="font-bold text-white text-xs md:text-sm mb-0.5">Animations</div>
+                  <div className="text-[10px] md:text-xs text-zinc-500">Transitions and motion effects</div>
+                </div>
+                <button
+                  onClick={() => updateSetting('display.animationsEnabled', !settings.display.animationsEnabled)}
+                  className={`relative w-11 h-6 rounded-full transition-all duration-300 ${
+                    settings.display.animationsEnabled ? 'bg-cyan-500 shadow-lg shadow-cyan-500/30' : 'bg-zinc-800 border-2 border-zinc-700'
+                  } hover:scale-105 active:scale-95`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-lg transition-transform duration-300 ${
+                    settings.display.animationsEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </label>
+            </FrostedMini>
           </div>
         </SettingSection>
 

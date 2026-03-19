@@ -97,17 +97,15 @@ const App = () => {
   const rolloverCheckInProgress = useRef(false);
   const planGenerationInProgress = useRef(false);
   const loadDataInProgress = useRef(false);
+  const pendingLoadRef      = useRef(false); // FIX: tracks queued load requests
 
   // âœ¨ NEW: Access toast from context
   const toast = useToast();
   const { settings } = useSettings();
 
-  // Apply theme + compact mode to <html> element whenever settings change
-  useEffect(() => {
-    const html = document.documentElement;
-    html.setAttribute('data-theme', settings.display.theme);
-    html.setAttribute('data-compact', String(settings.display.compactMode));
-  }, [settings.display.theme, settings.display.compactMode]);
+  // NOTE: theme/compact-mode application to <html> is handled by SettingsContext.tsx.
+  // The duplicate useEffect that was here has been removed to prevent a race condition
+  // where both effects ran on every settings change and could overwrite each other.
 
   useEffect(() => {
     try {
@@ -225,7 +223,10 @@ const App = () => {
   }, []);
 
   const loadData = async () => {
+    // FIX: Queue calls that arrive while a load is already running, rather than
+    // silently dropping them. pendingLoadRef is a simple "one pending slot" queue.
     if (loadDataInProgress.current) {
+      pendingLoadRef.current = true;
       return;
     }
 
@@ -239,7 +240,6 @@ const App = () => {
 
       const todayStr = getISTEffectiveDate();
       const existing = await db.plans.get(todayStr);
-
 
       if (existing && isPlanCurrent(existing.date)) {
         setTodayPlan(existing);
@@ -259,13 +259,18 @@ const App = () => {
       toast.error('Failed to load data. Please refresh the page.');
     } finally {
       loadDataInProgress.current = false;
+      // Drain the one-slot queue if a call arrived while we were busy.
+      if (pendingLoadRef.current) {
+        pendingLoadRef.current = false;
+        void loadData();
+      }
     }
   };
 
   useEffect(() => {
     const init = async () => {
       try {
-        // ðŸ†• ADD: Database health check
+        // Database health check
         const dbVersion = db.verno;
 
         // Try to access each table to ensure schema is valid
@@ -523,6 +528,14 @@ const App = () => {
     setActiveTab(tabId);
     setView(tabId as any);
   };
+
+  // ─── Safety: if we need context but have no subjects, go to onboarding ─────
+  // Prevents a blank screen when the DB has a semester but no subjects yet
+  useEffect(() => {
+    if (needsContext && subjects.length === 0) {
+      setView("onboarding");
+    }
+  }, [needsContext, subjects.length]);
 
   // ─── Cross-component navigation via CustomEvents ──────────────────────────
   // Child views dispatch these events to trigger tab switches without prop drilling.

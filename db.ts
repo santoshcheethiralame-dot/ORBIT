@@ -153,34 +153,62 @@ export function onDataChange(callback: () => void) {
 
 // ─── Auto-Snapshot: localStorage safety net for cross-origin recovery ────────
 const SNAPSHOT_KEY = 'orbit-db-snapshot';
+const SNAPSHOT_MAX_BYTES = 3_500_000; // 3.5 MB safety ceiling (localStorage limit ≈ 5 MB)
 let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
- * Serialize ALL database tables to localStorage.
+ * Serialize database tables to localStorage — with size guard.
  * Debounced — safe to call frequently; only writes after 2s of quiet.
+ * FIX: Limits plans to last 30 days, logs to last 500, blockOutcomes to last 200
+ * so the snapshot never exceeds localStorage quota.
  */
 export function saveDbSnapshot() {
   if (snapshotTimer) clearTimeout(snapshotTimer);
   snapshotTimer = setTimeout(async () => {
     try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const cutoffDate = thirtyDaysAgo.toISOString().split('T')[0];
+
+      const [
+        semesters, subjects, projects, schedule,
+        allPlans, allLogs, assignments, topics,
+        allOutcomes, studyBlocks, exams, settings,
+      ] = await Promise.all([
+        db.semesters.toArray(),
+        db.subjects.toArray(),
+        db.projects.toArray(),
+        db.schedule.toArray(),
+        db.plans.toArray(),
+        db.logs.toArray(),
+        db.assignments.toArray(),
+        db.topics.toArray(),
+        db.blockOutcomes.toArray(),
+        db.studyBlocks.toArray(),
+        db.exams.toArray(),
+        db.settings.toArray(),
+      ]);
+
+      // Trim large tables to stay under the size ceiling.
+      const plans        = allPlans.filter(p => p.date >= cutoffDate);
+      const logs         = allLogs.slice(-500);
+      const blockOutcomes = allOutcomes.slice(-200);
+
       const snap = {
-        version: "2.0",
+        version: '2.0',
         timestamp: Date.now(),
-        semesters: await db.semesters.toArray(),
-        subjects: await db.subjects.toArray(),
-        projects: await db.projects.toArray(),
-        schedule: await db.schedule.toArray(),
-        plans: await db.plans.toArray(),
-        logs: await db.logs.toArray(),
-        assignments: await db.assignments.toArray(),
-        topics: await db.topics.toArray(),
-        blockOutcomes: await db.blockOutcomes.toArray(),
-        studyBlocks: await db.studyBlocks.toArray(),
-        exams: await db.exams.toArray(),
-        settings: await db.settings.toArray(),
+        semesters, subjects, projects, schedule,
+        plans, logs, assignments, topics,
+        blockOutcomes, studyBlocks, exams, settings,
       };
-      localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snap));
-      console.log('📸 DB snapshot saved to localStorage');
+
+      const json = JSON.stringify(snap);
+      if (json.length > SNAPSHOT_MAX_BYTES) {
+        console.warn(`⚠️ Snapshot size (${Math.round(json.length / 1024)} KB) too large — skipping localStorage write.`);
+        return;
+      }
+      localStorage.setItem(SNAPSHOT_KEY, json);
+      console.log(`📸 DB snapshot saved (${Math.round(json.length / 1024)} KB)`);
     } catch (err) {
       console.warn('⚠️ Failed to save DB snapshot:', err);
     }

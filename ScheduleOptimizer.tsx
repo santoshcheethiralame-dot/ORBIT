@@ -3,7 +3,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
-import { getAllReadinessScores } from './brain';
+import { getAllReadinessScores } from './brain-ultimate';
 import { geminiChat } from './gemini';
 import {
   Sparkles, CalendarClock, RefreshCw, ChevronDown, ChevronUp,
@@ -19,6 +19,9 @@ interface SlotSuggestion {
 }
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+// SLOT CONTRACT: slot 0 = 06:00, slot N = (06 + N):00.
+// This must match ScheduleView.tsx (SLOT_START_HOUR = 6) and
+// Onboarding.tsx (ONBOARDING_SLOT_START = 6). Never change independently.
 const SLOT_START = 6;
 const LOADING_STEPS = [
   'Fetching readiness scores…',

@@ -292,8 +292,25 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   }, [playSound, showMilestoneMessage]);
 
   // ---------------------------------------------------------------------------
-  // Interval ticking effect (uses checkMilestone above)
+  // Interval ticking effect — FIX: use refs for all mutable timer state so the
+  // interval is created once per start/stop, not rebuilt on every tick.
   // ---------------------------------------------------------------------------
+  const isBreakRef    = useRef(isBreak);
+  const isOvertimeRef = useRef(isOvertime);
+  const breakDurRef   = useRef(breakDuration);
+  const blockDurRef   = useRef(block.duration);
+  // FIX: also mirror timeLeft and overtime in refs so the milestone calculation
+  // can read current values without triggering extra renders via nested setState.
+  const timeLeftRef   = useRef(timeLeft);
+  const overtimeRef   = useRef(overtime);
+
+  useEffect(() => { isBreakRef.current    = isBreak;      }, [isBreak]);
+  useEffect(() => { isOvertimeRef.current = isOvertime;   }, [isOvertime]);
+  useEffect(() => { breakDurRef.current   = breakDuration;}, [breakDuration]);
+  useEffect(() => { blockDurRef.current   = block.duration;}, [block.duration]);
+  useEffect(() => { timeLeftRef.current   = timeLeft;     }, [timeLeft]);
+  useEffect(() => { overtimeRef.current   = overtime;     }, [overtime]);
+
   useEffect(() => {
     if (!isRunning) return;
 
@@ -303,9 +320,9 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
       if (delta >= 1000) {
         const secondsPassed = Math.floor(delta / 1000);
-        lastTickRef.current = now - (delta % 1000); // Preserve the remainder for more accurate sub-second tracking
+        lastTickRef.current = now - (delta % 1000);
 
-        if (isBreak) {
+        if (isBreakRef.current) {
           setBreakTime(prev => {
             if (prev <= secondsPassed) {
               setIsBreak(false);
@@ -317,11 +334,10 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           });
         } else {
           setTimeLeft(prev => {
-            if (prev <= secondsPassed && !isOvertime) {
+            if (prev <= secondsPassed && !isOvertimeRef.current) {
               if (autoStartBreaksRef.current) {
-                // Auto-start break without entering overtime
                 setIsBreak(true);
-                setBreakTime(breakDuration);
+                setBreakTime(breakDurRef.current);
                 playSound('complete');
                 return 0;
               }
@@ -333,19 +349,21 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
             return prev > 0 ? Math.max(0, prev - secondsPassed) : 0;
           });
 
-          if (isOvertime) setOvertime(prev => prev + secondsPassed);
+          if (isOvertimeRef.current) setOvertime(prev => prev + secondsPassed);
 
-          // compute progress using current known values to avoid stale closure
-          const total = isBreak ? breakDuration : block.duration * 60;
-          const current = isOvertime ? -overtime : (isBreak ? breakTime : timeLeft);
-          const p = isOvertime ? 1 : Math.min(1, Math.max(0, (total - current) / total));
+          // Compute progress from refs — no extra renders needed.
+          const total   = isBreakRef.current ? breakDurRef.current : blockDurRef.current * 60;
+          const current = isOvertimeRef.current ? 0 : timeLeftRef.current;
+          const p       = isOvertimeRef.current ? 1 : Math.min(1, Math.max(0, (total - current) / total));
           checkMilestone(p);
         }
       }
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isRunning, isBreak, timeLeft, isOvertime, block.duration, breakDuration, breakTime, overtime, checkMilestone, playSound]);
+    // FIX: deps only include stable values — isRunning triggers create/destroy,
+    // not the rapidly-changing timer state values.
+  }, [isRunning, playSound, checkMilestone]);
 
   // ---------------------------------------------------------------------------
   // Rest of component logic

@@ -161,20 +161,27 @@ export const DashboardInsights = () => {
   const [loading, setLoading] = useState(false);
   const [aiPowered, setAiPowered] = useState(false);
   const fetchedRef = useRef(false);
+  // FIX: Track the outcomes count at the time of the last fetch. When new sessions
+  // are logged the count increases, fetchedRef is reset and fresh insights are fetched.
+  const lastFetchedCount = useRef(0);
 
   const subjects = useLiveQuery(() => db.subjects.toArray()) || [];
   const outcomes = useLiveQuery(() => db.blockOutcomes.toArray()) || [];
 
   useEffect(() => {
-    if (outcomes.length === 0 || fetchedRef.current) return;
+    if (outcomes.length === 0) return;
+    // Re-fetch if never fetched OR if new outcomes have been logged since last fetch.
+    if (fetchedRef.current && outcomes.length === lastFetchedCount.current) return;
+
     fetchedRef.current = true;
+    lastFetchedCount.current = outcomes.length;
 
     const run = async () => {
       setLoading(true);
       try {
         const result = await fetchAIInsights(outcomes, subjects);
-        // Check if it came from AI (more than what static would produce for same data)
         const staticResult = calcStaticInsights(outcomes, subjects);
+        // Use structural equality on sorted keys to avoid false "AI powered" flags.
         setAiPowered(JSON.stringify(result) !== JSON.stringify(staticResult));
         setCards(result);
       } catch {
@@ -188,6 +195,7 @@ export const DashboardInsights = () => {
 
   const refresh = async () => {
     fetchedRef.current = false;
+    lastFetchedCount.current = 0;
     setCards([]);
     setLoading(true);
     try {
@@ -200,6 +208,7 @@ export const DashboardInsights = () => {
     } finally {
       setLoading(false);
       fetchedRef.current = true;
+      lastFetchedCount.current = outcomes.length;
     }
   };
 

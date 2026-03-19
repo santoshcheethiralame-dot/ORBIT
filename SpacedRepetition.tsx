@@ -505,6 +505,8 @@ export const ReviewQueueView = () => {
   const [doneCount, setDoneCount] = useState(0);
   const [sessionComplete, setSessionComplete] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false); // flashcard answer revealed
+  // FIX: Track when each topic card is shown so we can log actual review duration.
+  const cardShownAt = React.useRef<number>(Date.now());
 
   const topics = useLiveQuery(async () => {
     const all = await db.topics.toArray();
@@ -523,11 +525,17 @@ export const ReviewQueueView = () => {
   const current = topics[currentIdx];
   const totalDue = topics.length;
 
+  // Reset the per-card timer whenever the current topic changes.
+  React.useEffect(() => { cardShownAt.current = Date.now(); }, [currentIdx]);
+
   const handleRate = async (rating: 1 | 2 | 3) => {
     if (!current) return;
 
+    // FIX: Use actual elapsed time instead of hardcoded 5 minutes.
+    const elapsedMin = Math.max(1, Math.round((Date.now() - cardShownAt.current) / 60_000));
+
     const { recordTopicReview } = await import('./tracking');
-    await recordTopicReview(current.subjectId, current.name, rating, 5, today);
+    await recordTopicReview(current.subjectId, current.name, rating, elapsedMin, today);
 
     setDoneCount(d => d + 1);
     setShowRating(false);

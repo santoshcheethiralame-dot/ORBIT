@@ -401,23 +401,24 @@ export function predictReadiness(
   let currentVolume = score / 100 / decay;
   let currentHours = currentVolume * goalHours;
 
-  // Simulate day-by-day
-  let projectedScore = score;
+  // Simulate day-by-day with properly accumulated decay
+  // FIX: cumulativeDecay compounds across all days instead of resetting each iteration
+  let cumulativeDecay = currentReadiness.decay || 1.0;
 
   for (let day = 1; day <= daysFromNow; day++) {
-    // Add study hours
     currentHours += hoursPerDay;
     currentVolume = Math.min(currentHours / goalHours, 1);
 
-    // Apply slight decay only if NOT studying that day
-    let dailyDecayModifier = 1.0;
     if (hoursPerDay === 0) {
-      // Ebbinghaus approximation for a single day transition
-      dailyDecayModifier = subject.difficulty >= 4 ? 0.90 : 0.95;
+      // Ebbinghaus compound decay per day
+      cumulativeDecay *= subject.difficulty >= 4 ? 0.90 : 0.95;
+    } else {
+      // Studying slows/reverses decay
+      cumulativeDecay = Math.min(cumulativeDecay * 1.04, 1.0);
     }
-
-    projectedScore = currentVolume * 100 * dailyDecayModifier;
+    cumulativeDecay = Math.max(cumulativeDecay, 0.05);
   }
+  let projectedScore = currentVolume * 100 * cumulativeDecay;
 
   projectedScore = Math.min(Math.round(projectedScore), 100);
 
@@ -462,10 +463,17 @@ function calculateNextReview(
     // First review after initial study
     intervalDays = comprehensionRating === 1 ? 1 :
       comprehensionRating === 2 ? 3 : 7;
+  } else if (reviewNumber === 1) {
+    // Second review: classic SM-2 anchors
+    intervalDays = comprehensionRating === 1 ? 1 :
+      comprehensionRating === 2 ? 6 : 8;
   } else {
-    // Subsequent reviews: multiply previous interval by ease factor
-    const previousInterval = reviewNumber === 1 ? 3 : 7 * Math.pow(newEaseFactor, reviewNumber - 1);
-    intervalDays = Math.round(previousInterval * newEaseFactor);
+    // FIX: cap the exponent and base to prevent astronomical values.
+    // Real SM-2 uses stored interval; we approximate with a capped power function.
+    const cappedEF   = Math.min(newEaseFactor, 2.3);
+    const cappedExp  = Math.min(reviewNumber - 1, 5); // hard ceiling on exponent
+    const prevEstimate = 6 * Math.pow(cappedEF, cappedExp);
+    intervalDays = Math.round(Math.min(prevEstimate, 30 / newEaseFactor) * newEaseFactor);
   }
 
   // Max 30 days between reviews (prevent forgetting)
@@ -648,12 +656,20 @@ async function getExamContext(effectiveDate: string, dbInstance: OrbitDB = db): 
   const subjects = await dbInstance.subjects.toArray();
   const subjectMap = new Map(subjects.map(s => [s.id!, s.name]));
 
-  // Auto-complete exams whose date has passed
-  for (const exam of exams) {
-    if (!exam.completed && exam.examDate < effectiveDate) {
-      exam.completed = true;
-      if (exam.id) await dbInstance.exams.update(exam.id, { completed: true });
-    }
+  // FIX: Performing DB writes inside a query function violates CQS (Command-Query
+  // Separation) and can trigger re-render loops when callers observe DB changes.
+  // Batch all auto-complete writes into a single transaction before reading state.
+  const pastExams = exams.filter(e => !e.completed && e.examDate < effectiveDate);
+  if (pastExams.length > 0) {
+    await dbInstance.transaction('rw', dbInstance.exams, async () => {
+      await Promise.all(
+        pastExams
+          .filter(e => e.id !== undefined)
+          .map(e => dbInstance.exams.update(e.id!, { completed: true }))
+      );
+    });
+    // Update the in-memory array to reflect the writes before we filter it below.
+    pastExams.forEach(e => { e.completed = true; });
   }
 
   const completedExamSubjectIds = exams
@@ -953,6 +969,9 @@ export const generateDailyPlan = async (
             });
           }
         }
+        // FIX: Clear droppedBlocks from the source plan so recovered blocks
+        // are not re-injected on every subsequent plan generation (ghost block bug).
+        await dbInstance.plans.update(pastStr, { droppedBlocks: [] });
       }
     }
 

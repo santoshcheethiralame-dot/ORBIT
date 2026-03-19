@@ -208,8 +208,12 @@ export const SpaceBackground = () => {
   const [nebulaClouds, setNebulaClouds] = useState<any[]>([]);
 
   useEffect(() => {
+    // Respect prefers-reduced-motion: skip all animations for users who have
+    // requested reduced motion (accessibility + performance fix).
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     // Enhanced star field with depth layers
-    const newStars = Array.from({ length: 200 }).map((_, i) => ({
+    const newStars = Array.from({ length: prefersReduced ? 40 : 200 }).map((_, i) => ({
       id: i,
       top: Math.random() * 100,
       left: Math.random() * 100,
@@ -221,7 +225,7 @@ export const SpaceBackground = () => {
     setStars(newStars);
 
     // Nebula clouds for depth
-    const clouds = Array.from({ length: 5 }).map((_, i) => ({
+    const clouds = Array.from({ length: prefersReduced ? 0 : 5 }).map((_, i) => ({
       id: i,
       top: Math.random() * 100,
       left: Math.random() * 100,
@@ -232,7 +236,14 @@ export const SpaceBackground = () => {
     }));
     setNebulaClouds(clouds);
 
-    // Enhanced shooting stars
+    // Skip shooting stars entirely for reduced-motion users.
+    if (prefersReduced) return;
+
+    // Enhanced shooting stars — FIX: collect all timeoutIds so they can be
+    // cancelled when the component unmounts, preventing state updates on an
+    // unmounted component (React warning + potential memory leak).
+    const timeoutIds: ReturnType<typeof setTimeout>[] = [];
+
     const spawnShootingStar = () => {
       const id = Date.now();
       const angle = Math.random() * 60 - 30; // -30 to 30 degrees
@@ -243,15 +254,22 @@ export const SpaceBackground = () => {
         angle,
         length: 80 + Math.random() * 60
       }]);
-      setTimeout(() => {
+      // FIX: track this timeout so it can be cancelled on unmount.
+      const tid = setTimeout(() => {
         setShootingStars(prev => prev.filter(s => s.id !== id));
       }, 2800);
+      timeoutIds.push(tid);
     };
 
     const interval = setInterval(spawnShootingStar, 5000);
     spawnShootingStar(); // Initial shooting star
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      // FIX: cancel all pending "remove star" timeouts to avoid state updates
+      // after unmount (the original code only cancelled the interval, not these).
+      timeoutIds.forEach(tid => clearTimeout(tid));
+    };
   }, []);
 
   return (

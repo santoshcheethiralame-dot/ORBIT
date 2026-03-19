@@ -8,10 +8,11 @@ import {
   ChevronDown, ChevronUp, Plus, Trash2,
 } from "lucide-react";
 import { Subject, DailyContext, ExamEntry, SubjectReadiness } from "./types";
+import { ProbabilisticReadiness } from "./brain-ultimate";
 import { Input, Button } from "./components";
 import { SpaceBackground } from "./SpaceBackground";
 import { db } from "./db";
-import { getAllReadinessScores } from "./brain";
+import { getAllReadinessScores } from "./brain-ultimate";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    PLAN GENERATING OVERLAY
@@ -227,7 +228,7 @@ const DayTypeTabs = ({
 // ─── Main component ───────────────────────────────────────────────────────────
 interface DailyContextModalProps {
   subjects: Subject[];
-  onGenerate: (ctx: DailyContext) => void;
+  onGenerate: (ctx: DailyContext) => Promise<void> | void;
 }
 
 export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalProps) => {
@@ -261,7 +262,7 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
   const [newExamDate, setNewExamDate] = useState("");
 
   // Readiness
-  const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness>>({});
+  const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness | ProbabilisticReadiness>>({});
 
   useEffect(() => {
     if (subjects.length > 0) {
@@ -319,15 +320,24 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
     }
 
     setIsGenerating(true);
-    onGenerate({
-      mood,
-      dayType,
-      focusSubjectId: dayType === "isa" || dayType === "esa" ? focusSubjectId : undefined,
-      isHoliday,
-      isSick,
-      bunkedSubjectId: bunked ? bunkedSubjectId : undefined,
-      daysToExam: examDays !== "" ? Number(examDays) : undefined,
-    });
+    try {
+      await onGenerate({
+        mood,
+        dayType,
+        focusSubjectId: dayType === "isa" || dayType === "esa" ? focusSubjectId : undefined,
+        isHoliday,
+        isSick,
+        bunkedSubjectId: bunked ? bunkedSubjectId : undefined,
+        daysToExam: examDays !== "" ? Number(examDays) : undefined,
+      });
+      // On success, the parent sets needsContext=false which unmounts this modal.
+      // Do NOT set isGenerating(false) here — let the unmount handle it so the
+      // overlay doesn't flicker off before the modal closes.
+    } catch (err) {
+      // On failure the modal stays open, so we must reset the overlay.
+      console.error("Plan generation failed in modal:", err);
+      setIsGenerating(false);
+    }
   };
 
   const addExamEntry = async () => {
@@ -690,7 +700,14 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
               {/* ── Actions ──────────────────────────────────────────────── */}
               <div className="flex items-center justify-between gap-4 pt-1">
                 <button
-                  onClick={() => onGenerate({ mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false })}
+                  onClick={async () => {
+                    setIsGenerating(true);
+                    try {
+                      await onGenerate({ mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false });
+                    } catch {
+                      setIsGenerating(false);
+                    }
+                  }}
                   className="text-xs font-bold text-zinc-600 hover:text-zinc-300 uppercase tracking-widest transition-colors px-2 py-2"
                 >
                   Skip for Now

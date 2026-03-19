@@ -1,59 +1,63 @@
+// vite.config.ts — ESM-compatible (fixes ERR_REQUIRE_ESM with @vitejs/plugin-react)
+// All imports use ES module syntax. Do NOT add require() calls.
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { VitePWA } from 'vite-plugin-pwa';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-const pkg = require('./package.json');
+// Read version from package.json so __APP_VERSION__ is always in sync
+const pkg = JSON.parse(
+  readFileSync(resolve(__dirname, 'package.json'), 'utf-8')
+);
 
 export default defineConfig({
   plugins: [
     react(),
-    VitePWA({
-      registerType: 'prompt',
-      filename: 'sw.js',
-      manifest: {
-        name: 'Orbit Study Planner',
-        short_name: 'Orbit',
-        description: 'Adaptive intelligent study planner',
-        theme_color: '#6366f1',
-        background_color: '#09090b',
-        display: 'standalone',
-        orientation: 'portrait',
-        start_url: '/',
-        icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
-        ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: { cacheName: 'google-fonts-cache', expiration: { maxAgeSeconds: 60 * 60 * 24 * 365 } },
-          },
-        ],
-      },
-    }),
   ],
-  define: {
-    __APP_VERSION__: JSON.stringify(pkg.version),
+
+  // Resolve project-root aliases (@/... → ./...)
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, '.'),
+    },
   },
+
+  // Inject build-time constants used throughout the app
+  define: {
+    // Quoted so it becomes a string literal in output bundles
+    __APP_VERSION__: JSON.stringify(pkg.version ?? '0.0.0'),
+  },
+
+  // Dev server config
+  server: {
+    port: 5173,
+    strictPort: false,
+    open: false,
+  },
+
+  // Build config
   build: {
-    target: 'es2020',
-    sourcemap: false,
+    target: 'es2022',
+    outDir: 'dist',
+    sourcemap: true,
+    // Raise the default 500 kB warning to 1 MB — Orbit's brain modules are large
+    chunkSizeWarningLimit: 1024,
     rollupOptions: {
       output: {
+        // Split vendor code into a separate chunk for better caching
         manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          'dexie-vendor': ['dexie', 'dexie-react-hooks'],
-          'lucide': ['lucide-react'],
+          react: ['react', 'react-dom'],
+          dexie: ['dexie', 'dexie-react-hooks'],
+          lucide: ['lucide-react'],
         },
       },
     },
   },
-  server: {
-    port: 5173,
-    host: true,
+
+  // Ensure Vite treats .ts/.tsx as ESM (required when package.json lacks "type":"module")
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'es2022',
+    },
   },
 });

@@ -26,10 +26,10 @@ interface RichInsight {
   urgencyScore: number;   // 0–100
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   DAILY CACHE KEY — refreshes once per calendar day, not per browser session
-───────────────────────────────────────────────────────────────────────────── */
-const CACHE_KEY = `orbit-ai-insight-v2-${new Date().toISOString().split('T')[0]}`;
+// FIX: Stable cache key (no date suffix). The cached JSON includes a `date` field
+// so we can check freshness without accumulating stale keys in sessionStorage.
+const CACHE_KEY = 'orbit-ai-insight-v2';
+const TODAY = new Date().toISOString().split('T')[0];
 
 /* ─────────────────────────────────────────────────────────────────────────────
    STYLES
@@ -199,7 +199,15 @@ export const AIInsightBanner: React.FC = () => {
     if (!force) {
       try {
         const cached = sessionStorage.getItem(CACHE_KEY);
-        if (cached) { setInsight(JSON.parse(cached)); return; }
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          // FIX: Check the date stored inside the JSON, not the key name.
+          // Old keys with dates in the name are automatically ignored.
+          if (parsed?.date === TODAY && parsed?.insight) {
+            setInsight(parsed.insight);
+            return;
+          }
+        }
       } catch { /* ignore */ }
     }
 

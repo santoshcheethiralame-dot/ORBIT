@@ -55,9 +55,17 @@ function safeN(v: unknown, fb = 0): number {
 }
 function daysUntil(ds: string): number {
   if (!ds) return 999;
-  const t = new Date(ds).getTime();
-  if (!isFinite(t)) return 999;
-  return Math.ceil((t - Date.now()) / 86_400_000);
+  // FIX: `new Date('2026-05-01')` returns UTC midnight, but Date.now() is local
+  // epoch. For users in IST (+5:30) this meant a deadline of "today" would read
+  // as -1 (overdue) until 5:30 AM. Compare against LOCAL midnight instead.
+  const [y, mo, d] = ds.split('-').map(Number);
+  if (!y || !mo || !d) return 999;
+  const deadlineMidnight = new Date(y, mo - 1, d).getTime(); // local tz midnight
+  const nowMidnight = (() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+  })();
+  return Math.round((deadlineMidnight - nowMidnight) / 86_400_000);
 }
 function fmtMins(raw: unknown): string {
   const m = safeN(raw, 0);

@@ -26,7 +26,7 @@ import {
   AnkiCard,
 } from './gemini';
 import { db } from './db';
-import { getAllReadinessScores } from './brain';
+import { getAllReadinessScores } from './brain-ultimate';
 import { enrichTopics, TopicWithReadiness } from './TopicReadinessView';
 import { ExamSimulator } from './ExamSimulator';  // NEW: Exam tab
 
@@ -55,13 +55,27 @@ const NoteResourceIcon = ({ type }: { type: string }) => {
   return <Globe size={14} className="text-violet-400" strokeWidth={2} />;
 };
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   XSS SANITIZER — escapes captured groups before injecting into DOM.
+   FIX: The regex replace captures (.*?) which can contain raw HTML from
+   AI-generated content. Every captured group must be escaped first.
+───────────────────────────────────────────────────────────────────────────── */
+function escHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const NotesMD = ({ text }: { text: string }) => {
   const lines = text.split('\n');
   return (
     <div className="space-y-1">
       {lines.map((line, i) => {
         if (!line.trim()) return <div key={i} className="h-1.5" />;
-        let html = line
+        let html = escHtml(line)
           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
           .replace(/\*(.*?)\*/g, '<em style="color:rgba(167,139,250,0.85)">$1</em>')
           .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:4px;font-size:0.85em;font-family:monospace">$1</code>');
@@ -719,7 +733,8 @@ const MD = ({ text }: { text: string }) => {
     <div className="space-y-1">
       {lines.map((line, i) => {
         if (!line.trim()) return <div key={i} className="h-1" />;
-        let html = line
+        // FIX: Escape the raw line before applying markdown transforms to prevent XSS.
+        let html = escHtml(line)
           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
           .replace(/\*(.*?)\*/g, '<em>$1</em>')
           .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:4px;font-size:0.85em;font-family:monospace">$1</code>');

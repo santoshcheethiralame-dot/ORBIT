@@ -11,23 +11,10 @@ import {
     StopCircle,
     Activity
 } from 'lucide-react';
-
-// Mock types for demonstration
-interface DayPreview {
-    date: string;
-    dayName: string;
-    totalMinutes: number;
-    loadLevel: string;
-    hasESA: boolean;
-    hasISA: boolean;
-}
-
-interface WeekPreview {
-    days: DayPreview[];
-    peakDay: string;
-    warnings: string[];
-    neglectedProjects: string[];
-}
+// FIX: Import from types.ts instead of re-declaring a trimmed local interface.
+// The local interface was missing blockCount, urgentAssignments, projects,
+// subjectBreakdown, and reviewsDue — causing TS errors and silent data loss.
+import type { DayPreview, WeekPreview } from './types';
 
 // WeekPreviewModal with new wrapper + layout tweaks
 export const WeekPreviewModal = ({
@@ -38,13 +25,13 @@ export const WeekPreviewModal = ({
     onClose: () => void
 }) => {
 
-    const getLevelStyle = (level: string) => {
+    const getLevelStyle = (level: DayPreview['loadLevel']) => {
         switch (level) {
-            case 'extreme': return { accent: 'text-red-400', bar: 'bg-red-500' };
-            case 'heavy': return { accent: 'text-orange-400', bar: 'bg-orange-500' };
-            case 'normal': return { accent: 'text-blue-400', bar: 'bg-blue-500' };
-            case 'light': return { accent: 'text-emerald-400', bar: 'bg-emerald-500' };
-            default: return { accent: 'text-zinc-400', bar: 'bg-zinc-600' };
+            case 'extreme': return { accent: 'text-red-400',     bar: 'bg-red-500'     };
+            case 'heavy':   return { accent: 'text-orange-400',  bar: 'bg-orange-500'  };
+            case 'normal':  return { accent: 'text-blue-400',    bar: 'bg-blue-500'    };
+            case 'light':   return { accent: 'text-emerald-400', bar: 'bg-emerald-500' };
+            default:        return { accent: 'text-zinc-400',    bar: 'bg-zinc-600'    };
         }
     };
 

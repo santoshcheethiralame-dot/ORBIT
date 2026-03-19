@@ -2,7 +2,7 @@
 // Drop-in as the 4th tab in AIStudyAssistant (tab id: 'exam')
 // Uses gemini.ts for all AI calls (no raw fetch, correct model routing)
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     Brain, Send, CheckCircle2, XCircle, Loader2,
     RotateCcw, Trophy, AlertTriangle, Zap, Target,
@@ -141,9 +141,11 @@ async function gradeAnswer(
         const norm = (s: string) => s.trim().toLowerCase().replace(/^[a-d]\)\s*/, '');
         const correct = norm(question.correctAnswer);
         const given = norm(userAnswer);
+        // FIX: Removed `given.startsWith(correct[0])` which caused systematic false
+        // positives — any answer starting with the same letter as the correct answer
+        // (e.g. "True" vs "Tomorrow") was graded as correct.
         const isCorrect = correct === given
-            || question.correctAnswer.toLowerCase().startsWith(given)
-            || given.startsWith(correct[0]);
+            || question.correctAnswer.toLowerCase().startsWith(given);
         return {
             isCorrect,
             feedback: isCorrect

@@ -55,20 +55,34 @@ function toOR(messages: GeminiMessage[], systemPrompt?: string): ORMessage[] {
 async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
     let lastErr: unknown;
     for (let i = 0; i <= retries; i++) {
-        try { return await fn(); } catch (e) {
+        try { return await fn(); } catch (e: any) {
             lastErr = e;
+            // FIX: Don't retry non-retriable HTTP errors (401, 403, 400).
+            // Only retry on rate limits (429) and server errors (5xx).
+            const statusMatch = e?.message?.match(/OpenRouter (\d+)/);
+            if (statusMatch) {
+                const status = parseInt(statusMatch[1], 10);
+                if (status === 401 || status === 403 || status === 400) throw e;
+            }
             if (i < retries) await new Promise(r => setTimeout(r, 800 * (i + 1)));
         }
     }
     throw lastErr;
 }
 
-const HEADERS = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${API_KEY}`,
-    'HTTP-Referer': 'https://orbit.study',
-    'X-Title': 'Orbit Study App',
-};
+// FIX: Validate API key at module load so missing keys surface immediately.
+if (!API_KEY) {
+    console.warn('[Orbit AI] VITE_OPENROUTER_API_KEY is not set. All AI features will fail.');
+}
+
+function buildHeaders(): Record<string, string> {
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY ?? ''}`,
+        'HTTP-Referer': 'https://orbit.study',
+        'X-Title': 'Orbit Study App',
+    };
+}
 
 /* ─────────────────────────────────────────────────────────────────────────────
    SINGLE-SHOT (non-streaming) — use for JSON generation, short responses
@@ -83,7 +97,7 @@ export async function geminiChat(
     return withRetry(async () => {
         const res = await fetch(BASE_URL, {
             method: 'POST',
-            headers: HEADERS,
+            headers: buildHeaders(),
             body: JSON.stringify({
                 model: MODELS[complexity],
                 max_tokens: maxTokens,
@@ -111,11 +125,14 @@ export async function geminiStream(
     onError: (err: string) => void,
     maxTokens = 1024,
     complexity: TaskComplexity = 'standard',
+    signal?: AbortSignal,
 ): Promise<void> {
     try {
+        // FIX: Pass AbortSignal so callers can cancel on component unmount.
         const res = await fetch(BASE_URL, {
             method: 'POST',
-            headers: HEADERS,
+            headers: buildHeaders(),
+            signal,
             body: JSON.stringify({
                 model: MODELS[complexity],
                 max_tokens: maxTokens,
@@ -155,6 +172,8 @@ export async function geminiStream(
         }
         onDone();
     } catch (e: any) {
+        // AbortError is expected when component unmounts — not an error.
+        if (e?.name === 'AbortError') return;
         onError(e?.message ?? 'Unknown error');
     }
 }
@@ -174,7 +193,7 @@ export async function geminiChatMultimodal(
 
     const res = await fetch(BASE_URL, {
         method: 'POST',
-        headers: HEADERS,
+        headers: buildHeaders(),
         body: JSON.stringify({ model: MODELS.vision, max_tokens: maxTokens, messages }),
     });
     if (!res.ok) {
@@ -201,7 +220,7 @@ export async function geminiStreamMultimodal(
 
         const res = await fetch(BASE_URL, {
             method: 'POST',
-            headers: HEADERS,
+            headers: buildHeaders(),
             body: JSON.stringify({ model: MODELS.vision, max_tokens: maxTokens, stream: true, messages }),
         });
 
@@ -250,12 +269,14 @@ export async function fetchUrlContent(url: string): Promise<{ text: string; imag
         const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
         if (!res.ok) throw new Error('Fetch failed');
         const data = await res.json();
-        const html = data.contents ?? '';
+        const html: string = data.contents ?? '';
 
-        const div = document.createElement('div');
-        div.innerHTML = html;
-        div.querySelectorAll('script,style,nav,header,footer,aside,.nav,.header,.footer,.sidebar').forEach(el => el.remove());
-        const text = (div.textContent || div.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 12000);
+        // FIX: use DOMParser (sandboxed) instead of innerHTML to avoid XSS.
+        // DOMParser never executes scripts or event handlers.
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        doc.querySelectorAll('script,style,nav,header,footer,aside,.nav,.header,.footer,.sidebar').forEach(el => el.remove());
+        const text = (doc.body.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 12000);
 
         const imgMatches = html.match(/src=["'](https?:\/\/[^"']+\.(?:png|jpg|jpeg|gif|webp|svg))[^"']*/gi) ?? [];
         const images = imgMatches

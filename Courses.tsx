@@ -10,13 +10,14 @@ import {
 } from "lucide-react";
 import { db } from "./db";
 import { ResourceType, SubjectReadiness } from "./types";
+import { ProbabilisticReadiness } from "./brain-ultimate";
 import { useLiveQuery } from "dexie-react-hooks";
 import { safeDB, withToast } from './utils/dbErrorHandler';
 import {
   EmptyCourses, EmptyResources, EmptyGrades,
   EmptyNotes, EmptySyllabus
 } from './EmptyStates';
-import { getAllReadinessScores } from './brain-research-grade';
+import { getAllReadinessScores } from './brain-ultimate';
 import { useToast } from './Toast';
 import { FrostedTile, FrostedMini, PageHeader, MetaText, getSubjectColor, SUBJECT_COLOR_CLASSES, SUBJECT_COLORS } from './components';
 
@@ -136,7 +137,7 @@ export default function CoursesView_Enhanced() {
   const [newGrade, setNewGrade] = useState({ type: "", score: "", maxScore: "100", date: "" });
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [newLink, setNewLink] = useState({ title: "", url: "" });
-  const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness>>({});
+  const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness | ProbabilisticReadiness>>({});
   const [showPrediction, setShowPrediction] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
