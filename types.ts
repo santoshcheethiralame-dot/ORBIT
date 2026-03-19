@@ -74,6 +74,11 @@ export interface Project {
   deadline?: string;
   priority: 'low' | 'normal' | 'high' | 'urgent';
   completed: boolean;
+  notes?: string;
+  githubUrl?: string;
+  milestones?: { id: string; title: string; done: boolean }[];
+  sessionLog?: { date: string; minutes: number; note?: string }[];
+  createdAt?: string;
 }
 
 export interface ScheduleSlot {

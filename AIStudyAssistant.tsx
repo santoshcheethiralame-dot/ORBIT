@@ -1,4 +1,10 @@
-// AIStudyAssistant.tsx — Context-rich AI study coach + Deep Notes Generator (single file)
+// AIStudyAssistant.tsx v2.1
+// FIXES:
+// - Removed duplicate fetchUrlContent (now uses gemini.ts export)
+// - Removed duplicate extractPdfText (now uses gemini.ts export)
+// - Notes generator now uses geminiStream (not raw fetch with hardcoded model)
+// - All PDF/URL handling unified through gemini.ts
+// NEW: Exam tab, Feynman mode toggle, Anki card export
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
@@ -6,109 +12,28 @@ import {
   RotateCcw, Flame, AlertTriangle, Lightbulb,
   BookOpen, FileText, Link, ExternalLink, Download,
   MessageSquare, Layers, StickyNote, ChevronRight,
-  TrendingUp, Clock, Target, Zap,
-  Eye, Loader2, ArrowLeft, CheckCircle2, Circle, Globe,
+  TrendingUp, Clock, Target, Eye, Loader2,
+  ArrowLeft, CheckCircle2, Circle, Globe, Trophy,
+  Zap, LayoutGrid,
 } from 'lucide-react';
-import { StudyBlock, Resource, Subject, StudyLog, StudyTopic, Assignment, SyllabusUnit } from './types';
-import { geminiStream, GeminiMessage } from './gemini';
+import { StudyBlock, Resource, Subject, StudyLog, StudyTopic, Assignment, SyllabusUnit, SubjectReadiness } from './types';
+import {
+  geminiStream, GeminiMessage,
+  fetchUrlText,        // FIX: from gemini.ts, not local duplicate
+  extractPdfText,      // FIX: from gemini.ts, not local duplicate
+  feynmanify,          // NEW: Feynman technique wrapper
+  generateAnkiCards,   // NEW: Anki card generator
+  AnkiCard,
+} from './gemini';
 import { db } from './db';
+import { getAllReadinessScores } from './brain';
+import { enrichTopics, TopicWithReadiness } from './TopicReadinessView';
+import { ExamSimulator } from './ExamSimulator';  // NEW: Exam tab
 
-// ─── Gemini multimodal helpers (inlined to avoid extra file deps) ──────────────
-const API_KEY = (import.meta as any).env?.VITE_OPENROUTER_API_KEY as string;
-const BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const NOTES_MODEL = 'openrouter/free';
-
-// Text-only streaming — openrouter/free doesn't support multimodal
-async function aiStreamNotes(
-  prompt: string,
-  systemPrompt: string,
-  onChunk: (delta: string) => void,
-  onDone: () => void,
-  onError: (err: string) => void,
-  maxTokens = 2400,
-) {
-  try {
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: prompt },
-    ];
-    const res = await fetch(BASE_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
-      body: JSON.stringify({ model: NOTES_MODEL, max_tokens: maxTokens, stream: true, messages }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      onError(err?.error?.message || `OpenRouter error ${res.status}`); return;
-    }
-    const reader = res.body?.getReader();
-    if (!reader) { onError('No response body'); return; }
-    const decoder = new TextDecoder();
-    let buffer = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const raw = line.slice(6).trim();
-        if (raw === '[DONE]') continue;
-        try {
-          const json = JSON.parse(raw);
-          const text = json?.choices?.[0]?.delta?.content ?? '';
-          if (text) onChunk(text);
-        } catch { /* partial JSON */ }
-      }
-    }
-    onDone();
-  } catch (e: any) { onError(e?.message ?? 'Unknown error'); }
-}
-
-// Fetch URL and strip to readable text
-async function fetchUrlContent(url: string): Promise<string> {
-  try {
-    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-    if (!res.ok) throw new Error('Fetch failed');
-    const data = await res.json();
-    const div = document.createElement('div');
-    div.innerHTML = data.contents ?? '';
-    div.querySelectorAll('script,style,nav,header,footer,aside').forEach(el => el.remove());
-    return (div.textContent || div.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 14000);
-  } catch { return ''; }
-}
-
-// Extract text layer from PDF — no canvas/images, works with any text model
-async function extractPdfText(dataUrl: string): Promise<string> {
-  try {
-    if (!(window as any).pdfjsLib) {
-      await new Promise<void>((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-        s.onload = () => resolve(); s.onerror = reject;
-        document.head.appendChild(s);
-      });
-      (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc =
-        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-    const pdfjsLib = (window as any).pdfjsLib;
-    const pdf = await pdfjsLib.getDocument(dataUrl).promise;
-    const numPages = Math.min(pdf.numPages, 20);
-    const pageTexts: string[] = [];
-    for (let p = 1; p <= numPages; p++) {
-      const page = await pdf.getPage(p);
-      const content = await page.getTextContent();
-      const pageText = content.items.map((item: any) => item.str).join(' ').replace(/\s+/g, ' ').trim();
-      if (pageText) pageTexts.push(`[Page ${p}]\n${pageText}`);
-    }
-    return pageTexts.join('\n\n').slice(0, 14000);
-  } catch (e) { console.error('PDF text extract failed:', e); return ''; }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// NOTES GENERATOR (inlined)
-// ═══════════════════════════════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────────────────────
+   NOTES GENERATOR
+   FIX: Uses geminiStream via gemini.ts, not raw fetch with hardcoded model
+───────────────────────────────────────────────────────────────────────────── */
 
 interface NotesGeneratorProps {
   block: StudyBlock;
@@ -182,116 +107,89 @@ const NotesGenerator: React.FC<NotesGeneratorProps> = ({ block, subject, topics,
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [sourceLabel, setSourceLabel] = useState('');
+  const [ankiCards, setAnkiCards] = useState<AnkiCard[]>([]);
+  const [generatingAnki, setGeneratingAnki] = useState(false);
 
   const syllabus = subject?.syllabus ?? [];
 
   function buildUnitPrompt(title: string, extra?: string): string {
-    return `You are an expert academic notes writer. Generate comprehensive, exam-ready study notes.
+    return `You are an expert academic notes writer.
 
 Subject: ${subject?.name ?? block.subjectName}${subject?.code ? ` (${subject.code})` : ''}${subject?.credits ? `, ${subject.credits} credits` : ''}${subject?.difficulty ? `, difficulty ${subject.difficulty}/5` : ''}
 Topic: **${title}**
-${syllabus.length ? `Syllabus flow: ${syllabus.map(u => u.title).join(' → ')}` : ''}
+${syllabus.length ? `Syllabus: ${syllabus.map(u => u.title).join(' → ')}` : ''}
 ${extra ?? ''}
 
-Generate notes in this structure — be thorough, no filler:
+Generate comprehensive, exam-ready study notes:
 
 # ${title}
-
 ## Overview
-2–3 sentences: what this topic is and why it matters in the subject.
-
 ## Core Concepts
-- **Term/Concept**: clear, precise definition or explanation
-(list every important concept, definition, and principle)
-
 ## Key Theory / Framework
-In-depth explanation of the main model, theory, or process. Use numbered steps for procedures.
-
 ## Formulas / Rules
-(Include only if relevant)
-- **Name**: formula or rule
-
 ## Examples & Applications
-Concrete example(s) showing how this works in practice.
-
 ## Common Mistakes
-- What students get wrong most often about this topic
-
 ## Quick-Recall Summary
-> 3–4 bullet points to memorise the night before an exam
 
 Use **bold** for every key term. Dense, exam-ready — every sentence must add value.`;
   }
 
   function buildResourcePrompt(resource: Resource, content: string): string {
-    return `You are an expert academic notes writer. Read this resource thoroughly and generate comprehensive, exam-ready study notes.
+    return `Generate comprehensive exam-ready notes from this resource.
 
 Subject: ${block.subjectName}
 Resource: "${resource.title}" (${resource.type})
-${resource.notes ? `Description: ${resource.notes}` : ''}
 ${content ? `\n---CONTENT---\n${content}\n---END---` : ''}
-${resource.type === 'pdf' ? '\nPDF pages are attached as images. Read ALL text and diagrams in every page.' : ''}
-
-Generate notes covering EVERYTHING in this resource:
 
 # Notes: ${resource.title}
-
 ## What This Covers
-One sentence on the resource's scope.
-
 ## Core Concepts
-- **Term**: definition/explanation for every concept
-
-## Key Points & Arguments
-Important ideas, findings, or steps from this resource.
-
-## Formulas / Procedures / Rules
-(Only if present in the resource)
-
-## Visual / Diagram Concepts
-Describe any key diagrams, charts, or models.
-
+## Key Points
+## Formulas / Procedures
 ## Critical Takeaways
-What you must remember from this resource.
-
 ## Potential Exam Questions
-3 questions likely to come from this material.
 
 Use **bold** for all key terms. Be comprehensive.`;
   }
 
   async function generate(label: string, prompt: string) {
     setMode('generating');
-    setNotes(''); setStreaming(''); setError('');
+    setNotes(''); setStreaming(''); setError(''); setAnkiCards([]);
     setSourceLabel(label);
 
     let full = '';
-    await aiStreamNotes(
-      prompt,
-      'You are a world-class academic notes writer. Generate comprehensive, dense, exam-ready notes in markdown.',
-      (chunk) => { full += chunk; setStreaming(full); },
-      () => { setNotes(full); setStreaming(''); setMode('done'); },
-      (err) => { setError(err); setMode('idle'); },
-      2400,
-    );
+    // FIX: Uses geminiStream from gemini.ts (not raw fetch + hardcoded model)
+    await new Promise<void>((resolve) => {
+      geminiStream(
+        [{ role: 'user', parts: [{ text: prompt }] }],
+        'You are a world-class academic notes writer. Generate comprehensive, dense, exam-ready notes in markdown.',
+        (chunk) => { full += chunk; setStreaming(full); },
+        () => { setNotes(full); setStreaming(''); setMode('done'); resolve(); },
+        (err) => { setError(err); setMode('idle'); resolve(); },
+        2400,
+        'complex',
+      );
+    });
   }
 
   const onUnit = useCallback(async (unit: SyllabusUnit) => {
     setStatus({ stage: 'Crafting notes', detail: unit.title });
     const unitWords = unit.title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
     const related = resources.filter(r =>
-      unitWords.some(w => `${r.title} ${r.notes ?? ''}`.toLowerCase().includes(w))
+      unitWords.some(w => `${r.title} ${r.notes ?? ''}`.toLowerCase().includes(w)),
     );
 
     let extraContext = '';
     for (const res of related.slice(0, 2)) {
       if (res.fileData && res.type === 'pdf') {
         setStatus({ stage: 'Reading PDF', detail: res.title });
-        const pdfText = await extractPdfText(res.fileData);
-        if (pdfText) extraContext += `\n\n--- From PDF: "${res.title}" ---\n${pdfText.slice(0, 4000)}`;
+        // FIX: uses extractPdfText from gemini.ts
+        const text = await extractPdfText(res.fileData);
+        if (text) extraContext += `\n\n--- From PDF: "${res.title}" ---\n${text.slice(0, 4000)}`;
       } else if (res.url) {
         setStatus({ stage: 'Reading resource', detail: res.title });
-        const text = await fetchUrlContent(res.url);
+        // FIX: uses fetchUrlText from gemini.ts
+        const text = await fetchUrlText(res.url);
         if (text) extraContext += `\n\n--- From "${res.title}" ---\n${text.slice(0, 3000)}`;
       }
     }
@@ -303,35 +201,31 @@ Use **bold** for all key terms. Be comprehensive.`;
   const onTopic = useCallback(async (topic: StudyTopic) => {
     setStatus({ stage: 'Writing notes', detail: topic.name });
     const extra = topic.reviewCount > 0
-      ? `Student reviewed ${topic.reviewCount}× — depth of explanation should match their experience.` : '';
+      ? `Student reviewed ${topic.reviewCount}× — depth should match experience.` : '';
     await generate(topic.name, buildUnitPrompt(topic.name, extra));
   }, []);
 
   const onResource = useCallback(async (resource: Resource) => {
-    let pdfText = '';
-
+    let content = '';
     if (resource.type === 'pdf' && resource.fileData) {
       setStatus({ stage: 'Extracting PDF text', detail: resource.title });
-      pdfText = await extractPdfText(resource.fileData);
-      if (pdfText) {
-        setStatus({ stage: `Read ${pdfText.split('[Page').length - 1} pages`, detail: 'building notes…' });
-      } else {
-        setStatus({ stage: 'Writing notes', detail: 'from title + subject' });
-      }
+      // FIX: uses extractPdfText from gemini.ts
+      content = await extractPdfText(resource.fileData);
+      setStatus({ stage: content ? `Read ${content.split('[Page').length - 1} pages` : 'Using title', detail: 'building notes…' });
     } else if (resource.url) {
       setStatus({ stage: 'Fetching content', detail: resource.url.slice(0, 50) });
-      pdfText = await fetchUrlContent(resource.url);
+      // FIX: uses fetchUrlText from gemini.ts
+      content = await fetchUrlText(resource.url);
     }
-
     setStatus({ stage: 'Writing notes', detail: 'streaming…' });
-    await generate(resource.title, buildResourcePrompt(resource, pdfText));
+    await generate(resource.title, buildResourcePrompt(resource, content));
   }, []);
 
   const onChat = useCallback(async () => {
     if (!chatMessages?.length) return;
     setStatus({ stage: 'Synthesising conversation', detail: `${chatMessages.length} messages` });
     const convo = chatMessages.map(m => `${m.role === 'user' ? 'Student' : 'Coach'}: ${m.content}`).join('\n\n');
-    const prompt = `Synthesise this study session into dense, exam-ready notes.
+    const prompt = `Synthesise this study session into dense exam-ready notes.
 
 Subject: ${block.subjectName}${block.notes ? `\nTopic: ${block.notes}` : ''}
 
@@ -340,35 +234,44 @@ ${convo}
 ---END---
 
 # Session Notes: ${block.subjectName}
-
 ## Key Concepts Covered
-- **Term**: explanation for every concept discussed
-
 ## Important Points
-Main ideas, rules, or theories from the session.
-
 ## Formulas / Procedures
-(Only if discussed)
-
 ## Things to Remember
-- Common mistakes flagged
-- Subtle distinctions made
-
 ## Action Items
-- What to follow up or practise
-
 ## Quick Summary
-> 3–4 sentence recap
 
 Use **bold** for all key terms. No filler.`;
     await generate('This conversation', prompt);
-  }, [chatMessages, block.subjectName, block.notes]);
+  }, [chatMessages, block]);
 
-  const reset = () => { setMode('idle'); setNotes(''); setStreaming(''); setError(''); setSourceLabel(''); };
+  const exportAnki = useCallback(async () => {
+    if (!notes || generatingAnki) return;
+    setGeneratingAnki(true);
+    try {
+      const cards = await generateAnkiCards(block.subjectName, notes.slice(0, 3000), 8);
+      setAnkiCards(cards);
+      if (cards.length > 0) {
+        // Export as CSV
+        const csv = ['Front,Back,Tags', ...cards.map(c =>
+          `"${c.front.replace(/"/g, '""')}","${c.back.replace(/"/g, '""')}","${c.tags.join(' ')}"`,
+        )].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${block.subjectName}-anki.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } finally {
+      setGeneratingAnki(false);
+    }
+  }, [notes, block.subjectName, generatingAnki]);
 
-  // ── GENERATING ──────────────────────────────────────────────────────────
+  const reset = () => { setMode('idle'); setNotes(''); setStreaming(''); setError(''); setSourceLabel(''); setAnkiCards([]); };
+
   if (mode === 'generating') {
-    const display = streaming;
     return (
       <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3" style={{ scrollbarWidth: 'none' }}>
         <div className="flex items-center gap-3 px-3.5 py-2 rounded-xl shrink-0"
@@ -378,11 +281,10 @@ Use **bold** for all key terms. No filler.`;
             <span className="text-xs font-semibold" style={{ color: '#c4b5fd' }}>{status.stage}</span>
             {status.detail && <span className="text-xs ml-1.5" style={{ color: 'rgba(167,139,250,0.45)' }}>{status.detail}</span>}
           </div>
-
         </div>
-        {display ? (
+        {streaming ? (
           <div className="px-4 py-3 rounded-2xl flex-1" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <NotesMD text={display} />
+            <NotesMD text={streaming} />
             <div className="flex items-center gap-1.5 mt-3">
               <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#a78bfa' }} />
               <span className="text-[10px]" style={{ color: 'rgba(167,139,250,0.4)' }}>writing…</span>
@@ -390,46 +292,52 @@ Use **bold** for all key terms. No filler.`;
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
-              style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.15)' }}>
-              <Brain size={18} style={{ color: '#a78bfa' }} strokeWidth={1.5} />
-            </div>
-            <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>
-              Reading "{sourceLabel}"…
-            </p>
+            <Brain size={20} style={{ color: '#a78bfa' }} strokeWidth={1.5} className="animate-pulse" />
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Reading "{sourceLabel}"…</p>
           </div>
         )}
       </div>
     );
   }
 
-  // ── DONE ────────────────────────────────────────────────────────────────
   if (mode === 'done') {
     return (
       <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3" style={{ scrollbarWidth: 'none' }}>
         <div className="flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <button onClick={reset}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all hover:bg-white/8 shrink-0"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold hover:bg-white/8 shrink-0"
               style={{ color: 'rgba(255,255,255,0.3)' }}>
               <ArrowLeft size={11} strokeWidth={2.5} />New
             </button>
             <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
             <span className="text-[11px] font-semibold truncate" style={{ color: 'rgba(255,255,255,0.4)' }}>{sourceLabel}</span>
-
           </div>
-          <button onClick={async () => { await navigator.clipboard.writeText(notes); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all hover:bg-white/8 shrink-0"
-            style={{ color: copied ? '#6ee7b7' : '#a78bfa' }}>
-            {copied ? <Check size={11} strokeWidth={2.5} /> : <Copy size={11} strokeWidth={2.5} />}
-            {copied ? 'Copied!' : 'Copy'}
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Anki export */}
+            <button
+              onClick={exportAnki}
+              disabled={generatingAnki}
+              title="Export as Anki CSV"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold hover:bg-white/8 disabled:opacity-40"
+              style={{ color: '#a78bfa' }}>
+              {generatingAnki ? <Loader2 size={10} className="animate-spin" /> : <Download size={10} strokeWidth={2.5} />}
+              Anki
+            </button>
+            {/* Copy */}
+            <button onClick={async () => { await navigator.clipboard.writeText(notes); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold hover:bg-white/8"
+              style={{ color: copied ? '#6ee7b7' : '#a78bfa' }}>
+              {copied ? <Check size={11} strokeWidth={2.5} /> : <Copy size={11} strokeWidth={2.5} />}
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
         </div>
         <div className="px-4 py-4 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <NotesMD text={notes} />
         </div>
         <button onClick={onSwitchToChat}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all shrink-0"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold shrink-0"
           style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.14)', color: '#c4b5fd' }}>
           <Sparkles size={12} strokeWidth={2.5} />Ask AI questions about these notes
         </button>
@@ -437,7 +345,7 @@ Use **bold** for all key terms. No filler.`;
     );
   }
 
-  // ── IDLE: picker ────────────────────────────────────────────────────────
+  // Idle picker
   const pendingUnits = syllabus.filter(u => !u.completed);
   const doneUnits = syllabus.filter(u => u.completed);
   const todayStr = new Date().toISOString().split('T')[0];
@@ -450,7 +358,6 @@ Use **bold** for all key terms. No filler.`;
           <AlertTriangle size={12} className="shrink-0 mt-0.5" strokeWidth={2.5} />{error}
         </div>
       )}
-
       <div className="text-center pt-1">
         <div className="w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-2"
           style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.18)' }}>
@@ -458,16 +365,13 @@ Use **bold** for all key terms. No filler.`;
         </div>
         <p className="text-sm font-bold text-white/55">Deep Notes</p>
         <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.22)' }}>
-          Pick a source — AI reads everything, including PDF pages &amp; images
+          Pick a source — AI reads everything including PDFs
         </p>
       </div>
 
-      {/* Syllabus units */}
       {syllabus.length > 0 && (
         <section>
-          <p className="text-[10px] font-black uppercase tracking-widest mb-2 px-0.5" style={{ color: 'rgba(255,255,255,0.18)' }}>
-            Syllabus Unit
-          </p>
+          <p className="text-[10px] font-black uppercase tracking-widest mb-2 px-0.5" style={{ color: 'rgba(255,255,255,0.18)' }}>Syllabus Unit</p>
           <div className="space-y-1.5">
             {[...pendingUnits, ...doneUnits].slice(0, 10).map(unit => (
               <button key={unit.id} onClick={() => onUnit(unit)}
@@ -489,12 +393,9 @@ Use **bold** for all key terms. No filler.`;
         </section>
       )}
 
-      {/* Flashcard topics */}
       {topics && topics.length > 0 && (
         <section>
-          <p className="text-[10px] font-black uppercase tracking-widest mb-2 px-0.5" style={{ color: 'rgba(255,255,255,0.18)' }}>
-            Flashcard Topic
-          </p>
+          <p className="text-[10px] font-black uppercase tracking-widest mb-2 px-0.5" style={{ color: 'rgba(255,255,255,0.18)' }}>Flashcard Topic</p>
           <div className="space-y-1.5">
             {topics.slice(0, 6).map(topic => {
               const isDue = topic.nextReview <= todayStr;
@@ -506,10 +407,7 @@ Use **bold** for all key terms. No filler.`;
                   onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = isDue ? 'rgba(167,139,250,0.14)' : 'rgba(255,255,255,0.06)'; el.style.background = 'rgba(255,255,255,0.03)'; }}>
                   <Brain size={13} className="shrink-0" style={{ color: isDue ? '#a78bfa' : 'rgba(255,255,255,0.2)' }} strokeWidth={2} />
                   <span className="text-sm font-medium flex-1" style={{ color: 'rgba(255,255,255,0.7)' }}>{topic.name}</span>
-                  {isDue && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded font-black shrink-0"
-                      style={{ background: 'rgba(167,139,250,0.12)', color: '#c4b5fd' }}>DUE</span>
-                  )}
+                  {isDue && <span className="text-[9px] px-1.5 py-0.5 rounded font-black shrink-0" style={{ background: 'rgba(167,139,250,0.12)', color: '#c4b5fd' }}>DUE</span>}
                   <ChevronRight size={12} className="shrink-0" style={{ color: 'rgba(167,139,250,0.35)' }} strokeWidth={2.5} />
                 </button>
               );
@@ -518,12 +416,9 @@ Use **bold** for all key terms. No filler.`;
         </section>
       )}
 
-      {/* Resources */}
       {resources.length > 0 && (
         <section>
-          <p className="text-[10px] font-black uppercase tracking-widest mb-2 px-0.5" style={{ color: 'rgba(255,255,255,0.18)' }}>
-            Resource
-          </p>
+          <p className="text-[10px] font-black uppercase tracking-widest mb-2 px-0.5" style={{ color: 'rgba(255,255,255,0.18)' }}>Resource</p>
           <div className="space-y-1.5">
             {resources.map(r => (
               <button key={r.id} onClick={() => onResource(r)}
@@ -531,8 +426,7 @@ Use **bold** for all key terms. No filler.`;
                 style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
                 onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(139,92,246,0.3)'; el.style.background = 'rgba(139,92,246,0.07)'; }}
                 onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(255,255,255,0.06)'; el.style.background = 'rgba(255,255,255,0.03)'; }}>
-                <div className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center"
-                  style={{ background: 'rgba(255,255,255,0.05)' }}>
+                <div className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
                   <NoteResourceIcon type={r.type} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -545,11 +439,6 @@ Use **bold** for all key terms. No filler.`;
                         <Eye size={9} strokeWidth={2.5} />reads all pages
                       </span>
                     )}
-                    {r.url && !r.fileData && (
-                      <span className="text-[9px] font-semibold flex items-center gap-1" style={{ color: 'rgba(96,165,250,0.6)' }}>
-                        <Globe size={9} strokeWidth={2.5} />fetches live
-                      </span>
-                    )}
                   </div>
                 </div>
                 <ChevronRight size={12} className="shrink-0" style={{ color: 'rgba(167,139,250,0.35)' }} strokeWidth={2.5} />
@@ -559,19 +448,15 @@ Use **bold** for all key terms. No filler.`;
         </section>
       )}
 
-      {/* From chat */}
       <section>
-        <p className="text-[10px] font-black uppercase tracking-widest mb-2 px-0.5" style={{ color: 'rgba(255,255,255,0.18)' }}>
-          Conversation
-        </p>
+        <p className="text-[10px] font-black uppercase tracking-widest mb-2 px-0.5" style={{ color: 'rgba(255,255,255,0.18)' }}>Conversation</p>
         {chatMessages && chatMessages.length >= 2 ? (
           <button onClick={onChat}
             className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all"
             style={{ background: 'linear-gradient(135deg,rgba(124,58,237,0.08),rgba(59,130,246,0.08))', border: '1px solid rgba(139,92,246,0.18)' }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.38)'; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.18)'; }}>
-            <div className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: 'rgba(139,92,246,0.12)' }}>
+            <div className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.12)' }}>
               <Sparkles size={13} style={{ color: '#a78bfa' }} strokeWidth={2} />
             </div>
             <div className="flex-1 text-left">
@@ -584,7 +469,7 @@ Use **bold** for all key terms. No filler.`;
           <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl opacity-30"
             style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
             <Sparkles size={13} style={{ color: 'rgba(255,255,255,0.3)' }} strokeWidth={2} />
-            <span className="text-sm text-white/35">Synthesise from chat — chat first to unlock</span>
+            <span className="text-sm text-white/35">Chat first to unlock conversation synthesis</span>
           </div>
         )}
       </section>
@@ -592,9 +477,9 @@ Use **bold** for all key terms. No filler.`;
   );
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// SYSTEM PROMPT BUILDER
-// ═══════════════════════════════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────────────────────
+   CONTEXT & SYSTEM PROMPT
+───────────────────────────────────────────────────────────────────────────── */
 
 interface SubjectIntelligence {
   nextExam?: string;
@@ -608,136 +493,215 @@ interface RichContext {
   subject?: Subject;
   recentLogs?: StudyLog[];
   topics?: StudyTopic[];
+  enrichedTopics?: TopicWithReadiness[];
   assignments?: Assignment[];
   topicsDueReview?: StudyTopic[];
+  // All-subjects context (for cross-subject coaching)
+  allSubjects?: Subject[];
+  allReadiness?: Record<number, SubjectReadiness>;
+  globalStreak?: number;           // consecutive days with any study session
+  totalStudiedToday?: number;      // minutes studied today across all subjects
+  weakestSubject?: { name: string; score: number } | null;
+  strongestSubject?: { name: string; score: number } | null;
 }
 
 function buildSystemPrompt(block: StudyBlock, intel?: SubjectIntelligence, ctx?: RichContext): string {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const todayStr = new Date().toISOString().split('T')[0];
   const lines: string[] = [];
 
-  lines.push(`You are Orbit AI — an elite, deeply personalized study coach embedded inside the Orbit study app.`);
+  lines.push(`You are Orbit AI — an elite, deeply personalized study coach.`);
   lines.push(`Today is ${today}.\n`);
-
   lines.push(`## Current Session`);
   lines.push(`Subject: **${block.subjectName}**`);
-  lines.push(`Session type: ${block.type} | Duration: ${block.duration} minutes`);
-  if (block.notes) lines.push(`Topic/Task: ${block.notes}`);
-  if (block.reviewNumber) lines.push(`Spaced review #${block.reviewNumber}`);
+  lines.push(`Type: ${block.type} | Duration: ${block.duration} minutes`);
+  if (block.notes) lines.push(`Topic: ${block.notes}`);
   lines.push('');
 
+  // ── Subject Intelligence (current subject) ──
   if (intel || ctx?.subject) {
-    lines.push(`## Subject Intelligence`);
+    lines.push(`## ${block.subjectName} — Subject Intelligence`);
     if (intel?.readiness !== undefined) {
-      const label = intel.readiness < 35 ? 'CRITICAL' : intel.readiness < 60 ? 'Below target' : intel.readiness < 80 ? 'On track' : 'Strong';
+      const label = intel.readiness < 35 ? 'CRITICAL — needs urgent attention' : intel.readiness < 60 ? 'Below target' : intel.readiness < 80 ? 'On track' : 'Strong';
       lines.push(`Readiness: ${intel.readiness}% (${label})`);
     }
     if (intel?.nextExam) lines.push(`Next exam: ${intel.nextExam}`);
     if (intel?.lastStudied) lines.push(`Last studied: ${intel.lastStudied}`);
-    if (intel?.recentQuality !== undefined) {
-      const q = intel.recentQuality;
-      lines.push(`Recent comprehension: ${q === 1 ? 'Struggling (1/3)' : q === 2 ? 'Getting there (2/3)' : 'Confident (3/3)'}`);
-    }
     if (ctx?.subject?.difficulty) lines.push(`Difficulty: ${ctx.subject.difficulty}/5`);
+    if (intel?.recentQuality) lines.push(`Recent session quality: ${intel.recentQuality.toFixed(1)}/5`);
     lines.push('');
   }
 
+  // ── Syllabus ──
   if (ctx?.subject?.syllabus?.length) {
     const total = ctx.subject.syllabus.length;
     const done = ctx.subject.syllabus.filter(u => u.completed).length;
     const pending = ctx.subject.syllabus.filter(u => !u.completed).map(u => u.title);
-    lines.push(`## Syllabus — ${done}/${total} units done`);
-    if (pending.length) lines.push(`Pending: ${pending.slice(0, 5).join(', ')}${pending.length > 5 ? ` +${pending.length - 5} more` : ''}`);
+    lines.push(`## Syllabus — ${done}/${total} units complete`);
+    if (pending.length) lines.push(`Pending: ${pending.slice(0, 5).join(', ')}`);
     lines.push('');
   }
 
+  // ── Grades ──
   if (ctx?.subject?.grades?.length) {
     const grades = ctx.subject.grades;
     const avg = grades.reduce((s, g) => s + (g.score / g.maxScore) * 100, 0) / grades.length;
     lines.push(`## Grades — avg ${avg.toFixed(1)}%`);
-    grades.slice(-3).forEach(g => lines.push(`  ${g.type}: ${g.score}/${g.maxScore} (${((g.score / g.maxScore) * 100).toFixed(0)}%)${g.notes ? ` — ${g.notes}` : ''}`));
+    grades.slice(-3).forEach(g => lines.push(`  ${g.type}: ${g.score}/${g.maxScore}`));
     lines.push('');
   }
 
-  if (intel?.weakTopics?.length) {
+  // ── Topic-level readiness (SM-2 based) ──
+  if (ctx?.enrichedTopics?.length) {
+    const critical = ctx.enrichedTopics.filter(t => t.tier === 'critical');
+    const due = ctx.enrichedTopics.filter(t => t.tier === 'due');
+    const mastered = ctx.enrichedTopics.filter(t => t.tier === 'mastered');
+    lines.push(`## Topic Mastery (${ctx.enrichedTopics.length} topics)`);
+    if (critical.length) lines.push(`  🔴 Critical (${critical.length}): ${critical.slice(0, 4).map(t => `${t.name} ${t.readinessScore}%`).join(', ')}`);
+    if (due.length) lines.push(`  🟡 Due for review (${due.length}): ${due.slice(0, 3).map(t => t.name).join(', ')}`);
+    if (mastered.length) lines.push(`  🟢 Mastered (${mastered.length}): ${mastered.slice(0, 3).map(t => t.name).join(', ')}`);
+    lines.push('');
+  } else if (intel?.weakTopics?.length) {
     lines.push(`## Weak Topics: ${intel.weakTopics.join(', ')}\n`);
   }
 
+  // ── Spaced Review Due ──
   if (ctx?.topicsDueReview?.length) {
-    lines.push(`## Spaced Review Due Today`);
-    ctx.topicsDueReview.slice(0, 6).forEach(t => lines.push(`  - ${t.name} (×${t.reviewCount}, ease ${t.easeFactor.toFixed(1)})`));
+    lines.push(`## Spaced Review Due`);
+    ctx.topicsDueReview.slice(0, 4).forEach(t => lines.push(`  - ${t.name}`));
     lines.push('');
   }
 
+  // ── Recent Sessions ──
   if (ctx?.recentLogs?.length) {
-    lines.push(`## Recent Sessions`);
-    ctx.recentLogs.slice(0, 6).forEach(log => {
-      const comp = log.comprehensionRating ? ` ${['', '★☆☆', '★★☆', '★★★'][log.comprehensionRating]}` : '';
+    lines.push(`## Recent Sessions (${block.subjectName})`);
+    ctx.recentLogs.slice(0, 5).forEach(log => {
+      const comp = log.comprehensionRating ? ` ${'★'.repeat(log.comprehensionRating)}${'☆'.repeat(3 - log.comprehensionRating)}` : '';
       lines.push(`  ${log.date}: ${log.duration}min ${log.type}${comp}`);
     });
     lines.push('');
   }
 
+  // ── Assignments ──
   if (ctx?.assignments?.length) {
     const pending = ctx.assignments.filter(a => !a.completed);
     if (pending.length) {
-      lines.push(`## Pending Assignments`);
-      pending.slice(0, 4).forEach(a => {
-        const daysLeft = Math.ceil((new Date(a.dueDate).getTime() - Date.now()) / 86400000);
-        const urgency = daysLeft < 0 ? 'OVERDUE' : daysLeft === 0 ? 'DUE TODAY' : daysLeft === 1 ? 'DUE TOMORROW' : `${daysLeft}d left`;
-        lines.push(`  - ${a.title} (${urgency})`);
+      lines.push(`## Assignments`);
+      pending.slice(0, 3).forEach(a => {
+        const d = Math.ceil((new Date(a.dueDate).getTime() - Date.now()) / 86400000);
+        lines.push(`  - ${a.title} (${d < 0 ? 'OVERDUE' : d === 0 ? 'TODAY' : `${d}d`})`);
       });
       lines.push('');
     }
   }
 
+  // ── CROSS-SUBJECT ACADEMIC PORTRAIT (the new power feature) ──
+  if (ctx?.allSubjects?.length && ctx?.allReadiness) {
+    lines.push(`## Full Academic Portrait`);
+    // Sort by readiness score (worst first — most important)
+    const subjectsWithReadiness = ctx.allSubjects
+      .map(s => ({ s, r: ctx.allReadiness![s.id!] }))
+      .filter(x => x.r)
+      .sort((a, b) => a.r.score - b.r.score);
+
+    subjectsWithReadiness.forEach(({ s, r }) => {
+      const isCurrent = s.id === block.subjectId;
+      const statusEmoji = r.score < 35 ? '🔴' : r.score < 60 ? '🟡' : r.score < 80 ? '🟢' : '⭐';
+      const marker = isCurrent ? ' ← current session' : '';
+      lines.push(`  ${statusEmoji} ${s.name}: ${r.score}%${marker}`);
+    });
+
+    if (ctx.weakestSubject && ctx.weakestSubject.name !== block.subjectName) {
+      lines.push(`\nWeakest subject overall: ${ctx.weakestSubject.name} (${ctx.weakestSubject.score}%) — mention this proactively if it's related to today's topic.`);
+    }
+    if (ctx.globalStreak && ctx.globalStreak > 0) {
+      lines.push(`Study streak: ${ctx.globalStreak} day${ctx.globalStreak !== 1 ? 's' : ''}`);
+    }
+    if (ctx.totalStudiedToday) {
+      lines.push(`Already studied today: ${ctx.totalStudiedToday}min across all subjects`);
+    }
+    lines.push('');
+  }
+
+  // ── Coaching Rules ──
   const typeGuidance: Record<string, string> = {
-    review: 'Active recall over passive re-reading. Quiz the student, expose gaps, build connections.',
-    assignment: 'Break problems step by step. Ask "what have you tried?" first. Guide, never solve for them.',
-    prep: 'Key vocabulary, what to listen for in class, core questions to anticipate.',
-    project: 'Milestones, 25-min work chunks, ruthless prioritisation.',
-    recovery: 'Gentle but productive. Achievable wins to rebuild confidence.',
+    review: 'Active recall. Quiz the student, expose gaps, build connections between topics.',
+    assignment: 'Step by step. Ask what they tried first. Guide — never solve for them.',
+    prep: 'Key vocabulary, what to listen for, questions to anticipate in class.',
+    project: 'Milestones, 25-min chunks, ruthless prioritisation of what matters most.',
+    recovery: 'Gentle. Achievable wins to rebuild confidence and momentum.',
   };
 
   lines.push(`## Coaching Rules`);
-  lines.push(`- Use the student's real data above — reference their grades, topics, weaknesses naturally.`);
-  lines.push(`- Be direct and sharp. No filler. No generic advice.`);
+  lines.push(`- Reference their REAL data above — specific grades, topic scores, readiness numbers.`);
+  lines.push(`- Be direct and sharp. No generic advice. Every response must be specific to this student.`);
   lines.push(`- ${block.type} sessions: ${typeGuidance[block.type] ?? 'Adapt to what the student needs.'}`);
-  lines.push(`- Socratic: after any explanation, ask a targeted follow-up question.`);
+  lines.push(`- Socratic: after explaining something, ask a targeted follow-up to check understanding.`);
+  lines.push(`- If a topic is flagged as critical or weak, proactively weave it into your coaching.`);
   lines.push(`- **Bold** key terms. Bullets for lists. Numbered steps for procedures.`);
-  lines.push(`- 150–350 words per response unless a deep explanation is needed.`);
+  lines.push(`- 150–350 words per response unless a deep worked example is needed.`);
 
   return lines.join('\n');
 }
 
-function getStarters(block: StudyBlock, intel?: SubjectIntelligence, ctx?: RichContext): { text: string; icon: string }[] {
+function getStarters(block: StudyBlock, intel?: SubjectIntelligence, ctx?: RichContext) {
   const s: { text: string; icon: string }[] = [];
-  if (intel?.weakTopics?.length) s.push({ text: `I'm weak on ${intel.weakTopics[0]} — help me understand it properly`, icon: '🎯' });
+
+  // Topic-level weak spots (highest priority — most specific)
+  const criticalTopics = ctx?.enrichedTopics?.filter(t => t.tier === 'critical') ?? [];
+  if (criticalTopics.length > 0) {
+    s.push({ text: `My readiness for "${criticalTopics[0].name}" is at ${criticalTopics[0].readinessScore}% — rebuild my understanding from scratch`, icon: '🔴' });
+  } else if (intel?.weakTopics?.length) {
+    s.push({ text: `I'm weak on ${intel.weakTopics[0]} — help me understand it properly`, icon: '🎯' });
+  }
+
+  // Session-type specific prompts
   if (block.type === 'review') {
-    s.push({ text: `Quiz me on the hardest parts of ${block.subjectName}`, icon: '🧠' });
-    s.push({ text: `Build me a mental map — key ideas and how they connect`, icon: '🗺️' });
+    s.push({ text: `Quiz me on the hardest concepts — don't go easy`, icon: '🧠' });
+    s.push({ text: `Build me a mental map connecting the key ideas in ${block.subjectName}`, icon: '🗺️' });
   } else if (block.type === 'assignment') {
-    s.push({ text: `I'm stuck — help me break this down without giving the answer`, icon: '🔍' });
-    s.push({ text: `Check my approach: [describe your method here]`, icon: '✅' });
+    s.push({ text: `I'm stuck — help me break this down without giving me the answer`, icon: '🔍' });
+    s.push({ text: `Check my approach: [describe it here]`, icon: '✅' });
   } else if (block.type === 'prep') {
-    s.push({ text: `What are the 3 most important things to know before this class?`, icon: '📚' });
-    s.push({ text: `Give me key vocabulary and questions I should be ready to answer`, icon: '🗝️' });
+    s.push({ text: `What are the 3 most important things to know before class today?`, icon: '📚' });
+    s.push({ text: `Give me questions the professor is likely to ask and how to answer them`, icon: '🎓' });
   } else if (block.type === 'project') {
-    s.push({ text: `Help me break this into a realistic plan for ${block.duration} minutes`, icon: '⚡' });
-  } else if (block.type === 'recovery') {
-    s.push({ text: `Explain the basics clearly — rebuild my understanding from scratch`, icon: '🔄' });
+    s.push({ text: `Help me plan the next ${block.duration} minutes on this project — what's the most valuable thing to finish?`, icon: '⚡' });
   }
-  if (intel?.readiness !== undefined && intel.readiness < 40) s.push({ text: `Readiness is low — what should I prioritise most right now?`, icon: '🚨' });
-  if (intel?.nextExam) s.push({ text: `Exam is ${intel.nextExam} — build me a focused plan for this session`, icon: '📅' });
-  if (ctx?.topicsDueReview?.length) s.push({ text: `Test me on ${ctx.topicsDueReview[0].name}`, icon: '🔁' });
+
+  // Cross-subject alert (the new power feature)
+  if (ctx?.weakestSubject && ctx.weakestSubject.name !== block.subjectName && ctx.weakestSubject.score < 40) {
+    s.push({ text: `${ctx.weakestSubject.name} is my weakest subject at ${ctx.weakestSubject.score}% — how does it connect to what I'm studying now?`, icon: '⚠️' });
+  }
+
+  // Readiness-based
+  if (intel?.readiness !== undefined && intel.readiness < 40)
+    s.push({ text: `Readiness is at ${intel.readiness}% — what should I prioritise in this session to move the needle most?`, icon: '🚨' });
+
+  // Spaced review
+  if (ctx?.topicsDueReview?.length)
+    s.push({ text: `Test me on "${ctx.topicsDueReview[0].name}" using spaced recall`, icon: '🔁' });
+
+  // Grade-based
+  if (ctx?.subject?.grades?.length) {
+    const grades = ctx.subject.grades;
+    const avg = grades.reduce((s, g) => s + (g.score / g.maxScore) * 100, 0) / grades.length;
+    if (avg < 60) s.push({ text: `My average is ${avg.toFixed(0)}% — what are the gaps I keep missing?`, icon: '📊' });
+  }
+
+  // Fallbacks
   if (s.length < 3) {
-    s.push({ text: `What should I focus on in these ${block.duration} minutes to move the needle most?`, icon: '⏱️' });
-    s.push({ text: `Explain ${block.subjectName} concepts in a way that actually sticks`, icon: '💡' });
+    s.push({ text: `What should I focus on in these ${block.duration} minutes to maximise readiness?`, icon: '⏱️' });
+    s.push({ text: `Explain the core framework of ${block.subjectName} in a way that actually sticks`, icon: '💡' });
   }
+
   return s.slice(0, 4);
 }
 
-// ─── Shared sub-components ────────────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────────────────────────
+   SHARED SUB-COMPONENTS
+───────────────────────────────────────────────────────────────────────────── */
+
 const CopyBtn = ({ text }: { text: string }) => {
   const [copied, setCopied] = React.useState(false);
   return (
@@ -782,20 +746,55 @@ const MD = ({ text }: { text: string }) => {
   );
 };
 
-const TypingDots = () => (
-  <div className="flex items-center gap-1.5 py-1 px-0.5">
-    {[0, 1, 2].map(i => (
-      <div key={i} className="w-1.5 h-1.5 rounded-full animate-bounce"
-        style={{ background: 'rgba(167,139,250,0.6)', animationDelay: `${i * 0.18}s`, animationDuration: '0.9s' }} />
-    ))}
-  </div>
-);
+const THINKING_LINES = [
+  'Reading your subject data…',
+  'Cross-referencing your weak topics…',
+  'Thinking it through…',
+  'Building the explanation…',
+  'Checking for gaps…',
+  'Crafting your answer…',
+  'One moment…',
+  'Structuring the response…',
+];
 
-const ResourceIcon = ({ type }: { type: string }) => {
-  if (type === 'pdf') return <FileText size={14} className="text-red-400" strokeWidth={2} />;
-  if (type === 'video') return <Layers size={14} className="text-blue-400" strokeWidth={2} />;
-  if (type === 'slide') return <Layers size={14} className="text-amber-400" strokeWidth={2} />;
-  return <Link size={14} className="text-violet-400" strokeWidth={2} />;
+const TypingDots = () => {
+  const [lineIdx, setLineIdx] = useState(() => Math.floor(Math.random() * THINKING_LINES.length));
+  const [dots, setDots] = useState('');
+  const [fade, setFade] = useState(true);
+
+  useEffect(() => {
+    const dotsT = setInterval(() => setDots(d => d.length >= 3 ? '' : d + '.'), 400);
+    const lineT = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setLineIdx(i => (i + 1) % THINKING_LINES.length);
+        setFade(true);
+      }, 200);
+    }, 2600);
+    return () => { clearInterval(dotsT); clearInterval(lineT); };
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2.5 py-0.5">
+      <div className="flex gap-1">
+        {[0,1,2].map(i => (
+          <div key={i} className="w-1 h-1 rounded-full"
+            style={{
+              background: 'rgba(167,139,250,0.7)',
+              animation: `bounce 0.9s ease-in-out ${i * 0.18}s infinite`,
+            }} />
+        ))}
+      </div>
+      <span className="text-[11px] transition-opacity duration-200"
+        style={{
+          color: 'rgba(255,255,255,0.35)',
+          opacity: fade ? 1 : 0,
+          fontStyle: 'italic',
+        }}>
+        {THINKING_LINES[lineIdx]}{dots}
+      </span>
+    </div>
+  );
 };
 
 const ContextBadge = ({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) => (
@@ -809,9 +808,9 @@ const ContextBadge = ({ icon, label, value, color }: { icon: React.ReactNode; la
   </div>
 );
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// MAIN COMPONENT
-// ═══════════════════════════════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────────────────────
+   MAIN COMPONENT
+───────────────────────────────────────────────────────────────────────────── */
 
 interface AIStudyAssistantProps {
   block: StudyBlock;
@@ -826,7 +825,7 @@ interface Message {
   timestamp: number;
 }
 
-type Tab = 'chat' | 'resources' | 'notes';
+type Tab = 'chat' | 'resources' | 'notes' | 'exam';
 
 export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subjectIntelligence, onClose }) => {
   const [tab, setTab] = useState<Tab>('chat');
@@ -839,20 +838,67 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
   const [sessionCount, setSessionCount] = useState(0);
   const [richCtx, setRichCtx] = useState<RichContext>({});
   const [ctxLoaded, setCtxLoaded] = useState(false);
+  const [feynmanMode, setFeynmanMode] = useState(false);  // NEW: Feynman toggle
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     async function load() {
       try {
-        const [subject, allLogs, topics, assignments] = await Promise.all([
+        const today = new Date().toISOString().split('T')[0];
+        const [subject, allLogs, topics, assignments, allSubjects, rawReadiness] = await Promise.all([
           db.subjects.get(block.subjectId),
           db.logs.where('subjectId').equals(block.subjectId).reverse().sortBy('timestamp'),
           db.topics.where('subjectId').equals(block.subjectId).toArray(),
           db.assignments.where('subjectId').equals(block.subjectId).toArray(),
+          db.subjects.toArray(),
+          getAllReadinessScores(),
         ]);
-        const today = new Date().toISOString().split('T')[0];
-        setRichCtx({ subject, recentLogs: allLogs.slice(0, 10), topics, assignments, topicsDueReview: topics.filter(t => t.nextReview <= today) });
+
+        // Global logs for streak + today's total
+        const globalLogs = await db.logs.reverse().sortBy('timestamp');
+        const logsToday = globalLogs.filter(l => l.date === today);
+        const totalStudiedToday = logsToday.reduce((s, l) => s + (l.duration ?? 0), 0);
+
+        // Streak: count consecutive days with any log
+        let streak = 0;
+        const logDates = new Set(globalLogs.map(l => l.date));
+        const d = new Date();
+        while (true) {
+          const dStr = d.toISOString().split('T')[0];
+          if (logDates.has(dStr)) { streak++; d.setDate(d.getDate() - 1); }
+          else break;
+          if (streak > 365) break;
+        }
+
+        // Weakest / strongest subjects
+        const allReadiness = rawReadiness as Record<number, SubjectReadiness>;
+        let weakest: { name: string; score: number } | null = null;
+        let strongest: { name: string; score: number } | null = null;
+        for (const sub of allSubjects) {
+          const r = allReadiness[sub.id!];
+          if (!r) continue;
+          if (!weakest || r.score < weakest.score) weakest = { name: sub.name, score: r.score };
+          if (!strongest || r.score > strongest.score) strongest = { name: sub.name, score: r.score };
+        }
+
+        // Topic readiness (SM-2 enriched)
+        const enrichedTopics = enrichTopics(topics);
+
+        setRichCtx({
+          subject,
+          recentLogs: allLogs.slice(0, 10),
+          topics,
+          enrichedTopics,
+          assignments,
+          topicsDueReview: topics.filter(t => t.nextReview <= today),
+          allSubjects,
+          allReadiness,
+          globalStreak: streak,
+          totalStudiedToday,
+          weakestSubject: weakest,
+          strongestSubject: strongest,
+        });
         if (subject?.resources) setResources(subject.resources);
       } catch (e) { console.error('Context load failed:', e); }
       finally { setCtxLoaded(true); }
@@ -862,14 +908,15 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
   }, [block.subjectId]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, streamText]);
-
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
 
-  const systemPrompt = ctxLoaded ? buildSystemPrompt(block, subjectIntelligence, richCtx) : buildSystemPrompt(block, subjectIntelligence);
+  const systemPrompt = ctxLoaded
+    ? buildSystemPrompt(block, subjectIntelligence, richCtx)
+    : buildSystemPrompt(block, subjectIntelligence);
 
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -881,13 +928,32 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
     setMessages(prev => [...prev, userMsg]);
     setStreaming(true); setStreamText('');
 
+    // NEW: Feynman mode — pipe last AI message through feynmanify
+    if (feynmanMode) {
+      const lastAI = messages.filter(m => m.role === 'assistant').slice(-1)[0];
+      const concept = lastAI ? lastAI.content.split('\n')[0].replace(/[#*]/g, '').trim() : trimmed;
+      let full = '';
+      await feynmanify(
+        concept,
+        `Subject: ${block.subjectName}. Student asked: ${trimmed}`,
+        (chunk) => { full += chunk; setStreamText(full); },
+        () => {
+          setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: full, timestamp: Date.now() }]);
+          setStreamText(''); setStreaming(false);
+        },
+        (err) => { setError(err); setStreaming(false); setStreamText(''); },
+      );
+      return;
+    }
+
     const history: GeminiMessage[] = [...messages, userMsg].map(m => ({
       role: m.role === 'user' ? 'user' : 'model',
       parts: [{ text: m.content }],
     }));
 
     let full = '';
-    geminiStream(history, systemPrompt,
+    geminiStream(
+      history, systemPrompt,
       (chunk) => { full += chunk; setStreamText(full); },
       () => {
         setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: full, timestamp: Date.now() }]);
@@ -897,17 +963,20 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
       },
       (err) => { setError(err); setStreaming(false); setStreamText(''); },
       1800,
+      'standard',
     );
-  }, [messages, streaming, systemPrompt, sessionCount]);
+  }, [messages, streaming, systemPrompt, sessionCount, feynmanMode, block]);
 
   const readiness = subjectIntelligence?.readiness;
-  const readinessColor = readiness === undefined ? '#71717a' : readiness < 35 ? '#ef4444' : readiness < 60 ? '#f59e0b' : readiness < 80 ? '#10b981' : '#6ee7b7';
+  const readinessColor = readiness === undefined ? '#71717a'
+    : readiness < 35 ? '#ef4444' : readiness < 60 ? '#f59e0b' : readiness < 80 ? '#10b981' : '#6ee7b7';
   const starters = getStarters(block, subjectIntelligence, richCtx);
   const topicsDue = richCtx.topicsDueReview?.length ?? 0;
   const pendingAssignments = richCtx.assignments?.filter(a => !a.completed).length ?? 0;
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'chat', label: 'Chat', icon: <MessageSquare size={13} strokeWidth={2.5} /> },
+    { id: 'exam', label: 'Exam', icon: <Trophy size={13} strokeWidth={2.5} /> },  // NEW
     { id: 'resources', label: 'Resources', icon: <BookOpen size={13} strokeWidth={2.5} /> },
     { id: 'notes', label: 'Notes', icon: <StickyNote size={13} strokeWidth={2.5} /> },
   ];
@@ -922,7 +991,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           background: 'rgba(7,7,13,0.99)',
           border: '1px solid rgba(255,255,255,0.08)',
           backdropFilter: 'blur(32px)',
-          boxShadow: '0 40px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(139,92,246,0.05)',
+          boxShadow: '0 40px 80px rgba(0,0,0,0.8)',
           borderRadius: window.innerWidth >= 640 ? '1.5rem' : '1.5rem 1.5rem 0 0',
         }}>
         <div className="absolute top-0 left-12 right-12 h-px rounded-full"
@@ -943,7 +1012,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
               </div>
               <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
                 {block.subjectName} · {block.duration}min {block.type}
-                {block.notes ? ` · ${block.notes.slice(0, 30)}${block.notes.length > 30 ? '…' : ''}` : ''}
+                {block.notes ? ` · ${block.notes.slice(0, 30)}` : ''}
               </div>
             </div>
           </div>
@@ -960,20 +1029,13 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                 <Flame size={10} strokeWidth={2.5} />{sessionCount}
               </div>
             )}
-            {messages.length >= 2 && (
-              <button onClick={() => setTab('notes')}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-all hover:bg-white/8"
-                style={{ color: '#a78bfa' }}>
-                <StickyNote size={11} strokeWidth={2.5} />Notes
-              </button>
-            )}
             {messages.length > 0 && (
               <button onClick={() => { setMessages([]); setStreamText(''); setError(''); }}
-                className="p-1.5 rounded-lg transition-all hover:bg-white/8" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                className="p-1.5 rounded-lg hover:bg-white/8" style={{ color: 'rgba(255,255,255,0.25)' }}>
                 <RotateCcw size={13} strokeWidth={2.5} />
               </button>
             )}
-            <button onClick={onClose} className="p-1.5 rounded-lg transition-all hover:bg-white/8" style={{ color: 'rgba(255,255,255,0.3)' }}>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/8" style={{ color: 'rgba(255,255,255,0.3)' }}>
               <X size={16} strokeWidth={2.5} />
             </button>
           </div>
@@ -996,7 +1058,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           ))}
         </div>
 
-        {/* ── CHAT TAB ─────────────────────────────────────────────────────── */}
+        {/* ── CHAT TAB ── */}
         {tab === 'chat' && (
           <>
             {(subjectIntelligence?.weakTopics?.length || topicsDue > 0 || pendingAssignments > 0) && messages.length === 0 && (
@@ -1041,20 +1103,70 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                     </div>
                     <h3 className="text-sm font-bold text-white mb-1">Ready for {block.subjectName}</h3>
                     <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                      {ctxLoaded ? `I know your grades, topics, and study history — let's make this count` : `Your personalized coach is ready`}
+                      {ctxLoaded ? `I know your grades, topics, and full academic portrait` : `Your personalized coach is loading...`}
                     </p>
                   </div>
+
+                  {/* Context badges row */}
                   {ctxLoaded && (readiness !== undefined || richCtx.subject?.grades?.length) && (
                     <div className="flex flex-wrap gap-2 justify-center">
-                      {readiness !== undefined && <ContextBadge icon={<Brain size={11} strokeWidth={2.5} />} label="Readiness" value={`${readiness}%`} color={readinessColor} />}
+                      {readiness !== undefined && (
+                        <ContextBadge icon={<Brain size={11} strokeWidth={2.5} />} label="Readiness" value={`${readiness}%`} color={readinessColor} />
+                      )}
                       {richCtx.subject?.grades?.length ? (() => {
                         const avg = richCtx.subject!.grades!.reduce((s, g) => s + (g.score / g.maxScore) * 100, 0) / richCtx.subject!.grades!.length;
                         return <ContextBadge icon={<TrendingUp size={11} strokeWidth={2.5} />} label="Avg Score" value={`${avg.toFixed(0)}%`} color="#6ee7b7" />;
                       })() : null}
                       {topicsDue > 0 && <ContextBadge icon={<RotateCcw size={11} strokeWidth={2.5} />} label="Due Today" value={`${topicsDue} topics`} color="#a78bfa" />}
                       {subjectIntelligence?.nextExam && <ContextBadge icon={<Clock size={11} strokeWidth={2.5} />} label="Next Exam" value={subjectIntelligence.nextExam} color="#fbbf24" />}
+                      {richCtx.globalStreak !== undefined && richCtx.globalStreak > 1 && (
+                        <ContextBadge icon={<Flame size={11} strokeWidth={2.5} />} label="Streak" value={`${richCtx.globalStreak}d`} color="#f97316" />
+                      )}
                     </div>
                   )}
+
+                  {/* Cross-subject readiness mini-map */}
+                  {ctxLoaded && richCtx.allSubjects && richCtx.allReadiness && richCtx.allSubjects.length > 1 && (
+                    <div className="w-full px-1">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-center mb-2"
+                        style={{ color: 'rgba(255,255,255,0.15)' }}>Your academic snapshot</p>
+                      <div className="space-y-1.5">
+                        {richCtx.allSubjects.slice(0, 5).map(sub => {
+                          const r = richCtx.allReadiness![sub.id!];
+                          if (!r) return null;
+                          const col = r.score < 35 ? '#ef4444' : r.score < 60 ? '#f59e0b' : r.score < 80 ? '#10b981' : '#6ee7b7';
+                          const isCurrent = sub.id === block.subjectId;
+                          return (
+                            <div key={sub.id} className="flex items-center gap-2">
+                              <span className="text-[10px] w-24 truncate shrink-0"
+                                style={{ color: isCurrent ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.35)', fontWeight: isCurrent ? 700 : 400 }}>
+                                {sub.name}
+                              </span>
+                              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                <div className="h-full rounded-full transition-all duration-700"
+                                  style={{ width: `${r.score}%`, background: col, opacity: isCurrent ? 1 : 0.5 }} />
+                              </div>
+                              <span className="text-[9px] font-bold font-mono w-7 text-right shrink-0"
+                                style={{ color: col + (isCurrent ? 'ff' : '80') }}>
+                                {r.score}%
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {richCtx.weakestSubject && richCtx.weakestSubject.name !== block.subjectName && richCtx.weakestSubject.score < 45 && (
+                        <div className="mt-2 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5"
+                          style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.12)' }}>
+                          <AlertTriangle size={9} style={{ color: '#fca5a5' }} strokeWidth={2.5} />
+                          <span className="text-[9px]" style={{ color: 'rgba(252,165,165,0.7)' }}>
+                            {richCtx.weakestSubject.name} is critical at {richCtx.weakestSubject.score}% — I'll factor that into my coaching
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Starters */}
                   <div className="w-full space-y-2">
                     {starters.map((s, i) => (
                       <button key={i} onClick={() => sendMessage(s.text)}
@@ -1116,29 +1228,59 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
               <div ref={bottomRef} />
             </div>
 
+            {/* Input area */}
             <div className="px-4 py-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              {/* Feynman toggle */}
+              <div className="flex items-center justify-between mb-2">
+                <button
+                  onClick={() => setFeynmanMode(v => !v)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all"
+                  style={feynmanMode
+                    ? { background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24' }
+                    : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.3)' }}>
+                  <Lightbulb size={10} strokeWidth={2.5} />
+                  Feynman Mode {feynmanMode ? 'ON' : 'OFF'}
+                </button>
+                {feynmanMode && (
+                  <span className="text-[9px]" style={{ color: 'rgba(245,158,11,0.5)' }}>
+                    Explains like you're 16
+                  </span>
+                )}
+              </div>
+
               <div className="flex items-end gap-2 px-3.5 py-2.5 rounded-2xl"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
                 <textarea ref={inputRef} value={input} rows={1} disabled={streaming}
                   onChange={e => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px'; }}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-                  placeholder={streaming ? 'Thinking…' : 'Ask anything about your studies…'}
-                  className="flex-1 bg-transparent text-sm text-white placeholder:text-white/20 resize-none focus:outline-none leading-relaxed"
-                  style={{ maxHeight: 100 }} />
+                  placeholder={streaming ? 'Thinking...' : feynmanMode ? "Ask anything — I'll explain it simply..." : 'Ask anything about your studies...'}
+                className="flex-1 bg-transparent text-sm text-white placeholder:text-white/20 resize-none focus:outline-none leading-relaxed"
+                style={{ maxHeight: 100 }} />
                 <button onClick={() => sendMessage(input)} disabled={!input.trim() || streaming}
                   className="shrink-0 w-7 h-7 rounded-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-30"
-                  style={{ background: 'linear-gradient(135deg,#7c3aed,#3b82f6)' }}>
+                  style={{ background: feynmanMode ? 'linear-gradient(135deg,#d97706,#f59e0b)' : 'linear-gradient(135deg,#7c3aed,#3b82f6)' }}>
                   <Send size={13} className="text-white" strokeWidth={2.5} />
                 </button>
               </div>
               <p className="text-center text-[9px] mt-1.5 font-mono" style={{ color: 'rgba(255,255,255,0.12)' }}>
-                Enter to send · Shift+Enter new line · ESC close
+                Enter · Shift+Enter new line · ESC close
               </p>
             </div>
           </>
         )}
 
-        {/* ── RESOURCES TAB ────────────────────────────────────────────────── */}
+        {/* ── EXAM TAB ── NEW */}
+        {tab === 'exam' && (
+          <div className="flex-1 overflow-y-auto px-5 py-4" style={{ scrollbarWidth: 'none' }}>
+            <ExamSimulator
+              block={block}
+              subject={richCtx.subject}
+              topics={richCtx.topics}
+            />
+          </div>
+        )}
+
+        {/* ── RESOURCES TAB ── */}
         {tab === 'resources' && (
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2" style={{ scrollbarWidth: 'none' }}>
             {resources.length === 0 ? (
@@ -1149,71 +1291,50 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                   <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.2)' }}>Add resources to {block.subjectName} in the Courses tab</p>
                 </div>
               </div>
-            ) : (
-              <>
-                <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.2)' }}>
-                  {resources.length} resource{resources.length !== 1 ? 's' : ''} · {block.subjectName}
-                </p>
-                {resources.map(r => (
-                  <div key={r.id} className="flex items-start gap-3 px-4 py-3 rounded-2xl"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center mt-0.5"
-                      style={{ background: 'rgba(255,255,255,0.06)' }}>
-                      <ResourceIcon type={r.type} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-sm font-semibold text-white/80 leading-snug">{r.title}</span>
-                        {r.priority && (
-                          <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md shrink-0"
-                            style={r.priority === 'required'
-                              ? { background: 'rgba(239,68,68,0.15)', color: '#f87171' }
-                              : r.priority === 'recommended'
-                                ? { background: 'rgba(245,158,11,0.15)', color: '#fbbf24' }
-                                : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}>{r.priority}</span>
-                        )}
-                      </div>
-                      {r.notes && <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>{r.notes}</p>}
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="text-[10px] px-2 py-0.5 rounded-md font-medium uppercase"
-                          style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}>{r.type}</span>
-                        {r.url && (
-                          <a href={r.url} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-[11px] font-semibold hover:opacity-80"
-                            style={{ color: '#a78bfa' }}>
-                            <ExternalLink size={11} strokeWidth={2.5} />Open
-                          </a>
-                        )}
-                        {r.fileData && (
-                          <button onClick={() => { const a = document.createElement('a'); a.href = r.fileData!; a.download = r.title; a.click(); }}
-                            className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: '#a78bfa' }}>
-                            <Download size={11} strokeWidth={2.5} />Download
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                  <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.2)' }}>Ask AI</p>
-                  {[
-                    `What should I focus on from these ${resources.length} resources?`,
-                    `What's the best order to review these materials?`,
-                    `Create a ${block.duration}-min study plan using these resources`,
-                  ].map((s, i) => (
-                    <button key={i} onClick={() => { setTab('chat'); setTimeout(() => sendMessage(s), 100); }}
-                      className="w-full text-left flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium mb-2 transition-all"
-                      style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)', color: 'rgba(255,255,255,0.5)' }}>
-                      <ChevronRight size={12} style={{ color: '#a78bfa' }} strokeWidth={2.5} />{s}
-                    </button>
-                  ))}
+            ) : resources.map(r => (
+              <div key={r.id} className="flex items-start gap-3 px-4 py-3 rounded-2xl"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center mt-0.5"
+                  style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  {r.type === 'pdf' ? <FileText size={14} className="text-red-400" strokeWidth={2} />
+                    : r.type === 'video' ? <Layers size={14} className="text-blue-400" strokeWidth={2} />
+                      : <Link size={14} className="text-violet-400" strokeWidth={2} />}
                 </div>
-              </>
-            )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm font-semibold text-white/80">{r.title}</span>
+                    {r.priority && (
+                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md shrink-0"
+                        style={r.priority === 'required'
+                          ? { background: 'rgba(239,68,68,0.15)', color: '#f87171' }
+                          : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}>{r.priority}</span>
+                    )}
+                  </div>
+                  {r.notes && <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>{r.notes}</p>}
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[10px] px-2 py-0.5 rounded-md font-medium uppercase"
+                      style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}>{r.type}</span>
+                    {r.url && (
+                      <a href={r.url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-[11px] font-semibold hover:opacity-80"
+                        style={{ color: '#a78bfa' }}>
+                        <ExternalLink size={11} strokeWidth={2.5} />Open
+                      </a>
+                    )}
+                    {r.fileData && (
+                      <button onClick={() => { const a = document.createElement('a'); a.href = r.fileData!; a.download = r.title; a.click(); }}
+                        className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: '#a78bfa' }}>
+                        <Download size={11} strokeWidth={2.5} />Download
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* ── NOTES TAB ────────────────────────────────────────────────────── */}
+        {/* ── NOTES TAB ── */}
         {tab === 'notes' && (
           <NotesGenerator
             block={block}

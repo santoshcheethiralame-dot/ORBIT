@@ -7,7 +7,8 @@ import { WeekPreviewModal } from "./WeekPreviewModal";
 import { BlockReason, PageHeader, MetaText, HeaderChip } from "./components";
 import { getISTTime, getISTEffectiveDate } from "./utils/time";
 import { EmptyBacklog, EmptyTodayPlan } from './EmptyStates';
-import { getAllReadinessScores, updateAssignmentProgress } from './brain';
+import { updateAssignmentProgress } from './brain';
+import { getAllReadinessScores } from './brain-ultimate';
 import { useToast } from './Toast';
 import { safeDB, withToast } from './utils/dbErrorHandler';
 import {
@@ -974,7 +975,7 @@ export const Dashboard = ({
     const loadReadiness = async () => {
       try {
         const scores = await getAllReadinessScores();
-        setReadinessScores(scores);
+        setReadinessScores(scores as Record<number, SubjectReadiness>);
       } catch (error) {
         console.error('Failed to load readiness scores:', error);
       }

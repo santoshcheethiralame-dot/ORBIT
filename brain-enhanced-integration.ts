@@ -186,6 +186,7 @@ export async function recordBlockOutcome(
     completionQuality: 1 | 2 | 3 | 4 | 5;
     skipped?: boolean;
     notes?: string;
+    mood?: string;
   },
   dbInstance: OrbitDB = db
 ): Promise<void> {
@@ -202,7 +203,7 @@ export async function recordBlockOutcome(
       actualDuration: outcome.actualDuration,
       completionQuality: outcome.completionQuality,
       timeOfDay,
-      mood: "normal", // Placeholder for future mood tracking
+      mood: outcome.mood || "normal",
       completed: !outcome.skipped,
       skipped: outcome.skipped || false,
       date,

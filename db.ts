@@ -110,6 +110,24 @@ export class OrbitDB extends Dexie {
       exams: "++id, subjectId, examDate, examType, completed",
       settings: "key",  // single-row, key="user"
     });
+
+    // v12: Formalize extended Project fields (milestones, sessionLog, notes, githubUrl, createdAt)
+    // These were already being stored via ProjectsView but were not in the schema/type.
+    // No index changes needed — just a version bump to mark the schema evolution.
+    this.version(12).stores({
+      semesters: "++id",
+      subjects: "++id, name, code",
+      projects: "++id, subjectId",
+      schedule: "++id, day, slot",
+      assignments: "id, subjectId, dueDate, estimatedEffort, progressMinutes, completed",
+      plans: "date",
+      logs: "++id, timestamp, date, subjectId, type, topicId",
+      topics: "++id, subjectId, name, nextReview",
+      blockOutcomes: "++id, blockId, subjectId, timestamp, date, completed, skipped, timeOfDay",
+      studyBlocks: "id, date, completed, subjectId, type",
+      exams: "++id, subjectId, examDate, examType, completed",
+      settings: "key",
+    });
   }
 }
 

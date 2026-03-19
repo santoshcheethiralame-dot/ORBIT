@@ -1,7 +1,7 @@
 // DailyContextModal — redesigned with inline advanced options (no nested modal),
 // clean linear flow: presets → day type → exam subject → submit.
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   CloudRain, Activity, ThermometerSun, X, Zap, Coffee, Flame,
   BookOpen, Sparkles, AlertCircle, Settings as SettingsIcon,
@@ -12,6 +12,139 @@ import { Input, Button } from "./components";
 import { SpaceBackground } from "./SpaceBackground";
 import { db } from "./db";
 import { getAllReadinessScores } from "./brain";
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PLAN GENERATING OVERLAY
+───────────────────────────────────────────────────────────────────────────── */
+
+const PLAN_STAGES = [
+  { icon: '📊', line: 'Reading your readiness scores…', detail: 'Ebbinghaus decay calculated' },
+  { icon: '🧮', line: 'Running the triple-brain algorithm…', detail: 'Core + Enhanced + Research layers' },
+  { icon: '⚖️', line: 'Balancing your subject load…', detail: 'Interleaving & burnout check' },
+  { icon: '📅', line: 'Scheduling blocks by energy…', detail: 'Hard subjects → peak hours' },
+  { icon: '✨', line: 'Finalising your mission brief…', detail: 'Almost there' },
+];
+
+const moodLabel: Record<string, string> = { low: 'Recovery Mode', normal: 'Standard Day', high: 'Peak Sprint' };
+const moodColor: Record<string, string> = { low: '#10b981', normal: '#3b82f6', high: '#f59e0b' };
+const dayTypeLabel: Record<string, string> = { normal: 'Normal', isa: 'ISA Prep', esa: 'ESA Prep', pd: 'PD Day' };
+
+const PlanGeneratingOverlay: React.FC<{
+  mood: string; dayType: string; subjects: Subject[];
+}> = ({ mood, dayType, subjects }) => {
+  const [stage, setStage] = useState(0);
+  const [dots, setDots] = useState('');
+  const [elapsed, setElapsed] = useState(0);
+  const [barPct, setBarPct] = useState(2);
+
+  useEffect(() => {
+    const stageT = setInterval(() => setStage(s => Math.min(s + 1, PLAN_STAGES.length - 1)), 2200);
+    const dotsT = setInterval(() => setDots(d => d.length >= 3 ? '' : d + '.'), 380);
+    const elapsedT = setInterval(() => setElapsed(e => e + 1), 1000);
+    const barT = setInterval(() => setBarPct(p => {
+      if (p >= 94) return p + 0.02;
+      if (p >= 75) return p + 0.12;
+      return p + 0.55;
+    }), 60);
+    return () => { clearInterval(stageT); clearInterval(dotsT); clearInterval(elapsedT); clearInterval(barT); };
+  }, []);
+
+  const cur = PLAN_STAGES[stage];
+  const col = moodColor[mood] ?? '#3b82f6';
+
+  return (
+    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-8 px-6"
+      style={{ background: 'rgba(3,2,10,0.97)' }}>
+
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: `radial-gradient(ellipse 50% 40% at 50% 50%, ${col}08 0%, transparent 70%)` }} />
+
+      {/* Central icon */}
+      <div className="relative">
+        <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl"
+          style={{
+            background: `linear-gradient(135deg,${col}18,rgba(59,130,246,0.1))`,
+            border: `1px solid ${col}25`,
+            boxShadow: `0 0 40px ${col}18`,
+          }}>
+          {cur.icon}
+        </div>
+        {/* Spinning ring */}
+        <svg className="absolute -inset-3 w-[104px] h-[104px]" style={{ animation: 'spin 3s linear infinite' }}>
+          <circle cx="52" cy="52" r="48" fill="none" stroke={col} strokeWidth="1.5" opacity="0.25"
+            strokeDasharray="60 240" strokeLinecap="round" />
+        </svg>
+      </div>
+
+      {/* Text */}
+      <div className="text-center space-y-2 max-w-xs">
+        <h2 className="text-base font-bold text-white/90">
+          {cur.line}{dots}
+        </h2>
+        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>{cur.detail}</p>
+      </div>
+
+      {/* Config chips */}
+      <div className="flex items-center gap-2 flex-wrap justify-center">
+        <span className="text-[10px] px-3 py-1 rounded-full font-semibold"
+          style={{ background: `${col}14`, border: `1px solid ${col}28`, color: col }}>
+          {moodLabel[mood] ?? mood}
+        </span>
+        <span className="text-[10px] px-3 py-1 rounded-full font-semibold"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>
+          {dayTypeLabel[dayType] ?? dayType}
+        </span>
+        <span className="text-[10px] px-3 py-1 rounded-full font-semibold"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>
+          {subjects.length} subject{subjects.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="w-full max-w-sm space-y-2">
+        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+          <div className="h-full rounded-full"
+            style={{
+              width: `${Math.min(barPct, 98)}%`,
+              background: `linear-gradient(90deg,${col},#3b82f6)`,
+              boxShadow: `0 0 10px ${col}60`,
+              transition: 'width 0.06s linear',
+            }} />
+        </div>
+        <div className="flex justify-between">
+          <span className="text-[9px] font-mono" style={{ color: 'rgba(255,255,255,0.2)' }}>
+            Orbit Brain v3 · {Math.round(Math.min(barPct, 98))}%
+          </span>
+          <span className="text-[9px] font-mono" style={{ color: 'rgba(255,255,255,0.2)' }}>
+            {elapsed}s
+          </span>
+        </div>
+      </div>
+
+      {/* Stage dots */}
+      <div className="flex gap-2 items-center">
+        {PLAN_STAGES.map((s, i) => (
+          <div key={i} className="transition-all duration-500 rounded-full flex items-center justify-center"
+            style={{
+              width: i === stage ? 28 : 8,
+              height: 8,
+              background: i < stage ? col : i === stage ? col + 'ee' : 'rgba(255,255,255,0.1)',
+              fontSize: 10,
+            }}>
+            {i < stage && <span style={{ fontSize: 8 }}>✓</span>}
+          </div>
+        ))}
+      </div>
+
+      {elapsed > 6 && (
+        <p className="text-[10px] text-center" style={{ color: 'rgba(255,255,255,0.18)' }}>
+          Running advanced optimisation across {subjects.length} subjects…
+        </p>
+      )}
+    </div>
+  );
+};
 
 // ─── Preset definitions ───────────────────────────────────────────────────────
 const PRESETS = {
@@ -100,6 +233,7 @@ interface DailyContextModalProps {
 export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalProps) => {
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Core state
   const [mood, setMood] = useState<"low" | "normal" | "high">("normal");
@@ -184,6 +318,7 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
       });
     }
 
+    setIsGenerating(true);
     onGenerate({
       mood,
       dayType,
@@ -224,7 +359,10 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
       <div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-start justify-center p-4 overflow-y-auto">
         <SpaceBackground />
 
-        <div className="relative w-full max-w-2xl my-6">
+        {/* ── PLAN GENERATING OVERLAY ── */}
+        {isGenerating && <PlanGeneratingOverlay mood={mood} dayType={dayType} subjects={subjects} />}
+
+        <div className={`relative w-full max-w-2xl my-6 transition-all duration-300 ${isGenerating ? 'opacity-0 pointer-events-none scale-95' : 'opacity-100'}`}>
           {/* Card */}
           <div className="relative bg-gradient-to-br from-zinc-900/70 to-zinc-900/50 backdrop-blur-2xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
             {/* Background glow */}

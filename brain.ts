@@ -12,6 +12,9 @@ import {
   ExamEntry,
   SubjectReadiness,
 } from "./types";
+
+// Re-export for consumers
+export type { SubjectReadiness };
 import { getISTEffectiveDate } from "./utils/time";
 import { notifyDataChange } from "./db";
 
