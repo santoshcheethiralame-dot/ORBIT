@@ -1,13 +1,16 @@
-// AIInsightBanner.tsx v2.1
-// FIX: imports getAllReadinessScores from brain-ultimate (not brain.ts)
-// FIX: daily cache key (not session-only)
-// NEW: expandable detail + action CTA + inline readiness bars
+// AIInsightBanner.tsx v2.2
+// FIXES (v2.2):
+// - Cache stored raw RichInsight but read expected { date, insight } wrapper → cache ALWAYS missed
+// - TODAY was a stale module-level constant; replaced with getISTEffectiveDate() per call
+// - force-refresh wasn't updating the date in the cached object
+// - Removed stale sessionStorage keys from previous date-suffix strategy
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
-import { getAllReadinessScores } from './brain-ultimate';  // ← FIX: was ./brain
+import { getAllReadinessScores } from './brain-ultimate';
 import { geminiStream } from './gemini';
+import { getISTEffectiveDate } from './utils/time';
 import {
   Sparkles, X, RefreshCw, TrendingUp, AlertTriangle,
   Zap, ChevronDown, ChevronUp, Target, ArrowRight,
@@ -26,10 +29,13 @@ interface RichInsight {
   urgencyScore: number;   // 0–100
 }
 
-// FIX: Stable cache key (no date suffix). The cached JSON includes a `date` field
-// so we can check freshness without accumulating stale keys in sessionStorage.
+/** Cache shape stored in sessionStorage */
+interface CachedInsight {
+  date: string;       // YYYY-MM-DD using IST effective date
+  insight: RichInsight;
+}
+
 const CACHE_KEY = 'orbit-ai-insight-v2';
-const TODAY = new Date().toISOString().split('T')[0];
 
 /* ─────────────────────────────────────────────────────────────────────────────
    STYLES
@@ -69,7 +75,7 @@ const TYPE_CFG = {
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   INSIGHT GENERATION — structured JSON, richer prompt
+   INSIGHT GENERATION
 ───────────────────────────────────────────────────────────────────────────── */
 
 async function generateInsight(
@@ -85,7 +91,7 @@ async function generateInsight(
     status: readinessMap[s.id!]?.status ?? 'maintaining',
   })).sort((a, b) => a.score - b.score);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getISTEffectiveDate();
   const todayLogs = logs.filter((l: any) => l.date === today);
   const todayMin = todayLogs.reduce((s: number, l: any) => s + (l.duration ?? 0), 0);
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
@@ -179,6 +185,37 @@ const ReadinessBar: React.FC<{ name: string; score: number; status: string }> = 
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   CACHE HELPERS
+───────────────────────────────────────────────────────────────────────────── */
+
+function readCache(): RichInsight | null {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const cached: CachedInsight = JSON.parse(raw);
+    // Validate shape — old entries (v2.1 and earlier) stored the raw RichInsight
+    // without a date wrapper; they have no `.date` field so this check rejects them.
+    if (cached?.date === getISTEffectiveDate() && cached?.insight?.headline) {
+      return cached.insight;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(insight: RichInsight): void {
+  try {
+    const payload: CachedInsight = { date: getISTEffectiveDate(), insight };
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+  } catch { /* ignore — storage may be disabled */ }
+}
+
+function clearCache(): void {
+  try { sessionStorage.removeItem(CACHE_KEY); } catch { /* ignore */ }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    MAIN BANNER
 ───────────────────────────────────────────────────────────────────────────── */
 
@@ -197,23 +234,17 @@ export const AIInsightBanner: React.FC = () => {
     if (subjects.length === 0) return;
 
     if (!force) {
-      try {
-        const cached = sessionStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          // FIX: Check the date stored inside the JSON, not the key name.
-          // Old keys with dates in the name are automatically ignored.
-          if (parsed?.date === TODAY && parsed?.insight) {
-            setInsight(parsed.insight);
-            return;
-          }
-        }
-      } catch { /* ignore */ }
+      const cached = readCache();
+      if (cached) {
+        setInsight(cached);
+        return;
+      }
+    } else {
+      clearCache();
     }
 
     setLoading(true); setInsight(null);
     try {
-      // FIX: Uses brain-ultimate → routes to research-grade when data is sufficient
       const readiness = await getAllReadinessScores();
       const readinessMap: Record<number, { score: number; status: string }> = {};
       Object.entries(readiness).forEach(([id, r]) => {
@@ -234,7 +265,7 @@ export const AIInsightBanner: React.FC = () => {
       const result = await generateInsight(subjects, logs, readinessMap);
       if (result) {
         setInsight(result);
-        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(result)); } catch { /* ignore */ }
+        writeCache(result);
       }
     } finally {
       setLoading(false);
@@ -302,12 +333,14 @@ export const AIInsightBanner: React.FC = () => {
           </button>
           <button onClick={(e) => { e.stopPropagation(); fetchInsight(true); }}
             className="p-1.5 rounded-lg hover:bg-white/8 transition-all"
-            style={{ color: cfg.labelColor }}>
+            style={{ color: cfg.labelColor }}
+            title="Refresh insight">
             <RefreshCw size={11} strokeWidth={2.5} />
           </button>
           <button onClick={() => setDismissed(true)}
             className="p-1.5 rounded-lg hover:bg-white/8 transition-all"
-            style={{ color: 'rgba(255,255,255,0.2)' }}>
+            style={{ color: 'rgba(255,255,255,0.2)' }}
+            title="Dismiss">
             <X size={11} strokeWidth={2.5} />
           </button>
         </div>

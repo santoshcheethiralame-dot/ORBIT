@@ -1,32 +1,75 @@
-# 🧠 The BRAIN (v3.2)
+# 🧠 The BRAIN (v3.3)
 
 > **Technical Architecture & Cognitive Model of Orbit**
 
 This document details how Orbit "thinks." It explains the algorithms, data structures, and decision-making heuristics used to generate schedules, predict burnouts, manage energy, and deliver personalized AI coaching.
 
+---
+
 ## 🏗️ System Architecture
 
-Orbit v3.2 is built on a **Triple-Brain Architecture** with a live AI coaching layer:
+Orbit v3.3 is built on a **Triple-Brain Architecture** with a live AI coaching layer and instant capture system:
 
-1. **Macro Brain (Strategist)**: Looks at weeks/semesters. Handles long-term deadlines and project balancing.
-2. **Micro Brain (Tactician)**: Looks at *today*. Handles hourly scheduling, breaks, and immediate energy management.
-3. **Fluid Core (Renderer)**: Handles the sub-millisecond visual feedback loop (Flip Clock, Animations) to maintain flow state.
-4. **AI Insight Layer (Coach)**: OpenRouter-powered daily coaching that reads readiness scores and session history to surface personalized warnings, tips, and motivation.
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    USER-FACING LAYER                                │
+│  Dashboard · FocusSession · QuickCapture · DailyContextModal        │
+└───────────────────────────────┬────────────────────────────────────┘
+                                │
+┌───────────────────────────────▼────────────────────────────────────┐
+│                    AI COACHING LAYER                                │
+│  AIInsightBanner · AIStudyAssistant · ExamSimulator                 │
+│  DashboardInsights · ScheduleOptimizer · QualityRatingModal         │
+└───────────────────────────────┬────────────────────────────────────┘
+                                │
+┌───────────────────────────────▼────────────────────────────────────┐
+│                 BRAIN-ULTIMATE (Orchestrator)                       │
+│  Single entry point for all AI planning logic.                      │
+│  Routes to the correct strategy based on data maturity.            │
+└──────────┬──────────────────────────────────┬──────────────────────┘
+           │                                  │
+┌──────────▼──────────┐           ┌───────────▼───────────┐
+│  LAYER 1 (Core)     │           │  LAYER 3 (Research)   │
+│  brain.ts           │           │  brain-research-       │
+│                     │◄──────────│  grade.ts              │
+│  • Readiness calc   │           │                        │
+│  • Plan generation  │           │  • Bayesian mastery    │
+│  • SM-2 spaced rep  │           │  • Formal optimization │
+│  • Displacement     │           │  • Gain prediction     │
+└──────────┬──────────┘           └───────────▲────────────┘
+           │                                  │
+┌──────────▼──────────────────────────────────┘
+│  LAYER 2 (Enhanced)
+│  brain-enhanced-integration.ts
+│
+│  • Performance tracking (BlockOutcomes)
+│  • Burnout detection
+│  • Energy profile management
+│  • Interleaving analysis
+│  • Quality rating helpers
+└───────────────────────────────────────────────
+```
 
 ---
 
 ## Table of Contents
 
 1. [Architecture Philosophy](#architecture-philosophy)
-2. [The Triple-Brain System (v3.0)](#the-triple-brain-system-v30)
-3. [AI Insight Banner (v3.2)](#ai-insight-banner-v32)
-4. [Data Flow & Processing Pipeline](#data-flow--processing-pipeline)
-5. [The Displacement Algorithm](#the-displacement-algorithm)
-6. [Heuristic Scoring System](#heuristic-scoring-system)
-7. [Performance Tracking & Adaptation](#performance-tracking--adaptation)
-8. [Spaced Repetition Implementation](#spaced-repetition-implementation)
-9. [Database Schema](#database-schema)
-10. [API Reference](#api-reference)
+2. [Triple-Brain Strategy Selection](#triple-brain-strategy-selection)
+3. [Layer 1 — Core Brain](#layer-1--core-brain-brainsts)
+4. [Layer 2 — Enhanced Integration](#layer-2--enhanced-integration)
+5. [Layer 3 — Research Grade](#layer-3--research-grade)
+6. [AI Coaching Layer](#ai-coaching-layer)
+7. [QuickCapture](#quickcapture)
+8. [Data Flow & Processing Pipeline](#data-flow--processing-pipeline)
+9. [Readiness Engine](#readiness-engine)
+10. [Spaced Repetition (SM-2)](#spaced-repetition-sm-2)
+11. [Displacement Engine](#displacement-engine)
+12. [Burnout Detection](#burnout-detection)
+13. [Database Schema (v12)](#database-schema-v12)
+14. [gemini.ts — AI Gateway](#geminits--ai-gateway)
+15. [Performance Benchmarks](#performance-benchmarks)
+16. [API Reference](#api-reference)
 
 ---
 
@@ -35,544 +78,608 @@ Orbit v3.2 is built on a **Triple-Brain Architecture** with a live AI coaching l
 ### Local-First, Deterministic Execution
 
 The Orbit Brain is a **pure function** of your inputs. Given the same:
+
 - Subject database state
 - Historical performance data
 - Daily context inputs (energy, mood, conditions)
 
-...it will **always** generate the same plan. This determinism enables:
-- Reproducible debugging
-- Predictable testing
-- Zero server dependency
-- Instant rollback/replay
+...it will **always** produce the same plan. This enables reproducible debugging, predictable testing, and zero server dependency.
 
-### The Input-Process-Output Model
+### Single Import Rule
 
-```mermaid
-graph TD
-    Input[Daily Context] -->|JSON| Validator[Input Validator]
-    Validator -->|Sanitized| Resolver[Constraint Resolver]
-    
-    DB[(IndexedDB)] -->|Subjects| Resolver
-    DB -->|Performance| Resolver
-    DB -->|History| Resolver
-    
-    Resolver -->|Context| Brain[Triple Brain System]
-    Brain -->|Raw Plan| Sorter[Priority Sorter]
-    Sorter -->|Sorted| Displacement[Displacement Engine]
-    Displacement -->|Final| Output[Daily Plan]
-    
-    Output --> UI[User Interface]
-    Output --> DB
+All consumers import from `brain-ultimate.ts` only:
 
-    DB -->|Readiness + Logs| Insight[AI Insight Banner]
-    Insight -->|OpenRouter API| Coach[Daily Coaching Card]
-    Coach --> UI
+```typescript
+// ✅ Correct — routes to best available strategy
+import { getAllReadinessScores, generateUltimatePlan } from './brain-ultimate';
+
+// ❌ Wrong — bypasses strategy selection, gets core-only scores
+import { getAllReadinessScores } from './brain';
 ```
 
-**Key Design Decisions:**
-- **No async in core algorithm**: All DB reads happen upfront
-- **Immutable data structures**: Plans are never mutated, only replaced
-- **Staged refinement**: Each layer adds intelligence without breaking previous stages
-- **Session-cached insights**: OpenRouter responses are cached in `sessionStorage` to avoid redundant API calls
+`brain-ultimate.ts` is the orchestrator. It knows which brain layer to activate based on data maturity and handles all fallback logic.
 
 ---
 
-## The Triple-Brain System (v3.0)
-
-### Overview
-
-Orbit v3.0 introduces a **three-layer brain architecture** that adapts to user data maturity:
-
-```
-┌─────────────────────────────────────────────────────┐
-│           BRAIN-ULTIMATE (Orchestrator)             │
-│  Selects strategy based on user data availability   │
-└────────┬────────────────────────────────────┬───────┘
-         │                                    │
-    ┌────▼────────┐    ┌──────────────┐    ┌▼─────────────┐
-    │  Core Brain │    │  Enhanced    │    │  Research    │
-    │  (Base)     │───►│  Integration │◄───│  Grade       │
-    │             │    │  (Tracking)  │    │  (Advanced)  │
-    └─────────────┘    └──────────────┘    └──────────────┘
-```
-
-### Layer 1: Core Brain (`brain.ts`)
-
-**Purpose**: Foundation readiness calculations and basic planning
-
-**Features:**
-- Subject readiness scoring
-- Priority-based block generation
-- Basic load analysis
-- Displacement logic
-
-**When Used**: Always (base layer for all plans)
-
-### Layer 2: Enhanced Integration (`brain-enhanced-integration.ts`)
-
-**Purpose**: Performance tracking and adaptive adjustments
-
-**Features:**
-- Session quality ratings (1-5 scale)
-- Burnout detection
-- Energy budget management
-- Interleaving enforcement
-- Performance-based duration tuning
-
-**When Used**: After 5+ days of data
-
-### Layer 3: Research-Grade (`brain-research-grade.ts`)
-
-**Purpose**: Probabilistic models and formal optimization
-
-**Features:**
-- Bayesian readiness estimation
-- Confidence intervals
-- Mastery probability calculations
-- Formal gain function optimization
-- Variance tracking
-
-**When Used**: After 14+ days of data for full power
-
-### Strategy Selection Logic
+## Triple-Brain Strategy Selection
 
 ```typescript
-function selectStrategy(dataSpan: number) {
-  if (dataSpan < 5 days) {
+function selectStrategy(uniqueStudyDays: number) {
+  if (uniqueStudyDays < 5) {
     return {
       strategy: 'research',
-      confidence: 0.7,
-      reason: 'New user - using research-grade with smart defaults'
+      confidence: 0.70,
+      reason: 'New user — research-grade with smart defaults'
     };
-  } else if (dataSpan < 30 days) {
+  } else if (uniqueStudyDays < 30) {
     return {
       strategy: 'enhanced',
-      confidence: 0.8,
-      reason: 'Active user - core brain + performance adjustments'
+      confidence: 0.80,
+      reason: 'Active user — core + performance adjustments'
     };
   } else {
     return {
       strategy: 'hybrid',
       confidence: 0.95,
-      reason: 'Power user - full research optimization + feedback'
+      reason: 'Power user — full research optimization + feedback loop'
     };
   }
 }
 ```
 
-### Hybrid Mode (30+ Days)
-
-When you have sufficient data, all three layers work together:
-
-1. **Research-Grade** generates initial plan with probabilistic models
-2. **Enhanced** applies performance-based adjustments
-3. **Core** handles displacement and final constraints
-
-**Result**: Maximum intelligence with 95% confidence
+The orchestrator counts unique calendar days that have any `StudyLog` entry. This is more reliable than total session count because it captures daily consistency, not binge-studying.
 
 ---
 
-## AI Insight Banner (v3.2)
+## Layer 1 — Core Brain (`brain.ts`)
 
-The `AIInsightBanner` component adds a **live coaching layer** on top of the planning engine. It runs after the plan is rendered and provides one personalized sentence of guidance each session.
+The foundation layer. Always runs as the base.
 
-### How It Works
-
-```
-db.subjects + db.logs
-        │
-        ▼
-getAllReadinessScores()
-        │
-        ▼
-generateInsight() → OpenRouter API (max 100 tokens)
-        │
-        ▼
-{ type: 'warning' | 'tip' | 'motivation', text, subject }
-        │
-        ▼
-Typewriter reveal → sessionStorage cache
-```
-
-### Insight Classification
-
-| Type | Trigger | Color |
-|------|---------|-------|
-| `warning` | Any subject readiness < 40% | Amber |
-| `tip` | Readiness 40–55%, actionable suggestion | Violet |
-| `motivation` | Strong readiness + 60+ min studied today | Emerald |
-
-### Prompt Engineering
-
-The OpenRouter prompt is deterministic given the same inputs and enforces strict constraints:
+### Readiness Score
 
 ```
-- Max 20 words
-- Name the weakest subject explicitly when warning
-- Suggest a concrete action when tipping
-- Never be generic
-- Return only valid JSON: { type, text, subject }
+score = round(volume × decay × 100)
+
+volume = min(totalStudiedHours / goalHours, 1.0)
+       using a capped exponential: 1 - e^(-k × hourRatio)
+       where k = 0.30, hourRatio = min(studiedHours/goalHours, 3)
+
+goalHours = credits × 10  (10 hours per credit benchmark)
+
+decay = e^(-daysSince / retentionScale) × difficultyMultiplier
+retentionScale = clamp(totalStudiedHours × 2, 1, 20)
+difficultyMultiplier = 0.85 if difficulty ≥ 4, else 1.0
+
+lastStudiedDays = 999 → decay = 0 (never studied)
 ```
 
-### Caching Strategy
+**Status thresholds:**
+- `score < 35` → `critical` — injects emergency recovery blocks
+- `score ≥ 70` → `mastered`
+- else → `maintaining`
 
-Insights are stored in `sessionStorage` under the key `orbit-ai-insight`. A new insight is only fetched when:
-- The page is first loaded (no cache hit)
-- The user manually taps the refresh button
+### Plan Generation Priority Order
 
-This avoids unnecessary API calls while keeping the insight relevant for the current study session.
+```
+Priority  Type
+────────────────────────────────────────────
+0         ESA exam-day focus blocks
+0.5       Pre-class prep
+1         ASSIGNMENT_URGENT (due ≤ 1 day)
+2         ASSIGNMENT (due ≤ 14 days, on schedule)
+2.5       ASSIGNMENT_BACKLOG (from previous days)
+3         CRITICAL_REVIEW (readiness critical)
+4         PROJECT_DECAY (abandoned 7+ days)
+5         PROJECT (active)
+5.5       RECOVERY (burnout flags)
+6         REVIEW (regular cadence)
+90        FALLBACK (readiness-ranked fill)
+```
+
+Lower number = higher priority. The displacement engine uses this ordering to decide what gets dropped when the day is full.
+
+### Circadian Ordering
+
+After plan generation, blocks are reordered by time-of-day preference:
+
+```
+Hour < 12 (Morning):    Analytical → Memory → Creative
+Hour 13–18 (Afternoon): Creative → Analytical → Memory
+Hour ≥ 18 (Evening):    Memory → Creative → Analytical
+```
+
+Subject type classification is heuristic (name-based keyword matching).
+
+### Break Injection
+
+Breaks are inserted automatically when:
+- Continuous study minutes ≥ 90, OR
+- 2+ consecutive high-difficulty blocks (difficulty ≥ 3)
+
+Breaks are never injected after the final block.
+
+### Dropped Block Recovery
+
+Blocks snoozed via "Move to tomorrow" are stored in `DailyPlan.droppedBlocks[]`. On the next plan generation, they are recovered with a slight priority boost and injected back into the schedule. The source plan's `droppedBlocks` array is cleared after recovery to prevent ghost re-injection.
 
 ---
 
-## Data Flow & Processing Pipeline
+## Layer 2 — Enhanced Integration
 
-### Stage 1: Context Parsing
+**File:** `brain-enhanced-integration.ts`
 
-**Input Shape:**
+Activates after 5+ days of data.
+
+### BlockOutcome Tracking
+
+Every completed session can record a `BlockOutcome`:
+
 ```typescript
-interface DailyContext {
-  mood: 'low' | 'normal' | 'high';
-  dayType: 'normal' | 'isa' | 'esa';
-  focusSubjectId?: number;
-  isHoliday: boolean;
-  isSick: boolean;
-  bunkedSubjectId?: number;
-  daysToExam?: number;
+interface BlockOutcome {
+  blockId: string;
+  subjectId: number;
+  type: StudyBlock['type'];
+  plannedDuration: number;
+  actualDuration: number;        // what actually happened
+  completionQuality: 1 | 2 | 3 | 4 | 5;
+  timeOfDay: number;             // hour (0-23)
+  mood: string;
+  completed: boolean;
+  skipped: boolean;
+  date: string;                  // YYYY-MM-DD
+  timestamp: number;
 }
 ```
 
-**Constraint Resolution:**
-```typescript
-const resolveConstraints = (context: DailyContext) => {
-  const baseMinutes = {
-    low: 180,      // 3 hours
-    normal: 300,   // 5 hours
-    high: 420      // 7 hours
-  }[context.mood];
-  
-  const energyLevel = {
-    low: 60,
-    normal: 80,
-    high: 90
-  }[context.mood];
-  
-  return { 
-    timeAvailableMinutes: baseMinutes,
-    energyLevel 
-  };
-};
+### Adaptive Duration Adjustment
+
+Based on rolling 30-day `BlockOutcome` history:
+
+```
+avgQuality ≥ 4.5 AND skipRate < 0.2  →  duration × 1.15  (push harder)
+avgQuality ≤ 2.5 OR  skipRate > 0.3  →  duration × 0.80  (reduce friction)
+else                                  →  no change
 ```
 
-### Stage 2: Subject Enrichment
-
-Before generation, each subject is scored on multiple dimensions:
-
-```typescript
-interface EnrichedSubject {
-  id: string;
-  name: string;
-  priority: number;          // 1-10 (user-set)
-  difficulty: number;        // 1-10 (user-set)
-  
-  // Computed scores
-  decayScore: number;        // Days since last study
-  performanceScore: number;  // Recent session quality avg
-  
-  // Meta
-  lastStudied: Date | null;
-  totalMinutesLogged: number;
-  avgQualityRating: number;  // 1-5 stars
-}
-```
-
-**Decay Scoring Algorithm:**
-```typescript
-const calculateDecayScore = (lastStudied: Date | null): number => {
-  if (!lastStudied) return 100; // Never studied = max urgency
-  
-  const daysSince = Math.floor(
-    (Date.now() - lastStudied.getTime()) / (1000 * 60 * 60 * 24)
-  );
-  
-  if (daysSince >= 7) return 100;
-  if (daysSince >= 5) return 80;
-  if (daysSince >= 3) return 60;
-  if (daysSince >= 2) return 40;
-  return 0;
-};
-```
-
-### Stage 3: Plan Generation (Brain-Ultimate)
-
-The ultimate orchestrator decides which brain system to use:
-
-```typescript
-const generateUltimatePlan = async (context: DailyContext) => {
-  // 1. Assess data maturity
-  const dataSpan = calculateDataSpan();
-  
-  // 2. Select strategy
-  let blocks: StudyBlock[];
-  let confidence: number;
-  
-  if (dataSpan < 5) {
-    const plan = await generateResearchGradePlan(context);
-    blocks = plan.blocks;
-    confidence = 0.7;
-  } else if (dataSpan < 30) {
-    const corePlan = await generateDailyPlan(context);
-    blocks = await applyPerformanceAdjustments(corePlan.blocks);
-    confidence = 0.8;
-  } else {
-    const researchPlan = await generateResearchGradePlan(context);
-    blocks = await applyAggressiveAdjustments(researchPlan.blocks);
-    confidence = 0.95;
-  }
-  
-  // 3. Compute comprehensive analytics
-  const loadAnalysis = {
-    burnoutRisk: await detectBurnout(),
-    interleaving: analyzeInterleaving(blocks),
-    energyBudget: validateEnergyBudget(blocks),
-    ...coreMetrics
-  };
-```
-
----
-
-## Performance Tracking & Adaptation
-
-### Dynamic Duration Adjustment
-
-**Goal:** Auto-tune block sizes based on completion patterns
-
-```typescript
-const adjustDuration = (
-  baselineDuration: number,
-  subject: EnrichedSubject,
-  recentSessions: Session[]
-): number => {
-  const last30Days = recentSessions.filter(s => 
-    s.subjectId === subject.id &&
-    s.timestamp > Date.now() - 30 * 24 * 60 * 60 * 1000
-  );
-  
-  if (last30Days.length < 3) return baselineDuration;
-  
-  const avgQuality = last30Days.reduce(
-    (sum, s) => sum + s.qualityRating, 0
-  ) / last30Days.length;
-  
-  const completionRate = last30Days.filter(
-    s => s.completed
-  ).length / last30Days.length;
-  
-  // Too easy: high quality + high completion
-  if (avgQuality >= 4.5 && completionRate >= 0.9) {
-    return Math.floor(baselineDuration * 1.15); // +15%
-  }
-  
-  // Too hard: low completion or quality
-  if (completionRate < 0.6 || avgQuality < 2.5) {
-    return Math.floor(baselineDuration * 0.8); // -20%
-  }
-  
-  return baselineDuration; // Just right
-};
-```
+Requires ≥ 3 sessions before adjustments apply.
 
 ### Burnout Detection
 
 ```typescript
 interface BurnoutMetrics {
-  skipRate: number;          // % of planned sessions skipped
-  avgCompletionRate: number; // % of sessions finished
-  lowMoodStreak: number;     // Consecutive days mood < 3
+  skipRate: number;           // % sessions skipped in last 7 days
+  avgCompletionRate: number;  // % sessions finished
+  lowMoodStreak: number;      // consecutive days rating ≤ 2
+  score: number;              // 0-100
+  atRisk: boolean;            // score ≥ 50
 }
-
-const detectBurnout = async (): Promise<{
-  score: number;
-  atRisk: boolean;
-  recommendation: string;
-}> => {
-  const metrics = await calculateBurnoutMetrics();
-  
-  const redFlags = [
-    metrics.skipRate > 0.3,              // 30%+ skip rate
-    metrics.avgCompletionRate < 0.6,     // Quitting early often
-    metrics.lowMoodStreak > 4            // 4+ days low mood
-  ];
-  
-  const atRisk = redFlags.filter(Boolean).length >= 2;
-  
-  return {
-    score: metrics.skipRate * 100,
-    atRisk,
-    recommendation: atRisk 
-      ? "Consider a rest day or lighter schedule"
-      : "Healthy study patterns detected"
-  };
-};
 ```
 
-### Interleaving Enforcement
+Red flags (score contributions):
+- `skipRate > 0.3` → +50 points
+- `lowQualityRate > 0.5` → +30 points
+- `maxConsecutiveSkipDays ≥ 1` → +10 × days
 
-**Goal:** Prevent mental fatigue by mixing subjects and task types
+### Energy Profile
+
+Users can set per-period energy levels (default: morning 100, afternoon 80, evening 60, night 40). The energy budget validator checks whether a block set is feasible given declared energy levels. Stored in `localStorage` as `orbit-energy-profile`.
+
+### Interleaving Analysis
 
 ```typescript
-const enforceInterleaving = (blocks: StudyBlock[]): StudyBlock[] => {
-  const result: StudyBlock[] = [];
-  let lastSubjectId: number | null = null;
-  let sameSubjectCount = 0;
-  
-  for (const block of blocks) {
-    // Rule: Max 2 consecutive blocks of same subject
-    if (block.subjectId === lastSubjectId) {
-      sameSubjectCount++;
-      if (sameSubjectCount >= 2) {
-        const different = blocks.find(b => 
-          b.subjectId !== lastSubjectId && 
-          !result.includes(b)
-        );
-        if (different) {
-          result.push(different);
-          lastSubjectId = different.subjectId;
-          sameSubjectCount = 1;
-          continue;
-        }
-      }
-    } else {
-      sameSubjectCount = 1;
-    }
-    
-    result.push(block);
-    lastSubjectId = block.subjectId;
-  }
-  
-  return result;
-};
+interface InterleavingAnalysis {
+  varietyScore: number;              // 0-100
+  consecutiveSameSubject: number;    // max consecutive same-subject blocks
+  consecutiveSameType: number;       // max consecutive same-type blocks
+  needsInterleaving: boolean;        // true if consecutiveSameSubject ≥ 3
+  suggestions: string[];
+}
 ```
 
 ---
 
-## Spaced Repetition Implementation
+## Layer 3 — Research Grade
 
-### Modified SM-2 Algorithm
+**File:** `brain-research-grade.ts`
 
-Orbit uses a modified **SuperMemo 2** algorithm for review scheduling:
+Active for new users (< 5 days) and as part of the hybrid strategy for power users.
+
+### Probabilistic Readiness (BKT-inspired)
+
+Extends the core readiness formula with a Bayesian knowledge component:
+
+```
+score = 0.7 × classicalScore + 0.3 × bayesianScore
+
+bayesianScore = masteryProbability × 100
+
+masteryProbability is tracked per subject using a simplified BKT model:
+  posterior = prior + (1 - prior) × learningProbability × qualityEvidence × durationFactor
+
+  where learningProbability = 0.15 (configurable via RESEARCH_CONFIG)
+  qualityEvidence = (sessionQuality - 1) / 4
+  durationFactor  = min(duration / 60, 1.0)
+
+Decay applied daily:
+  decayed = current × e^(-λ × daysSinceLastStudy)
+  λ = DECAY_LAMBDA_HARD (0.10) if difficulty ≥ 4
+    = DECAY_LAMBDA_EASY (0.07) otherwise
+```
+
+### Learned Gain Predictor
+
+A parametric model that estimates the readiness gain from a prospective study block:
+
+```
+expectedGain = (
+    GAIN_READINESS_WEIGHT × readinessGap        +  (0.50)
+    GAIN_PRIORITY_WEIGHT  × urgencyFactor × 100 +  (0.30)
+    GAIN_RECENCY_WEIGHT   × recencyFactor  × 50    (0.20)
+  ) × (duration / OPTIMAL_BLOCK_DURATION)
+    × difficultyModifier
+    × energyModifier
+    × interleavingBonus
+    × qualityFactor
+
+interleavingBonus = 1.1 if block is a different subject from previous
+```
+
+### Formal Optimization (Greedy ILP)
+
+Candidate blocks are scored and ranked by `score = utility × confidence × (1 - uncertaintyPenalty)`. A greedy solver then selects the highest-scoring blocks subject to time, energy, and block-count constraints.
+
+The optimizer logs every decision to an in-memory `DecisionLog[]` for offline analysis and online learning. Gain prediction errors are tracked; the model learns from outcome observations via `recordBlockOutcome`.
+
+> ⚠️ **Note:** The research-grade mastery tracker is in-memory only. It resets on page refresh. Persistence to localStorage is planned for v4.0.
+
+---
+
+## AI Coaching Layer
+
+### AI Insight Banner (`AIInsightBanner.tsx`)
+
+A daily coaching card powered by OpenRouter. Runs after plan render, reads real readiness scores, generates a single high-signal sentence.
+
+```
+db.subjects + db.logs
+        │
+        ▼
+getAllReadinessScores()          ← from brain-ultimate (routes to research-grade)
+        │
+        ▼
+generateInsight()  →  OpenRouter prompt (max 200 tokens, 'simple' model tier)
+        │
+        ▼
+RichInsight { type, headline, detail, action, subject, urgencyScore }
+        │
+        ▼
+Typewriter reveal  →  sessionStorage cache
+
+Cache key:  'orbit-ai-insight-v2'
+Cache shape: { date: 'YYYY-MM-DD', insight: RichInsight }
+Cache hit:   parsed.date === getISTEffectiveDate() && parsed.insight exists
+```
+
+**Insight classification:**
+
+| Type | Trigger | UI Color |
+|------|---------|----------|
+| `warning` | Any subject < 35% OR week < 90min total | Amber |
+| `tip` | Readiness 35–60% OR imbalanced study | Violet |
+| `motivation` | All subjects > 60% AND today > 45min studied | Emerald |
+
+### AI Study Assistant (`AIStudyAssistant.tsx`)
+
+Four-tab modal opened during or before a focus session:
+
+- **Chat**: Streaming conversation with a personalized Orbit AI coach. System prompt includes: subject readiness, grades, syllabus progress, topic mastery, recent sessions, assignments, cross-subject academic portrait, weekly streak, today's total study time.
+- **Exam**: `ExamSimulator.tsx` — AI-generated MCQ / short-answer / true-false questions with AI grading for open-ended answers.
+- **Notes**: Deep Notes generator — reads PDFs, URLs, syllabus units, or chat history to produce dense exam-ready notes. Exports as Anki CSV.
+- **Resources**: Lists subject resources with external link/download actions.
+
+**Feynman Mode**: When toggled, AI responses use `feynmanify()` wrapper — restructures any explanation into plain English + real-world analogy + worked example + key insight. Designed for concepts where understanding is blocking, not memory.
+
+### Dashboard Insights (`DashboardInsights.tsx`)
+
+Weekly performance analysis. Runs a static fallback calculation first, then attempts an OpenRouter call for richer insights. Result keys:
 
 ```typescript
-interface SRSData {
-  easeFactor: number;    // 1.3 - 2.5 (default 2.5)
-  interval: number;      // Days until next review
-  repetitions: number;   // Total review count
-  nextReview: Date;      // Scheduled review date
+interface InsightCard {
+  type: 'burnout' | 'strong' | 'struggling' | 'tip';
+  title: string;
+  body: string;
+  metric?: string;
 }
+```
 
-const updateSRS = (
-  current: SRSData,
-  comprehensionRating: 1 | 2 | 3 // 1=Hard, 2=Good, 3=Easy
-): SRSData => {
-  let { easeFactor, interval, repetitions } = current;
-  
-  if (comprehensionRating === 1) {
-    // Reset: too hard
-    easeFactor = Math.max(1.3, easeFactor - 0.2);
-    repetitions = 0;
-    interval = 1; // Review tomorrow
-  } else {
-    easeFactor = Math.min(2.5, 
-      easeFactor + (0.1 * (comprehensionRating - 2))
-    );
-    repetitions++;
-    
-    if (repetitions === 1) {
-      interval = 1;
-    } else if (repetitions === 2) {
-      interval = 6;
-    } else {
-      interval = Math.round(interval * easeFactor);
-    }
-  }
-  
-  const nextReview = new Date();
-  nextReview.setDate(nextReview.getDate() + interval);
-  
-  return { easeFactor, interval, repetitions, nextReview };
-};
+Re-fetches when `outcomes.length` changes (new session logged). Previously fetched count is tracked to avoid redundant calls.
+
+### Schedule Optimizer (`ScheduleOptimizer.tsx`)
+
+Reads `db.schedule` (existing timetable) and `getAllReadinessScores()`, finds open slots in the grid, and asks OpenRouter to suggest 3 optimal study slots considering:
+- Critical/maintaining subject status
+- Time-of-day preferences (morning for difficulty ≥ 4)
+- Spacing same-subject sessions across days
+
+---
+
+## QuickCapture
+
+**File:** `QuickCapture.tsx`
+
+A floating note-capture widget that attaches to the Dashboard `PageHeader` actions area. Lets users log a thought to any subject without starting a focus timer.
+
+### Behavior
+
+- Opens/closes via `Alt+N` global keyboard shortcut
+- Saves via `⌘↵` / `Ctrl+↵`
+- Pre-selects the active block's subject via `defaultSubjectId` prop
+- Saves a `StudyLog` with `duration: 0, type: 'review'` and the user's note text
+- Auto-closes after 900ms with "Saved!" confirmation
+- Character limit: 500 chars with warning at 50 remaining
+- Notes surface in Courses → Session Notes (same panel as timer-based notes)
+
+### Data Shape
+
+```typescript
+// Entry written to db.logs:
+{
+  subjectId: selectedSubjectId,
+  duration: 0,
+  date: getISTEffectiveDate(),
+  timestamp: Date.now(),
+  type: 'review',
+  notes: noteText.trim(),
+}
 ```
 
 ---
 
-## Database Schema
+## Data Flow & Processing Pipeline
 
-### Dexie.js Configuration — v11
+```
+DailyContextModal (user sets mood/dayType/focus)
+        │
+        ▼
+generateUltimatePlan(context)   ←  brain-ultimate.ts
+        │
+        ├── strategy === 'research'  →  generateResearchGradePlan()
+        ├── strategy === 'enhanced'  →  generateDailyPlan() + adjustments
+        └── strategy === 'hybrid'    →  generateResearchGradePlan() + aggressive adjustments
+        │
+        ▼
+blocks[]  +  loadAnalysis  +  confidence  +  performanceAdjustments[]
+        │
+        ▼
+db.plans.put({ date, blocks, context, loadAnalysis, ... })
+        │
+        ▼
+Dashboard renders blocks
+        │
+        ▼
+FocusSession completes
+        │
+        ├── db.logs.add(StudyLog)
+        ├── recordBlockOutcome(outcome)   ← brain-enhanced + research mastery tracker
+        └── QualityRatingModal → coaching tip via OpenRouter
+```
+
+---
+
+## Readiness Engine
+
+### `calculateReadiness(subject, logs, effectiveDate)` — `brain.ts`
+
+Core readiness calculation. Uses the Ebbinghaus forgetting curve.
+
+```typescript
+export interface SubjectReadiness {
+  score: number;           // 0-100
+  decay: number;           // 0-1 (current retention factor)
+  status: 'critical' | 'maintaining' | 'mastered';
+  lastStudiedDays: number; // days since last session (999 = never)
+}
+```
+
+### `calculateProbabilisticReadiness(subject, logs, date, tracker)` — `brain-research-grade.ts`
+
+Extended version with Bayesian mastery probability, confidence intervals, and variance quantification. Returns `ProbabilisticReadiness` which is a superset of `SubjectReadiness`.
+
+### `getAllReadinessScores(db?)` — `brain-ultimate.ts` ← **always import from here**
+
+Routes to research-grade if data is sufficient (≥ 14 days), falls back to core. Returns `Record<number, SubjectReadiness | ProbabilisticReadiness>`.
+
+### `predictReadiness(current, subject, daysFromNow, hoursPerDay)` — `brain.ts`
+
+What-if forecasting. Simulates day-by-day study accumulation with compounding decay to project a future readiness score. Used in the Courses → Readiness Predictor modal.
+
+---
+
+## Spaced Repetition (SM-2)
+
+Modified SuperMemo 2 algorithm with capped exponent to prevent astronomical intervals.
+
+```typescript
+// Interval calculation (simplified)
+if (reviewNumber === 0) interval = 1 | 3 | 7   (by comprehension: hard/good/easy)
+if (reviewNumber === 1) interval = 1 | 6 | 8
+else {
+  const cappedEF  = min(newEaseFactor, 2.3)
+  const cappedExp = min(reviewNumber - 1, 5)     // hard ceiling prevents 2^30 bugs
+  interval = round(min(6 × cappedEF^cappedExp, 30 / newEaseFactor) × newEaseFactor)
+}
+interval = min(interval, 30)   // max 30 days between reviews
+
+// Ease factor updates
+comprehension === 3 (easy) → easeFactor = min(2.5, ef + 0.15)
+comprehension === 1 (hard) → easeFactor = max(1.3, ef - 0.15)
+comprehension === 2 (good) → no change
+```
+
+**Topic enrichment** (`TopicReadinessView.ts`) adds a `readinessScore` and `tier` to each topic for use in the AI assistant context:
+
+```
+tier = 'critical'  if readinessScore < 35 OR overdue > 7 days
+tier = 'due'       if nextReview ≤ today
+tier = 'mastered'  if easeFactor ≥ 2.2 AND reviewCount ≥ 4 AND avgComprehension ≥ 2.5
+tier = 'upcoming'  otherwise
+```
+
+---
+
+## Displacement Engine
+
+When the day is full and a higher-priority block needs to be inserted:
+
+1. Find the lowest-priority block currently in the plan that can be displaced
+2. Verify the swap fits within time budget
+3. Score each candidate victim: `(victim.priority - candidate.priority) × 100 - durationDiff`
+4. Pick the best victim (highest score = max priority relief, minimal wasted time)
+5. Attach `displaced: { type, subjectName }` to the new block for UI "Why?" explanation
+
+If no victim is found, the block is silently dropped (it may appear in tomorrow's plan via dropped block recovery).
+
+---
+
+## Burnout Detection
+
+```typescript
+// Scored 0-100; atRisk if score ≥ 50
+let score = 0;
+score += skipRate × 50;              // skipping is the primary signal
+score += lowQualityRate × 30;        // low session quality
+score += maxConsecutiveSkipDays × 10; // extended abandonment
+score = min(100, round(score));
+```
+
+Called from `DashboardInsights`, `StatsView`, and `generateEnhancedPlan`. Results cached in component state; not persisted to DB.
+
+---
+
+## Database Schema (v12)
 
 ```typescript
 class OrbitDB extends Dexie {
-  semesters!:     Table<Semester, number>;
-  subjects!:      Table<Subject, number>;
-  projects!:      Table<Project, number>;
-  schedule!:      Table<ScheduleSlot, number>;
-  assignments!:   Table<Assignment, string>;
-  plans!:         Table<DailyPlan, string>;
-  logs!:          Table<StudyLog, number>;       // study session logs
-  topics!:        Table<StudyTopic, number>;
-  blockOutcomes!: Table<BlockOutcome, string>;
-  studyBlocks!:   Table<StudyBlock, string>;
-  exams!:         Table<ExamEntry, number>;      // v10: ISA/ESA exam schedule
-  settings!:      Table<UserSettings, string>;   // v11: user preferences
-
-  constructor() {
-    super('OrbitDB');
-
-    // v11 (current) — full schema
-    this.version(11).stores({
-      semesters:     '++id',
-      subjects:      '++id, name, code',
-      projects:      '++id, subjectId',
-      schedule:      '++id, day, slot',
-      assignments:   'id, subjectId, dueDate, estimatedEffort, progressMinutes, completed',
-      plans:         'date',
-      logs:          '++id, timestamp, date, subjectId, type, topicId',
-      topics:        '++id, subjectId, name, nextReview',
-      blockOutcomes: '++id, blockId, subjectId, timestamp, date, completed, skipped, timeOfDay',
-      studyBlocks:   'id, date, completed, subjectId, type',
-      exams:         '++id, subjectId, examDate, examType, completed',
-      settings:      'key',   // single-row, key = "user"
-    });
-  }
+  semesters!:     Table<Semester,     number>;  // Academic semester info
+  subjects!:      Table<Subject,      number>;  // Courses + resources + grades + syllabus
+  projects!:      Table<Project,      number>;  // Long-form deliverables
+  schedule!:      Table<ScheduleSlot, number>;  // Weekly class timetable
+  assignments!:   Table<Assignment,   string>;  // Deadlines + backward planning
+  plans!:         Table<DailyPlan,    string>;  // Keyed by date (YYYY-MM-DD)
+  logs!:          Table<StudyLog,     number>;  // Every session including QuickCapture notes
+  topics!:        Table<StudyTopic,   number>;  // SM-2 flashcard topics
+  blockOutcomes!: Table<BlockOutcome, string>;  // Post-session quality ratings
+  studyBlocks!:   Table<StudyBlock,   string>;  // Individual blocks (direct access)
+  exams!:         Table<ExamEntry,    number>;  // ISA/ESA exam schedule
+  settings!:      Table<UserSettings, string>;  // Single row (key = "user")
 }
+
+// v12 schema (current)
+this.version(12).stores({
+  semesters:     '++id',
+  subjects:      '++id, name, code',
+  projects:      '++id, subjectId',
+  schedule:      '++id, day, slot',
+  assignments:   'id, subjectId, dueDate, estimatedEffort, progressMinutes, completed',
+  plans:         'date',
+  logs:          '++id, timestamp, date, subjectId, type, topicId',
+  topics:        '++id, subjectId, name, nextReview',
+  blockOutcomes: '++id, blockId, subjectId, timestamp, date, completed, skipped, timeOfDay',
+  studyBlocks:   'id, date, completed, subjectId, type',
+  exams:         '++id, subjectId, examDate, examType, completed',
+  settings:      'key',
+});
 ```
 
-### UserSettings Schema
+### Key Data Relationships
 
-```typescript
-interface UserSettings {
-  key: string;                              // always "user"
-  weeklyTargetHours: number;               // default 7
-  activeSemesterId?: number;
-  subjectColors?: Record<number, string>;  // user-chosen hex per subject
-}
+```
+Semester
+  └── Subject (1:many)
+        ├── SyllabusUnit[]    (embedded in Subject)
+        ├── Resource[]        (embedded in Subject)
+        ├── Grade[]           (embedded in Subject)
+        ├── StudyLog (1:many) → topics → nextReview scheduling
+        ├── StudyTopic (1:many)
+        ├── Assignment (1:many)
+        └── Project (1:many)
+
+DailyPlan (keyed by date)
+  └── StudyBlock[]            (includes type, priority, displacement metadata)
+        └── BlockOutcome      (post-session quality data)
+
+ExamEntry → Subject
+UserSettings (single row, key="user")
+  └── weeklyTargetHours, activeSemesterId, subjectColors
 ```
 
-### Migration Safety
+### Persistence Safety Net
 
-Every version upgrade:
-1. Backs up affected tables before modifying them
-2. Applies schema changes inside a transaction
-3. Reverts to the backup and rethrows if any step fails
+Three layers protect against data loss:
+
+1. **IndexedDB (Dexie v12)**: Primary transactional storage.
+2. **localStorage Snapshot**: `saveDbSnapshot()` debounces 2s after any write, serializes key tables (last 30 days of plans, last 500 logs, last 200 outcomes) to `localStorage` under `'orbit-db-snapshot'`. Maximum 3.5 MB to stay under quota.
+3. **BroadcastChannel**: `notifyDataChange()` / `onDataChange()` keep multiple open tabs in sync.
+
+Restoration path: `restoreDbFromSnapshot()` → bulk-adds all tables from the snapshot in a single transaction.
 
 ---
 
-## 🛡️ Data Persistence
+## `gemini.ts` — AI Gateway
 
-To ensure **zero data loss**, Orbit implements a multi-layer safety net:
+Central wrapper for all OpenRouter API calls. **All AI calls in the app must go through here.**
 
-1. **IndexedDB (Dexie v11)**: Primary transactional storage across all 12 tables.
-2. **LocalSnapshot**: Every 2 seconds of inactivity, the entire DB state is serialized to `localStorage` as a catastrophic recovery point.
-3. **BroadcastChannel**: Real-time state synchronization across multiple open tabs prevents race conditions.
-4. **Migration Safety**: DB upgrades automatically backup data before applying schema changes, reverting if any error occurs.
+### Model Routing
+
+```typescript
+export const MODELS: Record<TaskComplexity, string> = {
+  simple:   'openrouter/free',                   // Insights, labels, short JSON (≤200 tokens)
+  standard: 'google/gemini-flash-1.5',           // Chat, grading, summaries
+  complex:  'google/gemini-flash-1.5',           // Exam gen, deep notes
+  vision:   'google/gemini-2.0-flash-exp:free',  // Diagram/image analysis
+};
+```
+
+### Key Exports
+
+| Function | Usage | Complexity |
+|----------|-------|------------|
+| `geminiChat()` | Single-shot JSON generation | configurable |
+| `geminiStream()` | Streaming chat responses | configurable |
+| `geminiChatMultimodal()` | Vision tasks (diagram analysis) | vision |
+| `fetchUrlText()` | Fetch + extract web page text | n/a |
+| `extractPdfText()` | Extract text from base64 PDF | n/a |
+| `extractPdfImages()` | Extract PDF pages as images | n/a |
+| `feynmanify()` | Rewrite explanation simply | standard |
+| `generateAnkiCards()` | Generate flashcard CSV | standard |
+
+### Retry Logic
+
+```
+withRetry(fn, retries=2):
+  - Retries on rate limit (429) and server errors (5xx)
+  - Does NOT retry on auth errors (401, 403) or bad requests (400)
+  - Backoff: 800ms × (attempt + 1)
+```
+
+---
+
+## Performance Benchmarks
+
+| Operation | Typical Time | Notes |
+|-----------|-------------|-------|
+| Core plan generation | 45–80ms | Single DB read batch + pure compute |
+| Research-grade plan | 50–100ms | New users; uses defaults |
+| Enhanced plan | 150–250ms | Active users; includes outcome queries |
+| Hybrid plan | 200–400ms | Power users; full optimization pass |
+| Database cold start | 80–150ms | All 12 tables loaded once |
+| `getAllReadinessScores` | 30–60ms | Subjects × logs calculation |
+| AI Insight (OpenRouter) | 800–2500ms | Session-cached after first load |
+| Notes generation stream | 3–8s | First token ≈ 400ms |
+| Exam question generation | 5–15s | Complex prompt, 5–10 questions |
+| PDF text extraction | 500ms–3s | Per 20 pages, runs in browser |
+
+**Target:** All plan operations under 500ms on mid-range mobile devices.
 
 ---
 
@@ -580,74 +687,55 @@ To ensure **zero data loss**, Orbit implements a multi-layer safety net:
 
 ### Core Functions
 
-#### `generateUltimatePlan(context: DailyContext): Promise<UltimatePlanResult>`
+#### `generateUltimatePlan(context, db?) → Promise<UltimatePlanResult>`
+Generates a daily plan using the appropriate brain layer. Returns blocks, load analysis, confidence score, planning strategy, and any performance adjustments made.
 
-Generates a complete daily study plan using the triple-brain system.
+#### `getAllReadinessScores(db?) → Promise<Record<number, SubjectReadiness>>`
+Returns readiness for all subjects. Routes to research-grade (Bayesian) if ≥ 14 days of data, core otherwise.
 
-**Returns:**
-```typescript
-{
-  blocks: StudyBlock[];
-  loadAnalysis: {
-    loadScore: number;
-    loadLevel: 'light' | 'normal' | 'heavy' | 'extreme';
-    burnoutRisk: BurnoutMetrics;
-    interleaving: InterleavingAnalysis;
-    energyBudget: EnergyBudget;
-  };
-  planningStrategy: 'core' | 'enhanced' | 'research' | 'hybrid';
-  confidence: number; // 0.7 - 0.95
-}
-```
+#### `recordBlockOutcome(block, outcome, db?) → Promise<void>`
+Dual-write: persists to `db.blockOutcomes` (analytics) AND updates in-memory mastery tracker (feedback loop).
 
-#### `getAllReadinessScores(): Promise<Record<number, SubjectReadiness>>`
+#### `calculateReadiness(subject, logs, effectiveDate) → SubjectReadiness`
+Pure function. No DB access. Takes pre-fetched data.
 
-Returns readiness scores for all subjects using the best available system.
+#### `predictReadiness(current, subject, daysFromNow, hoursPerDay) → { projectedScore, breakdown }`
+Simulates future readiness given a study plan.
 
-#### `recordBlockOutcome(outcome: BlockOutcome): Promise<void>`
+#### `getTopicsDueForReview(dateStr, db?) → Promise<StudyTopic[]>`
+Returns topics with `nextReview ≤ dateStr`, sorted by overdue-ness then ease factor.
 
-Records session completion and quality data for learning.
+#### `recordTopicReview(subjectId, topicName, comprehension, duration, date, db?) → Promise<void>`
+Updates SM-2 parameters and logs the review session.
 
-#### `getUserSettings(): Promise<UserSettings>`
+#### `getUserSettings() → Promise<UserSettings>`
+Reads the single `settings` row (key = `"user"`), merges with defaults.
 
-Reads the single user-preferences row from the `settings` table, falling back to defaults.
+#### `updateUserSettings(partial) → Promise<void>`
+Deep-merges partial updates into the existing `settings` row.
 
-#### `updateUserSettings(partial): Promise<void>`
-
-Partially updates user preferences with deep-merge safety.
-
----
-
-## Performance Benchmarks
-
-| Operation | Time (avg) | Notes |
-|-----------|-----------|-------|
-| Full plan generation | 45-300ms | Varies by strategy |
-| Research-grade plan | 50ms | New users |
-| Enhanced plan | 150ms | Active users |
-| Hybrid plan | 300ms | Power users |
-| Database batch load | 120ms | Cold start |
-| AI insight (OpenRouter) | 800-2000ms | Session-cached after first load |
-
-**Target:** All plans under 500ms on mid-range devices. Insights non-blocking (rendered after 1.2s delay).
+#### `simulateWeek() → Promise<WeekPreview>`
+Fast 7-day lookahead simulation. Uses pre-fetched data; does not call plan generation for each day.
 
 ---
 
 ## Future Enhancements
 
-1. **Neural Network Duration Prediction**: Replace heuristics with learned models
-2. **Multi-Day Optimization**: Optimize across a week, not just one day
-3. **Reinforcement Learning**: Let the system learn optimal strategies
-4. **Collaborative Filtering**: Learn from aggregate patterns
-5. **Insight Personalization**: Fine-tune OpenRouter prompts based on what coaching styles improve your completion rates
+1. **Persist mastery tracker**: Serialize research-grade `BayesianMasteryTracker` state to `db.settings` so it survives page refreshes.
+2. **Neural Duration Prediction**: Replace linear heuristics with a lightweight learned model trained on `BlockOutcome` history.
+3. **Multi-Day Optimization**: Optimize the week as a whole rather than one day at a time (ILP or DP).
+4. **Reinforcement Learning**: Let the system learn which coaching styles improve completion rates from `recordBlockOutcome` feedback.
+5. **Insight Personalization**: Fine-tune OpenRouter prompts based on which insight types correlate with better weekly outcomes.
+6. **Collaborative Filtering**: Learn from aggregate patterns across users (opt-in, anonymized).
 
 ---
 
 ## Questions?
 
-This document is a living spec. If something is unclear:
-1. Check the [main README](./README.md) for user-facing docs
-2. Read the source: `brain-ultimate.ts`, `brain.ts`, `brain-enhanced-integration.ts`, `brain-research-grade.ts`, `AIInsightBanner.tsx`
-3. Open a [Discussion](https://github.com/santoshcheethirala/orbit/discussions)
+1. Check [README.md](./README.md) for user-facing documentation
+2. Source files: `brain-ultimate.ts` → `brain.ts` → `brain-enhanced-integration.ts` → `brain-research-grade.ts`
+3. AI layer: `AIInsightBanner.tsx` · `AIStudyAssistant.tsx` · `gemini.ts`
+4. Capture: `QuickCapture.tsx`
+5. Open a [Discussion](https://github.com/santoshcheethirala/orbit/discussions)
 
-**Built with ❤️ by developers who actually study.**
+**Built with ❤️ by one developer, for students who refuse to let chaos win.**

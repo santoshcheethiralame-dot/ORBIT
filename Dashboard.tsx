@@ -1,5 +1,6 @@
 // Dashboard: Main mission control showing today's study blocks, progress stats, and smart insights.
 // Handles block completion, snoozing, backlog management, and displays AI-generated study recommendations.
+// v3.3 — QuickCapture widget added to PageHeader actions
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { SubjectReadiness, StudyBlock, Subject, StudyLog, DailyPlan, DailyContext } from './types';
@@ -11,6 +12,7 @@ import { updateAssignmentProgress } from './brain';
 import { getAllReadinessScores } from './brain-ultimate';
 import { useToast } from './Toast';
 import { safeDB, withToast } from './utils/dbErrorHandler';
+import { QuickCapture } from './QuickCapture';
 import {
   Play,
   Check,
@@ -489,7 +491,7 @@ export const Dashboard = ({
                   <span className="text-xs px-1.5 py-0.5 rounded bg-red-500/20 font-mono">{score}</span>
                 </div>
                 <div className="text-sm text-red-200/70 leading-relaxed">
-                  Demanding schedule ahead - pace yourself and take strategic breaks
+                  Demanding schedule ahead — pace yourself and take strategic breaks
                 </div>
                 <div className="text-xs text-red-400/50 mt-2 font-medium">
                   Focus on high-priority tasks first
@@ -515,10 +517,10 @@ export const Dashboard = ({
                   <span className="text-xs px-1.5 py-0.5 rounded bg-orange-500/20 font-mono">{score}</span>
                 </div>
                 <div className="text-sm text-orange-200/70 leading-relaxed">
-                  Full schedule planned - maintain steady pace throughout the day
+                  Full schedule planned — maintain steady pace throughout the day
                 </div>
                 <div className="text-xs text-orange-400/50 mt-2 font-medium">
-                  {totalCount} blocks Est. {plan.blocks.reduce((sum, b) => sum + b.duration, 0)}min total
+                  {totalCount} blocks · Est. {plan.blocks.reduce((sum, b) => sum + b.duration, 0)}min total
                 </div>
               </div>
             </div>
@@ -541,7 +543,7 @@ export const Dashboard = ({
                   <span className="text-xs px-1.5 py-0.5 rounded bg-sky-500/20 font-mono">{score}</span>
                 </div>
                 <div className="text-sm text-sky-200/70 leading-relaxed">
-                  Light workload scheduled - perfect for deep focus and quality learning
+                  Light workload scheduled — perfect for deep focus and quality learning
                 </div>
                 <div className="text-xs text-sky-400/50 mt-2 font-medium">
                   Use extra time for review or exploration
@@ -567,7 +569,7 @@ export const Dashboard = ({
                   <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-500/20 font-mono">{score}</span>
                 </div>
                 <div className="text-sm text-indigo-200/70 leading-relaxed">
-                  Optimal conditions for progress - steady workload with good distribution
+                  Optimal conditions for progress — steady workload with good distribution
                 </div>
                 <div className="text-xs text-indigo-400/50 mt-2 font-medium">
                   {totalCount} focused sessions planned
@@ -591,7 +593,7 @@ export const Dashboard = ({
                 <Zap size={20} className="text-cyan-400" strokeWidth={2.5} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-bold text-base text-cyan-300 mb-1.5"> Smart Adjustments Applied</div>
+                <div className="font-bold text-base text-cyan-300 mb-1.5">Smart Adjustments Applied</div>
                 <div className="text-sm text-cyan-200/70 leading-relaxed">
                   {count} {count === 1 ? 'optimization' : 'optimizations'} made based on your recent performance patterns
                 </div>
@@ -617,10 +619,10 @@ export const Dashboard = ({
             <div className="flex-1 min-w-0">
               <div className="font-bold text-base text-emerald-300 mb-1.5">Data Governance</div>
               <div className="text-sm text-emerald-200/70 leading-relaxed">
-                Protect your progress! Make a manual backup every 2-3 days to ensure your data is safe.
+                Protect your progress! Make a manual backup every 2–3 days to ensure your data is safe.
               </div>
               <div className="text-xs text-emerald-400/50 mt-2 font-medium">
-                Visit Settings &gt; Data Governance
+                Visit Settings › Data Governance
               </div>
             </div>
           </div>
@@ -1018,7 +1020,7 @@ export const Dashboard = ({
       allPlans.forEach((p) => {
         if (p.date < today) {
           p.blocks.forEach((b) => {
-            if (!b.completed && !b.migrated) {
+            if (!b.completed && !(b as any).migrated) {
               incomplete.push({ ...b, sourceDate: p.date } as any);
             }
           });
@@ -1085,23 +1087,19 @@ export const Dashboard = ({
     }
   }, [backlog, toast]);
 
+  // FIX: removed updateAssignmentProgress call here — FocusSession completion
+  // path already handles it. Calling it here caused double-counting.
   const markComplete = useCallback(async (blockId: string) => {
     try {
       const todayStr = getISTEffectiveDate();
       const currentPlan = await db.plans.get(todayStr);
       if (!currentPlan) return;
 
-      const block = currentPlan.blocks.find(b => b.id === blockId);
-
       const updatedBlocks = currentPlan.blocks.map((b: StudyBlock) =>
         b.id === blockId ? { ...b, completed: true } : b
       );
 
       await db.plans.put({ ...currentPlan, blocks: updatedBlocks });
-
-      if (block?.type === 'assignment' && block.assignmentId) {
-        await updateAssignmentProgress(block.assignmentId, block.duration);
-      }
 
       toast.success('Block marked complete!', {
         label: 'UNDO',
@@ -1137,10 +1135,7 @@ export const Dashboard = ({
       const block = currentPlan.blocks.find((b) => b.id === blockId);
       if (!block) return;
 
-      // Remove the block from today's active schedule
       const updatedTodayBlocks = currentPlan.blocks.filter((b) => b.id !== blockId);
-
-      // Record the block ID as dropped — the planner will recover it tomorrow
       const droppedBlocks = [...(currentPlan.droppedBlocks || []), blockId];
 
       await db.plans.put({
@@ -1156,7 +1151,6 @@ export const Dashboard = ({
             const todayStr = getISTEffectiveDate();
             const currentPlan = await db.plans.get(todayStr);
             if (currentPlan) {
-              // Restore the block and remove from droppedBlocks
               const restoredBlocks = [...currentPlan.blocks, block];
               const updatedDropped = (currentPlan.droppedBlocks || []).filter(id => id !== blockId);
               await db.plans.put({
@@ -1187,10 +1181,8 @@ export const Dashboard = ({
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (window.scrollY > 0) return;
-
     const currentTouch = e.touches[0].clientY;
     const distance = currentTouch - touchStartY;
-
     if (distance > 0) {
       setPullDistance(Math.min(distance, 100));
     }
@@ -1319,11 +1311,18 @@ export const Dashboard = ({
           </>
         }
         actions={
-          <HeaderChip onClick={loadWeekPreview}>
-            <Calendar size={14} strokeWidth={2.5} />
-            <span>Week Ahead</span>
-            <ArrowRight size={14} strokeWidth={2.5} />
-          </HeaderChip>
+          <div className="flex items-center gap-2">
+            {/* ── QuickCapture: pre-selects the active block's subject ── */}
+            <div className="relative">
+              <QuickCapture defaultSubjectId={nextBlock?.subjectId} />
+            </div>
+
+            <HeaderChip onClick={loadWeekPreview}>
+              <Calendar size={14} strokeWidth={2.5} />
+              <span>Week Ahead</span>
+              <ArrowRight size={14} strokeWidth={2.5} />
+            </HeaderChip>
+          </div>
         }
       />
 
@@ -1438,7 +1437,7 @@ export const Dashboard = ({
       {showBacklog && (
         <>
           <style>{`
-            body { 
+            body {
               overflow: hidden !important;
               position: fixed !important;
               width: 100% !important;
@@ -1586,7 +1585,7 @@ export const Dashboard = ({
                         {b.subjectName}
                       </div>
                       <div className="text-xs text-zinc-500 uppercase mt-1 tracking-wide font-medium">
-                        {b.type} • {b.duration}m
+                        {b.type} · {b.duration}m
                       </div>
 
                       {b.type === 'assignment' && b.assignmentId && (

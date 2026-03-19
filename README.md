@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🛰️ Orbit v3.2
+# 🛰️ Orbit v3.3
 
 > **The specialized planning intelligence for high-performance students.**
 
@@ -17,41 +17,32 @@ Orbit is not just a todo list. It is a **focus engine** designed to maximize dee
 
 </div>
 
-## 🚀 New in v3.2
-- **AI Insight Banner**: Personalized daily coaching messages powered by OpenRouter — warns of decay, suggests quick wins, and motivates based on real session patterns.
-- **Typewriter UI**: Insights render with a typewriter effect and session-level caching so they don't re-fetch on every render.
-- **Exam & Settings Tables**: DB upgraded to v11 with dedicated `exams` and `settings` tables for persistent user preferences and exam schedule tracking.
+## 🚀 What's New in v3.3
 
-## ✨ What's New in v3.1
-- **Mechanical Flip Clock**: A hyper-realistic 3D flip timer for focus sessions with sub-millisecond precision.
-- **AI Study Assistant**: A spring-animated, GPU-accelerated modal for instant study guidance and topic breakdown.
-- **Fluid UI Core**: Global smooth scrolling, optimized transitions, and enhanced light/dark mode fluidity.
-- **Data Hardening**: Robust local persistence with snapshot recovery and multi-tab synchronization.
+- **QuickCapture**: Floating note-capture button in the Dashboard header. Log a thought to any subject instantly — no focus timer needed. Accessible via `Alt+N` keyboard shortcut, saves a zero-duration log entry that surfaces in Courses → Session Notes.
+- **Assignment double-count fix**: Completing a block via the schedule list no longer double-increments assignment progress (was also counted during session completion).
+- **AI Insight Banner cache fix**: Session cache now correctly hits on repeated renders — API call happens once per session, not on every mount.
+- **Correct readiness routing**: `subjectIntelligence.ts` and Stats now import `getAllReadinessScores` from `brain-ultimate` (the orchestrator) instead of `brain.ts` directly, so focus sessions get research-grade scores when data is sufficient.
 
-## ✨ What's New in v3.0
+## 🆕 What's New in v3.2
 
-### 🧠 Triple-Brain AI System
-Orbit uses **three integrated intelligence layers** that work together:
+- **AI Insight Banner**: OpenRouter-powered daily coaching card that reads your readiness scores and session logs to deliver one sharp, personalized insight each session — a warning, a quick-win tip, or motivation. Session-cached so it never re-fetches during a single study session.
+- **Exam Simulator Tab**: AI-generated MCQ, short-answer, and true/false exam questions inside the Study Assistant. Supports easy/medium/hard difficulty, configurable question count, and AI grading for open-ended answers.
+- **Feynman Mode**: Toggle in the Study Assistant chat that rewrites any AI explanation as if teaching a curious 16-year-old — plain English, vivid analogies, concrete examples.
+- **Anki Card Export**: Generate flashcard decks (CSV format) directly from AI study notes. One click imports into Anki.
+- **Schedule Optimizer**: AI analyses your timetable + readiness to suggest open slots for study. Reads free grid positions and cross-references critical/maintaining subjects.
+- **DB v11–v12**: `exams` and `settings` tables added. User preferences (weeklyTargetHours, subjectColors) are now durable, exportable, and survive page refreshes.
 
-1. **Core Brain** - Readiness calculations & priority-based planning
-2. **Enhanced Integration** - Performance tracking, energy management, quality ratings
-3. **Research-Grade** - Probabilistic models & formal optimization algorithms
+## 🆕 What's New in v3.1
 
-**Adaptive Strategy Selection:**
-- **New users (< 5 days)**: Research-grade algorithms with smart defaults
-- **Active users (5-30 days)**: Enhanced performance-based adjustments
-- **Power users (30+ days)**: Full hybrid optimization with ML feedback
-
-### 🎯 Features Added in v3.0
-- ✅ **Import/Export Backup System** - Seamless device switching
-- ✅ **Confidence Scoring** - See how confident the AI is in your plan (70–95%)
-- ✅ **Performance Adjustments** - Block durations auto-tune based on your history
-- ✅ **Comprehensive Load Analysis** - Burnout risk, interleaving, energy budgets
-- ✅ **Quality Rating System** - Rate session quality (1–5 scale) for better predictions
+- **Mechanical Flip Clock**: A hyper-realistic 3D timer for focus sessions with sub-millisecond precision and satisfying flip animations.
+- **AI Study Assistant**: Full-screen modal with Chat, Exam, Notes, and Resources tabs. Cross-subject academic portrait built into the system prompt.
+- **Fluid UI Core**: Global smooth scrolling, optimized transitions, enhanced light/dark mode fluidity.
+- **Data Hardening**: Robust local persistence with snapshot recovery and multi-tab synchronization via BroadcastChannel.
 
 ---
 
-## 🎨 What Makes Orbit Different
+## ✨ What Makes Orbit Different
 
 <table>
 <tr>
@@ -61,14 +52,14 @@ Orbit uses **three integrated intelligence layers** that work together:
 - **Adaptive Block Sizing**: Struggling? Get shorter, focused sessions automatically
 - **Energy Matching**: Heavy tasks scheduled during your peak hours
 - **Burnout Detection**: Proactive recovery suggestions before you crash
-- **Quality Tracking**: Rate each session to improve future predictions
+- **Quality Tracking**: Rate each session (1–5) to improve future predictions
 
 </td>
 <td width="50%">
 
 ### 🎯 Smart Prioritization
 - **Decay Detection**: Auto-escalates subjects ignored 3+ days
-- **Exam Proximity Engine**: Quadratic urgency scaling
+- **Exam Proximity Engine**: Quadratic urgency scaling for ISA/ESA prep
 - **Daily Context Calibration**: Energy + Deadlines = Optimal plan
 - **Performance Feedback**: Block sizes adjust based on completion rates
 
@@ -78,19 +69,19 @@ Orbit uses **three integrated intelligence layers** that work together:
 <td>
 
 ### ⚡ Zero Friction Execution
-- **One-Click Focus Mode**: Full-screen, distraction-free
-- **Session Reflections**: Rate quality, capture insights instantly
-- **Configurable "Day Start"**: 4 AM default (for night owls)
-- **Import/Export**: Switch devices seamlessly
+- **QuickCapture**: Log any thought instantly from the Dashboard — `Alt+N`
+- **One-Click Focus Mode**: Full-screen, distraction-free flip-clock timer
+- **Session Reflections**: Rate quality, capture insights, generate Anki cards
+- **Night-Owl Principle**: Day starts at 4 AM (configurable) — 3 AM still counts as today
 
 </td>
 <td>
 
 ### 🔒 100% Private & Offline
-- **Local-First**: Data never leaves your device
-- **No Accounts**: No sign-ups, no tracking
-- **Instant**: 0ms latency, works offline
-- **Export Anytime**: You own your data
+- **Local-First**: Data never leaves your device (IndexedDB / Dexie v12)
+- **No Accounts**: No sign-ups, no tracking, no cloud dependency
+- **Instant**: 0ms latency, works offline as PWA
+- **Export Anytime**: Full JSON backup + iCal exam export
 
 </td>
 </tr>
@@ -111,11 +102,10 @@ npm install && npm run dev
 
 **First Session:**
 1. Add subjects (Courses tab)
-2. Calibrate your day (Dashboard → Set context: energy/mood)
-3. Start a focus session (Pick a mission → Focus)
-4. Rate your session quality (helps the AI learn)
-
-That's it. No tutorials. No setup hell.
+2. Set your API key in `.env`: `VITE_OPENROUTER_API_KEY=your_key_here`
+3. Calibrate your day (Dashboard → Morning Protocol)
+4. Start a focus session → rate quality after
+5. Check the AI Insight Banner each day for personalized coaching
 
 ---
 
@@ -124,15 +114,22 @@ That's it. No tutorials. No setup hell.
 | Feature | What It Does | Why It Matters |
 |---------|-------------|----------------|
 | **Triple-Brain System** | 3 AI layers working together | Plans get smarter as you use Orbit |
-| **AI Insight Banner** | OpenRouter-powered daily coaching card | Warns decay, suggests quick wins, motivates |
-| **Daily Context Engine** | Calibrate energy/mood before generating plan | Plans match reality, not fantasy |
+| **AI Insight Banner** | Daily coaching card via OpenRouter | Warns decay, suggests quick wins, motivates |
+| **QuickCapture** | Floating note input, `Alt+N` shortcut | Capture thoughts instantly without disrupting flow |
+| **Daily Context Engine** | Calibrate mood/energy before generating plan | Plans match reality, not fantasy |
 | **Adaptive Displacement** | Auto-reschedules based on changing priorities | Exams don't sneak up on you |
-| **Focus Session Protocol** | Distraction-free, full-screen study mode | Preserves flow state, tracks quality |
+| **Mechanical Flip Timer** | 3D flip-clock for focus sessions | Preserves flow state, tracks quality |
 | **Performance Tracking** | Quality ratings & completion analytics | AI tunes block sizes to your patterns |
-| **Spaced Repetition** | Ebbinghaus curve-based review scheduling | Actually retain what you learn |
-| **AI Study Assistant** | OpenRouter-powered concept clarification | Get unstuck instantly |
+| **Spaced Repetition (SM-2)** | Ebbinghaus curve review scheduling | Actually retain what you learn |
+| **Flashcard System** | AI-generated Q&A, review queue, comprehension history | Deep retention tracking per topic |
+| **Exam Simulator** | AI-generated MCQ/short-answer exams | Test yourself before the real thing |
+| **AI Study Assistant** | OpenRouter-powered subject coaching | Cross-subject academic portrait in every session |
+| **Feynman Mode** | Re-explains any concept simply | Unblock understanding instantly |
+| **Anki Card Export** | Generate flashcard decks from notes | One click to Anki-ready CSV |
+| **Schedule Optimizer** | AI slot recommendations from timetable | Fill gaps with the right subject at the right time |
 | **Analytics Dashboard** | Focus scores, streaks, subject heatmaps | See patterns, adjust strategy |
-| **Import/Export** | Backup/restore your entire study history | Never lose your data |
+| **Projects Tracker** | Milestones, session log, Gantt timeline | Complex deliverables with deadline intelligence |
+| **Import/Export** | Full JSON backup + iCal exam export | Never lose data, sync across devices manually |
 
 ---
 
@@ -140,33 +137,48 @@ That's it. No tutorials. No setup hell.
 
 ### How It Works
 
-```mermaid
-graph TD
-    A[Your Context] --> B{Data Maturity?}
-    B -->|< 5 days| C[Research-Grade Brain]
-    B -->|5-30 days| D[Enhanced Brain]
-    B -->|30+ days| E[Hybrid Brain]
+```
+Your Context → data maturity check →
 
-    C --> F[Smart Defaults]
-    D --> G[Performance Tuning]
-    E --> H[Full Optimization]
+  < 5 days     →  Research-Grade   (Bayesian mastery, formal optimization)
+  5–30 days    →  Enhanced         (performance adjustments, energy profiles)
+  30+ days     →  Hybrid           (all layers, 95% confidence)
 
-    F --> I[Your Daily Plan]
-    G --> I
-    H --> I
-
-    I --> J[Study Sessions]
-    J --> K[Quality Ratings]
-    K --> L[Performance Data]
-    L --> B
+                        ↓
+                  Your Daily Plan
+                        ↓
+              Study Sessions + Quality Ratings
+                        ↓
+              Performance Data feeds back in
 ```
 
 ### Confidence Levels
-- **70%**: New user, using research algorithms
-- **80%**: Active user, enhanced with performance data
-- **95%**: Power user, full hybrid optimization
+| Data Age | Strategy | Confidence |
+|----------|----------|------------|
+| < 5 days | Research-grade with smart defaults | 70% |
+| 5–30 days | Enhanced with performance tuning | 80% |
+| 30+ days | Hybrid — full optimization | 95% |
 
-**Deep Dive:** [Read BRAIN.md](./BRAIN.md) for algorithm details, heuristics, and technical architecture.
+### Readiness Score Formula
+
+Orbit calculates exam readiness using:
+
+```
+score = volume_component × decay_component × 100
+
+volume = 1 - e^(-k × studiedHours/goalHours)       (Ebbinghaus learning curve)
+decay  = e^(-λ × daysSinceLastStudy)                (exponential forgetting)
+
+λ = 0.10 for difficult subjects (difficulty ≥ 4)
+λ = 0.07 for easier subjects
+
+Status:
+  score < 35%  → critical   (auto-recovery blocks injected)
+  score ≥ 70%  → mastered
+  else         → maintaining
+```
+
+**Deep Dive:** [Read BRAIN.md](./BRAIN.md) for full algorithm details, heuristics, and architecture.
 
 ---
 
@@ -174,172 +186,134 @@ graph TD
 
 ```
 Frontend:    React 19 + TypeScript 5.8
-Database:    Dexie.js (IndexedDB wrapper) — v11 schema
-Styling:     Tailwind CSS
-Build:       Vite 6.2
-AI:          OpenRouter (insight banner, study assistant)
-Brain:       Custom algorithms + research-grade models
-```
-
-**Why Local-First?**
-- ⚡ **Instant** — 0ms latency on every action
-- 🔒 **Private** — Your study patterns stay on your device
-- 💰 **Free** — No subscriptions, no cloud costs
-- ✈️ **Offline** — Works on planes, trains, no WiFi needed
-
----
-
-## 🎯 Perfect For
-
-- 🌙 **Night owls** who study best after midnight
-- 🔥 **Crammers** who need intelligent panic-mode planning
-- 🧠 **STEM students** juggling heavy, interconnected subjects
-- 📊 **Data nerds** who want analytics on their study patterns
-- 🔒 **Privacy advocates** who hate cloud dependency
-- 🎓 **Power users** who want AI that learns their patterns
-
----
-
-## 💡 Why Blocks Instead of Time Slots?
-
-Traditional planners force you into rigid time slots:
-- ❌ "Study Math 2–4 PM" — What if you're tired at 2 PM?
-- ❌ "Review Physics Monday" — What if there's a surprise quiz Tuesday?
-- ❌ "30 min per subject" — What if you need 60 min for hard topics?
-
-**Orbit uses "Study Blocks" instead:**
-- ✅ **Context-Aware**: Generated fresh each day based on YOUR energy
-- ✅ **Priority-Driven**: Most urgent subjects get scheduled first
-- ✅ **Adaptive Sizing**: Block duration matches subject difficulty + your performance
-- ✅ **Displacement Logic**: When time runs out, least critical blocks are postponed — not forgotten
-
-**Example:**
-```
-Morning (High Energy):
-  Block 1: Physics (Hard)     — 45 min
-  Block 2: Math (Hard)        — 45 min
-
-Afternoon (Normal Energy):
-  Block 3: Chemistry (Medium) — 60 min
-
-Evening (Low Energy):
-  Block 4: History (Easy)     — 30 min
-  [Economics displaced to tomorrow — ran out of time]
-```
-
-**The Result:** You study what matters most, when you have the energy for it, for as long as you need.
-
----
-
-## 📊 Performance Tracking
-
-Orbit learns from every session:
-
-```
-After Each Focus Session:
-  1. Did you complete it?   → Completion Rate
-  2. How hard was it?       → Quality Rating 1–5
-  3. How long did it take?  → Actual Duration
-
-The Brain Learns:
-  Consistently quit early    → Reduce block size
-  Finish with time to spare  → Increase duration
-  Low quality rating         → Schedule during peak energy
-  High quality rating        → Maintain or extend
+Database:    Dexie.js v12 (IndexedDB) — 12-table schema
+Styling:     Tailwind CSS (CDN) + custom glass-morphism CSS
+Build:       Vite
+AI:          OpenRouter API (model routing via gemini.ts)
+             • simple tasks  → openrouter/free
+             • standard/chat → google/gemini-flash-1.5
+             • vision        → google/gemini-2.0-flash-exp:free
+State:       React hooks + Dexie useLiveQuery (reactive DB)
+PWA:         Service Worker + Web App Manifest
 ```
 
 ---
 
-## 📱 Installation
+## 📁 Project Structure
 
-### Option 1: Web (Recommended)
-```bash
-npm install && npm run dev
-# Open http://localhost:5173
 ```
-
-### Option 2: PWA (Install as App)
-1. Open in Chrome/Edge
-2. Click "Install" icon in address bar
-3. Works offline like a native app
-
-### Option 3: Build for Production
-```bash
-npm run build
-# Serve the `dist` folder with any static host
+src/
+├── brain.ts                    Core readiness + planning engine
+├── brain-enhanced-integration.ts  Performance tracking, burnout, energy
+├── brain-research-grade.ts     Bayesian mastery model, formal optimization
+├── brain-ultimate.ts           Orchestrator — single import for all AI planning
+├── gemini.ts                   OpenRouter API wrapper (model routing, retry, streaming)
+├── db.ts                       Dexie database schema (v12) + snapshot helpers
+├── types.ts                    All TypeScript interfaces
+│
+├── Dashboard.tsx               Mission control — today's plan, stats, QuickCapture
+├── QuickCapture.tsx            Floating note-capture widget (Alt+N)
+├── AIInsightBanner.tsx         Daily coaching card (OpenRouter, session-cached)
+├── AIStudyAssistant.tsx        Study assistant modal (Chat/Exam/Notes/Resources)
+├── ExamSimulator.tsx           AI-generated exam questions + grading
+├── DashboardInsights.tsx       Weekly performance insights (static + AI)
+├── ScheduleOptimizer.tsx       AI slot suggestions from timetable
+├── FocusSession.tsx            Full-screen flip-clock timer
+├── QualityRatingModal.tsx      Post-session quality rating + AI coaching tip
+│
+├── Courses.tsx                 Subject management (syllabus, grades, resources)
+├── ProjectsView.tsx            Project tracker (milestones, Gantt, session log)
+├── SpacedRepetition.tsx        Flashcard review queue + AddFlashcardForm
+├── TopicReadinessView.tsx      SM-2 topic enrichment utility
+├── Stats.tsx                   Analytics dashboard (heatmap, time-of-day, burnout)
+│
+├── Onboarding.tsx              Multi-step setup wizard
+├── DailyContextModal.tsx       Morning Protocol (mood, exams, day type)
+├── ScheduleView.tsx            Weekly timetable CRUD
+├── SettingsView.tsx            All settings + bug report + stress test
+├── SettingsContext.tsx         Global settings state (theme, audio, study prefs)
+│
+├── components.tsx              Shared UI: FrostedTile, FrostedMini, PageHeader, etc.
+├── SpaceBackground.tsx         Animated star field + hanging alien mascot
+├── Toast.tsx                   Toast notification system
+│
+└── utils/
+    ├── time.ts                 IST date helpers (getISTEffectiveDate)
+    ├── sounds.ts               SoundManager (Web Audio API)
+    ├── notifications.ts        NotificationManager (Web Notifications API)
+    ├── subjectIntelligence.ts  Per-subject context for AI coaching
+    └── dbErrorHandler.ts       Safe DB operation wrappers
 ```
 
 ---
 
 ## 🗺️ Roadmap
 
-**v3.2 (Current)**
-- [x] AI Insight Banner (OpenRouter-powered daily coaching)
-- [x] Session-cached insights with typewriter reveal
-- [x] DB v11: `exams` + `settings` tables
+**v3.3 (Current)**
+- [x] QuickCapture — instant note logging from Dashboard (`Alt+N`)
+- [x] Assignment double-count bug fix
+- [x] AI Insight Banner cache shape fix
+- [x] `brain-ultimate` import routing for Stats + subjectIntelligence
+
+**v3.2 (Released)**
+- [x] AI Insight Banner (OpenRouter daily coaching)
+- [x] Exam Simulator (MCQ + short-answer + true/false + AI grading)
+- [x] Feynman Mode in Study Assistant
+- [x] Anki Card Export (CSV)
+- [x] Schedule Optimizer AI slot recommendations
+- [x] DB v11–v12: `exams` + `settings` tables
 - [x] User preferences persistence (weeklyTargetHours, subjectColors)
 
 **v3.1 (Released)**
-- [x] Triple-brain AI system
+- [x] Triple-brain AI system (core + enhanced + research-grade)
 - [x] Performance-based adaptive planning
 - [x] Quality rating & feedback loop
 - [x] Import/export backup system
-- [x] Confidence scoring
+- [x] Confidence scoring on generated plans
 - [x] Mechanical flip clock timer
-- [x] AI Study Assistant
+- [x] AI Study Assistant (4 tabs: Chat, Exam, Notes, Resources)
 
-**v4.0 (Future)**
-- [ ] Mobile-optimized UI
-- [ ] Optional E2E encrypted cloud sync
-- [ ] Study group collaboration
-- [ ] Natural language planning ("I'm tired, give me 2 hours of easy stuff")
-- [ ] Machine learning-based duration prediction
-
----
-
-## 🤝 Contributing
-
-Found a bug? Want a feature? PRs welcome.
-
-```bash
-# Standard flow
-1. Fork repo
-2. Create feature branch
-3. Make changes
-4. Submit PR
-
-# Areas we need help:
-- Mobile responsiveness
-- Accessibility (WCAG 2.1)
-- i18n (internationalization)
-- Bug fixes & stability
-- More brain algorithms!
-```
+**v4.0 (Planned)**
+- [ ] Mobile PWA (Q2 2026) — optimized touch UI
+- [ ] Encrypted cloud sync (Q3 2026) — optional, E2E
+- [ ] Natural language plan input ("I'm tired, 2 hours of easy stuff")
+- [ ] Study group collaboration mode
+- [ ] ML-based duration prediction (replace heuristics)
 
 ---
 
-## 🔒 Privacy Guarantee
+## 🔒 Privacy
 
 ```
-✅ No accounts or sign-ups
-✅ No data leaves your device
-✅ No telemetry or tracking
-✅ No cookies or third-party scripts
+✅ No accounts, no sign-ups
+✅ Data never leaves your device
+✅ Zero telemetry without consent
+✅ No third-party scripts (except Google Fonts)
 ✅ 100% open source & auditable
-✅ Export your data anytime (JSON format)
+✅ Full export anytime (JSON + iCal)
 ```
 
 Your study patterns are yours. Period.
 
 ---
 
-## 🐛 Known Issues
+## 🤝 Contributing
 
-### Encoding Display Issues
-If you see garbled characters (strange symbols instead of dashes or arrows), this is a font rendering issue, not a data problem. Your data is safe. To fix:
-1. Ensure your browser is set to UTF-8 encoding
-2. Try a different browser (Chrome/Firefox recommended)
-3. Check your terminal font supports Unicode
+PRs welcome. Priority areas:
+
+- Mobile responsiveness improvements
+- Accessibility (WCAG 2.1 compliance)
+- i18n (internationalization)
+- Additional brain algorithm improvements
+- Bug fixes and test coverage
+
+```bash
+# Standard flow
+1. Fork the repo
+2. Create a feature branch
+3. Make your changes
+4. Submit a PR with a clear description
+```
 
 ---
 
@@ -349,9 +323,9 @@ MIT © 2026 [Santosh Cheethirala](https://github.com/santoshcheethirala)
 
 ---
 
-## 💬 Support & Community
+## 💬 Support
 
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/santoshcheethirala/orbit/issues)
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/santoshcheethirala/orbit/issues) or Settings → Bug Report
 - 💡 **Feature Requests**: [GitHub Discussions](https://github.com/santoshcheethirala/orbit/discussions)
 - 📧 **Contact**: [GitHub Profile](https://github.com/santoshcheethirala)
 
@@ -365,6 +339,6 @@ MIT © 2026 [Santosh Cheethirala](https://github.com/santoshcheethirala)
 
 ⭐ **Star this repo if Orbit helps you ace your exams**
 
-[⬆ Back to Top](#-orbit-v32)
+[⬆ Back to Top](#-orbit-v33)
 
 </div>
