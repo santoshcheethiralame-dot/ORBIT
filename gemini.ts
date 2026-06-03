@@ -1,8 +1,41 @@
 // gemini.ts v2.1 — Centralized AI wrapper: model routing, retry, streaming, shared utilities
 // ALL AI calls in the app should go through this file.
 
-const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string;
+// SECURITY: never embed a secret in the shipped client bundle. The user supplies
+// their own OpenRouter key, stored locally; any build-time env var is only a
+// dev-time fallback. getApiKey() is read at call time, not module-load time.
+// DEV-only: a build-time env var is convenient for local development. In a
+// production build `import.meta.env.DEV` is statically false, so this collapses
+// to '' and dead-code elimination strips any embedded secret from the bundle.
+const ENV_API_KEY: string = import.meta.env.DEV
+    ? ((import.meta.env.VITE_OPENROUTER_API_KEY as string) || '')
+    : '';
+const API_KEY_STORAGE = 'orbit-openrouter-key';
 const BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+/** Read the active OpenRouter key — a user-provided key (localStorage) takes
+ *  precedence over any build-time env var, so production builds never need to
+ *  embed a secret. */
+export function getApiKey(): string {
+    try {
+        const stored = localStorage.getItem(API_KEY_STORAGE);
+        if (stored && stored.trim()) return stored.trim();
+    } catch { /* localStorage unavailable (private mode) */ }
+    return ENV_API_KEY;
+}
+
+/** Save (or clear, when empty) the user's OpenRouter key. */
+export function setApiKey(key: string): void {
+    try {
+        if (key && key.trim()) localStorage.setItem(API_KEY_STORAGE, key.trim());
+        else localStorage.removeItem(API_KEY_STORAGE);
+    } catch { /* ignore */ }
+}
+
+/** True when an AI key is available (user-provided or dev env). */
+export function hasApiKey(): boolean {
+    return !!getApiKey();
+}
 
 /* ─────────────────────────────────────────────────────────────────────────────
    MODEL ROUTING
@@ -70,15 +103,14 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
     throw lastErr;
 }
 
-// FIX: Validate API key at module load so missing keys surface immediately.
-if (!API_KEY) {
-    console.warn('[Orbit AI] VITE_OPENROUTER_API_KEY is not set. All AI features will fail.');
+if (!getApiKey()) {
+    console.warn('[Orbit AI] No OpenRouter API key set. Add one in Settings → AI Assistant to enable AI features.');
 }
 
 function buildHeaders(): Record<string, string> {
     return {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY ?? ''}`,
+        'Authorization': `Bearer ${getApiKey()}`,
         'HTTP-Referer': 'https://orbit.study',
         'X-Title': 'Orbit Study App',
     };

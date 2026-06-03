@@ -17,6 +17,7 @@ import { useSettings } from './SettingsContext';
 import { SoundManager } from './utils/sounds';
 import { NotificationManager } from './utils/notifications';
 import StressTestView from './StressTestView';
+import { getApiKey, setApiKey } from './gemini';
 
 export const SettingsView = () => {
   const { settings, updateSetting, resetSettings } = useSettings();
@@ -27,6 +28,10 @@ export const SettingsView = () => {
   const [stats, setStats] = useState({ subjects: 0, logs: 0, totalHours: 0 });
   const [expandedSection, setExpandedSection] = useState<string | null>('notifications');
   const toast = useToast();
+
+  // AI Assistant — user-supplied OpenRouter key, stored locally only (never bundled).
+  const [apiKeyInput, setApiKeyInput] = useState<string>(() => getApiKey());
+  const [showApiKey, setShowApiKey] = useState(false);
 
   // Bug Report state
   const [showBugReport, setShowBugReport] = useState(false);
@@ -954,6 +959,80 @@ export const SettingsView = () => {
                 </label>
               </FrostedMini>
             ))}
+          </div>
+        </SettingSection>
+
+        {/* AI Assistant — user-provided OpenRouter key (never embedded in the bundle) */}
+        <SettingSection
+          id="ai"
+          title="AI Assistant"
+          subtitle="OPTIONAL — BRING YOUR OWN KEY"
+          icon={Sparkles}
+          variant="purple"
+        >
+          <FrostedMini variant="purple" className="p-5 bg-purple-500/5 border-purple-500/20 mb-4">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
+                <Sparkles size={24} className="text-purple-400" />
+              </div>
+              <div className="text-sm text-zinc-300">
+                <p className="font-bold text-base mb-2">Bring your own AI key</p>
+                <p className="text-zinc-400">Optional AI features (study assistant, exam generator, weekly insights, coaching tips) use OpenRouter. Your key is stored only on this device and is sent solely to OpenRouter — never to us, and never embedded in the app bundle.</p>
+              </div>
+            </div>
+          </FrostedMini>
+
+          <div className="space-y-3">
+            <label className="block">
+              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">OpenRouter API Key</span>
+              <div className="mt-2 flex gap-2">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  placeholder="sk-or-v1-…"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="flex-1 min-w-0 bg-zinc-900/60 border border-zinc-700/50 rounded-xl px-4 py-3 text-white placeholder-zinc-600 outline-none focus:border-purple-500/50 transition-all font-mono text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(v => !v)}
+                  className="px-3 rounded-xl border border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
+                >
+                  {showApiKey ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </label>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => { setApiKey(apiKeyInput); toast.success(apiKeyInput.trim() ? 'AI key saved on this device' : 'AI key cleared'); }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm transition-all active:scale-95"
+              >
+                <Check size={15} /> Save key
+              </button>
+              <button
+                type="button"
+                onClick={() => { setApiKeyInput(''); setApiKey(''); toast.info('AI key cleared'); }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-700/50 text-zinc-300 hover:bg-white/5 font-semibold text-sm transition-all active:scale-95"
+              >
+                <Trash2 size={15} /> Clear
+              </button>
+              <a
+                href="https://openrouter.ai/keys"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-700/50 text-purple-300 hover:bg-white/5 font-semibold text-sm transition-all"
+              >
+                Get a key <ArrowRight size={14} />
+              </a>
+            </div>
+
+            <p className="text-xs text-zinc-500">
+              Without a key, AI features stay off and the rest of Orbit works normally.
+            </p>
           </div>
         </SettingSection>
 
