@@ -12,7 +12,7 @@ if (typeof window !== 'undefined') {
   }
 }
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { SettingsProvider, useSettings } from './SettingsContext';
 import {
@@ -33,18 +33,20 @@ import { db, saveDbSnapshot, restoreDbFromSnapshot } from "./db";
 import { Subject, DailyPlan, StudyBlock, StudyLog, DailyContext } from "./types";
 import { updateAssignmentProgress } from "./brain";
 import { generateEnhancedPlan } from "./brain-ultimate";
-import { Onboarding } from "./Onboarding";
-import { Dashboard } from "./Dashboard";
-import { FocusSession } from "./FocusSession";
-import CoursesView from "./Courses";
-import ProjectsView from "./ProjectsView";
-import ScheduleView from "./ScheduleView";
-import { StatsView } from "./Stats";
-import { ReviewQueueView } from "./SpacedRepetition";
+import { Dashboard } from "./Dashboard";          // landing view — kept eager to avoid a load flash
 import { SpaceBackground } from "./SpaceBackground";
 import { DailyContextModal } from "./DailyContextModal";
-import { AboutView } from "./AboutView";
-import { SettingsView } from "./SettingsView";
+
+// Heavy secondary views are code-split so they don't bloat the initial bundle.
+const Onboarding = lazy(() => import("./Onboarding").then(m => ({ default: m.Onboarding })));
+const FocusSession = lazy(() => import("./FocusSession").then(m => ({ default: m.FocusSession })));
+const CoursesView = lazy(() => import("./Courses"));
+const ProjectsView = lazy(() => import("./ProjectsView"));
+const ScheduleView = lazy(() => import("./ScheduleView"));
+const StatsView = lazy(() => import("./Stats").then(m => ({ default: m.StatsView })));
+const ReviewQueueView = lazy(() => import("./SpacedRepetition").then(m => ({ default: m.ReviewQueueView })));
+const AboutView = lazy(() => import("./AboutView").then(m => ({ default: m.AboutView })));
+const SettingsView = lazy(() => import("./SettingsView").then(m => ({ default: m.SettingsView })));
 import { SoundManager } from "./utils/sounds";
 import { NotificationManager } from "./utils/notifications";
 import { getSubjectIntelligence, SubjectIntelligence } from "./utils/subjectIntelligence";
@@ -70,6 +72,13 @@ const MOBILE_TABS = [
   { id: "stats",     icon: BarChart2,    label: "Stats",    activeGradient: "from-orange-500 to-red-500"  },
   { id: "settings",  icon: Settings,     label: "Settings", activeGradient: "from-green-500 to-emerald-500" },
 ];
+
+// Lightweight fallback shown while a code-split view chunk loads.
+const ViewFallback = () => (
+  <div className="flex items-center justify-center py-32" role="status" aria-label="Loading">
+    <div className="w-8 h-8 rounded-full border-2 border-indigo-500/30 border-t-indigo-400 animate-spin" />
+  </div>
+);
 
 const App = () => {
   const [view, setView] = useState<
@@ -598,18 +607,22 @@ const App = () => {
   if (view === "onboarding")
     return (
       <div className="fixed inset-0 overflow-y-auto bg-black">
-        <Onboarding onComplete={() => { setView("dashboard"); void loadData(); }} />
+        <Suspense fallback={<ViewFallback />}>
+          <Onboarding onComplete={() => { setView("dashboard"); void loadData(); }} />
+        </Suspense>
       </div>
     );
 
   if (view === "focus" && activeBlock) {
     return (
-      <FocusSession
-        block={activeBlock}
-        onComplete={handleFocusComplete}
-        onExit={() => setView(activeTab as any)}
-        subjectIntelligence={subjectIntelligence}
-      />
+      <Suspense fallback={<ViewFallback />}>
+        <FocusSession
+          block={activeBlock}
+          onComplete={handleFocusComplete}
+          onExit={() => setView(activeTab as any)}
+          subjectIntelligence={subjectIntelligence}
+        />
+      </Suspense>
     );
   }
 
@@ -832,7 +845,8 @@ const App = () => {
 
       {/* MAIN CONTENT */}
       <main className="flex-1 min-h-screen pb-24 md:pb-0 overflow-x-hidden">
-        <div key={activeTab} className="max-w-7xl mx-auto w-full animate-slide-up">
+        <div className="max-w-7xl mx-auto w-full animate-slide-up">
+          <Suspense fallback={<ViewFallback />}>
           {activeTab === "dashboard" && todayPlan && (
             <Dashboard
               plan={todayPlan}
@@ -863,6 +877,7 @@ const App = () => {
           )}
           {activeTab === "about" && <AboutView />}
           {activeTab === "settings" && <SettingsView />}
+          </Suspense>
         </div>
       </main>
 

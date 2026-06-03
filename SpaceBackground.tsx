@@ -213,7 +213,7 @@ export const SpaceBackground = () => {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     // Enhanced star field with depth layers
-    const newStars = Array.from({ length: prefersReduced ? 40 : 200 }).map((_, i) => ({
+    const newStars = Array.from({ length: prefersReduced ? 40 : 110 }).map((_, i) => ({
       id: i,
       top: Math.random() * 100,
       left: Math.random() * 100,
@@ -370,7 +370,7 @@ export const SpaceBackground = () => {
 
       {/* Subtle particle field */}
       <div className="absolute inset-0 opacity-20">
-        {Array.from({ length: 30 }).map((_, i) => (
+        {Array.from({ length: 16 }).map((_, i) => (
           <div
             key={i}
             className="absolute w-px h-px bg-indigo-400 rounded-full animate-float-particle"
