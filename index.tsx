@@ -675,7 +675,7 @@ const App = () => {
       )}
 
       {/* DESKTOP NAV - FLOATING GLASSMORPHIC PILL */}
-      <header className="hidden md:block fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-4xl px-4 animate-float">
+      <header className="hidden md:block fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-4xl px-4">
         <div className="
           relative
           px-5 py-2.5
@@ -723,28 +723,26 @@ const App = () => {
                     <button
                       key={tab.id}
                       onClick={() => switchTab(tab.id as any)}
+                      aria-current={active ? 'page' : undefined}
                       className={`
-                        relative group/tab
-                        flex items-center gap-1.5 px-4 py-2 rounded-2xl
-                        text-[13px] font-semibold
-                        transition-all duration-300
+                        relative flex items-center gap-1.5 px-3.5 py-2 rounded-xl
+                        text-[13px] font-semibold tracking-tight
+                        transition-colors duration-200
                         ${active
-                          ? 'bg-white/10 text-white shadow-sm'
-                          : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                          ? 'bg-white/[0.08] text-white'
+                          : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
                         }
                       `}
                     >
-                      {active && (
-                        <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${tab.activeGradient} opacity-10`} />
-                      )}
-                      {!active && (
-                        <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${tab.activeGradient} opacity-0 group-hover/tab:opacity-[0.07] transition-opacity duration-300`} />
-                      )}
                       <tab.icon
                         size={15}
-                        className={`relative z-10 transition-transform duration-300 ${active ? 'scale-110' : 'group-hover/tab:scale-110'}`}
+                        strokeWidth={2.2}
+                        className={active ? 'text-indigo-300' : ''}
                       />
-                      <span className="relative z-10">{tab.label}</span>
+                      <span>{tab.label}</span>
+                      {active && (
+                        <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-0.5 w-5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.85)]" />
+                      )}
                     </button>
                   );
                 })}
@@ -755,52 +753,38 @@ const App = () => {
             {showNavigation ? (
               <div className="flex items-center gap-2 shrink-0">
                 {/* Icon group */}
-                <div className="flex items-center gap-1 p-1 rounded-2xl bg-white/5 border border-white/10">
+                <div className="flex items-center gap-0.5 p-1 rounded-2xl bg-white/[0.04] border border-white/10">
                   <button
                     onClick={() => switchTab("review" as any)}
-                    className={`
-                      relative p-2 rounded-xl transition-all duration-300
-                      ${activeTab === "review" ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'}
-                    `}
+                    className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "review" ? 'bg-white/10 text-indigo-200' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
                     title="Review queue"
                     aria-label="Review queue"
                   >
-                    <ListTodo size={16} />
-                    {activeTab === "review" && <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-fuchsia-500/20 to-purple-500/20 blur-sm" />}
+                    <ListTodo size={16} strokeWidth={2.2} />
                   </button>
                   <button
                     onClick={() => switchTab("schedule" as any)}
-                    className={`
-                      relative p-2 rounded-xl transition-all duration-300
-                      ${activeTab === "schedule" ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'}
-                    `}
+                    className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "schedule" ? 'bg-white/10 text-indigo-200' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
                     title="Schedule"
                     aria-label="Schedule"
                   >
-                    <Calendar size={16} />
-                    {activeTab === "schedule" && <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-teal-500/20 to-cyan-500/20 blur-sm" />}
+                    <Calendar size={16} strokeWidth={2.2} />
                   </button>
                   <button
                     onClick={() => switchTab("about" as any)}
-                    className={`
-                      relative p-2 rounded-xl transition-all duration-300
-                      ${activeTab === "about" ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'}
-                    `}
+                    className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "about" ? 'bg-white/10 text-indigo-200' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
                     title="About"
+                    aria-label="About"
                   >
-                    <Info size={16} />
-                    {activeTab === "about" && <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-500/20 blur-sm" />}
+                    <Info size={16} strokeWidth={2.2} />
                   </button>
                   <button
                     onClick={() => switchTab("settings" as any)}
-                    className={`
-                      relative p-2 rounded-xl transition-all duration-300
-                      ${activeTab === "settings" ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'}
-                    `}
+                    className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "settings" ? 'bg-white/10 text-indigo-200' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
                     title="Settings"
+                    aria-label="Settings"
                   >
-                    <Settings size={16} />
-                    {activeTab === "settings" && <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 blur-sm" />}
+                    <Settings size={16} strokeWidth={2.2} />
                   </button>
                 </div>
 
@@ -817,16 +801,16 @@ const App = () => {
                     }}
                     className="
                       relative group/cta overflow-hidden
-                      flex items-center gap-2 px-5 py-2 rounded-2xl
-                      bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600
-                      text-white font-bold text-[13px]
-                      shadow-lg shadow-indigo-500/30
-                      transition-all duration-300
-                      hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/50
+                      flex items-center gap-2 px-5 py-2 rounded-xl
+                      bg-gradient-to-r from-indigo-500 to-violet-600
+                      text-white font-bold text-[13px] tracking-tight
+                      shadow-[0_6px_20px_rgba(99,102,241,0.4)]
+                      transition-all duration-200
+                      hover:shadow-[0_8px_28px_rgba(99,102,241,0.55)] hover:brightness-110
                       active:scale-95
                     "
                   >
-                    <div className="absolute inset-0 -translate-x-full group-hover/cta:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                    <div className="absolute inset-0 -translate-x-full group-hover/cta:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/25 to-transparent" />
                     <Play size={13} fill="currentColor" className="relative z-10" />
                     <span className="relative z-10">Start Focus</span>
                   </button>
@@ -899,8 +883,6 @@ const App = () => {
             border border-white/10
             shadow-[0_-8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]
           ">
-            {/* Gradient Background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5" />
             <div className="relative z-10 flex items-center overflow-x-auto scrollbar-none gap-0.5">
               {MOBILE_TABS.map((tab) => {
                 const active = activeTab === tab.id;
@@ -908,56 +890,29 @@ const App = () => {
                   <button
                     key={tab.id}
                     onClick={() => switchTab(tab.id as any)}
-                    className={`
-                      relative
-                      flex flex-col items-center justify-center gap-1.5
-                      py-2.5 px-3 rounded-2xl min-w-[62px]
-                      transition-all duration-300
-                      ${active ? "text-white scale-105" : "text-zinc-500"}
-                    `}
+                    aria-current={active ? 'page' : undefined}
+                    className={`relative flex flex-col items-center justify-center gap-1 py-2.5 px-3 rounded-2xl min-w-[60px] transition-colors duration-200 ${active ? "text-indigo-200" : "text-zinc-500"}`}
                   >
-                    {/* Active Gradient Border */}
-                    {active && (
-                      <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${tab.activeGradient} opacity-10`} />
-                    )}
-                    <tab.icon
-                      size={24}
-                      strokeWidth={active ? 2.5 : 2}
-                      className="relative z-10"
-                    />
+                    <tab.icon size={22} strokeWidth={active ? 2.5 : 2} className="relative z-10" />
                     <span className="relative z-10 text-[10px] font-bold">{tab.label}</span>
-                    {/* Active Dot Indicator */}
                     {active && (
-                      <div className={`absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-gradient-to-r ${tab.activeGradient} animate-pulse`} />
+                      <span className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.9)]" />
                     )}
                   </button>
                 );
               })}
-              {/* --- Info Button for About in MOV NAV --- */}
+              {/* About */}
               <button
                 onClick={() => switchTab("about" as any)}
-                className={`
-                  relative flex flex-col items-center justify-center gap-1.5
-                  py-3 px-4 rounded-2xl min-w-[70px]
-                  transition-all duration-300
-                  ${activeTab === "about" ? "text-white scale-105" : "text-zinc-500"}
-                `}
+                aria-current={activeTab === "about" ? 'page' : undefined}
+                className={`relative flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-2xl min-w-[68px] transition-colors duration-200 ${activeTab === "about" ? "text-indigo-200" : "text-zinc-500"}`}
                 title="About"
                 aria-label="About"
               >
-                {/* Active Gradient Border */}
-                {activeTab === "about" && (
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 opacity-10" />
-                )}
-                <Info
-                  size={24}
-                  strokeWidth={activeTab === "about" ? 2.5 : 2}
-                  className="relative z-10"
-                />
+                <Info size={22} strokeWidth={activeTab === "about" ? 2.5 : 2} className="relative z-10" />
                 <span className="relative z-10 text-[10px] font-bold">About</span>
-                {/* Active Dot Indicator */}
                 {activeTab === "about" && (
-                  <div className="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 animate-pulse" />
+                  <span className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.9)]" />
                 )}
               </button>
             </div>
