@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orbit — Onboarding concept</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { ink:'#0A0A0A', ink2:'#131314', ink3:'#1C1C1E', orange:'#FF5A1F', orange2:'#FF7A3C', yellow:'#FFD60A', paper:'#F7F5EF', mute:'#9A9AA2', danger:'#F4453B' },
+      fontFamily: { display:['Archivo','sans-serif'], sans:['Inter','sans-serif'], mono:['JetBrains Mono','monospace'] },
+      borderRadius: { '4xl':'28px','5xl':'36px' },
+    }}}
+  </script>
+  <style>
+    body { background:#0A0A0A; color:#fff; -webkit-font-smoothing:antialiased; }
+    .display { font-family:'Archivo',sans-serif; font-weight:900; letter-spacing:-0.04em; line-height:0.9; }
+    .meta { font-family:'JetBrains Mono',monospace; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; }
+    ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#FF5A1F;border-radius:99px;border:3px solid #0A0A0A}::-webkit-scrollbar-track{background:transparent}
+  </style>
+</head>
+<body class="font-sans">
+<div class="max-w-[1240px] mx-auto px-5 md:px-8 py-10 space-y-12">
+
+  <!-- top bar -->
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl bg-orange flex items-center justify-center text-ink display text-2xl">O</div>
+      <div><div class="display text-2xl">ORBIT</div><div class="meta text-[10px] text-mute mt-1">Concept v6 · onboarding</div></div>
+    </div>
+    <span class="meta text-[10px] text-ink bg-yellow px-3 py-1.5 rounded-full">Welcome · 1 required · 1 optional</span>
+  </div>
+
+  <div class="flex items-end gap-3">
+    <h2 class="display text-5xl md:text-6xl">ONBOARDING<span class="text-orange">.</span></h2>
+    <span class="meta text-[10px] text-mute mb-2">From 4 forced steps → ~5 taps</span>
+  </div>
+
+  <!-- before / after strip -->
+  <div class="grid md:grid-cols-2 gap-3">
+    <div class="rounded-3xl bg-ink2 border border-white/10 p-5">
+      <div class="meta text-[10px] text-mute mb-2">Before</div>
+      <div class="flex flex-wrap gap-2 text-xs">
+        <span class="px-2.5 py-1 rounded-full bg-white/5 text-mute line-through">Mission Parameters</span>
+        <span class="px-2.5 py-1 rounded-full bg-white/5 text-mute line-through">Per-subject form + difficulty</span>
+        <span class="px-2.5 py-1 rounded-full bg-danger/10 text-danger line-through">Mandatory full timetable</span>
+        <span class="px-2.5 py-1 rounded-full bg-white/5 text-mute line-through">Projects step</span>
+      </div>
+    </div>
+    <div class="rounded-3xl bg-ink2 border border-orange/25 p-5">
+      <div class="meta text-[10px] text-orange mb-2">After</div>
+      <div class="flex flex-wrap gap-2 text-xs">
+        <span class="px-2.5 py-1 rounded-full bg-white/5 text-white/80">Welcome</span>
+        <span class="px-2.5 py-1 rounded-full bg-orange/15 text-orange">Subjects (chips)</span>
+        <span class="px-2.5 py-1 rounded-full bg-yellow/12 text-yellow">Class times — optional</span>
+        <span class="px-2.5 py-1 rounded-full bg-white/5 text-mute">→ straight into the app</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 3 SCREENS ============ -->
+  <div class="grid md:grid-cols-3 gap-5">
+
+    <!-- ───────── SCREEN 1: WELCOME ───────── -->
+    <div class="rounded-5xl bg-ink2 border border-white/10 p-7 flex flex-col" style="min-height:600px">
+      <!-- progress -->
+      <div class="flex items-center gap-1.5 mb-10">
+        <div class="h-1 w-8 rounded-full bg-orange"></div>
+        <div class="h-1 w-4 rounded-full bg-white/12"></div>
+        <div class="h-1 w-4 rounded-full bg-white/12"></div>
+      </div>
+
+      <div class="flex-1 flex flex-col items-center justify-center text-center">
+        <div class="w-20 h-20 rounded-[28px] bg-orange flex items-center justify-center text-ink display text-5xl mb-6">O</div>
+        <div class="display text-5xl mb-3">ORBIT</div>
+        <p class="text-base font-semibold text-white/80">Your study autopilot.</p>
+        <p class="text-sm text-mute mt-3 leading-relaxed max-w-[230px]">Plans each day around your energy, exams and deadlines. 100% local — no account.</p>
+        <div class="flex flex-wrap gap-2 justify-center mt-6">
+          <span class="meta text-[9px] bg-white/5 text-mute px-2.5 py-1.5 rounded-full">Adaptive plans</span>
+          <span class="meta text-[9px] bg-white/5 text-mute px-2.5 py-1.5 rounded-full">Spaced review</span>
+          <span class="meta text-[9px] bg-white/5 text-mute px-2.5 py-1.5 rounded-full">AI coach</span>
+        </div>
+      </div>
+
+      <div class="mt-8 space-y-3">
+        <button class="w-full bg-orange text-ink font-bold py-4 rounded-2xl text-base flex items-center justify-center gap-2">Get started →</button>
+        <button class="w-full meta text-[10px] text-mute hover:text-white py-1">↥ Have a backup? Import it</button>
+      </div>
+    </div>
+
+    <!-- ───────── SCREEN 2: SUBJECTS ───────── -->
+    <div class="rounded-5xl bg-ink2 border border-white/10 p-7 flex flex-col" style="min-height:600px">
+      <div class="flex items-center gap-1.5 mb-8">
+        <div class="h-1 w-4 rounded-full bg-orange/40"></div>
+        <div class="h-1 w-8 rounded-full bg-orange"></div>
+        <div class="h-1 w-4 rounded-full bg-white/12"></div>
+      </div>
+
+      <div class="meta text-[10px] text-orange mb-2">Step 1 · the essentials</div>
+      <h3 class="display text-3xl leading-[0.95] mb-2">What are you<br>studying?</h3>
+      <p class="text-sm text-mute mb-5">Just the names — that's all Orbit needs to start.</p>
+
+      <!-- field of study (optional) -->
+      <input class="w-full bg-ink3 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-600 mb-3" placeholder="Field of study (optional) — e.g. Computer Science" />
+
+      <!-- add subject -->
+      <div class="flex items-center gap-2 bg-ink3 border border-orange/30 rounded-2xl pl-4 pr-2 py-2 mb-3">
+        <input class="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-600" placeholder="Add a subject…" value="Computer Networks" />
+        <button class="w-9 h-9 rounded-xl bg-orange text-ink flex items-center justify-center font-bold shrink-0">+</button>
+      </div>
+
+      <!-- chips -->
+      <div class="flex flex-wrap gap-2 mb-3">
+        <span class="inline-flex items-center gap-1.5 bg-orange text-ink text-sm font-bold pl-3 pr-2 py-1.5 rounded-full">Operating Systems <span class="opacity-60">✕</span></span>
+        <span class="inline-flex items-center gap-1.5 bg-orange2 text-ink text-sm font-bold pl-3 pr-2 py-1.5 rounded-full">DBMS <span class="opacity-60">✕</span></span>
+        <span class="inline-flex items-center gap-1.5 bg-yellow text-ink text-sm font-bold pl-3 pr-2 py-1.5 rounded-full">Mathematics III <span class="opacity-60">✕</span></span>
+        <span class="inline-flex items-center gap-1.5 bg-paper text-ink text-sm font-bold pl-3 pr-2 py-1.5 rounded-full">Physics <span class="opacity-60">✕</span></span>
+      </div>
+
+      <p class="text-[11px] text-mute"><span class="text-white/50">Tip</span> · paste a list, one per line. Credits &amp; difficulty? Tune later in Courses.</p>
+
+      <div class="mt-auto pt-6">
+        <div class="flex items-center justify-between mb-3"><span class="meta text-[9px] text-mute">4 subjects added</span><span class="meta text-[9px] text-mute">↩ enter to add</span></div>
+        <button class="w-full bg-orange text-ink font-bold py-4 rounded-2xl text-base">Continue →</button>
+      </div>
+    </div>
+
+    <!-- ───────── SCREEN 3: CLASS TIMES (OPTIONAL) ───────── -->
+    <div class="rounded-5xl bg-ink2 border border-white/10 p-7 flex flex-col" style="min-height:600px">
+      <div class="flex items-center gap-1.5 mb-8">
+        <div class="h-1 w-4 rounded-full bg-orange/40"></div>
+        <div class="h-1 w-4 rounded-full bg-orange/40"></div>
+        <div class="h-1 w-8 rounded-full bg-orange"></div>
+      </div>
+
+      <div class="meta text-[10px] text-yellow mb-2">Step 2 · optional</div>
+      <h3 class="display text-3xl leading-[0.95] mb-2">Add your<br>class times?</h3>
+      <p class="text-sm text-mute mb-5">So Orbit plans around your lectures. You can skip and do this anytime in Schedule.</p>
+
+      <!-- quick add row -->
+      <div class="flex items-center gap-1.5 bg-ink3 border border-white/10 rounded-2xl p-1.5 mb-4">
+        <span class="meta text-[9px] text-mute bg-ink2 px-2.5 py-2 rounded-xl flex-1 text-center">Mon ▾</span>
+        <span class="meta text-[9px] text-mute bg-ink2 px-2.5 py-2 rounded-xl flex-1 text-center">09:00 ▾</span>
+        <span class="meta text-[9px] text-mute bg-ink2 px-2.5 py-2 rounded-xl flex-1 text-center">Subject ▾</span>
+        <button class="w-9 h-9 rounded-xl bg-orange text-ink flex items-center justify-center font-bold shrink-0">+</button>
+      </div>
+
+      <!-- mini timetable preview -->
+      <div class="rounded-2xl bg-ink3 border border-white/10 p-3">
+        <div class="grid grid-cols-[2.5rem_repeat(3,1fr)] gap-1.5 mb-1.5">
+          <span></span>
+          <span class="meta text-[8px] text-mute text-center">Mon</span>
+          <span class="meta text-[8px] text-mute text-center">Tue</span>
+          <span class="meta text-[8px] text-mute text-center">Wed</span>
+        </div>
+        <div class="grid grid-cols-[2.5rem_repeat(3,1fr)] gap-1.5 mb-1.5 items-center">
+          <span class="font-mono text-[9px] text-mute">09:00</span>
+          <div class="bg-orange text-ink rounded-lg text-center py-1.5 display text-[10px]">OS</div>
+          <div class="rounded-lg bg-white/[0.03] py-1.5"></div>
+          <div class="rounded-lg bg-white/[0.03] py-1.5"></div>
+        </div>
+        <div class="grid grid-cols-[2.5rem_repeat(3,1fr)] gap-1.5 items-center">
+          <span class="font-mono text-[9px] text-mute">10:00</span>
+          <div class="rounded-lg bg-white/[0.03] py-1.5"></div>
+          <div class="bg-yellow text-ink rounded-lg text-center py-1.5 display text-[10px]">MATH</div>
+          <div class="bg-orange2 text-ink rounded-lg text-center py-1.5 display text-[10px]">DBMS</div>
+        </div>
+      </div>
+
+      <div class="mt-auto pt-6 flex gap-3">
+        <button class="flex-1 bg-ink3 border border-white/10 text-white font-bold py-4 rounded-2xl text-sm hover:border-white/25">Skip for now</button>
+        <button class="flex-1 bg-orange text-ink font-bold py-4 rounded-2xl text-sm flex items-center justify-center gap-1.5">Launch ✦</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- notes -->
+  <div class="rounded-4xl bg-ink2 border border-white/10 p-6">
+    <div class="meta text-[10px] text-mute mb-3">What changed</div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+      <div><div class="display text-xl text-orange mb-1">−2 steps</div><p class="text-mute text-xs leading-relaxed">Timetable made optional; Projects step removed (added later in Projects).</p></div>
+      <div><div class="display text-xl text-yellow mb-1">Chips</div><p class="text-mute text-xs leading-relaxed">Type → Enter → pill. Paste a whole list at once. No per-subject form.</p></div>
+      <div><div class="display text-xl text-paper mb-1">Defaults</div><p class="text-mute text-xs leading-relaxed">Credits &amp; difficulty default sensibly; tune later in Courses. Semester auto-named.</p></div>
+      <div><div class="display text-xl text-orange2 mb-1">Brutalist</div><p class="text-mute text-xs leading-relaxed">Drops SpaceBackground / indigo glass for the black-orange-yellow system.</p></div>
+    </div>
+  </div>
+
+  <div class="text-center meta text-[10px] text-mute pt-4 pb-2">Orbit · concept v6 · not wired to data</div>
+</div>
+</body>
+</html>

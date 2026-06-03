@@ -226,7 +226,7 @@ export const DashboardInsights = () => {
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           {aiPowered
-            ? <Sparkles size={12} style={{ color: '#a78bfa' }} strokeWidth={2.5} />
+            ? <Sparkles size={12} style={{ color: '#FF7A3C' }} strokeWidth={2.5} />
             : <Brain size={12} style={{ color: 'rgba(255,255,255,0.3)' }} strokeWidth={2.5} />
           }
           <span className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: 'rgba(255,255,255,0.25)' }}>

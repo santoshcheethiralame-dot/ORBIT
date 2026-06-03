@@ -33,9 +33,9 @@ type Panel  = "milestones" | "notes" | "github" | "log" | null;
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const PRI = {
   low:    { label: "Low",    text: "text-zinc-400",  dot: "bg-zinc-500"  },
-  normal: { label: "Normal", text: "text-blue-400",  dot: "bg-blue-500"  },
-  high:   { label: "High",   text: "text-amber-400", dot: "bg-amber-500" },
-  urgent: { label: "Urgent", text: "text-red-400",   dot: "bg-red-500"   },
+  normal: { label: "Normal", text: "text-paper",  dot: "bg-paper"  },
+  high:   { label: "High",   text: "text-yellow-400", dot: "bg-yellow-500" },
+  urgent: { label: "Urgent", text: "text-orange-400", dot: "bg-orange-500" },
 } as const;
 
 const PRANK = { urgent: 0, high: 1, normal: 2, low: 3 };
@@ -97,9 +97,9 @@ function dayLabel(days: number | null): string {
 }
 function dayColor(days: number | null): string {
   if (days === null) return "text-zinc-600";
-  if (days < 0) return "text-red-400";
+  if (days < 0) return "text-orange-400";
   if (days <= 2) return "text-orange-400";
-  if (days <= 7) return "text-amber-400";
+  if (days <= 7) return "text-yellow-400";
   return "text-zinc-500";
 }
 function weekActivity(p: Project): number[] {
@@ -128,11 +128,11 @@ function WeekHeat({ p }: { p: Project }) {
             <div className="rounded-[2px] w-[5px] transition-all"
               style={{
                 height: Math.max(3, 13 * (v > 0 ? frac : 0.15)),
-                background: v > 0 ? `rgba(99,102,241,${frac})` : "rgba(255,255,255,0.06)",
-                outline: today ? "1px solid rgba(99,102,241,0.45)" : "none",
+                background: v > 0 ? `rgba(255,90,31,${frac})` : "rgba(255,255,255,0.06)",
+                outline: today ? "1px solid rgba(255,90,31,0.45)" : "none",
                 outlineOffset: 1,
               }} />
-            <span style={{ fontSize: 6, color: today ? "#a5b4fc" : "rgba(255,255,255,0.15)" }}>
+            <span style={{ fontSize: 6, color: today ? "#FFB088" : "rgba(255,255,255,0.15)" }}>
               {lbls[i]}
             </span>
           </div>
@@ -172,7 +172,7 @@ function Milestones({ p }: { p: Project }) {
           <div key={m.id} className="flex items-center gap-2 group/ms py-0.5">
             <button onClick={() => toggle(m.id)} className="shrink-0 transition-all hover:scale-110 active:scale-95">
               {m.done
-                ? <CheckCircle2 size={13} className="text-emerald-400" />
+                ? <CheckCircle2 size={13} className="text-paper" />
                 : <Circle       size={13} className="text-zinc-700" />}
             </button>
             <span className={`text-xs flex-1 ${m.done ? "line-through text-zinc-600" : "text-zinc-300"}`}>
@@ -188,9 +188,9 @@ function Milestones({ p }: { p: Project }) {
       <div className="flex gap-1.5">
         <input value={newTitle} onChange={e => setNewTitle(e.target.value)}
           onKeyDown={e => e.key === "Enter" && add()} placeholder="Add milestone…"
-          className="flex-1 bg-white/[0.04] border border-white/[0.07] focus:border-indigo-500/40 rounded-lg px-3 py-1.5 text-xs text-white outline-none transition-colors placeholder:text-zinc-700" />
+          className="flex-1 bg-white/[0.04] border border-white/[0.07] focus:border-orange-500/40 rounded-lg px-3 py-1.5 text-xs text-white outline-none transition-colors placeholder:text-zinc-700" />
         <button onClick={add}
-          className="px-2 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/25 transition-all hover:scale-105 active:scale-95">
+          className="px-2 py-1.5 rounded-lg bg-orange-500/15 border border-orange-500/20 text-orange-400 hover:bg-orange-500/25 transition-all hover:scale-105 active:scale-95">
           <Plus size={11} />
         </button>
       </div>
@@ -202,7 +202,7 @@ function Milestones({ p }: { p: Project }) {
 function Ceremony({ p, onClose }: { p: Project; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 3500); return () => clearTimeout(t); }, [onClose]);
   const pieces = Array.from({ length: 30 }, (_, i) => ({
-    l: 4 + (i / 30) * 92, c: ["#6366f1","#8b5cf6","#06b6d4","#10b981","#f59e0b","#f43f5e"][i % 6],
+    l: 4 + (i / 30) * 92, c: ["#FF5A1F","#FF7A3C","#FFD60A","#F7F5EF","#FFD60A","#FF7A3C"][i % 6],
     d: i * 0.075, dur: 1.6 + (i % 5) * 0.14, s: 5 + (i % 4), r: 90 + i * 47,
   }));
   return (
@@ -222,7 +222,7 @@ function Ceremony({ p, onClose }: { p: Project; onClose: () => void }) {
         onClick={e => e.stopPropagation()}>
         <div className="text-5xl mb-4 animate-bounce">&#127942;</div>
         <h2 className="text-2xl font-bold text-white mb-2">Project Complete!</h2>
-        <p className="text-sm font-semibold text-indigo-300 mb-1">{p.name}</p>
+        <p className="text-sm font-semibold text-orange-300 mb-1">{p.name}</p>
         <p className="text-xs text-zinc-600">{fmtMins(p.completedEffortMinutes)} invested</p>
         <p className="text-[10px] text-zinc-700 mt-5 uppercase tracking-widest">tap to dismiss</p>
       </FrostedTile>
@@ -247,11 +247,11 @@ function GanttStrip({ projects, subjects }: { projects: Project[]; subjects: any
       <div className="space-y-4">
         {withDL.sort((a,b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime()).map(p => {
           const subj = subjects.find(s => s.id === Number(p.subjectId));
-          const ck   = subj ? getSubjectColor(Number(subj.id), subj.colorIndex) : "indigo";
+          const ck   = subj ? getSubjectColor(Number(subj.id), subj.colorIndex) : "orange";
           const cc   = SUBJECT_COLOR_CLASSES[ck];
           const days = daysUntil(p.deadline!);
           const pct  = toPct(new Date(p.deadline!).getTime());
-          const dot  = days < 0 ? "#f87171" : days <= 3 ? "#fbbf24" : "#34d399";
+          const dot  = days < 0 ? "#FF5A1F" : days <= 3 ? "#FFD60A" : "#F7F5EF";
           return (
             <div key={p.id} className="flex items-center gap-3 group/gtt">
               <span className="w-28 shrink-0 text-right text-[10px] text-zinc-500 truncate group-hover/gtt:text-zinc-300 transition-colors">
@@ -318,16 +318,16 @@ function LogModal({ p, onClose }: { p: Project; onClose: () => void }) {
                 <button key={v} onClick={() => setMins(String(v))}
                   className="flex-1 py-2 rounded-xl text-xs font-bold transition-all hover:scale-105 active:scale-95"
                   style={mins === String(v)
-                    ? { background:"linear-gradient(135deg,#6366f1,#7c3aed)", color:"#fff" }
+                    ? { background:"linear-gradient(135deg,#FF5A1F,#FF5A1F)", color:"#fff" }
                     : { background:"rgba(255,255,255,0.05)", color:"rgba(255,255,255,0.4)" }}>
                   {v}
                 </button>
               ))}
             </div>
             <input type="number" value={mins} onChange={e => setMins(e.target.value)} placeholder="Custom..."
-              className="w-full bg-white/[0.04] border border-white/[0.08] focus:border-indigo-500/40 rounded-xl px-4 py-2.5 text-sm text-white outline-none transition-colors" />
+              className="w-full bg-white/[0.04] border border-white/[0.08] focus:border-orange-500/40 rounded-xl px-4 py-2.5 text-sm text-white outline-none transition-colors" />
             <input value={note} onChange={e => setNote(e.target.value)} placeholder="Session note (optional)..."
-              className="w-full bg-white/[0.03] border border-white/[0.06] focus:border-indigo-500/30 rounded-xl px-4 py-2 text-xs text-white outline-none transition-colors placeholder:text-zinc-700" />
+              className="w-full bg-white/[0.03] border border-white/[0.06] focus:border-orange-500/30 rounded-xl px-4 py-2 text-xs text-white outline-none transition-colors placeholder:text-zinc-700" />
           </div>
           <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl px-4 py-3 mb-5">
             <div className="flex justify-between text-xs text-zinc-500 mb-1.5">
@@ -335,12 +335,12 @@ function LogModal({ p, onClose }: { p: Project; onClose: () => void }) {
             </div>
             <div className="h-1.5 bg-black/40 rounded-full overflow-hidden">
               <div className="h-full rounded-full transition-all duration-500"
-                style={{ width:`${prev}%`, background:"linear-gradient(90deg,#6366f1,#8b5cf6)" }} />
+                style={{ width:`${prev}%`, background:"linear-gradient(90deg,#FF5A1F,#FF7A3C)" }} />
             </div>
           </div>
           <button onClick={save}
             className="w-full py-3 rounded-xl text-white font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
-            style={{ background:"linear-gradient(135deg,#6366f1,#7c3aed)" }}>
+            style={{ background:"linear-gradient(135deg,#FF5A1F,#FF5A1F)" }}>
             Log {fmtMins(m)}
           </button>
         </FrostedTile>
@@ -382,8 +382,8 @@ function ProjectForm({ initial, subjects, onSave, onClose }: {
     setNewMs("");
   };
 
-  const inp = "w-full bg-white/[0.04] border border-white/[0.08] focus:border-indigo-500/40 rounded-xl px-4 py-3 text-white text-sm outline-none transition-colors";
-  const inp2 = "w-full bg-white/[0.03] border border-white/[0.06] focus:border-indigo-500/30 rounded-xl px-4 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-zinc-700";
+  const inp = "w-full bg-white/[0.04] border border-white/[0.08] focus:border-orange-500/40 rounded-xl px-4 py-3 text-white text-sm outline-none transition-colors";
+  const inp2 = "w-full bg-white/[0.03] border border-white/[0.06] focus:border-orange-500/30 rounded-xl px-4 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-zinc-700";
 
   return (
     <div className="fixed inset-0 z-[200] flex items-start justify-center p-4 overflow-y-auto"
@@ -403,7 +403,7 @@ function ProjectForm({ initial, subjects, onSave, onClose }: {
                   <button key={t.id} onClick={() => applyTpl(t.id)}
                     className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[11px] font-semibold transition-all hover:scale-[1.02] active:scale-95"
                     style={tpl === t.id
-                      ? { background:"rgba(99,102,241,0.18)", border:"1px solid rgba(99,102,241,0.35)", color:"#a5b4fc" }
+                      ? { background:"rgba(255,90,31,0.18)", border:"1px solid rgba(255,90,31,0.35)", color:"#FFB088" }
                       : { background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", color:"rgba(255,255,255,0.35)" }}>
                     <t.icon size={11} />{t.label}
                   </button>
@@ -415,7 +415,7 @@ function ProjectForm({ initial, subjects, onSave, onClose }: {
           <div className="space-y-3 mb-5">
             <input placeholder="Project name *" value={f.name} onChange={e => set("name", e.target.value)} className={inp} />
             <select value={f.subjectId} onChange={e => set("subjectId", e.target.value)}
-              className="w-full bg-zinc-900 border border-white/[0.08] focus:border-indigo-500/40 rounded-xl px-4 py-3 text-white text-sm outline-none transition-colors">
+              className="w-full bg-zinc-900 border border-white/[0.08] focus:border-orange-500/40 rounded-xl px-4 py-3 text-white text-sm outline-none transition-colors">
               <option value="">Select subject *</option>
               {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
@@ -478,7 +478,7 @@ function ProjectForm({ initial, subjects, onSave, onClose }: {
                   <input value={newMs} onChange={e => setNewMs(e.target.value)} onKeyDown={e => e.key==="Enter" && addMs()}
                     placeholder="Add milestone..."
                     className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-1.5 text-xs text-white outline-none placeholder:text-zinc-700" />
-                  <button onClick={addMs} className="px-2 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/20 text-indigo-400 transition-all hover:scale-105">
+                  <button onClick={addMs} className="px-2 py-1.5 rounded-lg bg-orange-500/15 border border-orange-500/20 text-orange-400 transition-all hover:scale-105">
                     <Plus size={11} />
                   </button>
                 </div>
@@ -488,7 +488,7 @@ function ProjectForm({ initial, subjects, onSave, onClose }: {
 
           <button onClick={() => ok && onSave({ ...f, milestones: ms })} disabled={!ok}
             className="w-full py-3 rounded-xl text-white font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none"
-            style={{ background:"linear-gradient(135deg,#6366f1,#7c3aed)" }}>
+            style={{ background:"linear-gradient(135deg,#FF5A1F,#FF5A1F)" }}>
             {initial ? "Save Changes" : "Create Project"}
           </button>
         </FrostedTile>
@@ -511,16 +511,16 @@ function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
   const rem    = getRemaining(p);
   const done   = safeN(p.completedEffortMinutes, 0);
   const pri    = PRI[p.priority as keyof typeof PRI] ?? PRI.normal;
-  const ck     = subject ? getSubjectColor(Number(subject.id), subject.colorIndex) : "indigo";
+  const ck     = subject ? getSubjectColor(Number(subject.id), subject.colorIndex) : "orange";
   const cc     = SUBJECT_COLOR_CLASSES[ck];
   const days   = p.deadline ? daysUntil(p.deadline) : null;
   const msDone = ms.filter(m => m.done).length;
 
   const barBg = pct >= 100
-    ? "linear-gradient(90deg,#10b981,#34d399)"
-    : p.priority === "urgent" ? "linear-gradient(90deg,#ef4444,#f97316)"
-    : p.priority === "high"   ? "linear-gradient(90deg,#f59e0b,#fbbf24)"
-    : "linear-gradient(90deg,#6366f1,#8b5cf6)";
+    ? "linear-gradient(90deg,#F7F5EF,#F7F5EF)"
+    : p.priority === "urgent" ? "linear-gradient(90deg,#FF5A1F,#f97316)"
+    : p.priority === "high"   ? "linear-gradient(90deg,#FFD60A,#FFD60A)"
+    : "linear-gradient(90deg,#FF5A1F,#FF7A3C)";
 
   const tabs = [
     { id:"milestones" as Panel, icon: ms.length > 0 ? CheckCircle2 : Plus,
@@ -557,7 +557,7 @@ function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
           <div className="flex items-center gap-1 shrink-0 mt-0.5">
             {!p.completed && (
               <button onClick={onLog}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 text-[10.5px] font-bold transition-all border border-indigo-500/20 hover:border-indigo-400/30 hover:scale-105 active:scale-95">
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-orange-500/15 hover:bg-orange-500/25 text-orange-300 text-[10.5px] font-bold transition-all border border-orange-500/20 hover:border-orange-400/30 hover:scale-105 active:scale-95">
                 <LogIn size={10} strokeWidth={2.5} />Log
               </button>
             )}
@@ -591,7 +591,7 @@ function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
         <div className="mb-3">
           <div className="flex items-center justify-between text-[10.5px] mb-1.5">
             <span className="font-mono tabular-nums text-zinc-600">{fmtMins(done)}</span>
-            <span className={`font-bold tabular-nums ${pct >= 100 ? "text-emerald-400" : pct >= 60 ? "text-indigo-300" : "text-zinc-500"}`}>
+            <span className={`font-bold tabular-nums ${pct >= 100 ? "text-paper" : pct >= 60 ? "text-orange-300" : "text-zinc-500"}`}>
               {pct}%
               {ms.length > 0 && (
                 <span className="font-normal text-zinc-600 ml-1" style={{ fontSize:9 }}> · {msDone}/{ms.length} steps</span>
@@ -617,7 +617,7 @@ function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
               <div className={`w-1 h-1 rounded-full shrink-0 ${pri.dot}`} />{pri.label}
             </span>
             {p.completed && (
-              <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+              <span className="flex items-center gap-1 text-paper font-semibold">
                 <Check size={10} />Done
               </span>
             )}
@@ -635,7 +635,7 @@ function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
                   onClick={() => setPanel(on ? null : tab.id)}
                   className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9.5px] font-semibold transition-all"
                   style={on
-                    ? { background:"rgba(99,102,241,0.15)", color:"#a5b4fc", border:"1px solid rgba(99,102,241,0.25)" }
+                    ? { background:"rgba(255,90,31,0.15)", color:"#FFB088", border:"1px solid rgba(255,90,31,0.25)" }
                     : { background:"rgba(255,255,255,0.03)", color:"rgba(255,255,255,0.3)", border:"1px solid transparent" }}>
                   <tab.icon size={9} />{tab.label}
                 </button>
@@ -660,7 +660,7 @@ function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
                   <Github size={9} /> Repository
                 </span>
                 <a href={p.githubUrl} target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-indigo-300 hover:text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all">
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-orange-300 hover:text-orange-200 bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/20 transition-all">
                   <Github size={12} />{p.githubUrl.replace(/^https?:\/\/github\.com\//, "")}
                   <ExternalLink size={10} />
                 </a>
@@ -678,7 +678,7 @@ function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
                       {[...log].reverse().slice(0,8).map((s, i) => (
                         <div key={i} className="flex items-center gap-3 text-xs py-0.5">
                           <span className="font-mono text-zinc-600 w-20 shrink-0">{s.date}</span>
-                          <span className="font-bold font-mono text-indigo-400">{fmtMins(s.minutes)}</span>
+                          <span className="font-bold font-mono text-orange-400">{fmtMins(s.minutes)}</span>
                           {s.note && <span className="text-zinc-600 text-[10px] truncate italic">{s.note}</span>}
                         </div>
                       ))}
@@ -696,9 +696,9 @@ function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
 // ─── KANBAN ───────────────────────────────────────────────────────────────────
 const COLS = [
   { id:"todo", label:"Not Started", minPct:0,   maxPct:1,   color:"text-zinc-400",  dot:"bg-zinc-600"    },
-  { id:"wip",  label:"In Progress", minPct:1,   maxPct:75,  color:"text-indigo-400",dot:"bg-indigo-500"  },
-  { id:"near", label:"Near Done",   minPct:75,  maxPct:100, color:"text-amber-400", dot:"bg-amber-500"   },
-  { id:"done", label:"Complete",    minPct:100, maxPct:101, color:"text-emerald-400",dot:"bg-emerald-500" },
+  { id:"wip",  label:"In Progress", minPct:1,   maxPct:75,  color:"text-orange-400",dot:"bg-orange-500"  },
+  { id:"near", label:"Near Done",   minPct:75,  maxPct:100, color:"text-yellow-400", dot:"bg-yellow-500"   },
+  { id:"done", label:"Complete",    minPct:100, maxPct:101, color:"text-paper",dot:"bg-paper" },
 ];
 
 function Kanban({ projects, subjects, onLog, onToggle }: {
@@ -724,7 +724,7 @@ function Kanban({ projects, subjects, onLog, onToggle }: {
             <div className="space-y-2.5">
               {items.map(p => {
                 const subj = subjects.find(s => s.id === Number(p.subjectId));
-                const ck   = subj ? getSubjectColor(Number(subj.id), subj.colorIndex) : "indigo";
+                const ck   = subj ? getSubjectColor(Number(subj.id), subj.colorIndex) : "orange";
                 const cc   = SUBJECT_COLOR_CLASSES[ck];
                 const pct  = getPct(p);
                 const days = p.deadline ? daysUntil(p.deadline) : null;
@@ -742,18 +742,18 @@ function Kanban({ projects, subjects, onLog, onToggle }: {
                       )}
                     </div>
                     <div className="h-0.5 rounded-full overflow-hidden bg-white/[0.06] mb-2.5">
-                      <div className="h-full rounded-full" style={{ width:`${pct}%`, background:"#6366f1" }} />
+                      <div className="h-full rounded-full" style={{ width:`${pct}%`, background:"#FF5A1F" }} />
                     </div>
                     <div className="flex gap-1.5 opacity-0 group-hover/kc:opacity-100 transition-opacity">
                       {!p.completed && (
                         <button onClick={() => onLog(p)}
-                          className="flex-1 py-1 rounded-lg text-[9px] font-bold bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 transition-all">
+                          className="flex-1 py-1 rounded-lg text-[9px] font-bold bg-orange-500/15 text-orange-400 hover:bg-orange-500/25 transition-all">
                           Log
                         </button>
                       )}
                       <button onClick={() => onToggle(p)}
                         className={`flex-1 py-1 rounded-lg text-[9px] font-bold transition-all ${
-                          p.completed ? "bg-zinc-800 text-zinc-400" : "bg-emerald-500/15 text-emerald-400"}`}>
+                          p.completed ? "bg-zinc-800 text-zinc-400" : "bg-paper/15 text-paper"}`}>
                         {p.completed ? "Reopen" : "Done"}
                       </button>
                     </div>
@@ -887,8 +887,8 @@ export default function ProjectsView() {
         }
       />
       <FrostedTile className="py-24 px-8 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-5">
-          <FolderKanban size={28} className="text-indigo-400" />
+        <div className="w-16 h-16 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mx-auto mb-5">
+          <FolderKanban size={28} className="text-orange-400" />
         </div>
         <h3 className="text-xl font-bold text-white mb-2">No projects yet</h3>
         <p className="text-sm text-zinc-500 max-w-xs mx-auto mb-6">
@@ -896,7 +896,7 @@ export default function ProjectsView() {
         </p>
         <button onClick={() => setShowForm(true)}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-bold transition-all hover:scale-105 active:scale-95"
-          style={{ background:"linear-gradient(135deg,#6366f1,#7c3aed)" }}>
+          style={{ background:"linear-gradient(135deg,#FF5A1F,#FF7A3C)" }}>
           <Plus size={14} />Create first project
         </button>
       </FrostedTile>
@@ -941,22 +941,22 @@ export default function ProjectsView() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
           { icon:FolderKanban,  label:"Active",      value:active.length,
-            iconBg:"bg-indigo-500/15 border-indigo-500/20",  iconColor:"text-indigo-400"  },
+            iconBg:"bg-orange-500/15 border-orange-500/20",  iconColor:"text-orange-400"  },
           { icon:Clock,         label:"Hours Left",  value:totalLeft > 0 ? `${(totalLeft/60).toFixed(1)}h` : "—",
-            iconBg:"bg-cyan-500/15 border-cyan-500/20",      iconColor:"text-cyan-400"    },
+            iconBg:"bg-yellow-500/15 border-yellow-500/20",      iconColor:"text-yellow-400"    },
           { icon:Activity,      label:"This Week",   value:weekMins  > 0 ? `${(weekMins/60).toFixed(1)}h`  : "—",
-            iconBg:"bg-emerald-500/15 border-emerald-500/20",iconColor:"text-emerald-400" },
+            iconBg:"bg-paper/15 border-paper/20",iconColor:"text-paper" },
           { icon:Flame,         label:"High/Urgent", value:highUrg.length,
-            iconBg:"bg-amber-500/15 border-amber-500/20",    iconColor:"text-amber-400"   },
+            iconBg:"bg-yellow-500/15 border-yellow-500/20",    iconColor:"text-yellow-400"   },
           { icon:AlertTriangle, label:"Overdue",     value:overdue.length,
-            iconBg:    overdue.length > 0 ? "bg-red-500/15 border-red-500/20"  : "bg-white/[0.04] border-white/[0.06]",
-            iconColor: overdue.length > 0 ? "text-red-400"                     : "text-zinc-600" },
+            iconBg:    overdue.length > 0 ? "bg-orange-500/15 border-orange-500/20" : "bg-white/[0.04] border-white/[0.06]",
+            iconColor: overdue.length > 0 ? "text-orange-400"                       : "text-zinc-600" },
         ].map(({ icon:Icon, label, value, iconBg, iconColor }) => (
           <FrostedTile key={label} className="p-4 hover:-translate-y-0.5">
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center mb-3 border ${iconBg}`}>
               <Icon size={14} className={iconColor} strokeWidth={2.5} />
             </div>
-            <div className="text-2xl font-bold font-mono tabular-nums text-white">{value}</div>
+            <div className="font-display text-3xl tabular-nums text-white">{value}</div>
             <div className="text-[9.5px] font-bold uppercase tracking-widest text-zinc-600 mt-1">{label}</div>
           </FrostedTile>
         ))}
@@ -971,7 +971,7 @@ export default function ProjectsView() {
           </div>
           <div className="h-1.5 bg-black/40 rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all duration-700"
-              style={{ width:`${avgPct}%`, background:"linear-gradient(90deg,#6366f1,#8b5cf6)" }} />
+              style={{ width:`${avgPct}%`, background:"linear-gradient(90deg,#FF5A1F,#FF7A3C)" }} />
           </div>
         </FrostedTile>
       )}

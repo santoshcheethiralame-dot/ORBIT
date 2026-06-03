@@ -162,8 +162,8 @@ const Sparkline: React.FC<{
       >
         <defs>
           <linearGradient id="spark" x1="0" x2="1">
-            <stop offset="0" stopColor="#7dd3fc" />
-            <stop offset="1" stopColor="#c084fc" />
+            <stop offset="0" stopColor="#FF5A1F" />
+            <stop offset="1" stopColor="#FFD60A" />
           </linearGradient>
           <linearGradient id="sparkGreen" x1="0" x2="1">
             <stop offset="0" stopColor="#34d399" />
@@ -178,8 +178,8 @@ const Sparkline: React.FC<{
             <stop offset="1" stopColor="#f59e0b" />
           </linearGradient>
           <linearGradient id="sparkPurple" x1="0" x2="1">
-            <stop offset="0" stopColor="#a78bfa" />
-            <stop offset="1" stopColor="#8b5cf6" />
+            <stop offset="0" stopColor="#FF7A3C" />
+            <stop offset="1" stopColor="#FF5A1F" />
           </linearGradient>
         </defs>
         <path
@@ -197,7 +197,7 @@ const Sparkline: React.FC<{
             cx={p[0]}
             cy={p[1]}
             r={2.5}
-            fill={color === "url(#spark)" ? "#c084fc" : color}
+            fill={color === "url(#spark)" ? "#FFD60A" : color}
             className="opacity-90 drop-shadow-[0_0_6px_rgba(192,132,252,0.6)]"
           />
         ))}
@@ -213,7 +213,7 @@ const MiniChart: React.FC<{
 }> = ({ data, label, color, icon }) => {
   const colorMap = {
     blue: {
-      bg: "bg-blue-500/5", text: "text-blue-300", gradient: "url(#spark)", border: "border-blue-500/10", glow: "shadow-blue-500/5"
+      bg: "bg-orange-500/5", text: "text-orange-300", gradient: "url(#spark)", border: "border-orange-500/10", glow: "shadow-orange-500/5"
     },
     green: {
       bg: "bg-emerald-500/5", text: "text-emerald-300", gradient: "url(#sparkGreen)", border: "border-emerald-500/10", glow: "shadow-emerald-500/5"
@@ -294,8 +294,8 @@ const ProgressRing: React.FC<{
       <svg width={size} height={size} className="transform -rotate-90">
         <defs>
           <linearGradient id="donutGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#8b5cf6" />
-            <stop offset="100%" stopColor="#c084fc" />
+            <stop offset="0%" stopColor="#FF5A1F" />
+            <stop offset="100%" stopColor="#FFD60A" />
           </linearGradient>
         </defs>
         <circle
@@ -351,11 +351,11 @@ const InsightCard: React.FC<{
       glow: "hover:shadow-amber-500/10"
     },
     info: {
-      bg: "bg-blue-500/5",
-      border: "border-blue-500/20",
-      text: "text-blue-200",
+      bg: "bg-white/5",
+      border: "border-white/15",
+      text: "text-zinc-200",
       icon: <Info size={20} strokeWidth={2.5} />,
-      glow: "hover:shadow-blue-500/10"
+      glow: "hover:shadow-white/5"
     },
     danger: {
       bg: "bg-red-500/5",
@@ -1114,923 +1114,129 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     );
   }
 
+  // ── cockpit derivations ──
+  const readinessVals = Object.values(readinessScores);
+  const avgReadiness = readinessVals.length ? Math.round(readinessVals.reduce((a, r) => a + r.score, 0) / readinessVals.length) : 0;
+  const RC42 = 2 * Math.PI * 42;
+  const focusScoreOverall = subjectStats.length ? Math.round(subjectStats.reduce((a, s) => a + s.focusScore, 0) / subjectStats.length) : 0;
+  const hourlyMins: number[] = Array(24).fill(0);
+  filteredLogs.forEach((l) => { const h = new Date(l.timestamp).getHours(); if (l.duration) hourlyMins[h] += l.duration; });
+  const hourlyMax = Math.max(1, ...hourlyMins);
+  const peakHour = hourlyMins.indexOf(Math.max(...hourlyMins));
+  const fmtHour = (h: number) => { const am = h < 12; const hr = h % 12 === 0 ? 12 : h % 12; return `${hr}${am ? 'AM' : 'PM'}`; };
+  const fmtMins = (m: number) => { const h = Math.floor(m / 60), r = Math.round(m % 60); return h ? (r ? `${h}h ${r}m` : `${h}h`) : `${r}m`; };
+  const heatTint = (intensity: number) => intensity === 0 ? 'bg-white/[0.06]' : intensity === 1 ? 'bg-orange-500/30' : intensity === 2 ? 'bg-orange-500/60' : 'bg-orange-500';
+  const trend14 = heatmapData.slice(-14);
+  const trend14Max = Math.max(1, ...trend14.map((d) => d.minutes));
+  const trend14Total = trend14.reduce((a, d) => a + d.minutes, 0);
+  const longestSession = filteredLogs.reduce((m, l) => Math.max(m, l.duration || 0), 0);
+  const bestDay = heatmapData.reduce((b, d) => (d.minutes > b.minutes ? d : b), { date: '', minutes: 0, intensity: 0 });
+  const maxSubjMins = subjectStats.length ? Math.max(...subjectStats.map((s) => s.mins)) : 1;
+  const heatCells = heatmapData.slice(-84);
+  const activeDays = heatCells.filter((d) => d.minutes > 0).length;
+  const totalHoursDisp = (totalMinutes % 60 === 0) ? String(totalMinutes / 60) : totalHours;
+  const insight: any = enhancedInsights[0];
+
   return (
-    <div className="pb-24 md:pb-32 pt-4 md:pt-6 lg:pt-8 px-3 md:px-4 lg:px-10 w-full max-w-[1600px] mx-auto space-y-4 md:space-y-6 lg:space-y-8">
+    <div className="pb-24 md:pb-32 pt-4 md:pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-4 md:space-y-6">
       <PageHeader
         title="Learning Analytics"
-        meta={
-          <MetaText>
-            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }).toUpperCase()}
-          </MetaText>
-        }
+        meta={<MetaText>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }).toUpperCase()}</MetaText>}
         actions={
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-1 md:gap-1.5 bg-zinc-900/60 rounded-xl md:rounded-2xl p-1 md:p-1.5 border border-zinc-800/50 overflow-x-auto backdrop-blur-xl">
-              {(["overview", "subjects", "performance", "insights"] as ViewMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setViewMode(mode)}
-                  className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold transition-all capitalize whitespace-nowrap ${viewMode === mode
-                    ? "bg-indigo-500/20 text-indigo-100 border border-indigo-500/30"
-                    : "text-zinc-400 hover:text-zinc-200"
-                    }`}
-                >
-                  {mode}
-                </button>
-              ))}
-            </div>
-            <button onClick={exportCSV}
-              className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-zinc-200 hover:text-indigo-200 hover:bg-white/10 hover:border-indigo-500/30 transition-all duration-300 flex items-center gap-2 group"
-              title="Export stats as CSV"
-            >
-              <Download size={14} className="group-hover:translate-y-0.5 transition-transform" />
-              <span className="hidden sm:inline">CSV</span>
-            </button>
-            <button onClick={exportICalendar}
-              className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-zinc-200 hover:text-emerald-200 hover:bg-white/10 hover:border-emerald-500/30 transition-all duration-300 flex items-center gap-2 group"
-              title="Export exam schedule as .ics calendar file"
-            >
-              <Calendar size={14} className="group-hover:scale-110 transition-transform" />
-              <span className="hidden sm:inline">iCal</span>
-            </button>
-            <button
-              onClick={async () => {
-                setIsSharing(true);
-                try {
-                  const summary = `Orbit Study Summary (${timeRange})
-📅 ${new Date().toLocaleDateString()}
-⏰ Total Hours: ${totalHours}h
-🔥 Current Streak: ${streakInfo.current} days
-✅ Completion Rate: ${completionRate}%
-🌟 Avg Quality: ${avgQuality}/5
-💡 Top Insight: ${enhancedInsights.length > 0 ? enhancedInsights[0].title : 'Consistency is key!'}
-${topSubject ? `🏆 Top Subject: ${topSubject.name} (${topSubject.focusScore}/100)` : ''}
-Keep pushing! 💪`;
-                  if (navigator.share) {
-                    await navigator.share({ title: "My Orbit Learning Analytics", text: summary });
-                    toast.success("Shared successfully!");
-                  } else {
-                    await navigator.clipboard.writeText(summary);
-                    toast.success("Stats copied to clipboard!");
-                  }
-                } catch (err: any) {
-                  if (err.name !== 'AbortError') toast.error("Failed to share");
-                } finally {
-                  setIsSharing(false);
-                }
-              }}
-              className="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs font-bold text-indigo-100 hover:bg-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300 flex items-center gap-2 group"
-            >
-              <Share2 size={14} className="group-hover:scale-110 transition-transform" />
-              <span className="hidden sm:inline">{isSharing ? "Sharing…" : "Share"}</span>
-            </button>
+          <div className="flex items-center gap-2">
+            {([['week', '7D'], ['month', '30D'], ['all', 'All']] as const).map(([v, label]) => (
+              <button key={v} onClick={() => setTimeRange(v as TimeRange)}
+                className={`text-[10px] font-mono font-bold uppercase tracking-[0.14em] px-3.5 py-2 rounded-full transition-colors ${timeRange === v ? 'bg-white text-ink' : 'bg-ink2 text-mute border border-white/10 hover:text-white'}`}>
+                {label}
+              </button>
+            ))}
           </div>
         }
       />
 
-      {viewMode === "overview" && (
-        <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-5">
-            <FrostedTile variant="indigo" className="p-3 md:p-4 lg:p-6 flex flex-col justify-between">
-              <div className="flex items-start gap-2 md:gap-3 lg:gap-4 mb-2 md:mb-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-xl md:rounded-2xl bg-indigo-500/10 flex items-center justify-center border-2 border-indigo-500/30 flex-shrink-0">
-                  <Clock size={18} strokeWidth={2.5} className="text-indigo-200 md:hidden" />
-                  <Clock size={20} strokeWidth={2.5} className="text-indigo-200 hidden md:block lg:hidden" />
-                  <Clock size={24} strokeWidth={2.5} className="text-indigo-200 hidden lg:block" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[9px] md:text-[10px] lg:text-xs text-zinc-400 uppercase tracking-wider font-bold mb-1 md:mb-2 truncate">Study</div>
-                  <div className="text-xl md:text-2xl lg:text-3xl font-bold tabular-nums mb-0.5 md:mb-1">{totalHours}h</div>
-                  <div className="text-[10px] md:text-xs text-zinc-500 font-semibold truncate">
-                    {totalSessions} • {avgSessionMinutes}m
-                  </div>
-                </div>
-              </div>
-            </FrostedTile>
-
-            <FrostedTile variant="emerald" className="p-3 md:p-4 lg:p-6 flex flex-col justify-between">
-              <div className="flex items-start gap-2 md:gap-3 lg:gap-4 mb-2 md:mb-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-xl md:rounded-2xl bg-emerald-500/10 flex items-center justify-center border-2 border-emerald-500/30 flex-shrink-0">
-                  <Flame size={18} strokeWidth={2.5} className="text-emerald-200 md:hidden" />
-                  <Flame size={20} strokeWidth={2.5} className="text-emerald-200 hidden md:block lg:hidden" />
-                  <Flame size={24} strokeWidth={2.5} className="text-emerald-200 hidden lg:block" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[9px] md:text-[10px] lg:text-xs text-zinc-400 uppercase tracking-wider font-bold mb-1 md:mb-2 truncate">Streak</div>
-                  <div className="text-xl md:text-2xl lg:text-3xl font-bold tabular-nums mb-0.5 md:mb-1">{streakInfo.current}</div>
-                  <div className="text-[10px] md:text-xs text-zinc-500 font-semibold truncate">
-                    Best: {streakInfo.longest}
-                  </div>
-                </div>
-              </div>
-              {streakInfo.current >= 7 && (
-                <div className="text-[10px] md:text-xs font-bold flex items-center gap-1 px-2 md:px-3 py-1 md:py-1.5 rounded-lg w-fit bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                  <Trophy size={12} strokeWidth={2.5} className="md:hidden" />
-                  <Trophy size={14} strokeWidth={2.5} className="hidden md:block" />
-                  Fire!
-                </div>
-              )}
-            </FrostedTile>
-
-            <FrostedTile variant="purple" className="p-3 md:p-4 lg:p-6 flex flex-col justify-between">
-              <div className="flex items-start gap-2 md:gap-3 lg:gap-4 mb-2 md:mb-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-xl md:rounded-2xl bg-purple-500/10 flex items-center justify-center border-2 border-purple-500/30 flex-shrink-0">
-                  <Target size={18} strokeWidth={2.5} className="text-purple-200 md:hidden" />
-                  <Target size={20} strokeWidth={2.5} className="text-purple-200 hidden md:block lg:hidden" />
-                  <Target size={24} strokeWidth={2.5} className="text-purple-200 hidden lg:block" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[9px] md:text-[10px] lg:text-xs text-zinc-400 uppercase tracking-wider font-bold mb-1 md:mb-2 truncate">Rate</div>
-                  <div className="text-xl md:text-2xl lg:text-3xl font-bold tabular-nums mb-0.5 md:mb-1">{completionRate}%</div>
-                  <div className="text-[10px] md:text-xs text-zinc-500 font-semibold truncate">
-                    {avgQuality}/5
-                  </div>
-                </div>
-              </div>
-            </FrostedTile>
-
-            <FrostedTile variant="amber" className="p-3 md:p-4 lg:p-6 flex flex-col justify-between relative">
-              {(burnoutLoading && !burnoutSignals) && (
-                <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-                  <div className="rounded-full p-2 md:p-3 bg-black/40 backdrop-blur-sm">
-                    <RefreshCw size={16} className="animate-spin text-amber-400 md:hidden" />
-                    <RefreshCw size={20} className="animate-spin text-amber-400 hidden md:block" />
-                  </div>
-                </div>
-              )}
-              <div className="flex items-start gap-2 md:gap-3 lg:gap-4 mb-2 md:mb-3 z-10">
-                <div className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-xl md:rounded-2xl bg-amber-500/10 flex items-center justify-center border-2 border-amber-500/30 flex-shrink-0">
-                  {burnoutSignals && burnoutSignals.score > 60 ? (
-                    <>
-                      <AlertCircle size={18} strokeWidth={2.5} className="text-amber-200 md:hidden" />
-                      <AlertCircle size={20} strokeWidth={2.5} className="text-amber-200 hidden md:block lg:hidden" />
-                      <AlertCircle size={24} strokeWidth={2.5} className="text-amber-200 hidden lg:block" />
-                    </>
-                  ) : (
-                    <>
-                      <Heart size={18} strokeWidth={2.5} className="text-amber-200 md:hidden" />
-                      <Heart size={20} strokeWidth={2.5} className="text-amber-200 hidden md:block lg:hidden" />
-                      <Heart size={24} strokeWidth={2.5} className="text-amber-200 hidden lg:block" />
-                    </>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[9px] md:text-[10px] lg:text-xs text-zinc-400 uppercase tracking-wider font-bold mb-1 md:mb-2 truncate">Health</div>
-                  <div className="text-xl md:text-2xl lg:text-3xl font-bold tabular-nums mb-0.5 md:mb-1">
-                    {burnoutSignals ? Math.max(0, 100 - burnoutSignals.score) : 100}%
-                  </div>
-                  <div className="text-[10px] md:text-xs text-zinc-500 font-semibold truncate">
-                    {burnoutSignals?.atRisk ? "Risk" : "Good"}
-                  </div>
-                </div>
-              </div>
-              {burnoutSignals?.atRisk && (
-                <div className="text-[10px] md:text-xs font-bold flex items-center gap-1 px-2 md:px-3 py-1 md:py-1.5 rounded-lg w-fit bg-red-500/10 text-red-300 border border-red-500/20 z-10">
-                  <AlertCircle size={12} strokeWidth={2.5} className="md:hidden" />
-                  <AlertCircle size={14} strokeWidth={2.5} className="hidden md:block" />
-                  Risk
-                </div>
-              )}
-            </FrostedTile>
+      {/* KPI band */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="rounded-4xl bg-orange-500 text-ink p-6 flex flex-col justify-between min-h-[150px]">
+          <span className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-70">Total focus</span>
+          <div><div className="font-display font-black text-5xl leading-none">{totalHoursDisp}<span className="text-2xl">h</span></div><div className="text-xs font-bold mt-1 opacity-80">{trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}% vs prev</div></div>
+        </div>
+        <div className="rounded-4xl bg-yellow-400 text-ink p-6 flex flex-col justify-between min-h-[150px]">
+          <span className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-70">Day streak</span>
+          <div><div className="font-display font-black text-5xl leading-none">{streakInfo.current}</div><div className="text-xs font-bold mt-1 opacity-80">best ever · {streakInfo.longest}</div></div>
+        </div>
+        <div className="rounded-4xl bg-ink2 border border-white/10 p-6 flex items-center gap-4 min-h-[150px]">
+          <div className="relative w-[72px] h-[72px] shrink-0">
+            <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90"><circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,.1)" strokeWidth="12" /><circle cx="50" cy="50" r="42" fill="none" stroke="#FF5A1F" strokeWidth="12" strokeLinecap="round" strokeDasharray={RC42} strokeDashoffset={RC42 * (1 - avgReadiness / 100)} /></svg>
+            <div className="absolute inset-0 flex items-center justify-center font-display font-black text-xl">{avgReadiness}<span className="text-[10px]">%</span></div>
           </div>
+          <div><div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Avg readiness</div><div className="text-sm font-bold mt-1 text-white">{avgReadiness >= 70 ? 'On track' : avgReadiness >= 35 ? 'Climbing' : 'At risk'}</div></div>
+        </div>
+        <div className="rounded-4xl bg-ink2 border border-white/10 p-6 flex flex-col justify-between min-h-[150px]">
+          <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Focus score</span>
+          <div><div className="font-display font-black text-5xl leading-none text-yellow-400">{focusScoreOverall}</div><div className="text-xs font-bold mt-1 text-mute">avg quality · {avgQuality}/5</div></div>
+        </div>
+      </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
-            <div className="lg:col-span-2 flex flex-col gap-4 md:gap-5 lg:gap-6">
-              {/* INTEGRATED WEEKLY PROGRESS CARD */}
-              <FrostedTile className="p-4 md:p-6 lg:p-8">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                  <div>
-                    <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-1">
-                      {timeRangeInfo.title}
-                    </div>
-                    {/* Inline editable weekly target */}
-                    {editingTarget ? (
-                      <form
-                        onSubmit={async (e) => {
-                          e.preventDefault();
-                          const v = parseFloat(targetDraft);
-                          if (!isNaN(v) && v > 0 && v <= 80) {
-                            await updateUserSettings({ weeklyTargetHours: v });
-                            toast.success(`Weekly target set to ${v}h`);
-                          }
-                          setEditingTarget(false);
-                        }}
-                        className="flex items-center gap-1.5 mt-0.5"
-                      >
-                        <input
-                          autoFocus
-                          type="number"
-                          min="1"
-                          max="80"
-                          step="0.5"
-                          value={targetDraft}
-                          onChange={e => setTargetDraft(e.target.value)}
-                          onBlur={() => setEditingTarget(false)}
-                          className="w-16 bg-zinc-800 border border-indigo-500/40 rounded-lg px-2 py-0.5 text-xs text-white font-mono outline-none focus:border-indigo-500"
-                        />
-                        <span className="text-xs text-zinc-400 font-semibold">h/week</span>
-                        <button type="submit" className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 transition-colors">✓</button>
-                      </form>
-                    ) : (
-                      <button
-                        onClick={() => { setTargetDraft(String(weeklyTargetHours)); setEditingTarget(true); }}
-                        className="text-xs text-zinc-500 font-semibold hover:text-indigo-300 transition-colors flex items-center gap-1 group mt-0.5"
-                        title="Click to edit weekly target"
-                      >
-                        {timeRangeInfo.subtitle}
-                        <span className="opacity-0 group-hover:opacity-100 text-[9px] text-indigo-400 transition-opacity">✎ edit</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {/* INTEGRATED TIME RANGE SELECTOR */}
-                  <div className="flex items-center gap-1.5 bg-zinc-900/60 rounded-xl p-1.5 border border-zinc-800/50 backdrop-blur-xl">
-                    {(["week", "10days", "month", "3months", "all"] as TimeRange[]).map((r) => (
-                      <button
-                        key={r}
-                        onClick={() => setTimeRange(r)}
-                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 whitespace-nowrap ${timeRange === r
-                            ? "bg-indigo-500/20 text-indigo-100 border border-indigo-500/30 shadow-lg shadow-indigo-500/10"
-                            : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
-                          }`}
-                      >
-                        {r === "10days" ? "10D" : r === "3months" ? "3M" : r === "all" ? "All" : r[0].toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex flex-col md:flex-row items-center gap-8">
-                  <div className="flex-shrink-0">
-                    <ProgressRing progress={donutPct} size={160} strokeWidth={12} label={`${donutPct}%`} sublabel="of goal" />
-                  </div>
-                  <div className="flex-1 space-y-6 w-full">
-                    <div>
-                      <div className="text-sm text-zinc-400 mb-2 font-semibold">Daily Average</div>
-                      <div className="text-4xl font-bold tabular-nums">{avgDailyHours}h</div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-zinc-400 mb-4 font-semibold">Momentum</div>
-                      <Sparkline data={series} width={280} height={48} showDots className="drop-shadow-lg" />
-                    </div>
-                  </div>
-                </div>
-
-                {donutPct >= 100 && (
-                  <div className="mt-8 p-5 bg-emerald-500/10 rounded-2xl border-2 border-emerald-500/20 shadow-lg shadow-emerald-500/5">
-                    <div className="flex items-center gap-3 text-emerald-200">
-                      <Trophy size={20} strokeWidth={2.5} />
-                      <span className="font-bold text-base">{timeRangeInfo.title.replace('Progress', 'goal')} achieved! 🎉</span>
-                    </div>
-                  </div>
-                )}
-              </FrostedTile>
-
-              <FrostedTile
-                variant={adaptiveGoalSuggestion.type === 'increase' ? 'indigo' : 'purple'}
-                className="p-4 md:p-5 lg:p-6 border-l-2 md:border-l-4 border-l-indigo-400"
-              >
-                <div className="flex items-start gap-3 md:gap-4">
-                  <div className={`w-10 h-10 md:w-11 md:h-11 lg:w-12 lg:h-12 rounded-xl md:rounded-2xl ${adaptiveGoalSuggestion.type === 'increase' ? 'bg-indigo-500/10' : 'bg-purple-500/10'
-                    } flex items-center justify-center border-2 ${adaptiveGoalSuggestion.type === 'increase' ? 'border-indigo-500/30' : 'border-purple-500/30'
-                    } flex-shrink-0`}>
-                    <TrendingUp size={16} className="md:hidden" />
-                    <TrendingUp size={18} className="hidden md:block lg:hidden" />
-                    <TrendingUp size={20} className="hidden lg:block" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs md:text-sm font-bold text-zinc-100 mb-2">Adaptive Goal</div>
-                    <p className="text-xs md:text-sm text-zinc-400 mb-3 md:mb-4">
-                      {adaptiveGoalSuggestion.message}
-                    </p>
-                    <button
-                      onClick={handleApplyGoalSuggestion}
-                      className="px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl bg-indigo-500/20 text-indigo-100 text-[10px] md:text-xs font-bold hover:bg-indigo-500/30 transition-all"
-                    >
-                      Adjust to {adaptiveGoalSuggestion.suggested}h
-                    </button>
-                  </div>
-                </div>
-              </FrostedTile>
-            </div>
-
-            <FrostedTile variant="purple" className="p-4 md:p-6 lg:p-8">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border-2 border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-500/10">
-                  <Zap size={20} strokeWidth={2.5} className="text-purple-200" />
-                </div>
-                <div>
-                  <div className="text-xs text-zinc-400 uppercase tracking-wider font-bold mb-1">Activity Mix</div>
-                  <div className="text-sm text-zinc-500 font-semibold">Time distribution</div>
-                </div>
-              </div>
-              <div className="space-y-4">
-                {Object.entries(activityBreakdown)
-                  .filter(([_, mins]) => mins > 0)
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([type, mins], idx) => {
-                    const percent = totalMinutes > 0 ? (mins / totalMinutes) * 100 : 0;
-                    const colors: Record<string, string> = {
-                      review: "from-blue-500 to-blue-400",
-                      assignment: "from-red-500 to-red-400",
-                      project: "from-purple-500 to-purple-400",
-                      prep: "from-cyan-500 to-cyan-400",
-                      recovery: "from-emerald-500 to-emerald-400",
-                    };
-                    return (
-                      <div key={type}>
-                        <div className="flex justify-between mb-2 text-sm">
-                          <div className="text-zinc-200 font-bold capitalize">{type}</div>
-                          <div className="font-mono text-zinc-300 font-semibold">{(mins / 60).toFixed(1)}h</div>
-                        </div>
-                        <div className="w-full bg-zinc-800/60 h-3 rounded-full overflow-hidden shadow-inner">
-                          <div
-                            className={`h-full rounded-full bg-gradient-to-r ${colors[type]} shadow-lg`}
-                            style={{
-                              width: `${percent}%`,
-                              transition: `width 800ms cubic-bezier(0.4, 0, 0.2, 1) ${idx * 100}ms`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </FrostedTile>
+      {/* trend + subjects */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 rounded-4xl bg-ink2 border border-white/10 p-6">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-display font-black text-2xl">FOCUS · 14 DAYS</h3>
+            {trend !== 0 && <span className={`text-[10px] font-mono font-bold uppercase tracking-[0.14em] px-3 py-1.5 rounded-full ${trend >= 0 ? 'bg-orange-500/15 text-orange-400' : 'bg-white/10 text-mute'}`}>{trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%</span>}
           </div>
-
-          {enhancedInsights.length > 0 && (
-            <FrostedTile variant="indigo" className="p-8">
-              <div className="flex items-center justify-between mb-7">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border-2 border-indigo-500/30 flex items-center justify-center shadow-lg shadow-indigo-500/10">
-                    <Lightbulb size={20} strokeWidth={2.5} className="text-indigo-200" />
-                  </div>
-                  <div>
-                    <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-1">Actionable Insights</div>
-                    <div className="text-xs text-zinc-500 font-semibold">Dynamic recommendations based on your habits</div>
-                  </div>
-                </div>
-                <div className="text-xs px-4 py-2 rounded-xl bg-indigo-500/10 text-indigo-200 border-2 border-indigo-500/20 font-bold">
-                  {enhancedInsights.length} suggestions
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 lg:gap-5">
-                {enhancedInsights.map((insight, idx) => (
-                  <InsightCard key={idx} {...insight} />
-                ))}
-              </div>
-            </FrostedTile>
-          )}
-
-          <FrostedTile variant="indigo" className="p-8">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-7 gap-4">
-              <div>
-                <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-1">Interactive Study Heatmap</div>
-                <div className="text-xs text-zinc-500 font-semibold mt-1">Click a day to view session details</div>
-              </div>
-              <div className="flex items-center gap-3 text-xs text-zinc-400 font-semibold">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-zinc-900 border-2 border-zinc-800"></div>
-                  <span>Less</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-indigo-400 border-2 border-indigo-300 shadow-lg shadow-indigo-400/20"></div>
-                  <span>More</span>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(10px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(12px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(13px,1fr))] gap-1.5 md:gap-2">
-              {heatmapData.map((day, i) => {
-                const d = new Date(day.date);
-                const title = `${d.toLocaleDateString()}: ${day.minutes}m`;
-                const isSelected = selectedHeatmapDay === day.date;
-                return (
-                  <div
-                    key={i}
-                    title={title}
-                    onClick={() => handleHeatmapClick(day.date, day.minutes)}
-                    className={`aspect-square rounded-md transition-all duration-300 hover:scale-125 hover:z-10 cursor-pointer ${isSelected ? "ring-2 ring-indigo-400 ring-offset-2 ring-offset-zinc-950 scale-110" : ""
-                      } ${day.intensity === 0
-                        ? "bg-zinc-900 border-2 border-zinc-800/50"
-                        : day.intensity === 1
-                          ? "bg-indigo-900/60 border-2 border-indigo-800/50 shadow-sm"
-                          : day.intensity === 2
-                            ? "bg-indigo-600 border-2 border-indigo-500/50 shadow-md shadow-indigo-600/20"
-                            : "bg-indigo-400 border-2 border-indigo-300 shadow-lg shadow-indigo-400/30"
-                      }`}
-                  />
-                );
-              })}
-            </div>
-            {selectedHeatmapDay && heatmapDaySessions.length > 0 && (
-              <div className="mt-8 p-6 rounded-2xl bg-indigo-500/5 border-2 border-indigo-500/20 animate-in slide-in-from-top-4 duration-500">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border-2 border-indigo-500/20">
-                      <Calendar size={18} className="text-indigo-200" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-zinc-100 italic">
-                        {new Date(selectedHeatmapDay).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                      </div>
-                      <div className="text-xs text-zinc-400 font-semibold">{heatmapDaySessions.length} sessions recorded</div>
-                    </div>
-                  </div>
-                  <button onClick={() => setSelectedHeatmapDay(null)} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
-                    <X size={16} className="text-zinc-500" />
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {heatmapDaySessions.map((session, idx) => (
-                    <div key={idx} className="p-4 rounded-xl bg-zinc-900/40 border-2 border-zinc-800/50 flex flex-col gap-2 hover:border-zinc-700/50 transition-all">
-                      <div className="flex items-center justify-between">
-                        <div className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
-                          {new Date(session.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                        <div className="text-xs font-bold text-zinc-300 px-2 py-1 bg-zinc-800 rounded-lg">{session.duration}m</div>
-                      </div>
-                      <div className="text-sm font-bold text-zinc-100 truncate">
-                        {subjects.find(s => s.id === session.subjectId)?.name || 'Subject'}
-                      </div>
-                      {session.notes && (
-                        <div className="text-xs text-zinc-400 line-clamp-2 italic border-t border-zinc-800/50 pt-2 mt-1">
-                          "{session.notes}"
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </FrostedTile>
-        </>
-      )}
-
-      {viewMode === "subjects" && (
-        <>
-          <FrostedTile variant="indigo" className="p-8">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-5">
-                <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border-2 border-indigo-500/30 flex items-center justify-center shadow-lg shadow-indigo-500/10">
-                  <Brain size={24} strokeWidth={2.5} className="text-indigo-200" />
-                </div>
-                <div>
-                  <div className="text-xs text-zinc-300 uppercase tracking-[0.12em] font-bold mb-1">Subject Performance</div>
-                  <div className="text-lg font-bold">Deep dive into each subject</div>
-                </div>
-              </div>
-              {topSubject && (
-                <div className="px-5 py-2.5 bg-emerald-500/10 rounded-2xl border-2 border-emerald-500/30 flex items-center gap-2.5 shadow-lg shadow-emerald-500/10">
-                  <Trophy size={18} strokeWidth={2.5} className="text-emerald-200" />
-                  <div className="text-sm font-bold text-emerald-100">{topSubject.code}</div>
-                </div>
-              )}
-            </div>
-            <div className="space-y-5">
-              {subjectStats.map((stat) => {
-                const subjectColor = getSubjectColor(stat.id!);
-                const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
-                const scoreColor = getFocusScoreColor(stat.focusScore);
-                const scoreLabel = getFocusScoreLabel(stat.focusScore);
-                const isExpanded = expandedSections.has(`subject-${stat.id}`);
-                return (
-                  <div key={stat.id} className="group">
-                    <div
-                      className="flex items-center justify-between p-6 rounded-2xl bg-zinc-900/40 border-2 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700/50 transition-all duration-300 cursor-pointer hover:shadow-lg"
-                      onClick={() => toggleSection(`subject-${stat.id}`)}
-                    >
-                      <div className="flex items-center gap-5 flex-1">
-                        <div className={`w-20 h-20 rounded-2xl ${colorClasses.bgLight} flex items-center justify-center border-2 ${colorClasses.borderLight} shadow-lg`}>
-                          <div className={`text-3xl font-bold ${colorClasses.text} tabular-nums`}>{stat.focusScore}</div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="text-zinc-100 font-bold text-xl">{stat.code}</div>
-                            <div className={`text-xs px-3 py-1.5 rounded-lg ${scoreColor.replace("text-", "bg-")}/10 ${scoreColor} font-bold border-2 ${scoreColor.replace("text-", "border-")}/20`}>
-                              {scoreLabel}
-                            </div>
-                            {stat.readiness?.status === "critical" && (
-                              <div className="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-200 border-2 border-red-500/20 font-bold">
-                                ⚠️ Critical
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-zinc-400 font-semibold">
-                            <span>{stat.sessions} sessions</span>
-                            <span>•</span>
-                            <span>{(stat.mins / 60).toFixed(1)}h total</span>
-                            {stat.trend !== 0 && (
-                              <>
-                                <span>•</span>
-                                <span className={stat.trend > 0 ? "text-emerald-300" : "text-red-300"}>
-                                  {stat.trend > 0 ? "+" : ""}{stat.trend}%
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {stat.notesCount > 0 && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                viewSubjectNotes(stat.id!);
-                              }}
-                              className="px-4 py-2 rounded-xl bg-amber-500/10 text-amber-200 border-2 border-amber-500/20 text-xs font-bold hover:bg-amber-500/20 transition-all duration-300 flex items-center gap-2 shadow-lg shadow-amber-500/5"
-                            >
-                              <FileText size={16} strokeWidth={2.5} /> {stat.notesCount}
-                            </button>
-                          )}
-                          {isExpanded ? (
-                            <ChevronUp size={24} strokeWidth={2.5} className="text-zinc-500" />
-                          ) : (
-                            <ChevronDown size={24} strokeWidth={2.5} className="text-zinc-500" />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    {isExpanded && (
-                      <div className="mt-4 p-6 rounded-2xl bg-zinc-900/30 border-2 border-zinc-800/30 space-y-6 shadow-inner">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {stat.readiness && (
-                            <StatBadge
-                              label="Readiness"
-                              value={`${stat.readiness.score}%`}
-                              color={stat.readiness.status === "critical" ? "danger" : stat.readiness.status === "mastered" ? "success" : "default"}
-                              icon={<Brain size={16} strokeWidth={2.5} />}
-                            />
-                          )}
-                          {stat.avgQuality && (
-                            <StatBadge
-                              label="Avg Quality"
-                              value={stat.avgQuality.toFixed(1)}
-                              color={stat.avgQuality >= 4 ? "success" : stat.avgQuality >= 3 ? "default" : "warning"}
-                              icon={<Award size={16} strokeWidth={2.5} />}
-                            />
-                          )}
-                          {stat.skipRate !== undefined && (
-                            <StatBadge
-                              label="Skip Rate"
-                              value={`${(stat.skipRate * 100).toFixed(0)}%`}
-                              color={stat.skipRate > 0.3 ? "danger" : stat.skipRate > 0.1 ? "warning" : "success"}
-                              icon={<Activity size={16} strokeWidth={2.5} />}
-                            />
-                          )}
-                          {stat.bestTimeOfDay !== undefined && (
-                            <StatBadge
-                              label="Best Time"
-                              value={`${stat.bestTimeOfDay}:00`}
-                              color="default"
-                              icon={getTimeOfDayLabel(stat.bestTimeOfDay).icon}
-                            />
-                          )}
-                        </div>
-                        {stat.readiness && (
-                          <div className="p-5 bg-zinc-800/40 rounded-2xl border-2 border-zinc-700/50">
-                            <div className="text-sm text-zinc-300 font-bold mb-3">Readiness Analysis</div>
-                            <div className="text-xs text-zinc-400 space-y-2 font-semibold">
-                              <div>Last studied: {stat.readiness.lastStudiedDays} days ago</div>
-                              <div>Decay factor: {(stat.readiness.decay * 100).toFixed(0)}%</div>
-                              <div>
-                                Status:{" "}
-                                <span
-                                  className={
-                                    stat.readiness.status === "critical"
-                                      ? "text-red-300"
-                                      : stat.readiness.status === "mastered"
-                                        ? "text-emerald-300"
-                                        : "text-cyan-300"
-                                  }
-                                >
-                                  {stat.readiness.status}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </FrostedTile>
-          <FrostedTile className="p-8">
-            <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-7">Subject Comparison</div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <MiniChart
-                data={subjectStats.map(s => s.focusScore)}
-                label="Focus Scores"
-                color="purple"
-                icon={<Brain size={16} strokeWidth={2.5} />}
-              />
-              <MiniChart
-                data={subjectStats.map(s => s.mins / 60)}
-                label="Hours Invested"
-                color="blue"
-                icon={<Clock size={16} strokeWidth={2.5} />}
-              />
-              <MiniChart
-                data={subjectStats.map(s => s.avgQuality || 3)}
-                label="Quality Ratings"
-                color="green"
-                icon={<Award size={16} strokeWidth={2.5} />}
-              />
-            </div>
-          </FrostedTile>
-        </>
-      )}
-
-      {viewMode === "performance" && (
-        <>
-          <FrostedTile variant="indigo" className="p-8">
-            <div className="flex items-center gap-5 mb-8">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border-2 border-indigo-500/30 flex items-center justify-center shadow-lg shadow-indigo-500/10">
-                <Sun size={24} strokeWidth={2.5} className="text-indigo-200" />
-              </div>
-              <div>
-                <div className="text-xs text-zinc-300 uppercase tracking-[0.12em] font-bold mb-1">Time of Day Performance</div>
-                <div className="text-lg font-bold">When you perform best</div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-              {timeOfDayStats.length > 0 ? (
-                timeOfDayStats
-                  .filter(h => h.sessions >= 2)
-                  .sort((a, b) => b.avgQuality - a.avgQuality)
-                  .slice(0, 8)
-                  .map((hour) => {
-                    const { label, icon, color } = getTimeOfDayLabel(hour.hour);
-                    return (
-                      <div key={hour.hour}
-                        className={`p-5 rounded-2xl bg-zinc-900/40 border-2 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700/50 transition-all duration-300 hover:shadow-lg h-full flex flex-col`}>
-                        <div className={`flex items-center gap-3 mb-3 ${color}`}>
-                          <div className="w-9 h-9 rounded-xl bg-current/10 flex items-center justify-center border border-current/20">{icon}</div>
-                          <span className="text-base font-bold">{hour.hour}:00</span>
-                        </div>
-                        <div className="text-xs text-zinc-500 font-semibold mb-4">{label}</div>
-                        <div className="space-y-3 flex-1">
-                          <div className="flex justify-between text-xs"><span className="text-zinc-400 font-semibold">Quality</span><span className="font-bold text-zinc-100 tabular-nums">{hour.avgQuality.toFixed(1)}/5</span></div>
-                          <div className="flex justify-between text-xs"><span className="text-zinc-400 font-semibold">Sessions</span><span className="font-mono font-bold text-zinc-100 tabular-nums">{hour.sessions}</span></div>
-                          <div className="flex justify-between text-xs"><span className="text-zinc-400 font-semibold">Total</span><span className="font-mono font-bold text-zinc-100 tabular-nums">{(hour.totalMinutes / 60).toFixed(1)}h</span></div>
-                        </div>
-                      </div>
-                    );
-                  })
-              ) : (
-                <div className="col-span-4 text-center text-zinc-500 py-12 font-semibold">Not enough data yet. Complete more sessions to see patterns.</div>
-              )}
-            </div>
-            {productivityPattern.peakHours.length > 0 && (
-              <div className="mt-8 p-6 bg-indigo-500/10 rounded-2xl border-2 border-indigo-500/20 shadow-lg shadow-indigo-500/5">
-                <div className="flex items-center gap-3 text-indigo-200 mb-3">
-                  <Sparkles size={20} strokeWidth={2.5} />
-                  <span className="font-bold text-base">Peak Performance Hours</span>
-                </div>
-                <div className="text-sm text-zinc-300 font-semibold">
-                  You perform best around {productivityPattern.peakHours.map(h => `${h}:00`).join(", ")}.
-                  Schedule your most challenging subjects during these times.
-                </div>
-              </div>
-            )}
-          </FrostedTile>
-          <FrostedTile variant="purple" className="p-8">
-            <div className="flex items-center gap-5 mb-8">
-              <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border-2 border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-500/10">
-                <Calendar size={24} strokeWidth={2.5} className="text-purple-200" />
-              </div>
-              <div>
-                <div className="text-xs text-zinc-300 uppercase tracking-[0.12em] font-bold mb-1">Weekly Patterns</div>
-                <div className="text-lg font-bold">Your best days</div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-              {dayOfWeekStats.map((day, idx) => {
-                const isWeekend = day.day === "Saturday" || day.day === "Sunday";
-                const isBestDay = productivityPattern.bestDays.includes(day.day);
-                return (
-                  <div
-                    key={day.day}
-                    className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:shadow-lg h-full flex flex-col ${isBestDay
-                        ? "bg-purple-500/10 border-purple-500/30 shadow-md shadow-purple-500/10"
-                        : "bg-zinc-900/40 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700/50"
-                      }`}
-                  >
-                    <div className="text-xs font-bold text-zinc-200 mb-4 uppercase tracking-wider">{day.day.slice(0, 3)}</div>
-                    <div className="space-y-3 flex-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-zinc-400 font-semibold">Sessions</span>
-                        <span className="font-mono font-bold text-zinc-100 tabular-nums">{day.sessions}</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-zinc-400 font-semibold">Hours</span>
-                        <span className="font-mono font-bold text-zinc-100 tabular-nums">{(day.totalMinutes / 60).toFixed(1)}</span>
-                      </div>
-                      {day.avgQuality > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-zinc-400 font-semibold">Quality</span>
-                          <span className="font-mono font-bold text-zinc-100 tabular-nums">{day.avgQuality.toFixed(1)}</span>
-                        </div>
-                      )}
-                    </div>
-                    {isBestDay && (
-                      <div className="mt-4 text-xs text-purple-200 font-bold flex items-center gap-2 px-3 py-1.5 bg-purple-500/20 rounded-lg border border-purple-500/30 w-fit">
-                        <Trophy size={14} strokeWidth={2.5} />
-                        Top day
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </FrostedTile>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <FrostedTile className="p-6 h-full flex flex-col">
-              <div className="flex items-center gap-4 mb-5">
-                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border-2 border-blue-500/30 flex items-center justify-center shadow-lg shadow-blue-500/10">
-                  <Timer size={20} strokeWidth={2.5} className="text-blue-200" />
-                </div>
-                <div className="text-xs text-zinc-400 uppercase tracking-wider font-bold">Optimal Duration</div>
-              </div>
-              <div className="text-4xl font-bold tabular-nums mb-2">{productivityPattern.optimalDuration}m</div>
-              <div className="text-xs text-zinc-500 font-semibold mt-auto">Based on your completion patterns</div>
-            </FrostedTile>
-            <FrostedTile className="p-6 h-full flex flex-col">
-              <div className="flex items-center gap-4 mb-5">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center shadow-lg shadow-emerald-500/10">
-                  <Activity size={20} strokeWidth={2.5} className="text-emerald-200" />
-                </div>
-                <div className="text-xs text-zinc-400 uppercase tracking-wider font-bold">Consistency Score</div>
-              </div>
-              <div className="text-4xl font-bold tabular-nums mb-2">{productivityPattern.consistency}%</div>
-              <div className="text-xs text-zinc-500 font-semibold mt-auto">Daily study frequency</div>
-            </FrostedTile>
-            <FrostedTile className="p-6 h-full flex flex-col">
-              <div className="flex items-center gap-4 mb-5">
-                <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border-2 border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-500/10">
-                  <BookOpen size={20} strokeWidth={2.5} className="text-purple-200" />
-                </div>
-                <div className="text-xs text-zinc-400 uppercase tracking-wider font-bold">Avg Session</div>
-              </div>
-              <div className="text-4xl font-bold tabular-nums mb-2">{avgSessionMinutes}m</div>
-              <div className="text-xs text-zinc-500 font-semibold mt-auto">Across all subjects</div>
-            </FrostedTile>
-          </div>
-        </>
-      )}
-
-      {viewMode === "insights" && (
-        <>
-          <FrostedTile variant="indigo" className="p-8">
-            <div className="flex items-center gap-5 mb-8">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border-2 border-indigo-500/30 flex items-center justify-center shadow-lg shadow-indigo-500/10">
-                <Lightbulb size={24} strokeWidth={2.5} className="text-indigo-200" />
-              </div>
-              <div>
-                <div className="text-xs text-zinc-300 uppercase tracking-[0.12em] font-bold mb-1">All Insights</div>
-                <div className="text-lg font-bold">Comprehensive analysis</div>
-              </div>
-            </div>
-            <div className="space-y-5">
-              {enhancedInsights.map((insight, idx) => (
-                <InsightCard key={idx} {...insight} />
-              ))}
-            </div>
-          </FrostedTile>
-          {burnoutSignals && (
-            <FrostedTile variant={burnoutSignals.atRisk ? "red" : "emerald"} className="p-8">
-              <div className="flex items-center gap-5 mb-8">
-                <div className={`w-14 h-14 rounded-2xl ${burnoutSignals.atRisk ? "bg-red-500/10 border-red-500/30" : "bg-emerald-500/10 border-emerald-500/30"} flex items-center justify-center border-2 shadow-lg ${burnoutSignals.atRisk ? "shadow-red-500/10" : "shadow-emerald-500/10"}`}>
-                  {burnoutSignals.atRisk ? (
-                    <AlertCircle size={24} strokeWidth={2.5} className="text-red-200" />
-                  ) : (
-                    <Heart size={24} strokeWidth={2.5} className="text-emerald-200" />
-                  )}
-                </div>
-                <div>
-                  <div className="text-xs text-zinc-300 uppercase tracking-[0.12em] font-bold mb-1">Burnout Risk Analysis</div>
-                  <div className="text-lg font-bold">
-                    {burnoutSignals.atRisk ? "Action Required" : "All Clear"}
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-8">
-                <StatBadge
-                  label="Risk Score"
-                  value={`${burnoutSignals.score}/100`}
-                  color={burnoutSignals.atRisk ? "danger" : "success"}
-                />
-                <StatBadge
-                  label="Skip Rate"
-                  value={`${(burnoutSignals.skipRate * 100).toFixed(0)}%`}
-                  color={burnoutSignals.skipRate > 0.3 ? "danger" : burnoutSignals.skipRate > 0.1 ? "warning" : "success"}
-                />
-                <StatBadge
-                  label="Low Mood Days"
-                  value={burnoutSignals.lowMoodDays}
-                  color={burnoutSignals.lowMoodDays >= 4 ? "danger" : burnoutSignals.lowMoodDays >= 2 ? "warning" : "success"}
-                />
-                <StatBadge
-                  label="Streak Breaks"
-                  value={burnoutSignals.streakBreaks}
-                  color={burnoutSignals.streakBreaks >= 3 ? "danger" : burnoutSignals.streakBreaks >= 1 ? "warning" : "success"}
-                />
-              </div>
-              {burnoutSignals.recommendation && (
-                <div className={`p-5 rounded-2xl border-2 ${burnoutSignals.atRisk ? "bg-red-500/10 border-red-500/20" : "bg-emerald-500/10 border-emerald-500/20"}`}>
-                  <div className="text-sm font-bold mb-2">{burnoutSignals.atRisk ? "Recommendation" : "Keep it up!"}</div>
-                  <div className="text-sm text-zinc-400 font-semibold">{burnoutSignals.recommendation}</div>
-                </div>
-              )}
-            </FrostedTile>
-          )}
-          <FrostedTile className="p-8">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <div className="text-sm text-zinc-200 uppercase tracking-wider font-bold mb-1">Upcoming Reviews</div>
-                <div className="text-xs text-zinc-500 font-semibold mt-1">Next 7 days</div>
-              </div>
-              <div className="text-xs px-4 py-2 rounded-xl bg-cyan-500/10 text-cyan-200 border-2 border-cyan-500/20 font-bold">
-                {upcomingReviews.length} topics
-              </div>
-            </div>
-            {upcomingReviews.length === 0 ? (
-              <div className="p-8 bg-zinc-900/30 rounded-2xl text-sm text-zinc-400 text-center font-semibold border-2 border-zinc-800/30">
-                No upcoming reviews — you're all caught up! 🎉
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {upcomingReviews.slice(0, 10).map((t) => {
-                  const daysUntil = Math.floor(
-                    (new Date(t.nextReview).getTime() - new Date(todayStr).getTime()) / (1000 * 60 * 60 * 24)
-                  );
-                  const urgency = daysUntil === 0 ? "today" : daysUntil === 1 ? "tomorrow" : `in ${daysUntil}d`;
-                  const urgencyColor = daysUntil === 0 ? "text-red-300" : daysUntil === 1 ? "text-amber-300" : "text-cyan-300";
-                  return (
-                    <div key={t.id} className="p-5 rounded-2xl bg-zinc-900/40 border-2 border-zinc-800/50 flex items-center justify-between hover:bg-zinc-900/60 hover:border-zinc-700/50 transition-all duration-300">
-                      <div>
-                        <div className="text-sm font-bold text-white">{t.name}</div>
-                        <div className="text-xs text-zinc-400 mt-1.5 font-semibold">
-                          {t.subjectName} • Review #{t.reviewCount}
-                        </div>
-                      </div>
-                      <div className={`text-xs font-mono font-bold ${urgencyColor} px-3 py-1.5 rounded-lg bg-current/10 border border-current/20`}>
-                        {urgency}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </FrostedTile>
-        </>
-      )}
-
-      {showNotesModal && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-200">
-          <div className="w-full max-w-5xl max-h-[85vh] bg-zinc-900 border-2 border-white/10 rounded-[2rem] overflow-hidden flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
-            <div className="px-8 py-6 flex items-center justify-between border-b-2 border-white/6 bg-zinc-900/80 backdrop-blur-xl">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 flex items-center justify-center shadow-lg shadow-amber-500/10">
-                  <StickyNote size={20} strokeWidth={2.5} className="text-amber-200" />
-                </div>
-                <div>
-                  <div className="text-lg font-bold">Session Notes</div>
-                  <div className="text-sm text-zinc-400 font-semibold">
-                    {selectedSubjectNotes[0] ? subjects.find((s) => s.id === selectedSubjectNotes[0].subjectId)?.name : ""}
-                  </div>
-                </div>
-              </div>
-              <button onClick={() => setShowNotesModal(false)} className="p-3 rounded-xl hover:bg-white/5 transition-all duration-200 group">
-                <X size={20} strokeWidth={2.5} className="group-hover:rotate-90 transition-transform duration-200" />
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1 space-y-4">
-              {selectedSubjectNotes.map((log) => (
-                <div key={log.id} className="p-5 bg-zinc-800/60 rounded-2xl border-2 border-zinc-700/50 hover:bg-zinc-800/80 transition-all duration-200">
-                  <div className="flex items-center justify-between text-sm text-zinc-400 mb-3 font-semibold">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-lg bg-zinc-700/50 text-xs font-bold">{log.date}</span>
-                      <span>•</span>
-                      <span className="capitalize">{log.type}</span>
-                      <span>•</span>
-                      <span className="font-mono">{log.duration}m</span>
-                    </div>
-                    <div className="font-mono text-xs px-2.5 py-1 rounded-lg bg-zinc-700/50">
-                      {new Date(log.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </div>
-                  </div>
-                  <div className="text-zinc-200 whitespace-pre-wrap leading-relaxed">{log.notes}</div>
-                </div>
-              ))}
-            </div>
-            <div className="px-6 py-4 border-t-2 border-white/6 text-sm text-zinc-500 font-semibold bg-zinc-900/80 backdrop-blur-xl">
-              {selectedSubjectNotes.length} notes • Sorted by most recent
-            </div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-mute mb-6">{fmtMins(trend14Total)} total · {fmtMins(Math.round(trend14Total / 14))} / day avg</div>
+          <div className="flex items-end justify-between gap-1.5 h-44">
+            {trend14.map((d, i) => { const isToday = i === trend14.length - 1; const bh = Math.max(6, Math.round(d.minutes / trend14Max * 150)); return (
+              <div key={i} className="flex-1 flex flex-col items-center justify-end h-full"><div className={`w-full rounded-lg ${isToday ? 'bg-orange-500' : 'bg-white/10'}`} style={{ height: `${bh}px` }} title={fmtMins(d.minutes)} /></div>
+            ); })}
           </div>
         </div>
-      )}
+        <div className="rounded-4xl bg-ink2 border border-white/10 p-6">
+          <h3 className="font-display font-black text-2xl mb-5">BY SUBJECT</h3>
+          {subjectStats.length === 0 ? <div className="text-sm text-mute py-6 text-center">No sessions yet.</div> : (
+            <div className="space-y-4">
+              {subjectStats.slice(0, 5).map((s, i) => { const tint = ['bg-orange-500', 'bg-orange-400', 'bg-yellow-400', 'bg-paper', 'bg-white/40'][i] || 'bg-white/40'; return (
+                <div key={s.id}><div className="flex justify-between text-sm mb-1.5"><span className="font-bold truncate pr-2">{s.name}</span><span className="text-[10px] font-mono text-mute shrink-0">{(s.mins / 60).toFixed(1)}h</span></div><div className="h-3 rounded-full bg-white/10 overflow-hidden"><div className={`h-full ${tint} rounded-full`} style={{ width: `${Math.round(s.mins / maxSubjMins * 100)}%` }} /></div></div>
+              ); })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* consistency + peak */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 rounded-4xl bg-ink2 border border-white/10 p-6">
+          <div className="flex items-center justify-between mb-1"><h3 className="font-display font-black text-2xl">CONSISTENCY</h3><span className="text-[10px] font-mono uppercase tracking-[0.18em] text-mute">12 weeks · {Math.round(activeDays / 84 * 100)}% active</span></div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-mute mb-5">Each square is a day — brighter = deeper</div>
+          <div className="grid gap-[4px]" style={{ gridTemplateRows: 'repeat(7,1fr)', gridAutoFlow: 'column' }}>
+            {heatCells.map((d, i) => <div key={i} className={`rounded-[3px] ${heatTint(d.intensity)}`} style={{ aspectRatio: '1 / 1' }} title={`${d.date} · ${fmtMins(d.minutes)}`} />)}
+          </div>
+          <div className="flex items-center gap-2 mt-4 justify-end"><span className="text-[9px] font-mono uppercase text-mute">less</span><div className="w-3 h-3 rounded-[3px] bg-white/[0.06]" /><div className="w-3 h-3 rounded-[3px] bg-orange-500/30" /><div className="w-3 h-3 rounded-[3px] bg-orange-500/60" /><div className="w-3 h-3 rounded-[3px] bg-orange-500" /><span className="text-[9px] font-mono uppercase text-mute">more</span></div>
+        </div>
+        <div className="rounded-4xl bg-ink2 border border-white/10 p-6 flex flex-col">
+          <h3 className="font-display font-black text-2xl">PEAK WINDOW</h3>
+          <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-mute mt-1 mb-5">When your focus runs hottest</div>
+          <div className="flex items-end justify-between gap-0.5 flex-1 min-h-[110px]">
+            {hourlyMins.map((m, h) => { const peak = Math.abs(h - peakHour) <= 1 && m > 0; return <div key={h} className={`flex-1 rounded-sm ${peak ? 'bg-orange-500' : 'bg-white/10'}`} style={{ height: `${Math.max(4, Math.round(m / hourlyMax * 100))}%` }} title={`${fmtHour(h)} · ${fmtMins(m)}`} />; })}
+          </div>
+          <div className="mt-4 rounded-2xl bg-orange-500/10 border border-orange-500/20 p-4">
+            <div className="font-display font-black text-xl text-orange-400">{totalSessions > 0 ? `${fmtHour(Math.max(0, peakHour - 1))}–${fmtHour(peakHour + 1)}` : '—'}</div>
+            <div className="text-xs text-mute mt-1">Your most productive window.</div>
+          </div>
+        </div>
+      </div>
+
+      {/* records + insight */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="rounded-4xl bg-ink2 border border-white/10 p-5"><div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Longest session</div><div className="font-display font-black text-3xl mt-2">{fmtMins(longestSession)}</div></div>
+        <div className="rounded-4xl bg-ink2 border border-white/10 p-5"><div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Best day</div><div className="font-display font-black text-3xl mt-2">{(bestDay.minutes / 60).toFixed(1)}<span className="text-lg">h</span></div></div>
+        <div className="rounded-4xl bg-ink2 border border-white/10 p-5"><div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Sessions</div><div className="font-display font-black text-3xl mt-2 text-yellow-400">{totalSessions}</div></div>
+        {insight ? (
+          <div className="rounded-4xl bg-orange-500 text-ink p-5 flex flex-col justify-between"><div className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-70">Coach insight</div><div className="text-sm font-bold leading-snug mt-2">{insight.description || insight.title}</div></div>
+        ) : (
+          <div className="rounded-4xl bg-ink2 border border-white/10 p-5"><div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Avg / day</div><div className="font-display font-black text-3xl mt-2">{avgDailyHours}<span className="text-lg">h</span></div></div>
+        )}
+      </div>
     </div>
   );
 };

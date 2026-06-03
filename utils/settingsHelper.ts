@@ -142,7 +142,7 @@ export function getDayStartHour(): number {
 }
 
 export function getDefaultFocusDuration(): number {
-  return getSetting<number>('study.defaultFocusDuration') ?? 25;
+  return getSetting<number>('study.defaultFocusDuration') ?? 50;
 }
 
 export function getBreakDuration(): number {

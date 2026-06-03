@@ -633,7 +633,7 @@ const App = () => {
       <SpaceBackground />
       {showRolloverModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-2xl">
-          <div className="w-full max-w-md bg-zinc-900/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-8 text-center space-y-6 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_24px_60px_-20px_rgba(0,0,0,0.7)] animate-in zoom-in-95 duration-300">
+          <div className="w-full max-w-md bg-ink2 border border-white/10 rounded-[2.5rem] p-8 text-center space-y-6 animate-in zoom-in-95 duration-300">
             <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto border border-indigo-500/30">
               <Clock className="text-indigo-400" size={32} />
             </div>
@@ -675,43 +675,13 @@ const App = () => {
       )}
 
       {/* DESKTOP NAV - FLOATING GLASSMORPHIC PILL */}
-      <header className="hidden md:block fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-4xl px-4">
-        <div className="
-          relative
-          px-5 py-2.5
-          rounded-[2rem]
-          bg-white/[0.04]
-          backdrop-blur-2xl
-          border border-white/10
-          shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]
-          transition-all duration-500
-          hover:shadow-[0_12px_48px_rgba(99,102,241,0.2)]
-          hover:border-white/20
-        ">
-          {/* Animated Gradient Background */}
-          <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5 opacity-0 hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-          {/* Bottom Border Glow */}
-          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
-
+      <header className="hidden md:block fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-7xl px-4 lg:px-8">
+        <div className="relative px-3 py-2.5 rounded-full bg-ink2 border border-white/10">
           <div className="relative z-10 flex items-center justify-between gap-4">
             {/* LEFT: Brand */}
-            <div className="flex items-center gap-2.5 shrink-0 group/brand">
-              <div className="
-                relative w-9 h-9 rounded-full
-                bg-gradient-to-br from-white via-indigo-100 to-purple-100
-                flex items-center justify-center
-                font-bold text-black text-sm
-                shadow-lg shadow-indigo-500/20
-                transition-all duration-500
-                group-hover/brand:scale-110 group-hover/brand:rotate-12
-                group-hover/brand:shadow-indigo-500/40
-              ">
-                <span className="relative z-10">O</span>
-                <div className="absolute inset-0 rounded-full border border-indigo-400/20" />
-              </div>
-              <span className="text-base font-display font-bold bg-gradient-to-r from-white via-indigo-100 to-purple-100 bg-clip-text text-transparent">
-                Orbit
-              </span>
+            <div className="flex items-center gap-2.5 shrink-0 pl-1">
+              <div className="w-9 h-9 rounded-xl bg-orange-500 flex items-center justify-center font-display text-ink text-xl leading-none">O</div>
+              <span className="text-lg font-display text-white tracking-tight">ORBIT</span>
             </div>
 
             {/* CENTRE: Nav tabs */}
@@ -724,25 +694,13 @@ const App = () => {
                       key={tab.id}
                       onClick={() => switchTab(tab.id as any)}
                       aria-current={active ? 'page' : undefined}
-                      className={`
-                        relative flex items-center gap-1.5 px-3.5 py-2 rounded-xl
-                        text-[13px] font-semibold tracking-tight
-                        transition-colors duration-200
-                        ${active
-                          ? 'bg-white/[0.08] text-white'
-                          : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-                        }
-                      `}
+                      className={`relative flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-bold tracking-tight transition-colors duration-200 ${active
+                          ? 'bg-white text-ink'
+                          : 'text-zinc-400 hover:text-white'
+                        }`}
                     >
-                      <tab.icon
-                        size={15}
-                        strokeWidth={2.2}
-                        className={active ? 'text-indigo-300' : ''}
-                      />
+                      <tab.icon size={15} strokeWidth={2.4} />
                       <span>{tab.label}</span>
-                      {active && (
-                        <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-0.5 w-5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.85)]" />
-                      )}
                     </button>
                   );
                 })}
@@ -753,10 +711,10 @@ const App = () => {
             {showNavigation ? (
               <div className="flex items-center gap-2 shrink-0">
                 {/* Icon group */}
-                <div className="flex items-center gap-0.5 p-1 rounded-2xl bg-white/[0.04] border border-white/10">
+                <div className="flex items-center gap-0.5 p-1 rounded-full bg-ink3 border border-white/10">
                   <button
                     onClick={() => switchTab("review" as any)}
-                    className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "review" ? 'bg-white/10 text-indigo-200' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+                    className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "review" ? 'bg-white/10 text-orange-400' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
                     title="Review queue"
                     aria-label="Review queue"
                   >
@@ -764,7 +722,7 @@ const App = () => {
                   </button>
                   <button
                     onClick={() => switchTab("schedule" as any)}
-                    className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "schedule" ? 'bg-white/10 text-indigo-200' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+                    className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "schedule" ? 'bg-white/10 text-orange-400' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
                     title="Schedule"
                     aria-label="Schedule"
                   >
@@ -772,7 +730,7 @@ const App = () => {
                   </button>
                   <button
                     onClick={() => switchTab("about" as any)}
-                    className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "about" ? 'bg-white/10 text-indigo-200' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+                    className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "about" ? 'bg-white/10 text-orange-400' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
                     title="About"
                     aria-label="About"
                   >
@@ -780,7 +738,7 @@ const App = () => {
                   </button>
                   <button
                     onClick={() => switchTab("settings" as any)}
-                    className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "settings" ? 'bg-white/10 text-indigo-200' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+                    className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "settings" ? 'bg-white/10 text-orange-400' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
                     title="Settings"
                     aria-label="Settings"
                   >
@@ -799,25 +757,15 @@ const App = () => {
                         setView("focus");
                       }
                     }}
-                    className="
-                      relative group/cta overflow-hidden
-                      flex items-center gap-2 px-5 py-2 rounded-xl
-                      bg-gradient-to-r from-indigo-500 to-violet-600
-                      text-white font-bold text-[13px] tracking-tight
-                      shadow-[0_6px_20px_rgba(99,102,241,0.4)]
-                      transition-all duration-200
-                      hover:shadow-[0_8px_28px_rgba(99,102,241,0.55)] hover:brightness-110
-                      active:scale-95
-                    "
+                    className="flex items-center gap-2 px-5 py-2 rounded-full bg-orange-500 text-ink font-bold text-[13px] tracking-tight transition-colors duration-200 hover:bg-orange-400 active:scale-95"
                   >
-                    <div className="absolute inset-0 -translate-x-full group-hover/cta:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-                    <Play size={13} fill="currentColor" className="relative z-10" />
-                    <span className="relative z-10">Start Focus</span>
+                    <Play size={13} fill="currentColor" />
+                    <span>Start Focus</span>
                   </button>
                 )}
               </div>
             ) : (
-              <div className="px-4 py-2 rounded-2xl bg-white/5 border border-white/10">
+              <div className="px-4 py-2 rounded-full bg-ink3 border border-white/10">
                 <span className="text-xs font-mono text-zinc-500 uppercase tracking-wider">System Locked</span>
               </div>
             )}
@@ -829,7 +777,7 @@ const App = () => {
       <div className="hidden md:block h-24" />
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 min-h-screen pb-24 md:pb-0 overflow-x-hidden">
+      <main className="flex-1 min-h-screen pb-24 md:pb-0 overflow-x-clip">
         <div className="max-w-7xl mx-auto w-full animate-slide-up">
           <Suspense fallback={<ViewFallback />}>
           {activeTab === "dashboard" && todayPlan && (
@@ -875,14 +823,8 @@ const App = () => {
             </div>
           )}
 
-          {/* Glassmorphic Bottom Nav */}
-          <div className="
-            relative overflow-hidden
-            rounded-[2rem] p-2
-            bg-black/40 backdrop-blur-2xl
-            border border-white/10
-            shadow-[0_-8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]
-          ">
+          {/* Flat brutalist Bottom Nav */}
+          <div className="relative overflow-hidden rounded-[2rem] p-2 bg-ink2 border border-white/10">
             <div className="relative z-10 flex items-center overflow-x-auto scrollbar-none gap-0.5">
               {MOBILE_TABS.map((tab) => {
                 const active = activeTab === tab.id;
@@ -891,12 +833,12 @@ const App = () => {
                     key={tab.id}
                     onClick={() => switchTab(tab.id as any)}
                     aria-current={active ? 'page' : undefined}
-                    className={`relative flex flex-col items-center justify-center gap-1 py-2.5 px-3 rounded-2xl min-w-[60px] transition-colors duration-200 ${active ? "text-indigo-200" : "text-zinc-500"}`}
+                    className={`relative flex flex-col items-center justify-center gap-1 py-2.5 px-3 rounded-2xl min-w-[60px] transition-colors duration-200 ${active ? "text-orange-400" : "text-zinc-500"}`}
                   >
                     <tab.icon size={22} strokeWidth={active ? 2.5 : 2} className="relative z-10" />
                     <span className="relative z-10 text-[10px] font-bold">{tab.label}</span>
                     {active && (
-                      <span className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.9)]" />
+                      <span className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-orange-500" />
                     )}
                   </button>
                 );
@@ -905,19 +847,17 @@ const App = () => {
               <button
                 onClick={() => switchTab("about" as any)}
                 aria-current={activeTab === "about" ? 'page' : undefined}
-                className={`relative flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-2xl min-w-[68px] transition-colors duration-200 ${activeTab === "about" ? "text-indigo-200" : "text-zinc-500"}`}
+                className={`relative flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-2xl min-w-[68px] transition-colors duration-200 ${activeTab === "about" ? "text-orange-400" : "text-zinc-500"}`}
                 title="About"
                 aria-label="About"
               >
                 <Info size={22} strokeWidth={activeTab === "about" ? 2.5 : 2} className="relative z-10" />
                 <span className="relative z-10 text-[10px] font-bold">About</span>
                 {activeTab === "about" && (
-                  <span className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.9)]" />
+                  <span className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-orange-500" />
                 )}
               </button>
             </div>
-            {/* Top Border Glow */}
-            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           </div>
         </div>
       )}
@@ -956,85 +896,19 @@ const App = () => {
   );
 };
 
-// Service Worker Registration
-if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  let updateCheckInterval: number | null = null;
+// PWA install prompt trigger — used by the Settings "Install app" button.
+// SW registration + auto-update is handled by vite-plugin-pwa (injectRegister: 'auto').
+(window as any).triggerPwaInstall = async () => {
+  const p = (window as any).deferredPrompt;
+  if (p) {
+    p.prompt();
+    await p.userChoice;
+    (window as any).deferredPrompt = null;
+  } else {
+    console.warn('PWA install prompt not available');
+  }
+};
 
-  window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("/sw.js")
-      .then((registration) => {
-
-        // ✅ Cleanup previous interval if exists
-        if (updateCheckInterval) {
-          clearInterval(updateCheckInterval);
-        }
-
-        // Check for updates every hour, only when page is visible
-        updateCheckInterval = window.setInterval(async () => {
-          try {
-            if (document.visibilityState === 'visible') {
-              await registration.update();
-            }
-          } catch (err) {
-            console.warn('Service worker update check failed:', err);
-          }
-        }, 60 * 60 * 1000);
-
-        registration.addEventListener("updatefound", () => {
-          const newWorker = registration.installing;
-          if (!newWorker) return;
-
-          newWorker.addEventListener("statechange", () => {
-            if (
-              newWorker.state === "installed" &&
-              navigator.serviceWorker.controller
-            ) {
-              if (
-                confirm("New version available! Reload to update?")
-              ) {
-                newWorker.postMessage({ type: "SKIP_WAITING" });
-                window.location.reload();
-              }
-            }
-          });
-        });
-      })
-      .catch((error) => {
-        console.warn("âŒ SW registration failed:", error);
-      });
-  });
-
-  // ✅ Cleanup on page unload
-  window.addEventListener('beforeunload', () => {
-    if (updateCheckInterval) {
-      clearInterval(updateCheckInterval);
-      updateCheckInterval = null;
-    }
-  });
-
-  let refreshing = false;
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (!refreshing) {
-      refreshing = true;
-      window.location.reload();
-    }
-  });
-
-  // âœ¨ NEW: Expose triggerPwaInstall global for Settings page
-  (window as any).triggerPwaInstall = async () => {
-    const prompt = (window as any).deferredPrompt;
-    if (prompt) {
-      prompt.prompt();
-      const { outcome } = await prompt.userChoice;
-      (window as any).deferredPrompt = null;
-    } else {
-      console.warn('âŒ PWA prompt not available');
-    }
-  };
-}
-
-// âœ¨ NEW: Wrap root with ToastProvider
 const rootElement = document.getElementById("root");
 if (rootElement) {
   const root = ReactDOM.createRoot(rootElement);

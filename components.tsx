@@ -18,7 +18,7 @@ const keyActivate = (onClick?: (e: any) => void): any =>
     : {};
 
 export const GlassCard = ({ children, className = "", onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) => (
-  <div onClick={onClick} {...keyActivate(onClick)} className={`glass-panel p-4 rounded-2xl border border-white/5 transition-all active:scale-[0.98] ${className}`}>
+  <div onClick={onClick} {...keyActivate(onClick)} className={`bg-ink2 p-4 rounded-3xl border border-white/10 transition-all ${onClick ? 'cursor-pointer hover:border-white/20 active:scale-[0.98]' : ''} ${className}`}>
     {children}
   </div>
 );
@@ -27,7 +27,8 @@ export const GlassCard = ({ children, className = "", onClick }: { children: Rea
 // Subject Color Coding System
 // Stable identity colors based on subject ID (NOT difficulty)
 // ============================================
-export const SUBJECT_COLORS = ['indigo', 'cyan', 'emerald', 'amber', 'rose', 'violet'] as const;
+// Palette is strictly orange / yellow / white shades (brutalist redesign — no green/cyan/rose).
+export const SUBJECT_COLORS = ['orange', 'amber', 'yellow', 'white'] as const;
 export type SubjectColor = typeof SUBJECT_COLORS[number];
 
 /** Returns the palette color for a subject.
@@ -36,20 +37,19 @@ export const getSubjectColor = (id: number, colorIndex?: number): SubjectColor =
   SUBJECT_COLORS[(colorIndex !== undefined ? colorIndex : id) % SUBJECT_COLORS.length];
 
 export const SUBJECT_COLOR_CLASSES: Record<SubjectColor, { bg: string; border: string; text: string; bgLight: string; borderLight: string }> = {
-  indigo: { bg: 'bg-indigo-500', border: 'border-indigo-500/40', text: 'text-indigo-400', bgLight: 'bg-indigo-500/10', borderLight: 'border-indigo-500/20' },
-  cyan: { bg: 'bg-cyan-500', border: 'border-cyan-500/40', text: 'text-cyan-400', bgLight: 'bg-cyan-500/10', borderLight: 'border-cyan-500/20' },
-  emerald: { bg: 'bg-emerald-500', border: 'border-emerald-500/40', text: 'text-emerald-400', bgLight: 'bg-emerald-500/10', borderLight: 'border-emerald-500/20' },
+  orange: { bg: 'bg-orange-500', border: 'border-orange-500/40', text: 'text-orange-400', bgLight: 'bg-orange-500/10', borderLight: 'border-orange-500/20' },
   amber: { bg: 'bg-amber-500', border: 'border-amber-500/40', text: 'text-amber-400', bgLight: 'bg-amber-500/10', borderLight: 'border-amber-500/20' },
-  rose: { bg: 'bg-rose-500', border: 'border-rose-500/40', text: 'text-rose-400', bgLight: 'bg-rose-500/10', borderLight: 'border-rose-500/20' },
-  violet: { bg: 'bg-violet-500', border: 'border-violet-500/40', text: 'text-violet-400', bgLight: 'bg-violet-500/10', borderLight: 'border-violet-500/20' },
+  yellow: { bg: 'bg-yellow-400', border: 'border-yellow-400/40', text: 'text-yellow-300', bgLight: 'bg-yellow-400/10', borderLight: 'border-yellow-400/20' },
+  white: { bg: 'bg-paper', border: 'border-white/40', text: 'text-white', bgLight: 'bg-white/10', borderLight: 'border-white/20' },
 };
 
 export const Button = ({ children, onClick, disabled, variant = 'primary', className = "" }: any) => {
-  const baseStyle = "w-full p-4 rounded-xl font-bold transition-colors flex items-center justify-center gap-2";
+  const baseStyle = "w-full p-4 rounded-2xl font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none";
   const variants = {
-    primary: "bg-white text-black hover:bg-zinc-200 disabled:opacity-50",
-    secondary: "bg-zinc-800 text-white hover:bg-zinc-700 disabled:opacity-50",
-    danger: "bg-red-900/50 text-red-200 border border-red-800 hover:bg-red-900/70",
+    primary: "bg-orange-500 text-ink hover:bg-orange-400",
+    white: "bg-white text-ink hover:bg-zinc-200",
+    secondary: "bg-ink3 text-white border border-white/10 hover:border-white/25",
+    danger: "bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/25",
     ghost: "bg-transparent text-zinc-400 hover:text-white"
   };
 
@@ -109,17 +109,14 @@ export const FrostedTile: React.FC<React.PropsWithChildren<FrostedProps>> = ({
       {...keyActivate(onClick as any)}
       className={
         [
-          "group relative overflow-hidden rounded-3xl border",
-          // Use variant border if available, otherwise default subtle border
-          variantStyles ? variantStyles.border : "border-white/[0.08]",
-          // Premium glass: one translucent dark surface (not the old conflicting
-          // double background), an inset top highlight for a glass edge, and a
-          // refined drop shadow.
-          "bg-zinc-900/70 backdrop-blur-2xl",
-          "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_18px_40px_-18px_rgba(0,0,0,0.6)]",
+          "group relative overflow-hidden rounded-4xl border",
+          // Use variant border if available, otherwise default hairline border
+          variantStyles ? variantStyles.border : "border-white/10",
+          // Brutalist: one flat solid surface, no glass / no blur / no soft shadow.
+          "bg-ink2",
           "transition-all duration-300",
           onClick ? "cursor-pointer active:scale-[0.99]" : "",
-          variantStyles ? "hover:-translate-y-1 hover:border-white/20" : "",
+          "hover:border-white/25",
           className,
           hoverClassName,
         ].join(' ')
@@ -147,7 +144,7 @@ export const FrostedMini: React.FC<React.PropsWithChildren<FrostedProps>> = ({
   onClick,
   ...props
 }) => {
-  const variantClass = variant ? miniVariants[variant] : "bg-zinc-900/30 border-zinc-800/50";
+  const variantClass = variant ? miniVariants[variant] : "bg-ink2 border-white/10";
 
   return (
     <div
@@ -176,7 +173,7 @@ export const Slider = ({ value, min, max, onChange, label }: any) => (
       max={max}
       value={value}
       onChange={onChange}
-      className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-indigo-500 hover:accent-indigo-400 transition-all"
+      className="w-full h-2 bg-white/15 rounded-full appearance-none cursor-pointer accent-orange-500 transition-all"
     />
   </div>
 );
@@ -184,7 +181,7 @@ export const Slider = ({ value, min, max, onChange, label }: any) => (
 export const Input = (props: any) => (
   <input
     {...props}
-    className={`w-full bg-zinc-900 border border-zinc-800 p-4 rounded-xl focus:border-indigo-500 outline-none text-white placeholder-zinc-600 ${props.className || ''}`}
+    className={`w-full bg-ink3 border border-white/10 p-4 rounded-2xl focus:border-orange-500 outline-none text-white placeholder-zinc-500 transition-colors ${props.className || ''}`}
   />
 );
 
@@ -508,7 +505,7 @@ export const BottomSheet = ({
 // ============================================
 
 export const MetaText = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
-  <div className={`text-xs font-mono text-indigo-400/60 uppercase tracking-[0.2em] font-bold ${className}`}>
+  <div className={`text-[0.7rem] font-mono text-orange-500/80 uppercase tracking-[0.18em] font-bold ${className}`}>
     {children}
   </div>
 );
@@ -540,7 +537,7 @@ export const PageHeader = ({
           {meta}
         </div>
       )}
-      <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight text-white leading-tight">
+      <h1 className="text-4xl md:text-6xl font-display font-black tracking-[-0.04em] text-white leading-[0.95]">
         {title}
       </h1>
     </div>

@@ -58,13 +58,13 @@ const PredictionModal = ({ subject, currentReadiness, onClose }: any) => {
               <div className="flex items-end gap-4">
                 <div className={`text-5xl font-bold font-mono tabular-nums ${currentReadiness?.status === 'critical' ? 'text-red-400' :
                   currentReadiness?.status === 'maintaining' ? 'text-yellow-400' :
-                    'text-emerald-400'
+                    'text-yellow-400'
                   }`}>
                   {currentReadiness?.score !== undefined ? Math.round(currentReadiness.score) : 0}%
                 </div>
                 <div className={`text-xs mb-2 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider ${currentReadiness?.status === 'critical' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
                   currentReadiness?.status === 'maintaining' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
-                    'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
                   }`}>
                   {currentReadiness?.status || 'unknown'}
                 </div>
@@ -79,13 +79,13 @@ const PredictionModal = ({ subject, currentReadiness, onClose }: any) => {
 
             <div>
               <div className="text-sm font-bold text-zinc-300 flex items-center gap-2 mb-3">
-                <TrendingUp size={16} className="text-emerald-400" />
+                <TrendingUp size={16} className="text-yellow-400" />
                 Study 1h/day for 7 days:
               </div>
-              <FrostedMini className="p-5 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border-emerald-500/20 hover:border-emerald-500/30 hover:-translate-y-1">
+              <FrostedMini className="p-5 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-500/20 hover:border-yellow-500/30 hover:-translate-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-emerald-300">Projected Readiness</span>
-                  <span className="text-4xl font-bold text-emerald-400 tabular-nums">
+                  <span className="text-sm font-semibold text-yellow-300">Projected Readiness</span>
+                  <span className="text-4xl font-bold text-yellow-400 tabular-nums">
                     {prediction.projectedScore}%
                   </span>
                 </div>
@@ -127,10 +127,12 @@ const isPowerPoint = (type: string) =>
 export default function CoursesView_Enhanced() {
   const subjects = useLiveQuery(() => db.subjects.toArray()) || [];
   const logs = useLiveQuery(() => db.logs.toArray()) || [];
+  const exams = useLiveQuery(() => db.exams.filter((e: any) => !e.completed).toArray()) || [];
   const toast = useToast();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "difficulty" | "progress">("name");
+  const [statusFilter, setStatusFilter] = useState<'all' | 'critical' | 'maintaining' | 'mastered'>('all');
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
   const [selectedResource, setSelectedResource] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -680,9 +682,9 @@ export default function CoursesView_Enhanced() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-10">
           {[
             { label: "Progress", value: `${computeProgress(selectedSubject)}%`, color: "indigo", icon: Target },
-            { label: "Study Time", value: `${getTotalHours(selectedSubject.id!)}h`, color: "emerald", icon: Clock },
+            { label: "Study Time", value: `${getTotalHours(selectedSubject.id!)}h`, color: "yellow", icon: Clock },
             { label: "Avg Score", value: gpa ? `${gpa}%` : '--', color: "amber", icon: TrendingUp },
-            { label: "Resources", value: (selectedSubject.resources || []).length, color: "cyan", icon: FileText }
+            { label: "Resources", value: (selectedSubject.resources || []).length, color: "orange", icon: FileText }
           ].map((stat, i) => {
             const Icon = stat.icon;
             return (
@@ -730,7 +732,7 @@ export default function CoursesView_Enhanced() {
                         className="flex items-center gap-3 md:gap-4 cursor-pointer hover:bg-white/5 p-3 md:p-4 hover:scale-[1.02] active:scale-[0.98] duration-300 min-h-[56px] md:min-h-[64px] group hover:-translate-y-0.5"
                       >
                         {u.completed ?
-                          <CheckSquare className="text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" size={20} /> :
+                          <CheckSquare className="text-yellow-400 shrink-0 group-hover:scale-110 transition-transform" size={20} /> :
                           <Square size={20} className="text-zinc-600 shrink-0 group-hover:scale-110 transition-transform" />
                         }
                         <span className={`text-sm md:text-base font-medium ${u.completed ? "line-through text-zinc-500" : "text-zinc-300"}`}>
@@ -764,12 +766,12 @@ export default function CoursesView_Enhanced() {
             </div>
           </FrostedTile>
 
-          <FrostedTile className="p-6 md:p-8 hover:border-emerald-500/30 hover:-translate-y-1 animate-in fade-in slide-in-from-right duration-500">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <FrostedTile className="p-6 md:p-8 hover:border-yellow-500/30 hover:-translate-y-1 animate-in fade-in slide-in-from-right duration-500">
+            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform duration-500 border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
+                  <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-yellow-500/20 flex items-center justify-center text-yellow-400 group-hover:scale-110 transition-transform duration-500 border border-yellow-500/30 shadow-lg shadow-yellow-500/10">
                     <Calculator size={24} className="md:hidden" />
                     <Calculator size={28} className="hidden md:block" />
                   </div>
@@ -823,7 +825,7 @@ export default function CoursesView_Enhanced() {
                   </FrostedMini>
                   <button
                     onClick={addGrade}
-                    className="w-full py-3 md:py-4 bg-emerald-500/20 hover:bg-emerald-500/30 rounded-2xl font-bold text-sm md:text-base transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 border border-emerald-500/30 min-h-[56px] md:min-h-[64px]"
+                    className="w-full py-3 md:py-4 bg-yellow-500/20 hover:bg-yellow-500/30 rounded-2xl font-bold text-sm md:text-base transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 border border-yellow-500/30 min-h-[56px] md:min-h-[64px]"
                   >
                     Add Grade
                   </button>
@@ -837,7 +839,7 @@ export default function CoursesView_Enhanced() {
                   {selectedSubject.grades && selectedSubject.grades.length > 0 && (
                     <div className="flex items-center justify-between px-2 py-3 mb-2 border-b border-zinc-800">
                       <span className="text-xs text-zinc-500 uppercase tracking-wider font-bold">Average</span>
-                      <span className="font-mono font-bold text-emerald-400 text-lg">
+                      <span className="font-mono font-bold text-yellow-400 text-lg">
                         {gpa}%
                         <span className="ml-2 text-xs font-normal text-zinc-500">
                           ({selectedSubject.grades.length} {selectedSubject.grades.length === 1 ? 'entry' : 'entries'})
@@ -861,7 +863,7 @@ export default function CoursesView_Enhanced() {
                             {g.score}<span className="text-zinc-500 text-base md:text-lg">/{g.maxScore}</span>
                             <span className={`text-xs md:text-sm ml-2 md:ml-3 px-2 md:px-3 py-1 md:py-1.5 rounded-xl ${
                               (g.score / g.maxScore) >= 0.75
-                                ? 'text-emerald-400 bg-emerald-500/10'
+                                ? 'text-yellow-400 bg-yellow-500/10'
                                 : (g.score / g.maxScore) >= 0.5
                                   ? 'text-amber-400 bg-amber-500/10'
                                   : 'text-red-400 bg-red-500/10'
@@ -920,7 +922,7 @@ export default function CoursesView_Enhanced() {
                           }}
                         >
                           {r.type === 'link' ? (
-                            <Link size={20} className="text-cyan-400 shrink-0" />
+                            <Link size={20} className="text-orange-400 shrink-0" />
                           ) : isPowerPoint(r.fileType) ? (
                             <Presentation size={20} className="text-orange-400 shrink-0" />
                           ) : (
@@ -960,7 +962,7 @@ export default function CoursesView_Enhanced() {
 
                 <button
                   onClick={() => setShowLinkForm(!showLinkForm)}
-                  className="px-4 md:px-6 py-4 md:py-5 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-2xl font-bold text-sm md:text-base transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 border border-cyan-500/30 min-h-[56px] md:min-h-[64px] flex items-center justify-center gap-2 md:gap-3"
+                  className="px-4 md:px-6 py-4 md:py-5 bg-orange-500/20 hover:bg-orange-500/30 rounded-2xl font-bold text-sm md:text-base transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 border border-orange-500/30 min-h-[56px] md:min-h-[64px] flex items-center justify-center gap-2 md:gap-3"
                 >
                   <Link size={20} />
                   <span>Add Link</span>
@@ -987,7 +989,7 @@ export default function CoursesView_Enhanced() {
                   </FrostedMini>
                   <button
                     onClick={addWebLink}
-                    className="w-full py-3 md:py-4 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-2xl font-bold text-sm md:text-base transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 border border-cyan-500/30 min-h-[56px] md:min-h-[64px]"
+                    className="w-full py-3 md:py-4 bg-orange-500/20 hover:bg-orange-500/30 rounded-2xl font-bold text-sm md:text-base transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 border border-orange-500/30 min-h-[56px] md:min-h-[64px]"
                   >
                     Add Link
                   </button>
@@ -1093,162 +1095,173 @@ export default function CoursesView_Enhanced() {
 
       {subjectFormModal}
 
-      <div className="flex flex-col sm:flex-row gap-3 md:gap-4 animate-in fade-in duration-300">
-        <div className="relative flex-1">
-          <Search className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
+      {/* control bar */}
+      <div className="flex flex-col lg:flex-row gap-3 lg:items-center justify-between animate-in fade-in duration-300">
+        <div className="relative flex-1 lg:max-w-md">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
           <input
-            className="w-full pl-12 md:pl-14 pr-4 md:pr-5 py-3 md:py-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 transition-all outline-none text-sm md:text-base font-medium placeholder:text-zinc-600 hover:bg-zinc-900/70 min-h-[56px] md:min-h-[64px]"
-            placeholder="Search subjects..."
+            className="w-full pl-11 pr-4 py-3 bg-ink2 border border-white/10 rounded-full outline-none text-sm font-medium placeholder:text-zinc-600 focus:border-orange-500/50 transition-colors"
+            placeholder="Search the loadout…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <select
-          className="bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 md:px-6 py-3 md:py-4 text-sm md:text-base outline-none cursor-pointer hover:bg-zinc-800/50 transition-all font-semibold min-h-[56px] md:min-h-[64px]"
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as any)}
-        >
-          <option value="name">Sort by Name</option>
-          <option value="difficulty">Sort by Difficulty</option>
-          <option value="progress">Sort by Progress</option>
-        </select>
-        <button
-          onClick={openAddSubject}
-          className="flex items-center justify-center gap-2 px-5 py-3 md:py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-sm md:text-base font-bold transition-all min-h-[56px] md:min-h-[64px] active:scale-95 whitespace-nowrap"
-        >
-          <Plus size={18} /> Add Subject
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {([{ k: 'all', label: 'All' }, { k: 'critical', label: 'Critical' }, { k: 'maintaining', label: 'Maintaining' }, { k: 'mastered', label: 'Mastered' }] as const).map(f => {
+            const active = statusFilter === f.k;
+            return (
+              <button key={f.k} onClick={() => setStatusFilter(f.k)}
+                className={`text-[10px] font-mono font-bold uppercase tracking-[0.14em] px-3.5 py-2 rounded-full transition-colors ${active ? 'bg-white text-ink' : 'bg-ink2 text-mute border border-white/10 hover:text-white'}`}>
+                {f.label}
+              </button>
+            );
+          })}
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}
+            className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] px-3.5 py-2 rounded-full bg-ink2 text-mute border border-white/10 outline-none cursor-pointer hover:text-white">
+            <option value="name">Sort · Name</option>
+            <option value="difficulty">Sort · Difficulty</option>
+            <option value="progress">Sort · Progress</option>
+          </select>
+          <button onClick={openAddSubject}
+            className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] px-4 py-2 rounded-full bg-orange-500 text-ink hover:bg-orange-400 transition-colors active:scale-95">
+            + Add
+          </button>
+        </div>
       </div>
 
       {filtered.length === 0 ? (
         searchQuery ? (
-          <div className="text-center py-24 md:py-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-6 md:mb-8 shadow-xl">
-              <Search size={32} className="md:hidden text-zinc-700" />
-              <Search size={40} className="hidden md:block text-zinc-700" />
-            </div>
-            <h3 className="text-2xl md:text-3xl font-bold text-zinc-300 mb-3">No results found</h3>
-            <p className="text-zinc-500 text-sm md:text-base max-w-md mx-auto mb-6 md:mb-8 px-4">
-              We couldn't find any courses matching "<span className="text-white font-semibold">{searchQuery}</span>". Try a different term.
-            </p>
-            <button
-              onClick={() => setSearchQuery('')}
-              className="px-6 md:px-8 py-3 md:py-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-2xl text-sm md:text-base font-bold transition-all border border-zinc-700 hover:scale-105 active:scale-95 duration-300 min-h-[56px] md:min-h-[64px]"
-            >
-              Clear Search
-            </button>
+          <div className="text-center py-24">
+            <div className="font-display font-black text-3xl text-white">No results</div>
+            <p className="text-zinc-500 text-sm mt-2 mb-6">Nothing matches “<span className="text-white font-semibold">{searchQuery}</span>”.</p>
+            <button onClick={() => setSearchQuery('')} className="bg-white text-ink font-bold text-sm px-6 py-3 rounded-2xl">Clear search</button>
           </div>
         ) : (
           <EmptyCourses onAddCourse={openAddSubject} />
         )
-      ) : (
-        <>
-          {/* ── Aggregate GPA Banner ──────────────────────────────────────── */}
-          {(() => {
-            const withGrades = filtered.filter(s => s.grades && s.grades.length > 0);
-            if (withGrades.length < 2) return null;
-            const { weightedSum, totalCredits } = withGrades.reduce((acc, s) => {
-              const credits = s.credits ?? 1;
-              const avg = s.grades!.reduce((sum: number, g: any) => sum + (g.score / g.maxScore) * 100, 0) / s.grades!.length;
-              return { weightedSum: acc.weightedSum + avg * credits, totalCredits: acc.totalCredits + credits };
-            }, { weightedSum: 0, totalCredits: 0 });
-            const weightedGPA = (weightedSum / totalCredits).toFixed(1);
-            const color = parseFloat(weightedGPA) >= 75 ? 'emerald' : parseFloat(weightedGPA) >= 55 ? 'amber' : 'rose';
-            return (
-              <div className={`mb-6 p-4 md:p-5 rounded-2xl border flex items-center justify-between animate-in fade-in
-                ${color === 'emerald' ? 'bg-emerald-500/5 border-emerald-500/20' : color === 'amber' ? 'bg-amber-500/5 border-amber-500/20' : 'bg-rose-500/5 border-rose-500/20'}`}>
-                <div>
-                  <div className="text-xs uppercase tracking-wider font-bold text-zinc-400 mb-0.5">Overall Weighted GPA</div>
-                  <div className="text-xs text-zinc-500">{withGrades.length} of {filtered.length} subjects graded · {totalCredits} credit{totalCredits !== 1 ? 's' : ''} weighted</div>
+      ) : (() => {
+        const STATUS = {
+          critical:    { solid: 'bg-orange-500', text: 'text-orange-400', seg: 'bg-orange-500', pill: 'bg-orange-500/15 text-orange-400', ring: '#FF5A1F', label: 'Critical' },
+          maintaining: { solid: 'bg-yellow-400', text: 'text-yellow-300', seg: 'bg-yellow-400', pill: 'bg-yellow-400/15 text-yellow-300', ring: '#FFD60A', label: 'Maintaining' },
+          mastered:    { solid: 'bg-paper',      text: 'text-white',      seg: 'bg-white',      pill: 'bg-white/10 text-white',          ring: '#F7F5EF', label: 'Mastered' },
+        } as const;
+        const today = getISTEffectiveDate();
+        const examFor = (id: number) => {
+          const up = exams.filter((e: any) => Number(e.subjectId) === Number(id) && e.examDate >= today).sort((a: any, b: any) => String(a.examDate).localeCompare(String(b.examDate)))[0];
+          if (!up) return null;
+          const days = Math.max(0, Math.round((new Date(up.examDate + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000));
+          return { days, type: String(up.examType).toUpperCase() };
+        };
+        const meta = (s: any) => {
+          const r: any = readinessScores[s.id];
+          const score = r ? Math.round(r.score) : 0;
+          const status: 'critical' | 'maintaining' | 'mastered' = (r?.status || 'maintaining');
+          return { score, status, st: STATUS[status], hours: getTotalHours(s.id), exam: examFor(s.id) };
+        };
+        const fuel = (score: number, segCls: string) => {
+          const f = Math.round(score / 10);
+          return <div className="flex gap-1">{Array.from({ length: 10 }).map((_, i) => <div key={i} className={`h-3 flex-1 rounded-sm ${i < f ? segCls : 'bg-white/10'}`} />)}</div>;
+        };
+        const ranked = [...filtered].map((s: any) => ({ s, m: meta(s) }));
+        const shown = statusFilter === 'all' ? ranked : ranked.filter(x => x.m.status === statusFilter);
+        const priority = [...ranked].filter(x => x.m.status !== 'mastered').sort((a, b) => a.m.score - b.m.score)[0];
+        const avgRead = ranked.length ? Math.round(ranked.reduce((a, x) => a + x.m.score, 0) / ranked.length) : 0;
+        const totalCredits = filtered.reduce((a: number, s: any) => a + (s.credits || 0), 0);
+        const totalHours = Math.round(filtered.reduce((a: number, s: any) => a + Number(getTotalHours(s.id)), 0));
+        const examCount = exams.filter((e: any) => e.examDate >= today).length;
+        const criticalCount = ranked.filter(x => x.m.status === 'critical').length;
+        const RC = 2 * Math.PI * 42;
+        return (
+          <div className="space-y-4 animate-in fade-in duration-300">
+            <div className="grid lg:grid-cols-3 gap-4">
+              {priority ? (
+                <div onClick={() => setSelectedSubjectId(priority.s.id)} className={`lg:col-span-2 rounded-5xl ${priority.m.st.solid} text-ink p-7 md:p-8 cursor-pointer relative overflow-hidden group`}>
+                  <div className="flex items-center gap-2 mb-5">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] bg-ink/90 text-white px-3 py-1.5 rounded-full">{priority.m.status === 'critical' ? '⚠ Needs you most' : '◎ Focus next'}</span>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] opacity-70">{priority.m.st.label}</span>
+                  </div>
+                  <div className="flex items-start justify-between gap-6">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] opacity-70">{priority.s.code || 'NO CODE'} · {priority.s.credits ?? 0} cr</div>
+                      <div className="font-display font-black text-4xl md:text-5xl mt-1 leading-[0.95]">{priority.s.name}</div>
+                      <div className="mt-6 max-w-sm">
+                        <div className="flex items-center justify-between mb-2"><span className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] opacity-70">Readiness</span><span className="font-display font-black text-2xl">{priority.m.score}%</span></div>
+                        {fuel(priority.m.score, 'bg-ink')}
+                      </div>
+                    </div>
+                    {priority.m.exam && (
+                      <div className="text-center shrink-0">
+                        <div className="font-display font-black text-6xl md:text-7xl leading-none">{String(priority.m.exam.days).padStart(2, '0')}</div>
+                        <div className="text-[9px] font-mono font-bold uppercase tracking-[0.14em] opacity-70 mt-1">days to {priority.m.exam.type}</div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-7 bg-ink text-white font-bold text-sm px-6 py-4 rounded-2xl inline-flex items-center gap-2 group-hover:gap-3 transition-all">▶ Open subject</div>
                 </div>
-                <div className={`text-4xl font-bold font-mono tabular-nums ${color === 'emerald' ? 'text-emerald-400' : color === 'amber' ? 'text-amber-400' : 'text-rose-400'}`}>{weightedGPA}%</div>
+              ) : (
+                <div className="lg:col-span-2 rounded-5xl bg-ink2 border border-white/10 p-8 flex flex-col items-center justify-center text-center min-h-[220px]">
+                  <div className="font-display font-black text-3xl">All subjects stable</div>
+                  <div className="text-sm text-mute mt-2">Nothing critical right now — keep the streak going.</div>
+                </div>
+              )}
+
+              <div className="rounded-5xl bg-ink2 border border-white/10 p-7 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-mute">Loadout</span>
+                  {criticalCount > 0 && <span className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-orange-400">{criticalCount} critical</span>}
+                </div>
+                <div className="flex items-center gap-4 my-4">
+                  <div className="relative w-[84px] h-[84px] shrink-0">
+                    <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                      <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,.1)" strokeWidth="11" />
+                      <circle cx="50" cy="50" r="42" fill="none" stroke="#FF5A1F" strokeWidth="11" strokeLinecap="round" strokeDasharray={RC} strokeDashoffset={RC * (1 - avgRead / 100)} />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center font-display font-black text-2xl">{avgRead}<span className="text-xs">%</span></div>
+                  </div>
+                  <div>
+                    <div className="font-display font-black text-xl">{filtered.length} subject{filtered.length === 1 ? '' : 's'}</div>
+                    <div className="text-xs text-mute mt-1">avg readiness</div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-ink3 rounded-2xl py-3"><div className="font-display font-black text-xl text-yellow-400">{totalCredits}</div><div className="text-[8px] font-mono uppercase tracking-[0.14em] text-mute mt-1">credits</div></div>
+                  <div className="bg-ink3 rounded-2xl py-3"><div className="font-display font-black text-xl">{totalHours}<span className="text-[10px] text-mute">h</span></div><div className="text-[8px] font-mono uppercase tracking-[0.14em] text-mute mt-1">logged</div></div>
+                  <div className="bg-ink3 rounded-2xl py-3"><div className="font-display font-black text-xl text-orange-400">{examCount}</div><div className="text-[8px] font-mono uppercase tracking-[0.14em] text-mute mt-1">exams</div></div>
+                </div>
               </div>
-            );
-          })()}
-          <div className="grid md:grid-cols-2 gap-6 md:gap-8">
-          {filtered.map((s, i) => {
-            const subjectColor = getSubjectColor(s.id!, s.colorIndex);
-            const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
-            const progress = computeProgress(s);
-            const gpa = calculateGPA(s.grades || []);
+            </div>
 
-            return (
-              <FrostedTile
-                key={s.id}
-                onClick={() => setSelectedSubjectId(s.id!)}
-                className="p-6 md:p-8 cursor-pointer hover:border-indigo-500/30 hover:-translate-y-1 shadow-lg hover:shadow-2xl hover:shadow-indigo-500/10 animate-in fade-in duration-300"
-                style={{ animationDelay: `${i * 50}ms` }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-                <div className="relative z-10">
-                  <div className="flex justify-between items-start mb-4 md:mb-6">
-                    <div className="flex gap-4 md:gap-5 flex-1 min-w-0">
-                      <div className={`w-14 h-14 md:w-16 md:h-16 ${colorClasses.bg} rounded-2xl flex items-center justify-center font-bold text-black text-xl md:text-2xl shadow-xl shrink-0 group-hover:scale-110 transition-transform duration-300`}>
-                        {getInitials(s.name)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-bold text-lg md:text-xl group-hover:text-indigo-100 transition-colors leading-tight mb-1 md:mb-2 truncate">
-                          {s.name}
-                        </div>
-                        <div className="text-xs md:text-sm text-zinc-500 font-mono tracking-wider font-semibold">
-                          {s.code || "NO CODE"} • {s.credits ?? 0} CREDITS
-                        </div>
-                      </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {shown.map(({ s, m }, i) => (
+                <FrostedTile key={s.id} onClick={() => setSelectedSubjectId(s.id)} className="p-6 cursor-pointer animate-in fade-in duration-300" style={{ animationDelay: `${i * 40}ms` }}>
+                  <div className="relative z-10">
+                    <div className="flex items-start justify-between mb-5">
+                      <div className={`w-14 h-14 rounded-2xl ${m.st.solid} text-ink font-display font-black text-2xl flex items-center justify-center group-hover:scale-105 transition-transform`}>{getInitials(s.name)}</div>
+                      <span className={`text-[9px] font-mono font-bold uppercase tracking-[0.14em] ${m.st.pill} px-2.5 py-1 rounded-full`}>{m.st.label}</span>
                     </div>
-
-                    <div className="flex flex-col items-end gap-2 md:gap-3 shrink-0 ml-4 md:ml-5">
-                      <div className={`text-3xl md:text-4xl font-bold font-mono tabular-nums ${colorClasses.text} group-hover:scale-110 transition-transform duration-300`}>
-                        {progress}%
-                      </div>
-                      {gpa && (
-                        <div className="text-xs text-zinc-500 font-bold uppercase tracking-wider">
-                          {gpa}% AVG
-                        </div>
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (s.id !== undefined) setShowPrediction(s.id);
-                        }}
-                        className="text-xs md:text-sm text-indigo-400 hover:text-indigo-300 px-3 md:px-4 py-2 md:py-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 transition-all font-bold border border-indigo-500/30 whitespace-nowrap hover:scale-110 active:scale-95 duration-300 min-h-[40px] md:min-h-[44px]"
-                      >
-                        Predict
-                      </button>
+                    <div className="text-[9px] font-mono font-bold uppercase tracking-[0.14em] text-mute">{s.code || 'NO CODE'} · {s.credits ?? 0} cr</div>
+                    <div className="font-display font-black text-2xl mt-1 leading-tight truncate">{s.name}</div>
+                    <div className="mt-5 mb-2">{fuel(m.score, m.st.seg)}</div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-mute">readiness <b className={m.st.text}>{m.score}%</b></span>
+                      <span className="text-[9px] font-mono font-bold uppercase tracking-[0.14em] text-mute">{m.hours}h{m.exam ? ` · ${m.exam.type} ${m.exam.days}d` : ''}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
+                      <span className="text-[9px] font-mono uppercase tracking-[0.14em] text-zinc-600">{(s.syllabus || []).filter((u: any) => !u.completed).length} units · {(s.resources || []).length} files</span>
+                      <button onClick={(e) => { e.stopPropagation(); if (s.id !== undefined) setShowPrediction(s.id); }} className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] px-3 py-1.5 rounded-full bg-white/5 text-mute border border-white/10 hover:text-white transition-colors">Predict</button>
                     </div>
                   </div>
-
-                  <div className="h-2 md:h-2.5 bg-white/5 rounded-full mb-4 md:mb-6 overflow-hidden shadow-inner">
-                    <div
-                      className={`${colorClasses.bg} h-full transition-all duration-1000 ease-out shadow-lg`}
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-
-                  <div className="flex gap-4 md:gap-8 text-xs md:text-sm text-zinc-500 font-bold uppercase tracking-wider">
-                    <div className="flex items-center gap-2 group-hover:text-zinc-300 transition-colors">
-                      <Clock size={14} className="md:hidden text-zinc-600" />
-                      <Clock size={16} className="hidden md:block text-zinc-600" />
-                      <span className="tabular-nums">{getTotalHours(s.id!)}H</span>
-                    </div>
-                    <div className="flex items-center gap-2 group-hover:text-zinc-300 transition-colors">
-                      <Target size={14} className="md:hidden text-zinc-600" />
-                      <Target size={16} className="hidden md:block text-zinc-600" />
-                      <span className="tabular-nums">{(s.syllabus || []).filter((u: any) => !u.completed).length} units</span>
-                    </div>
-                    <div className="flex items-center gap-2 group-hover:text-zinc-300 transition-colors">
-                      <FileText size={14} className="md:hidden text-zinc-600" />
-                      <FileText size={16} className="hidden md:block text-zinc-600" />
-                      <span className="tabular-nums">{(s.resources || []).length} files</span>
-                    </div>
-                  </div>
-                </div>
-              </FrostedTile>
-            );
-          })}
+                </FrostedTile>
+              ))}
+              <button onClick={openAddSubject} className="rounded-4xl border-2 border-dashed border-white/15 p-6 flex flex-col items-center justify-center text-center min-h-[200px] hover:border-orange-500/50 transition-colors">
+                <div className="w-12 h-12 rounded-2xl bg-ink2 border border-white/10 flex items-center justify-center text-orange-400 text-2xl mb-3">+</div>
+                <div className="font-bold text-white">Add subject</div>
+                <div className="text-xs text-mute mt-1">Build out your loadout</div>
+              </button>
+            </div>
           </div>
-        </>
-      )}
+        );
+      })()}
     </div>
   );
 }

@@ -166,6 +166,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const [subjectResources, setSubjectResources] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasStarted, setHasStarted] = useState(false);
+  const [useRing, setUseRing] = useState(true); // ring timer (default) vs mechanical flip clock
   const [showSummary, setShowSummary] = useState(false);
   const [summaryData, setSummaryData] = useState<{ duration: number; quality: number; readinessGain: number; aiTip?: string; } | null>(null);
 
@@ -429,15 +430,15 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     }
     if (isBreak) {
       return {
-        primary: "#06b6d4",
-        secondary: "#22d3ee",
-        glow: "rgba(34,211,238,0.3)",
+        primary: "#FFD60A",
+        secondary: "#FFE14D",
+        glow: "rgba(255,214,10,0.3)",
       };
     }
     return {
-      primary: "#3b82f6",
-      secondary: "#60a5fa",
-      glow: "rgba(96,165,250,0.3)",
+      primary: "#FF5A1F",
+      secondary: "#FF7A3C",
+      glow: "rgba(255,90,31,0.3)",
     };
   };
 
@@ -805,8 +806,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
       {isLoading && (
         <div className="absolute inset-0 z-[200] flex items-center justify-center bg-[#0a0b0f]">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-400/20 flex items-center justify-center" style={{ animation: 'pulse 2s ease-in-out infinite' }}>
-              <Crown size={32} className="text-blue-400" />
+            <div className="w-16 h-16 rounded-2xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center" style={{ animation: 'pulse 2s ease-in-out infinite' }}>
+              <Crown size={32} className="text-orange-400" />
             </div>
             <p className="text-xs font-medium text-zinc-500 tracking-wider">PREPARING SESSION</p>
           </div>
@@ -831,8 +832,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
               <div className="hidden lg:flex flex-col gap-3" style={{ animation: 'slideUp 0.4s ease-out 0.1s both' }}>
                 <div className="uniform-card p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
-                      <Clock size={16} className="text-cyan-400" />
+                    <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                      <Clock size={16} className="text-orange-400" />
                     </div>
                     <div>
                       <MetaText className="text-[9px] mb-0.5 opacity-60">ELAPSED TIME</MetaText>
@@ -870,12 +871,12 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                 {subjectIntelligence?.readiness !== undefined && (
                   <div className="uniform-card p-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                        <Target size={16} className="text-emerald-400" />
+                      <div className="w-9 h-9 rounded-xl bg-yellow-500/10 flex items-center justify-center">
+                        <Target size={16} className="text-yellow-400" />
                       </div>
                       <div>
                         <MetaText className="text-[9px] mb-0.5 opacity-60">READINESS</MetaText>
-                        <div className="text-xl font-bold text-emerald-400 tabular-nums">{Math.round(subjectIntelligence.readiness)}<span className="text-xs text-emerald-500/60 ml-1">%</span></div>
+                        <div className="text-xl font-bold text-yellow-400 tabular-nums">{Math.round(subjectIntelligence.readiness)}<span className="text-xs text-yellow-500/60 ml-1">%</span></div>
                       </div>
                     </div>
                   </div>
@@ -885,7 +886,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
               {/* Center - Timer */}
               <div className="flex flex-col items-center gap-6 justify-center">
                 <div className="text-center" style={{ animation: 'fadeIn 0.3s ease-out 0.2s both' }}>
-                  <h1 className="text-3xl md:text-4xl font-bold text-white mb-1">
+                  <h1 className="font-display font-black text-4xl md:text-5xl text-white mb-1 leading-[0.95]">
                     {isBreak ? "Break Time" : block.subjectName}
                   </h1>
                   <MetaText className="text-zinc-500 text-[9px] tracking-widest opacity-60">
@@ -893,19 +894,42 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                   </MetaText>
                 </div>
 
+                <button onClick={() => setUseRing(r => !r)} className="font-mono text-[9px] uppercase tracking-[0.18em] text-zinc-500 hover:text-white border border-white/10 rounded-full px-3 py-1.5 transition-colors">
+                  {useRing ? '⤢ Flip clock' : '◎ Ring timer'}
+                </button>
+
                 <div className="relative" style={{ animation: 'scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both' }}>
-                  <div className="flex items-center justify-center">
-                    <FlipDigit value={time.min1} />
-                    <FlipDigit value={time.min2} />
-
-                    <div className="flex flex-col gap-3 mx-2">
-                      <div className="w-3 h-3 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400" style={{ boxShadow: `0 0 16px ${theme.glow}`, animation: 'pulse 2s ease-in-out infinite' }} />
-                      <div className="w-3 h-3 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400" style={{ boxShadow: `0 0 16px ${theme.glow}`, animation: 'pulse 2s ease-in-out infinite 0.5s' }} />
+                  {useRing ? (
+                    <div className="relative w-[280px] h-[280px] md:w-[320px] md:h-[320px]">
+                      <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="3" />
+                        <circle cx="50" cy="50" r="45" fill="none" stroke={theme.primary} strokeWidth="3" strokeLinecap="round"
+                          strokeDasharray={2 * Math.PI * 45}
+                          strokeDashoffset={(2 * Math.PI * 45) * (1 - Math.min(1, progress))}
+                          style={{ transition: 'stroke-dashoffset 0.5s ease' }} />
+                      </svg>
+                      <div className={`absolute inset-0 ${isRunning ? 'animate-spin' : ''}`} style={{ animationDuration: '8s' }}>
+                        <div className="absolute left-1/2 -translate-x-1/2 -top-1.5 w-4 h-4 rounded-full" style={{ background: theme.secondary, boxShadow: `0 0 12px 4px ${theme.glow}` }} />
+                      </div>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <div className="font-display font-black text-6xl md:text-7xl tabular-nums">{time.min1}{time.min2}:{time.sec1}{time.sec2}</div>
+                        <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-zinc-500 mt-3 opacity-70">
+                          {time.isNegative ? 'OVERTIME' : `OF ${String(block.duration).padStart(2, '0')}:00 · ${Math.round(progress * 100)}%`}
+                        </div>
+                      </div>
                     </div>
-
-                    <FlipDigit value={time.sec1} />
-                    <FlipDigit value={time.sec2} />
-                  </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <FlipDigit value={time.min1} />
+                      <FlipDigit value={time.min2} />
+                      <div className="flex flex-col gap-3 mx-2">
+                        <div className="w-3 h-3 rounded-full bg-gradient-to-br from-orange-400 to-orange-500" style={{ boxShadow: `0 0 16px ${theme.glow}` }} />
+                        <div className="w-3 h-3 rounded-full bg-gradient-to-br from-orange-400 to-orange-500" style={{ boxShadow: `0 0 16px ${theme.glow}` }} />
+                      </div>
+                      <FlipDigit value={time.sec1} />
+                      <FlipDigit value={time.sec2} />
+                    </div>
+                  )}
                 </div>
 
                 {time.isNegative && (
@@ -915,6 +939,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                   </div>
                 )}
 
+                {!useRing && (
                 <div className="w-full max-w-md" style={{ animation: 'slideUp 0.4s ease-out 0.4s both' }}>
                   <div className="h-1.5 w-full bg-white/[0.03] rounded-full overflow-hidden">
                     <div
@@ -930,6 +955,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                     <MetaText className="text-zinc-500 text-[9px] opacity-60">{Math.round(progress * 100)}% COMPLETE</MetaText>
                   </div>
                 </div>
+                )}
 
                 <div className="w-full max-w-md space-y-2.5" style={{ animation: 'slideUp 0.4s ease-out 0.5s both' }}>
                   {isOvertime && (
@@ -958,7 +984,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                         setShowQualityModal(true);
                         setCompletedDuration(sessionMinutes);
                       }}
-                      className="btn-smooth w-full h-10 rounded-xl flex items-center justify-center gap-2 font-semibold text-xs bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/15"
+                      className="btn-smooth w-full h-10 rounded-xl flex items-center justify-center gap-2 font-semibold text-xs bg-yellow-500/10 text-yellow-300 border border-yellow-500/20 hover:bg-yellow-500/15"
                     >
                       <CheckCircle size={14} />
                       <span>Complete Early ({sessionMinutes} min)</span>
@@ -968,13 +994,13 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                   <div className="grid grid-cols-2 gap-2.5">
                     {!isBreak ? (
                       <button onClick={startBreak} disabled={strictMode}
-                        className={`btn-smooth uniform-card h-10 flex items-center justify-center gap-2 text-cyan-300 text-sm font-medium ${strictMode ? 'opacity-30 cursor-not-allowed' : ''}`}>
+                        className={`btn-smooth uniform-card h-10 flex items-center justify-center gap-2 text-orange-300 text-sm font-medium ${strictMode ? 'opacity-30 cursor-not-allowed' : ''}`}>
                         <Coffee size={14} />
                         <span>Break</span>
                       </button>
                     ) : (
                       <button onClick={() => { setIsBreak(false); setBreakTime(0); setIsRunning(false); }}
-                        className="btn-smooth uniform-card h-10 flex items-center justify-center gap-2 text-emerald-300 text-sm font-medium">
+                        className="btn-smooth uniform-card h-10 flex items-center justify-center gap-2 text-yellow-300 text-sm font-medium">
                         <CheckCircle size={14} />
                         <span>Resume</span>
                       </button>
@@ -1025,10 +1051,10 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                 </button>
 
                 <button onClick={() => setShowResources(true)} className="btn-smooth uniform-card p-4 flex items-center gap-3 text-left">
-                  <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
-                    <FileText size={16} className="text-cyan-400" />
+                  <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                    <FileText size={16} className="text-orange-400" />
                   </div>
-                  <span className="font-medium text-sm text-cyan-300">Resources</span>
+                  <span className="font-medium text-sm text-orange-300">Resources</span>
                 </button>
 
                 <button onClick={() => setShowSettings(true)} className="btn-smooth uniform-card p-4 flex items-center gap-3 text-left">
@@ -1056,7 +1082,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
               </button>
 
               <button onClick={() => setShowResources(true)} className="btn-smooth uniform-card h-12 flex flex-col items-center justify-center gap-0.5">
-                <FileText size={16} className="text-cyan-400" />
+                <FileText size={16} className="text-orange-400" />
                 <MetaText className="text-[8px] opacity-60">FILES</MetaText>
               </button>
 
@@ -1104,7 +1130,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                         <h4 className="font-semibold text-white text-sm">Sound Effects</h4>
                         <MetaText className="text-[10px] mt-0.5">AUDIO FEEDBACK</MetaText>
                       </div>
-                      <div className={`w-11 h-6 rounded-full ${soundEnabled ? 'bg-cyan-500' : 'bg-zinc-700'}`}>
+                      <div className={`w-11 h-6 rounded-full ${soundEnabled ? 'bg-orange-500' : 'bg-zinc-700'}`}>
                         <div className={`w-5 h-5 rounded-full bg-white mt-0.5 transition-all ${soundEnabled ? 'ml-5' : 'ml-0.5'}`} />
                       </div>
                     </div>
@@ -1114,7 +1140,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
               <div className="px-5 py-4 border-t border-white/10 bg-black/20">
                 <button onClick={() => setShowSettings(false)}
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-semibold text-sm">
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-orange-500 text-white font-semibold text-sm">
                   Done
                 </button>
               </div>
@@ -1136,7 +1162,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowNotes(false)} />
           <div className="relative z-20 w-full max-w-2xl max-h-[85vh] rounded-3xl overflow-hidden">
-            <FrostedTile variant="cyan" className="h-full flex flex-col">
+            <FrostedTile variant="orange" className="h-full flex flex-col">
               <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
                 <div>
                   <h3 className="text-lg font-bold text-white">Session Notes</h3>
@@ -1146,7 +1172,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                   <button onClick={() => setNotes("")} className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/10">
                     Clear
                   </button>
-                  <button onClick={() => setShowNotes(false)} className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-xs font-bold">
+                  <button onClick={() => setShowNotes(false)} className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-orange-500 to-orange-500 text-white text-xs font-bold">
                     Done
                   </button>
                 </div>
@@ -1166,7 +1192,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-end p-0 md:p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowResources(false)} />
           <div className="relative z-20 w-full md:max-w-md h-full md:h-auto md:max-h-[90vh] flex flex-col">
-            <FrostedTile variant="cyan" className="md:rounded-3xl rounded-none h-full flex flex-col">
+            <FrostedTile variant="orange" className="md:rounded-3xl rounded-none h-full flex flex-col">
               <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-white">Resources</h3>
@@ -1200,13 +1226,13 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                       >
                         <FrostedMini className="p-4 hover:bg-white/5">
                           <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center border border-cyan-400/30">
-                              <FileText size={16} className="text-cyan-400" />
+                            <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center border border-orange-400/30">
+                              <FileText size={16} className="text-orange-400" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2 mb-1">
                                 <h4 className="font-semibold text-white text-sm line-clamp-2">{resource.title}</h4>
-                                {hasUrl && <ExternalLink size={14} className="text-cyan-400 flex-shrink-0 mt-0.5" />}
+                                {hasUrl && <ExternalLink size={14} className="text-orange-400 flex-shrink-0 mt-0.5" />}
                               </div>
                               <MetaText className="text-[10px]">{resource.type.toUpperCase()}</MetaText>
                             </div>
@@ -1221,7 +1247,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
               {subjectResources.length > 0 && (
                 <div className="px-5 py-4 border-t border-white/10 bg-black/20">
                   <button onClick={() => setShowResources(false)}
-                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold text-sm">
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-orange-500 text-white font-semibold text-sm">
                     Done
                   </button>
                 </div>
@@ -1234,9 +1260,9 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
       {showSummary && summaryData && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/90" />
-          <FrostedTile variant="emerald" className="relative z-20 px-8 py-8 max-w-md w-full border-2 border-white/15" style={{ animation: 'scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+          <FrostedTile variant="yellow" className="relative z-20 px-8 py-8 max-w-md w-full border-2 border-white/15" style={{ animation: 'scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
             <div className="text-center mb-6">
-              <div className="w-20 h-20 mx-auto mb-4 rounded-3xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
+              <div className="w-20 h-20 mx-auto mb-4 rounded-3xl bg-gradient-to-br from-yellow-400 to-yellow-500 flex items-center justify-center">
                 <Sparkles size={32} className="text-white" />
               </div>
               <h3 className="text-3xl font-bold text-white mb-2">Complete! 🎉</h3>
@@ -1244,17 +1270,17 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
             </div>
 
             <div className="space-y-3">
-              <FrostedMini variant="emerald" className="flex justify-between items-center px-4 py-3">
+              <FrostedMini variant="yellow" className="flex justify-between items-center px-4 py-3">
                 <span className="text-zinc-300 text-xs font-medium">Duration</span>
                 <span className="text-white font-bold text-xl">{summaryData.duration} min</span>
               </FrostedMini>
-              <FrostedMini variant="emerald" className="flex justify-between items-center px-4 py-3">
+              <FrostedMini variant="yellow" className="flex justify-between items-center px-4 py-3">
                 <span className="text-zinc-300 text-xs font-medium">Quality</span>
                 <span className="text-white font-bold text-xl">{'⭐'.repeat(summaryData.quality)}</span>
               </FrostedMini>
-              <FrostedMini variant="emerald" className="flex justify-between items-center px-4 py-3 bg-gradient-to-r from-emerald-500/15 to-teal-500/15 border-emerald-400/30">
-                <span className="text-emerald-200 text-xs font-medium">Readiness Gain</span>
-                <span className="text-emerald-300 font-bold text-xl flex items-center gap-1.5">
+              <FrostedMini variant="yellow" className="flex justify-between items-center px-4 py-3 bg-gradient-to-r from-yellow-500/15 to-yellow-500/15 border-yellow-400/30">
+                <span className="text-yellow-200 text-xs font-medium">Readiness Gain</span>
+                <span className="text-yellow-300 font-bold text-xl flex items-center gap-1.5">
                   <TrendingUp size={18} />
                   +{summaryData.readinessGain}%
                 </span>

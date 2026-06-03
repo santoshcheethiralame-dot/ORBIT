@@ -185,7 +185,7 @@ export default function StressTestView({ onBack }: StressTestViewProps) {
           onClick={run}
           disabled={running}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg,#7c3aed,#3b82f6)', color: '#fff' }}
+          style={{ background: 'linear-gradient(135deg,#FF5A1F,#FF7A3C)', color: '#fff' }}
         >
           {running ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
           {running ? 'Running…' : 'Run Tests'}

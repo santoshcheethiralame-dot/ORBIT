@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orbit — Brutalist Redesign Concept</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink:    '#0A0A0A',
+            ink2:   '#131314',
+            ink3:   '#1C1C1E',
+            orange: '#FF5A1F',
+            orange2:'#FF7A3C',
+            yellow: '#FFD60A',
+            paper:  '#F7F5EF',
+            mute:   '#9A9AA2',
+          },
+          fontFamily: {
+            display: ['Archivo', 'sans-serif'],
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          borderRadius: { '4xl': '28px', '5xl': '36px' },
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background:#0A0A0A; color:#fff; -webkit-font-smoothing:antialiased; }
+    .display { font-family:'Archivo',sans-serif; font-weight:900; letter-spacing:-0.035em; line-height:0.92; }
+    .meta { font-family:'JetBrains Mono',monospace; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; }
+    .grain::before{
+      content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+      background:radial-gradient(120% 120% at 0% 0%, rgba(255,255,255,.14), transparent 40%);
+      opacity:.5;
+    }
+    ::-webkit-scrollbar{width:10px;height:10px}
+    ::-webkit-scrollbar-thumb{background:#FF5A1F;border-radius:99px;border:3px solid #0A0A0A}
+    ::-webkit-scrollbar-track{background:transparent}
+    .wave{display:block;width:100%;height:24px}
+  </style>
+</head>
+<body class="font-sans">
+
+<div class="max-w-[1240px] mx-auto px-5 md:px-8 py-10 space-y-16">
+
+  <!-- ============ HEADER / BRAND ============ -->
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl bg-orange flex items-center justify-center text-ink display text-2xl">O</div>
+      <div>
+        <div class="display text-2xl leading-none">ORBIT</div>
+        <div class="meta text-[10px] text-mute mt-1">Redesign concept v1</div>
+      </div>
+    </div>
+    <span class="meta text-[10px] text-ink bg-yellow px-3 py-1.5 rounded-full">Brutalist · Dark-first</span>
+  </div>
+
+  <!-- ============ 1 · STYLE GUIDE ============ -->
+  <section class="space-y-7">
+    <div class="flex items-end gap-3">
+      <h2 class="display text-4xl md:text-5xl">FOUNDATION<span class="text-orange">.</span></h2>
+      <span class="meta text-[10px] text-mute mb-2">Tokens / type / components</span>
+    </div>
+
+    <!-- palette -->
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <div class="rounded-2xl h-24 bg-ink border border-white/10 p-3 flex flex-col justify-end"><span class="meta text-[9px] text-mute">Canvas</span><span class="text-xs font-mono">#0A0A0A</span></div>
+      <div class="rounded-2xl h-24 bg-ink2 border border-white/10 p-3 flex flex-col justify-end"><span class="meta text-[9px] text-mute">Surface</span><span class="text-xs font-mono">#131314</span></div>
+      <div class="rounded-2xl h-24 bg-orange p-3 flex flex-col justify-end text-ink"><span class="meta text-[9px] opacity-70">Orange</span><span class="text-xs font-mono">#FF5A1F</span></div>
+      <div class="rounded-2xl h-24 bg-yellow p-3 flex flex-col justify-end text-ink"><span class="meta text-[9px] opacity-70">Yellow</span><span class="text-xs font-mono">#FFD60A</span></div>
+      <div class="rounded-2xl h-24 bg-paper p-3 flex flex-col justify-end text-ink"><span class="meta text-[9px] opacity-60">Paper</span><span class="text-xs font-mono">#F7F5EF</span></div>
+      <div class="rounded-2xl h-24 bg-white p-3 flex flex-col justify-end text-ink"><span class="meta text-[9px] opacity-60">White</span><span class="text-xs font-mono">#FFFFFF</span></div>
+    </div>
+
+    <!-- type + components -->
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="rounded-4xl bg-ink2 border border-white/10 p-7 space-y-4">
+        <span class="meta text-[10px] text-orange">Type scale — Archivo Black</span>
+        <div class="display text-6xl">Aa</div>
+        <div class="display text-3xl">DEEP WORK<span class="text-orange">,</span> SCHEDULED.</div>
+        <p class="text-sm text-mute leading-relaxed">Inter for body copy — calm, legible, neutral. Mono for labels and the numbers that need to read like a readout.</p>
+        <div class="meta text-[11px] text-mute">READINESS · 14:32 · STREAK 12</div>
+      </div>
+      <div class="rounded-4xl bg-ink2 border border-white/10 p-7 space-y-5">
+        <span class="meta text-[10px] text-orange">Buttons &amp; chips</span>
+        <div class="flex flex-wrap gap-3">
+          <button class="bg-orange text-ink font-bold text-sm px-5 py-3 rounded-2xl">Start focus →</button>
+          <button class="bg-white text-ink font-bold text-sm px-5 py-3 rounded-2xl">Plan today</button>
+          <button class="bg-transparent text-white font-bold text-sm px-5 py-3 rounded-2xl border border-white/15">Skip</button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <span class="meta text-[10px] bg-orange/15 text-orange px-3 py-1.5 rounded-full">Critical</span>
+          <span class="meta text-[10px] bg-yellow/15 text-yellow px-3 py-1.5 rounded-full">High value</span>
+          <span class="meta text-[10px] bg-white/8 text-mute px-3 py-1.5 rounded-full border border-white/10">Maintaining</span>
+          <span class="meta text-[10px] bg-emerald-400/15 text-emerald-300 px-3 py-1.5 rounded-full">Mastered</span>
+        </div>
+        <div class="flex items-center gap-3 pt-1">
+          <div class="h-2 flex-1 rounded-full bg-white/10 overflow-hidden"><div class="h-full w-[68%] bg-orange rounded-full"></div></div>
+          <span class="font-mono text-sm font-bold">68%</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2 · DESKTOP DASHBOARD ============ -->
+  <section class="space-y-6">
+    <div class="flex items-end gap-3">
+      <h2 class="display text-4xl md:text-5xl">DASHBOARD<span class="text-orange">.</span></h2>
+      <span class="meta text-[10px] text-mute mb-2">Desktop · mission control</span>
+    </div>
+
+    <!-- frame -->
+    <div class="rounded-5xl bg-ink border border-white/10 p-4 md:p-6 space-y-6 overflow-hidden">
+
+      <!-- nav pill -->
+      <div class="flex items-center justify-between rounded-full bg-ink2 border border-white/10 px-3 py-2.5">
+        <div class="flex items-center gap-2.5 pl-2">
+          <div class="w-8 h-8 rounded-xl bg-orange flex items-center justify-center text-ink display text-lg">O</div>
+          <span class="display text-lg">ORBIT</span>
+        </div>
+        <nav class="hidden md:flex items-center gap-1">
+          <a class="text-sm font-bold text-ink bg-white px-4 py-2 rounded-full">Dashboard</a>
+          <a class="text-sm font-semibold text-mute hover:text-white px-4 py-2 rounded-full">Courses</a>
+          <a class="text-sm font-semibold text-mute hover:text-white px-4 py-2 rounded-full">Projects</a>
+          <a class="text-sm font-semibold text-mute hover:text-white px-4 py-2 rounded-full">Analytics</a>
+        </nav>
+        <div class="flex items-center gap-2">
+          <div class="w-9 h-9 rounded-full bg-ink3 border border-white/10 flex items-center justify-center text-mute">⚙</div>
+          <button class="bg-orange text-ink font-bold text-sm px-4 py-2 rounded-full">▶ Focus</button>
+        </div>
+      </div>
+
+      <!-- hero greeting -->
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-2">
+        <div>
+          <div class="meta text-[11px] text-orange mb-3">Tuesday · 03 Jun · 14:32 IST</div>
+          <h1 class="display text-5xl md:text-7xl">TODAY'S<br>MISSION<span class="text-orange">.</span></h1>
+        </div>
+        <div class="flex gap-3">
+          <div class="rounded-3xl bg-ink2 border border-white/10 px-6 py-4 text-center">
+            <div class="display text-4xl text-yellow">12</div>
+            <div class="meta text-[9px] text-mute mt-1">Day streak</div>
+          </div>
+          <div class="rounded-3xl bg-ink2 border border-white/10 px-6 py-4 text-center">
+            <div class="display text-4xl">4.2<span class="text-xl text-mute">h</span></div>
+            <div class="meta text-[9px] text-mute mt-1">Focused today</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- stat row: solid accent cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- ring card -->
+        <div class="rounded-4xl bg-ink2 border border-white/10 p-6 flex items-center gap-4">
+          <div class="relative w-[72px] h-[72px] shrink-0">
+            <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
+              <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="12"/>
+              <circle cx="50" cy="50" r="42" fill="none" stroke="#FF5A1F" stroke-width="12" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="84"/>
+            </svg>
+            <div class="absolute inset-0 flex items-center justify-center display text-xl">68<span class="text-[10px]">%</span></div>
+          </div>
+          <div>
+            <div class="meta text-[9px] text-mute">Avg readiness</div>
+            <div class="text-sm font-bold mt-1">On track</div>
+            <div class="text-xs text-orange font-semibold mt-0.5">+6% this week</div>
+          </div>
+        </div>
+        <!-- orange solid -->
+        <div class="rounded-4xl bg-orange text-ink p-6 flex flex-col justify-between min-h-[140px]">
+          <span class="meta text-[9px] opacity-70">Blocks left</span>
+          <div><div class="display text-5xl">03</div><div class="text-xs font-bold mt-1 opacity-80">≈ 2h 10m of deep work</div></div>
+        </div>
+        <!-- yellow solid -->
+        <div class="rounded-4xl bg-yellow text-ink p-6 flex flex-col justify-between min-h-[140px]">
+          <span class="meta text-[9px] opacity-70">Critical subject</span>
+          <div><div class="display text-3xl leading-none">DBMS</div><div class="text-xs font-bold mt-1 opacity-80">Readiness 31% · ESA in 9d</div></div>
+        </div>
+        <!-- paper solid -->
+        <div class="rounded-4xl bg-paper text-ink p-6 flex flex-col justify-between min-h-[140px]">
+          <span class="meta text-[9px] opacity-60">Reviews due</span>
+          <div><div class="display text-5xl">07</div><div class="text-xs font-bold mt-1 opacity-70">flashcards · 4 topics</div></div>
+        </div>
+      </div>
+
+      <!-- two-col: plan + insight -->
+      <div class="grid lg:grid-cols-3 gap-4">
+        <!-- today's plan -->
+        <div class="lg:col-span-2 rounded-4xl bg-ink2 border border-white/10 p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="display text-2xl">THE PLAN</h3>
+            <span class="meta text-[10px] text-mute">5 blocks · adaptive</span>
+          </div>
+
+          <!-- block: active -->
+          <div class="rounded-3xl bg-orange text-ink p-5 flex items-center gap-4">
+            <div class="display text-3xl w-14">50<span class="text-sm">m</span></div>
+            <div class="flex-1">
+              <div class="meta text-[9px] opacity-70">Now · deep work</div>
+              <div class="display text-xl leading-tight">Operating Systems</div>
+              <div class="text-xs font-semibold opacity-80">Scheduling &amp; deadlocks · peak energy slot</div>
+            </div>
+            <button class="bg-ink text-white font-bold text-sm px-5 py-3 rounded-2xl whitespace-nowrap">▶ Start</button>
+          </div>
+
+          <!-- block: upcoming -->
+          <div class="rounded-3xl bg-ink3 border border-white/10 p-5 flex items-center gap-4">
+            <div class="display text-2xl w-14 text-mute">25<span class="text-xs">m</span></div>
+            <div class="flex-1">
+              <div class="meta text-[9px] text-yellow">Up next · review</div>
+              <div class="font-bold text-lg leading-tight">DBMS — Normalization</div>
+              <div class="text-xs text-mute">Spaced repetition · 7 cards due</div>
+            </div>
+            <span class="meta text-[10px] bg-yellow/15 text-yellow px-3 py-1.5 rounded-full">High value</span>
+          </div>
+
+          <!-- block: done -->
+          <div class="rounded-3xl border border-white/8 p-5 flex items-center gap-4 opacity-50">
+            <div class="display text-2xl w-14 text-mute">45<span class="text-xs">m</span></div>
+            <div class="flex-1">
+              <div class="meta text-[9px] text-emerald-300">Done</div>
+              <div class="font-bold text-lg leading-tight line-through decoration-2">Maths III — Practice</div>
+            </div>
+            <span class="text-emerald-300">✓</span>
+          </div>
+        </div>
+
+        <!-- AI insight -->
+        <div class="rounded-4xl bg-ink2 border border-white/10 p-6 flex flex-col justify-between">
+          <div>
+            <span class="meta text-[10px] text-orange">Coach · today</span>
+            <p class="display text-xl mt-3 leading-snug">DBMS has decayed 3 days running.</p>
+            <p class="text-sm text-mute mt-3 leading-relaxed">A 25-min review now lifts readiness past the safe line before your ESA window opens.</p>
+          </div>
+          <button class="mt-5 bg-white text-ink font-bold text-sm px-5 py-3 rounded-2xl w-full">Add review block</button>
+        </div>
+      </div>
+
+      <!-- course blocks: stacked wavy accent (inspo nod) -->
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-4xl bg-ink2 border border-white/10 p-6 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="display text-2xl">COURSES</h3>
+            <span class="meta text-[10px] text-mute">6 active</span>
+          </div>
+          <div class="space-y-0">
+            <div class="rounded-t-3xl bg-orange text-ink px-5 pt-4 pb-7 relative">
+              <div class="flex justify-between items-start"><div><div class="meta text-[9px] opacity-70">234 logs</div><div class="display text-xl">Operating Systems</div></div><div class="text-right"><div class="display text-2xl">82<span class="text-sm">%</span></div></div></div>
+            </div>
+            <svg class="wave -mt-6 relative z-10" viewBox="0 0 500 24" preserveAspectRatio="none"><path d="M0,24 L0,8 C120,22 380,-6 500,8 L500,24 Z" fill="#FFD60A"/></svg>
+            <div class="bg-yellow text-ink px-5 -mt-px pt-1 pb-7 relative">
+              <div class="flex justify-between items-start"><div><div class="meta text-[9px] opacity-70">149 logs</div><div class="display text-xl">DBMS</div></div><div class="text-right"><div class="display text-2xl">31<span class="text-sm">%</span></div></div></div>
+            </div>
+            <svg class="wave -mt-6 relative z-10" viewBox="0 0 500 24" preserveAspectRatio="none"><path d="M0,24 L0,8 C140,-4 360,22 500,8 L500,24 Z" fill="#F7F5EF"/></svg>
+            <div class="rounded-b-3xl bg-paper text-ink px-5 -mt-px pt-1 pb-5">
+              <div class="flex justify-between items-start"><div><div class="meta text-[9px] opacity-60">88 logs</div><div class="display text-xl">Maths III</div></div><div class="text-right"><div class="display text-2xl">74<span class="text-sm">%</span></div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- weekly bars (inspo #2 chart nod) -->
+        <div class="rounded-4xl bg-ink2 border border-white/10 p-6 flex flex-col">
+          <div class="flex items-center justify-between">
+            <h3 class="display text-2xl">THIS WEEK</h3>
+            <span class="meta text-[10px] bg-orange/15 text-orange px-3 py-1.5 rounded-full">+13%</span>
+          </div>
+          <div class="flex-1 flex items-end justify-between gap-2 mt-6 h-44">
+            <!-- bars -->
+            <div class="flex flex-col items-center gap-2 flex-1"><div class="w-full rounded-xl bg-white/10" style="height:45%"></div><span class="meta text-[9px] text-mute">M</span></div>
+            <div class="flex flex-col items-center gap-2 flex-1"><div class="w-full rounded-xl bg-white/10" style="height:62%"></div><span class="meta text-[9px] text-mute">T</span></div>
+            <div class="flex flex-col items-center gap-2 flex-1"><div class="w-full rounded-xl bg-yellow" style="height:80%"></div><span class="meta text-[9px] text-mute">W</span></div>
+            <div class="flex flex-col items-center gap-2 flex-1"><div class="w-full rounded-xl bg-white/10" style="height:55%"></div><span class="meta text-[9px] text-mute">T</span></div>
+            <div class="flex flex-col items-center gap-2 flex-1"><div class="w-full rounded-xl bg-orange" style="height:95%"></div><span class="meta text-[9px] text-white">F</span></div>
+            <div class="flex flex-col items-center gap-2 flex-1"><div class="w-full rounded-xl bg-white/10" style="height:40%"></div><span class="meta text-[9px] text-mute">S</span></div>
+            <div class="flex flex-col items-center gap-2 flex-1"><div class="w-full rounded-xl bg-white/10" style="height:30%"></div><span class="meta text-[9px] text-mute">S</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 3 · MOBILE + FOCUS ============ -->
+  <section class="space-y-6">
+    <div class="flex items-end gap-3">
+      <h2 class="display text-4xl md:text-5xl">MOBILE<span class="text-orange">.</span></h2>
+      <span class="meta text-[10px] text-mute mb-2">Same system · one-hand reach</span>
+    </div>
+
+    <div class="flex flex-wrap gap-8 justify-center md:justify-start">
+
+      <!-- phone 1: dashboard -->
+      <div class="w-[300px] rounded-[42px] bg-ink2 border border-white/10 p-3 shadow-2xl">
+        <div class="rounded-[34px] bg-ink overflow-hidden">
+          <div class="px-5 pt-5 pb-3 flex items-center justify-between">
+            <button class="meta text-[10px] bg-ink3 border border-white/10 px-3 py-2 rounded-full">MENU</button>
+            <div class="w-9 h-9 rounded-full bg-orange flex items-center justify-center text-ink display">O</div>
+          </div>
+          <div class="px-5 pb-5">
+            <div class="meta text-[10px] text-orange mb-2">14:32 · streak 12 🔥</div>
+            <h1 class="display text-4xl">TODAY'S<br>MISSION<span class="text-orange">.</span></h1>
+          </div>
+          <!-- search -->
+          <div class="mx-5 mb-4 flex items-center gap-2 bg-ink3 border border-white/10 rounded-full px-4 py-3">
+            <span class="text-mute">⌕</span><span class="text-sm text-mute">Find a subject…</span>
+          </div>
+          <!-- chips -->
+          <div class="px-5 flex gap-2 mb-4 overflow-hidden">
+            <span class="meta text-[9px] bg-white text-ink px-3 py-1.5 rounded-full">All</span>
+            <span class="meta text-[9px] bg-ink3 text-mute px-3 py-1.5 rounded-full border border-white/10">Critical</span>
+            <span class="meta text-[9px] bg-ink3 text-mute px-3 py-1.5 rounded-full border border-white/10">Review</span>
+          </div>
+          <!-- active block -->
+          <div class="mx-5 rounded-3xl bg-orange text-ink p-4 mb-3">
+            <div class="meta text-[9px] opacity-70">Now · 50m</div>
+            <div class="display text-2xl leading-tight mt-1">Operating<br>Systems</div>
+            <button class="mt-3 bg-ink text-white font-bold text-sm px-4 py-2.5 rounded-2xl w-full">▶ Start focus</button>
+          </div>
+          <!-- mini stat -->
+          <div class="mx-5 grid grid-cols-2 gap-3 mb-5">
+            <div class="rounded-2xl bg-yellow text-ink p-4"><div class="display text-3xl">03</div><div class="meta text-[8px] opacity-70 mt-1">blocks left</div></div>
+            <div class="rounded-2xl bg-paper text-ink p-4"><div class="display text-3xl">07</div><div class="meta text-[8px] opacity-60 mt-1">reviews due</div></div>
+          </div>
+          <!-- bottom nav + fab -->
+          <div class="relative px-4 pb-4">
+            <div class="flex items-center justify-between bg-ink3 border border-white/10 rounded-full px-5 py-3">
+              <span class="text-orange">⬚</span><span class="text-mute">▭</span>
+              <span class="w-10"></span>
+              <span class="text-mute">◷</span><span class="text-mute">☰</span>
+            </div>
+            <div class="absolute left-1/2 -translate-x-1/2 -top-1 w-14 h-14 rounded-full bg-orange flex items-center justify-center text-ink text-2xl shadow-lg shadow-orange/40">+</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- phone 2: focus session -->
+      <div class="w-[300px] rounded-[42px] bg-ink2 border border-white/10 p-3 shadow-2xl">
+        <div class="rounded-[34px] bg-ink overflow-hidden min-h-[600px] flex flex-col">
+          <div class="px-5 pt-5 flex items-center justify-between">
+            <button class="meta text-[10px] text-mute">✕ Exit</button>
+            <span class="meta text-[10px] text-orange">Deep work</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center justify-center px-6 -mt-8">
+            <div class="meta text-[10px] text-mute mb-4">Operating Systems</div>
+            <div class="relative w-[200px] h-[200px]">
+              <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
+                <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="6"/>
+                <circle cx="50" cy="50" r="44" fill="none" stroke="#FF5A1F" stroke-width="6" stroke-linecap="round" stroke-dasharray="276" stroke-dashoffset="96"/>
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <div class="display text-6xl">32:18</div>
+                <div class="meta text-[9px] text-mute mt-2">of 50:00</div>
+              </div>
+            </div>
+            <div class="mt-8 display text-xl text-center leading-tight">Scheduling &amp;<br>deadlocks</div>
+          </div>
+          <div class="px-6 pb-8 flex gap-3">
+            <button class="flex-1 bg-ink3 border border-white/10 text-white font-bold text-sm px-4 py-4 rounded-2xl">Pause</button>
+            <button class="flex-1 bg-orange text-ink font-bold text-sm px-4 py-4 rounded-2xl">Done ✓</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="text-center meta text-[10px] text-mute pt-8 pb-4">Orbit · concept mockup · not wired to data</div>
+</div>
+
+</body>
+</html>

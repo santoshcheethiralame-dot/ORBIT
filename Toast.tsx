@@ -126,10 +126,10 @@ const ToastItem = ({
       iconColor: 'text-amber-400'
     },
     info: {
-      bg: 'bg-blue-900/90',
-      border: 'border-blue-500/30',
+      bg: 'bg-orange-900/90',
+      border: 'border-orange-500/30',
       icon: Info,
-      iconColor: 'text-blue-400'
+      iconColor: 'text-orange-400'
     }
   };
 
@@ -225,7 +225,7 @@ function DemoButtons() {
 
       <button
         onClick={() => toast.info('New version available. Refresh to update.')}
-        className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all"
+        className="w-full px-6 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold transition-all"
       >
         Info Toast
       </button>

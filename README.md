@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🛰️ Orbit v3.3
+# 🛰️ Orbit v3.4
 
 > **The specialized planning intelligence for high-performance students.**
 
@@ -16,6 +16,14 @@ Orbit is not just a todo list. It is a **focus engine** designed to maximize dee
 ---
 
 </div>
+
+## 🎨 What's New in v3.4
+
+- **Brutalist redesign**: a complete UI overhaul to a flat, high-contrast **black / orange / yellow / white** system — ultra-bold Archivo display type, solid accent cards, no glassmorphism. Replaces the old indigo "cosmic" glass theme.
+- **Dashboard**: giant "Today's Mission" hero, readiness ring + solid stat cards, "The Plan" block list, a smart Coach card, Courses + This-Week chart.
+- **Courses**: a "loadout" — PRIORITY hero, subject bento with monograms, fuel-gauge readiness, and exam countdowns.
+- **Analytics**: single-scroll cockpit — KPI band, focus-trend chart, a consistency heat-grid, peak-window readout, and records.
+- **Focus**: an orbiting-planet ring timer (with a flip-clock toggle).
 
 ## 🚀 What's New in v3.3
 
@@ -109,6 +117,31 @@ npm install && npm run dev
 
 ---
 
+## 📲 Install & Deploy
+
+Orbit is a **local-first PWA** — install it like a native app on phone & desktop, and it runs fully offline.
+
+### Install the app
+- **Desktop (Chrome / Edge):** open the site → click the **install icon** in the address bar (or ⋮ → *Install Orbit*). Also available at **Settings → Data → Install app**.
+- **iPhone / iPad (Safari):** **Share** → **Add to Home Screen**.
+- **Android (Chrome):** **⋮** → **Install app / Add to Home Screen**.
+
+Once installed it opens in its own window, launches from your home screen/dock, and works with no connection.
+
+### Deploy (Vercel — ~1 minute)
+It's a static Vite SPA (no backend), so any static host works. Easiest is **Vercel**:
+
+1. Push the repo to GitHub.
+2. On [vercel.com](https://vercel.com) → **Add New → Project** → import the **ORBIT** repo.
+3. Vercel auto-detects Vite → **Deploy**. Every `git push` then auto-deploys.
+
+`vercel.json` is included (SPA routing + service-worker/manifest cache headers). To build anywhere else: `npm run build` → ship the `dist/` folder to Netlify, Cloudflare Pages, GitHub Pages, etc.
+
+### Move data between devices
+Everything lives **on your device** (IndexedDB) — no account, no cloud. To sync phone ↔ desktop: **Settings → Data → Export backup** on one device, then **Import backup** on the other (a full JSON of subjects, sessions, projects & settings).
+
+---
+
 ## 🎯 Core Features
 
 | Feature | What It Does | Why It Matters |
@@ -187,7 +220,8 @@ Status:
 ```
 Frontend:    React 19 + TypeScript 5.8
 Database:    Dexie.js v12 (IndexedDB) — 12-table schema
-Styling:     Tailwind CSS (CDN) + custom glass-morphism CSS
+Styling:     Tailwind CSS (compiled v3.4) — brutalist flat UI (black · orange · yellow · white)
+             Archivo (display) + Inter (body) + JetBrains Mono (labels)
 Build:       Vite
 AI:          OpenRouter API (model routing via gemini.ts)
              • simple tasks  → openrouter/free

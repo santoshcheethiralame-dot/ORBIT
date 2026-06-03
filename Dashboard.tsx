@@ -4,7 +4,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { SubjectReadiness, StudyBlock, Subject, StudyLog, DailyPlan, DailyContext } from './types';
-import { WeekPreviewModal } from "./WeekPreviewModal";
 import { BlockReason, PageHeader, MetaText, HeaderChip } from "./components";
 import { getISTTime, getISTEffectiveDate, effectiveDatePlus } from "./utils/time";
 import { EmptyBacklog, EmptyTodayPlan } from './EmptyStates';
@@ -40,9 +39,6 @@ import {
 } from "lucide-react";
 import { db } from "./db";
 import { useLiveQuery } from "dexie-react-hooks";
-import { DashboardInsights } from "./DashboardInsights";
-import { ScheduleOptimizer } from "./ScheduleOptimizer";
-import { AIInsightBanner } from "./AIInsightBanner";
 import { FrostedTile, FrostedMini, getSubjectColor, SUBJECT_COLOR_CLASSES, SubjectColor } from "./components";
 
 const PULL_REFRESH_THRESHOLD = 60;
@@ -52,36 +48,6 @@ const VISIBLE_BLOCKS_DEFAULT = 4;
 const PROGRESS_ANIMATION_INTERVAL = 20;
 const STREAK_ANIMATION_INTERVAL = 50;
 const MAX_STREAK_DAYS = 365;
-
-const AssignmentProgressBar = React.memo(({
-  assignmentId,
-  assignments
-}: {
-  assignmentId: string;
-  assignments: any[]
-}) => {
-  const assignment = assignments.find(a => a.id === assignmentId);
-  if (!assignment) return null;
-
-  const percent = Math.round(((assignment.progressMinutes || 0) / (assignment.estimatedEffort || 120)) * 100);
-
-  return (
-    <div className="w-full mt-3">
-      <div className="flex justify-between items-center mb-1.5">
-        <span className="text-xs font-medium text-zinc-300 truncate pr-2">{assignment.title}</span>
-        <span className="text-xs font-mono font-bold text-indigo-400 tabular-nums">{percent}%</span>
-      </div>
-      <div className="h-2 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
-        <div
-          className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400 rounded-full transition-all duration-500 ease-out"
-          style={{ width: `${Math.min(percent, 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-});
-
-AssignmentProgressBar.displayName = 'AssignmentProgressBar';
 
 const BacklogItem = React.memo(({
   block,
@@ -197,106 +163,6 @@ const BacklogItem = React.memo(({
 
 BacklogItem.displayName = 'BacklogItem';
 
-const MessageCarousel = ({ tiles }: { tiles: React.ReactElement[] }) => {
-  const [offset, setOffset] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const animationRef = useRef<number | undefined>(undefined);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  const infiniteTiles = useMemo(() => {
-    if (tiles.length === 0) return [];
-    return [...tiles, ...tiles, ...tiles];
-  }, [tiles]) as React.ReactElement[];
-
-  const tilesPerView = isMobile ? 1 : 3;
-
-  useEffect(() => {
-    if (isPaused || tiles.length === 0) return;
-
-    const speed = isMobile ? 0.17 : 0.06;
-
-    const animate = () => {
-      setOffset((prev) => {
-        const newOffset = prev + speed;
-        const resetPoint = (tiles.length / tilesPerView) * 100;
-        if (newOffset >= resetPoint) {
-          return newOffset - resetPoint;
-        }
-        return newOffset;
-      });
-      animationRef.current = requestAnimationFrame(animate);
-    };
-
-    animationRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [isPaused, tiles.length, tilesPerView, isMobile]);
-
-  if (tiles.length === 0) return null;
-
-  return (
-    <div
-      ref={containerRef}
-      className="relative overflow-hidden px-4 lg:px-0"
-      onMouseEnter={() => !isMobile && setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      onTouchStart={() => setIsPaused(true)}
-      onTouchEnd={() => setTimeout(() => setIsPaused(false), 2000)}
-    >
-      <div
-        className="flex gap-4"
-        style={{
-          transform: `translateX(-${offset}%)`,
-          transition: 'none',
-        }}
-      >
-        {infiniteTiles.map((tile, idx) => (
-          <div
-            key={`tile-${idx}`}
-            className={isMobile ? 'w-full flex-shrink-0' : 'w-[calc(33.333%-10.67px)] flex-shrink-0'}
-          >
-            {tile}
-          </div>
-        ))}
-      </div>
-
-      {isPaused && !isMobile && (
-        <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs text-white/70 font-medium pointer-events-none z-10">
-          Paused
-        </div>
-      )}
-    </div>
-  );
-};
-
-const SidebarTiles = ({ tiles }: { tiles: React.ReactElement[] }) => {
-  if (tiles.length === 0) return null;
-
-  const displayTiles = tiles.slice(0, 3);
-
-  return (
-    <div className="space-y-4">
-      {displayTiles.map((tile, idx) => (
-        <div key={`sidebar-tile-${idx}`}>
-          {tile}
-        </div>
-      ))}
-    </div>
-  );
-};
-
 const getGreeting = () => {
   const hour = new Date().getHours();
   if (hour >= 0 && hour < 2) return "Deep Space Hours";
@@ -335,21 +201,13 @@ export const Dashboard = ({
   const [refreshing, setRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [touchStartY, setTouchStartY] = useState(0);
-  const [showWeekPreview, setShowWeekPreview] = useState(false);
-  const [weekPreview, setWeekPreview] = useState<any>(null);
   const [showAllBlocks, setShowAllBlocks] = useState(false);
-  const [isLoadingWeek, setIsLoadingWeek] = useState(false);
 
   const toast = useToast();
 
   const assignments = useLiveQuery(() =>
     db.assignments.filter(a => !a.completed).toArray()
   ) || [];
-
-  const inProgressAssignments = useMemo(() =>
-    assignments.filter(a => a.progressMinutes && a.progressMinutes > 0),
-    [assignments]
-  );
 
   const today = useMemo(() => {
     const d = new Date();
@@ -421,556 +279,8 @@ export const Dashboard = ({
     return count;
   }, [logs]);
 
-  const criticalSubjects = useMemo(() =>
-    Object.entries(readinessScores)
-      .filter(([_, r]) => r.status === 'critical')
-      .map(([id, _]) => subjects.find(s => s.id === Number(id))?.name)
-      .filter(Boolean),
-    [readinessScores, subjects]
-  );
-
   const visibleBlocks = showAllBlocks ? activeBlocks : activeBlocks.slice(0, VISIBLE_BLOCKS_DEFAULT);
   const hasMoreBlocks = activeBlocks.length > VISIBLE_BLOCKS_DEFAULT;
-
-  interface MessageTile {
-    priority: number;
-    type: 'critical' | 'workload' | 'adjustments' | 'status' | 'insight';
-    content: React.ReactElement;
-  }
-
-  const messageTiles = useMemo(() => {
-    const tiles: MessageTile[] = [];
-
-    const score = plan.loadAnalysis?.loadScore ?? plan.loadScore ?? 45;
-    const level = plan.loadAnalysis?.loadLevel ?? plan.loadLevel ?? 'normal';
-    const isExtremeLoad = level === 'extreme' || score > 70;
-    const isHeavyLoad = level === 'heavy' || score > 50;
-    const isLightLoad = level === 'light' || score < 30;
-    const readinessImpact = plan.loadAnalysis?.readinessImpact ?? 0;
-    const hasAdjustments = (plan.performanceAdjustments?.length ?? 0) > 0;
-
-    if (criticalSubjects.length > 0) {
-      tiles.push({
-        priority: 10,
-        type: 'critical',
-        content: (
-          <div className="rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-500/5 to-transparent p-5 backdrop-blur-sm hover:border-red-400/50 transition-all duration-300 cursor-default group h-full">
-            <div className="flex items-start gap-3 h-full">
-              <div className="p-2.5 rounded-xl bg-red-500/20 border border-red-500/30 group-hover:bg-red-500/25 transition-colors shrink-0">
-                <AlertTriangle size={20} className="text-red-400" strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-base text-red-300 mb-1.5">Critical Attention Required</div>
-                <div className="text-sm text-red-200/70 leading-relaxed">
-                  {criticalSubjects.length} {criticalSubjects.length === 1 ? 'subject needs' : 'subjects need'} urgent review to prevent knowledge decay
-                </div>
-                <div className="text-xs text-red-400/50 mt-2 font-medium">
-                  {criticalSubjects.slice(0, 2).join(', ')}{criticalSubjects.length > 2 ? ` +${criticalSubjects.length - 2} more` : ''}
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      });
-    }
-
-    if (isExtremeLoad) {
-      tiles.push({
-        priority: 9,
-        type: 'workload',
-        content: (
-          <div className="rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-500/5 to-transparent p-5 backdrop-blur-sm hover:border-red-400/50 transition-all duration-300 cursor-default group h-full">
-            <div className="flex items-start gap-3 h-full">
-              <div className="p-2.5 rounded-xl bg-red-500/20 border border-red-500/30 group-hover:bg-red-500/25 transition-colors shrink-0">
-                <Flame size={20} className="text-red-400" strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-base text-red-300 flex items-center gap-2 mb-1.5">
-                  High-Intensity Day
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-red-500/20 font-mono">{score}</span>
-                </div>
-                <div className="text-sm text-red-200/70 leading-relaxed">
-                  Demanding schedule ahead — pace yourself and take strategic breaks
-                </div>
-                <div className="text-xs text-red-400/50 mt-2 font-medium">
-                  Focus on high-priority tasks first
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      });
-    } else if (isHeavyLoad) {
-      tiles.push({
-        priority: 7,
-        type: 'workload',
-        content: (
-          <div className="rounded-2xl border border-orange-500/30 bg-gradient-to-br from-orange-500/5 to-transparent p-5 backdrop-blur-sm hover:border-orange-400/50 transition-all duration-300 cursor-default group h-full">
-            <div className="flex items-start gap-3 h-full">
-              <div className="p-2.5 rounded-xl bg-orange-500/20 border border-orange-500/30 group-hover:bg-orange-500/25 transition-colors shrink-0">
-                <Activity size={20} className="text-orange-400" strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-base text-orange-300 flex items-center gap-2 mb-1.5">
-                  Active Day
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-orange-500/20 font-mono">{score}</span>
-                </div>
-                <div className="text-sm text-orange-200/70 leading-relaxed">
-                  Full schedule planned — maintain steady pace throughout the day
-                </div>
-                <div className="text-xs text-orange-400/50 mt-2 font-medium">
-                  {totalCount} blocks · Est. {activeBlocks.reduce((sum, b) => sum + b.duration, 0)}min total
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      });
-    } else if (isLightLoad) {
-      tiles.push({
-        priority: 5,
-        type: 'workload',
-        content: (
-          <div className="rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-500/5 to-transparent p-5 backdrop-blur-sm hover:border-sky-400/50 transition-all duration-300 cursor-default group h-full">
-            <div className="flex items-start gap-3 h-full">
-              <div className="p-2.5 rounded-xl bg-sky-500/20 border border-sky-500/30 group-hover:bg-sky-500/25 transition-colors shrink-0">
-                <Coffee size={20} className="text-sky-400" strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-base text-sky-300 flex items-center gap-2 mb-1.5">
-                  Recovery Day
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-sky-500/20 font-mono">{score}</span>
-                </div>
-                <div className="text-sm text-sky-200/70 leading-relaxed">
-                  Light workload scheduled — perfect for deep focus and quality learning
-                </div>
-                <div className="text-xs text-sky-400/50 mt-2 font-medium">
-                  Use extra time for review or exploration
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      });
-    } else {
-      tiles.push({
-        priority: 6,
-        type: 'workload',
-        content: (
-          <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-500/5 to-transparent p-5 backdrop-blur-sm hover:border-indigo-400/50 transition-all duration-300 cursor-default group h-full">
-            <div className="flex items-start gap-3 h-full">
-              <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-500/30 group-hover:bg-indigo-500/25 transition-colors shrink-0">
-                <CheckCircle size={20} className="text-indigo-400" strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-base text-indigo-300 flex items-center gap-2 mb-1.5">
-                  Balanced Load
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-500/20 font-mono">{score}</span>
-                </div>
-                <div className="text-sm text-indigo-200/70 leading-relaxed">
-                  Optimal conditions for progress — steady workload with good distribution
-                </div>
-                <div className="text-xs text-indigo-400/50 mt-2 font-medium">
-                  {totalCount} focused sessions planned
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      });
-    }
-
-    if (hasAdjustments) {
-      const count = plan.performanceAdjustments!.length;
-      tiles.push({
-        priority: 8,
-        type: 'adjustments',
-        content: (
-          <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 to-transparent p-5 backdrop-blur-sm hover:border-cyan-400/50 transition-all duration-300 cursor-default group h-full">
-            <div className="flex items-start gap-3 h-full">
-              <div className="p-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500/30 group-hover:bg-cyan-500/25 transition-colors shrink-0">
-                <Zap size={20} className="text-cyan-400" strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-base text-cyan-300 mb-1.5">Smart Adjustments Applied</div>
-                <div className="text-sm text-cyan-200/70 leading-relaxed">
-                  {count} {count === 1 ? 'optimization' : 'optimizations'} made based on your recent performance patterns
-                </div>
-                <div className="text-xs text-cyan-400/50 mt-2 font-medium">
-                  AI-powered scheduling active
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      });
-    }
-
-    tiles.push({
-      priority: 7,
-      type: 'status',
-      content: (
-        <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-transparent p-5 backdrop-blur-sm hover:border-emerald-400/50 transition-all duration-300 cursor-default group h-full">
-          <div className="flex items-start gap-3 h-full">
-            <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 group-hover:bg-emerald-500/25 transition-colors shrink-0">
-              <RefreshCw size={20} className="text-emerald-400" strokeWidth={2.5} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-bold text-base text-emerald-300 mb-1.5">Data Governance</div>
-              <div className="text-sm text-emerald-200/70 leading-relaxed">
-                Protect your progress! Make a manual backup every 2–3 days to ensure your data is safe.
-              </div>
-              <div className="text-xs text-emerald-400/50 mt-2 font-medium">
-                Visit Settings › Data Governance
-              </div>
-            </div>
-          </div>
-        </div>
-      )
-    });
-
-    const tileIds = new Set<string>();
-
-    while (tiles.length < 3) {
-      const assignmentBlocks = activeBlocks.filter(b => b.type === 'assignment').length;
-
-      if (assignmentBlocks > 0 && !tileIds.has('assignment')) {
-        tiles.push({
-          priority: 6,
-          type: 'status',
-          content: (
-            <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/5 to-transparent p-5 backdrop-blur-sm hover:border-purple-400/50 transition-all duration-300 cursor-default group h-full">
-              <div className="flex items-start gap-3 h-full">
-                <div className="p-2.5 rounded-xl bg-purple-500/20 border border-purple-500/30 group-hover:bg-purple-500/25 transition-colors shrink-0">
-                  <Target size={20} className="text-purple-400" strokeWidth={2.5} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold text-base text-purple-300 mb-1.5">Assignment Work Scheduled</div>
-                  <div className="text-sm text-purple-200/70 leading-relaxed">
-                    {assignmentBlocks} {assignmentBlocks === 1 ? 'assignment session' : 'assignment sessions'} planned to maintain steady progress
-                  </div>
-                  <div className="text-xs text-purple-400/50 mt-2 font-medium">
-                    Stay on track with deadlines
-                  </div>
-                </div>
-              </div>
-            </div>
-          )
-        });
-        tileIds.add('assignment');
-        continue;
-      }
-
-      if (!tileIds.has('study')) {
-        tiles.push({
-          priority: 4,
-          type: 'status',
-          content: (
-            <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-transparent p-5 backdrop-blur-sm hover:border-blue-400/50 transition-all duration-300 cursor-default group h-full">
-              <div className="flex items-start gap-3 h-full">
-                <div className="p-2.5 rounded-xl bg-blue-500/20 border border-blue-500/30 group-hover:bg-blue-500/25 transition-colors shrink-0">
-                  <Brain size={20} className="text-blue-400" strokeWidth={2.5} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold text-base text-blue-300 mb-1.5">Study Sessions Planned</div>
-                  <div className="text-sm text-blue-200/70 leading-relaxed">
-                    {activeBlocks.length} focused blocks covering {subjects.filter(s => activeBlocks.some(b => b.subjectId === s.id)).length} subjects
-                  </div>
-                  <div className="text-xs text-blue-400/50 mt-2 font-medium">
-                    Comprehensive learning schedule
-                  </div>
-                </div>
-              </div>
-            </div>
-          )
-        });
-        tileIds.add('study');
-        continue;
-      }
-
-      if (upcomingReviews.length > 0 && !tileIds.has('reviews')) {
-        tiles.push({
-          priority: 5,
-          type: 'status',
-          content: (
-            <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent p-5 backdrop-blur-sm hover:border-amber-400/50 transition-all duration-300 cursor-default group h-full">
-              <div className="flex items-start gap-3 h-full">
-                <div className="p-2.5 rounded-xl bg-amber-500/20 border border-amber-500/30 group-hover:bg-amber-500/25 transition-colors shrink-0">
-                  <Clock size={20} className="text-amber-400" strokeWidth={2.5} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold text-base text-amber-300 mb-1.5">Reviews Coming Up</div>
-                  <div className="text-sm text-amber-200/70 leading-relaxed">
-                    {upcomingReviews.length} topics scheduled for review in the next 7 days
-                  </div>
-                  <div className="text-xs text-amber-400/50 mt-2 font-medium">
-                    {dueToday.length} due today
-                  </div>
-                </div>
-              </div>
-            </div>
-          )
-        });
-        tileIds.add('reviews');
-        continue;
-      }
-
-      if (!tileIds.has('ready')) {
-        tiles.push({
-          priority: 1,
-          type: 'status',
-          content: (
-            <div className="rounded-2xl border border-zinc-700/30 bg-gradient-to-br from-zinc-700/5 to-transparent p-5 backdrop-blur-sm hover:border-zinc-600/50 transition-all duration-300 cursor-default group h-full">
-              <div className="flex items-start gap-3 h-full">
-                <div className="p-2.5 rounded-xl bg-zinc-700/20 border border-zinc-700/30 group-hover:bg-zinc-700/25 transition-colors shrink-0">
-                  <CheckCircle size={20} className="text-zinc-400" strokeWidth={2.5} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold text-base text-zinc-300 mb-1.5">Ready to Begin</div>
-                  <div className="text-sm text-zinc-400 leading-relaxed">
-                    Your study plan is optimized and ready for action
-                  </div>
-                  <div className="text-xs text-zinc-500 mt-2 font-medium">
-                    Let's get started!
-                  </div>
-                </div>
-              </div>
-            </div>
-          )
-        });
-        tileIds.add('ready');
-      }
-    }
-
-    return tiles.sort((a, b) => b.priority - a.priority).slice(0, 3);
-  }, [plan, criticalSubjects, subjects, totalCount, upcomingReviews, dueToday]);
-
-  interface SidebarTile {
-    priority: number;
-    content: React.ReactElement;
-  }
-
-  const sidebarTiles = useMemo(() => {
-    const tiles: SidebarTile[] = [];
-
-    if (dueToday.length > 0) {
-      tiles.push({
-        priority: 10,
-        content: (
-          <FrostedTile key="reviews" className="p-4 hover:border-purple-500/30 hover:shadow-lg hover:shadow-purple-500/10 transition-all group h-full">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-purple-500/15 border border-purple-500/25 group-hover:bg-purple-500/20 transition-colors">
-                  <Brain size={16} className="text-purple-400" strokeWidth={2.5} />
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400">
-                  Reviews Due
-                </span>
-              </div>
-              <span className="text-2xl font-mono font-bold text-purple-200 tabular-nums">
-                {dueToday.length}
-              </span>
-            </div>
-            <div className="space-y-1.5">
-              {dueToday.slice(0, 2).map(topic => {
-                const subject = subjects.find(s => s.id === topic.subjectId);
-                return (
-                  <FrostedMini
-                    key={topic.id}
-                    onClick={() => {
-                      if (!subject) return;
-                      const reviewBlock: StudyBlock = {
-                        id: `review-${Date.now()}`,
-                        subjectId: topic.subjectId,
-                        subjectName: subject.name,
-                        type: 'review',
-                        duration: 30,
-                        completed: false,
-                        priority: 0,
-                        notes: `${topic.name}`,
-                        topicId: topic.name.toLowerCase().replace(/\s+/g, '-'),
-                        reviewNumber: topic.reviewCount,
-                      };
-                      onStartFocus(reviewBlock);
-                    }}
-                    className="p-2 bg-purple-500/10 border-purple-500/20 cursor-pointer hover:bg-purple-500/20 hover:scale-[1.02] transition-all"
-                  >
-                    <div className="text-[10px] text-purple-300 font-bold">{topic.subjectName}</div>
-                    <div className="text-xs text-white font-medium truncate">{topic.name}</div>
-                  </FrostedMini>
-                );
-              })}
-            </div>
-          </FrostedTile>
-        )
-      });
-    }
-
-    tiles.push({
-      priority: 8,
-      content: (
-        <FrostedTile key="goal" className="p-4 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/10 transition-all group h-full">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/25 group-hover:bg-indigo-500/20 transition-colors">
-                <Target size={16} className="text-indigo-400" strokeWidth={2.5} />
-              </div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">
-                Daily Goal
-              </span>
-            </div>
-            <span className="text-2xl font-mono font-bold text-indigo-200 tabular-nums">
-              {animatedProgress}%
-            </span>
-          </div>
-          <div className="relative w-full h-2.5 bg-zinc-900/50 rounded-full overflow-hidden border border-zinc-800 mb-1.5">
-            <div
-              className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-600 to-cyan-500 transition-all duration-700 ease-out rounded-full"
-              style={{ width: `${animatedProgress}%` }}
-            />
-          </div>
-          <div className="text-[10px] text-indigo-400/60 font-medium">
-            {completedCount}/{totalCount} blocks
-          </div>
-        </FrostedTile>
-      )
-    });
-
-    tiles.push({
-      priority: 7,
-      content: (
-        <FrostedTile key="streak" className="p-4 hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/10 transition-all group h-full">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-orange-500/15 border border-orange-500/25 group-hover:bg-orange-500/20 transition-colors">
-                <Flame size={16} className="text-orange-400" strokeWidth={2.5} />
-              </div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400">
-                Streak
-              </span>
-            </div>
-            <span className="text-2xl font-mono font-bold text-orange-200 tabular-nums">
-              {animatedStreak}
-            </span>
-          </div>
-          <div className="flex items-center gap-1 mb-1.5">
-            {[...Array(7)].map((_, i) => (
-              <div
-                key={i}
-                className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${i < Math.min(animatedStreak, 7) ? "bg-orange-500 shadow-sm shadow-orange-500/50" : "bg-zinc-800"
-                  }`}
-              />
-            ))}
-          </div>
-          <div className="text-[10px] text-orange-400/60 font-medium">
-            {animatedStreak > 0 ? `${animatedStreak} days` : 'Start today!'}
-          </div>
-        </FrostedTile>
-      )
-    });
-
-    if (inProgressAssignments.length > 0) {
-      tiles.push({
-        priority: 9,
-        content: (
-          <FrostedTile key="progress" className="p-4 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/10 transition-all group h-full">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-amber-500/15 border border-amber-500/25 group-hover:bg-amber-500/20 transition-colors">
-                  <Clock size={16} className="text-amber-400" strokeWidth={2.5} />
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400">
-                  In Progress
-                </span>
-              </div>
-              <span className="text-2xl font-mono font-bold text-amber-200 tabular-nums">
-                {inProgressAssignments.length}
-              </span>
-            </div>
-            <div className="space-y-2">
-              {inProgressAssignments.slice(0, 2).map(a => {
-                const percent = Math.round(
-                  ((a.progressMinutes || 0) / (a.estimatedEffort || 120)) * 100
-                );
-                return (
-                  <div key={a.id} className="space-y-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-zinc-300 truncate pr-2 font-medium">{a.title}</span>
-                      <span className="text-[10px] text-amber-400 font-mono font-bold tabular-nums">{percent}%</span>
-                    </div>
-                    <div className="h-1 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
-                      <div
-                        className="h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(percent, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </FrostedTile>
-        )
-      });
-    }
-
-    if (backlog.length === 0 && plan.loadAnalysis?.readinessImpact && plan.loadAnalysis.readinessImpact > 0) {
-      tiles.push({
-        priority: 6,
-        content: (
-          <FrostedTile key="readiness" className="p-4 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/10 transition-all group h-full">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/25 group-hover:bg-emerald-500/20 transition-colors">
-                  <TrendingUp size={16} className="text-emerald-400" strokeWidth={2.5} />
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-                  Readiness
-                </span>
-              </div>
-              <span className="text-2xl font-mono font-bold text-emerald-200 tabular-nums">
-                +{plan.loadAnalysis.readinessImpact.toFixed(1)}%
-              </span>
-            </div>
-            <div className="text-[10px] text-emerald-500/70 uppercase tracking-wide font-medium">
-              Today's impact
-            </div>
-          </FrostedTile>
-        )
-      });
-    }
-
-    tiles.push({
-      priority: backlog.length > 0 ? 5 : 1,
-      content: (
-        <FrostedTile
-          key="backlog"
-          onClick={() => backlog.length > 0 && setShowBacklog(!showBacklog)}
-          className={`p-4 hover:border-yellow-500/30 hover:shadow-lg hover:shadow-yellow-500/10 transition-all group h-full ${backlog.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <div className={`p-1.5 rounded-lg ${backlog.length > 0 ? 'bg-yellow-500/15 border border-yellow-500/25 group-hover:bg-yellow-500/20' : 'bg-zinc-800 border border-zinc-700'} transition-colors`}>
-                <Inbox size={16} className={backlog.length > 0 ? "text-yellow-400" : "text-zinc-600"} strokeWidth={2.5} />
-              </div>
-              <span className={`text-[10px] font-bold uppercase tracking-widest ${backlog.length > 0 ? 'text-yellow-400' : 'text-zinc-600'}`}>
-                Backlog
-              </span>
-            </div>
-            <span className={`text-2xl font-mono font-bold tabular-nums ${backlog.length > 0 ? 'text-yellow-200' : 'text-zinc-600'
-              }`}>
-              {backlog.length}
-            </span>
-          </div>
-          <div className={`text-[10px] uppercase tracking-wide font-medium ${backlog.length > 0 ? 'text-yellow-500/70' : 'text-zinc-600'
-            }`}>
-            {backlog.length > 0 ? 'Tap to manage' : 'All clear!'}
-          </div>
-        </FrostedTile>
-      )
-    });
-
-    return tiles.sort((a, b) => b.priority - a.priority);
-  }, [dueToday, animatedProgress, animatedStreak, inProgressAssignments, backlog, plan, subjects, onStartFocus, completedCount, totalCount, showBacklog]);
 
   useEffect(() => {
     const loadReadiness = async () => {
@@ -1256,23 +566,6 @@ export const Dashboard = ({
     setPullDistance(0);
   };
 
-  const loadWeekPreview = async () => {
-    if (isLoadingWeek) return;
-
-    setIsLoadingWeek(true);
-    try {
-      const { simulateWeek } = await import('./brain');
-      const preview = await simulateWeek();
-      setWeekPreview(preview);
-      setShowWeekPreview(true);
-    } catch (err) {
-      console.error('Failed to load week preview:', err);
-      toast.error('Failed to load week preview');
-    } finally {
-      setIsLoadingWeek(false);
-    }
-  };
-
   const toggleBlockExplanation = useCallback((blockId: string) => {
     setExpandedBlocks(prev => {
       const next = new Set(prev);
@@ -1320,8 +613,41 @@ export const Dashboard = ({
   };
 
   const nextSubject = nextBlock ? subjects.find(s => s.id === nextBlock.subjectId) : null;
-  const nextColor = (nextSubject ? getSubjectColor(nextSubject.id!) : 'indigo') as any;
-  const nextClasses = SUBJECT_COLOR_CLASSES[nextColor as SubjectColor] || SUBJECT_COLOR_CLASSES['indigo'];
+  const nextColor = (nextSubject ? getSubjectColor(nextSubject.id!) : 'orange') as any;
+  const nextClasses = SUBJECT_COLOR_CLASSES[nextColor as SubjectColor] || SUBJECT_COLOR_CLASSES['orange'];
+
+  // ── Concept-dashboard derivations (stat cards / courses / week) ──
+  const fmtDur = (m: number) => {
+    const h = Math.floor(m / 60), r = Math.round(m % 60);
+    return h ? (r ? `${h}h ${r}m` : `${h}h`) : `${r}m`;
+  };
+  const blocksLeft = totalCount - completedCount;
+  const remainingMin = activeBlocks.reduce((a, b) => (b.completed ? a : a + (b.duration || 0)), 0);
+  const focusedTodayMin = (logs || []).filter(l => String(l.date) === todayStr).reduce((a, l) => a + (l.duration || 0), 0);
+  const readinessVals = Object.values(readinessScores);
+  const avgReadiness = readinessVals.length ? Math.round(readinessVals.reduce((a, r) => a + r.score, 0) / readinessVals.length) : 0;
+  const readinessLabel = avgReadiness >= 70 ? 'On track' : avgReadiness >= 35 ? 'Maintaining' : avgReadiness > 0 ? 'At risk' : 'No data yet';
+  const RING_C = 2 * Math.PI * 42;
+  const worstEntry = Object.entries(readinessScores).sort((a, b) => a[1].score - b[1].score)[0];
+  const worst = worstEntry ? {
+    name: subjects.find(s => s.id === Number(worstEntry[0]))?.name || 'Unknown',
+    score: Math.round(worstEntry[1].score),
+    days: worstEntry[1].lastStudiedDays,
+    critical: worstEntry[1].status === 'critical',
+  } : null;
+  const reviewsDueCount = dueToday.length;
+  const weekDates = Array.from({ length: 7 }, (_, i) => effectiveDatePlus(-(6 - i)));
+  const weekMins = weekDates.map(d => (logs || []).filter(l => String(l.date) === d).reduce((a, l) => a + (l.duration || 0), 0));
+  const weekMax = Math.max(...weekMins, 1);
+  const weekBestIdx = weekMins.reduce((best, v, i) => (v > weekMins[best] ? i : best), 0);
+  const dayLetters = weekDates.map(d => ['S', 'M', 'T', 'W', 'T', 'F', 'S'][new Date(d + 'T00:00:00').getDay()]);
+  const topCourses = subjects.map(s => {
+    const r = readinessScores[s.id!];
+    const sl = (logs || []).filter(l => l.subjectId === s.id);
+    return { id: s.id, name: s.name, score: r ? Math.round(r.score) : 0, logs: sl.length };
+  }).sort((a, b) => b.score - a.score).slice(0, 3);
+  const courseTints = ['bg-orange-500', 'bg-yellow-400', 'bg-paper'];
+  const courseFills = ['#FF5A1F', '#FFD60A', '#F7F5EF'];
 
   return (
     <div
@@ -1345,145 +671,223 @@ export const Dashboard = ({
         </div>
       )}
 
-      <PageHeader
-        title={<>{getGreeting()}, <span className="text-indigo-400">Commander</span></>}
-        meta={
-          <>
+      {/* ── HERO ── */}
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-4 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <MetaText>
-              {new Date().toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "short",
-                day: "numeric",
-              }).toUpperCase()}
+              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }).toUpperCase()}
             </MetaText>
             {getDayTypeBadge()}
             {getLoadBadge()}
-            {refreshing && (
-              <span className="text-xs text-indigo-400 font-mono">syncing...</span>
-            )}
-          </>
-        }
-        actions={
-          <div className="flex items-center gap-2">
-            {/* ── QuickCapture: pre-selects the active block's subject ── */}
-            <div className="relative">
-              <QuickCapture defaultSubjectId={nextBlock?.subjectId} />
-            </div>
-
-            <HeaderChip onClick={loadWeekPreview}>
-              <Calendar size={14} strokeWidth={2.5} />
-              <span>Week Ahead</span>
-              <ArrowRight size={14} strokeWidth={2.5} />
-            </HeaderChip>
+            {refreshing && <span className="text-xs text-orange-400 font-mono">syncing…</span>}
           </div>
-        }
-      />
+          <h1 className="font-display font-black text-5xl md:text-7xl leading-[0.9] tracking-[-0.04em] text-white">
+            {getGreeting()},<br /><span className="text-orange-500">Commander.</span>
+          </h1>
+          <div className="flex items-center gap-2 pt-1 flex-wrap">
+            <QuickCapture defaultSubjectId={nextBlock?.subjectId} />
+            {backlog.length > 0 && (
+              <HeaderChip onClick={() => setShowBacklog(true)}>
+                <Inbox size={14} strokeWidth={2.5} />
+                <span>Backlog {backlog.length}</span>
+              </HeaderChip>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-3 shrink-0">
+          <div className="rounded-3xl bg-ink2 border border-white/10 px-6 py-4 text-center min-w-[104px]">
+            <div className="font-display font-black text-4xl text-yellow-400 leading-none">{animatedStreak}</div>
+            <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-zinc-500 mt-2">Day streak</div>
+          </div>
+          <div className="rounded-3xl bg-ink2 border border-white/10 px-6 py-4 text-center min-w-[104px]">
+            <div className="font-display font-black text-4xl text-white leading-none">{(focusedTodayMin / 60).toFixed(1)}<span className="text-xl text-zinc-500">h</span></div>
+            <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-zinc-500 mt-2">Focused today</div>
+          </div>
+        </div>
+      </header>
 
-      <MessageCarousel tiles={messageTiles.map((tile, idx) => (
-        <React.Fragment key={`msg-${idx}`}>{tile.content}</React.Fragment>
-      ))} />
+      {/* ── STAT ROW ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* readiness ring */}
+        <div className="rounded-4xl bg-ink2 border border-white/10 p-6 flex items-center gap-4">
+          <div className="relative w-[72px] h-[72px] shrink-0">
+            <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+              <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,.1)" strokeWidth="12" />
+              <circle cx="50" cy="50" r="42" fill="none" stroke="#FF5A1F" strokeWidth="12" strokeLinecap="round"
+                strokeDasharray={RING_C} strokeDashoffset={RING_C * (1 - avgReadiness / 100)} style={{ transition: 'stroke-dashoffset 0.6s ease' }} />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center font-display font-black text-xl">{avgReadiness}<span className="text-[10px]">%</span></div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-zinc-500">Avg readiness</div>
+            <div className="text-sm font-bold mt-1 text-white">{readinessLabel}</div>
+            <div className="text-xs text-orange-400 font-semibold mt-0.5">{completedCount}/{totalCount} done today</div>
+          </div>
+        </div>
+        {/* blocks left */}
+        <div className="rounded-4xl bg-orange-500 text-ink p-6 flex flex-col justify-between min-h-[140px]">
+          <span className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-70">Blocks left</span>
+          <div>
+            <div className="font-display font-black text-5xl leading-none">{String(blocksLeft).padStart(2, '0')}</div>
+            <div className="text-xs font-bold mt-1 opacity-80">{blocksLeft > 0 ? `≈ ${fmtDur(remainingMin)} of deep work` : 'All clear today'}</div>
+          </div>
+        </div>
+        {/* critical / focus next */}
+        {worst && worst.critical ? (
+          <div className="rounded-4xl bg-yellow-400 text-ink p-6 flex flex-col justify-between min-h-[140px]">
+            <span className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-70">Critical subject</span>
+            <div>
+              <div className="font-display font-black text-2xl leading-none truncate">{worst.name}</div>
+              <div className="text-xs font-bold mt-1 opacity-80">Readiness {worst.score}% · {worst.days >= 365 ? 'not started yet' : `${worst.days}d since study`}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-4xl bg-ink2 border border-white/10 p-6 flex flex-col justify-between min-h-[140px]">
+            <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-zinc-500">Focus next</span>
+            <div>
+              <div className="font-display font-black text-2xl leading-none truncate text-white">{worst ? worst.name : 'All stable'}</div>
+              <div className="text-xs font-bold mt-1 text-zinc-500">{worst ? `Readiness ${worst.score}% · lowest` : 'No subjects yet'}</div>
+            </div>
+          </div>
+        )}
+        {/* reviews due */}
+        <div className="rounded-4xl bg-paper text-ink p-6 flex flex-col justify-between min-h-[140px]">
+          <span className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-60">Reviews due</span>
+          <div>
+            <div className="font-display font-black text-5xl leading-none">{String(reviewsDueCount).padStart(2, '0')}</div>
+            <div className="text-xs font-bold mt-1 opacity-70">{reviewsDueCount > 0 ? `flashcards · ${upcomingReviews.length} this week` : 'nothing due today'}</div>
+          </div>
+        </div>
+      </div>
 
-      <DashboardInsights />
+      {/* ── THE PLAN + AI COACH ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 rounded-4xl bg-ink2 border border-white/10 p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display font-black text-2xl">THE PLAN</h3>
+            <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">
+              {totalCount} block{totalCount === 1 ? '' : 's'} · {completedCount}/{totalCount} done
+            </span>
+          </div>
 
-      <AIInsightBanner />
-
-      <ScheduleOptimizer />
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div className="lg:col-span-8">
-          {nextBlock ? (
-            <FrostedTile variant={nextColor} className="p-8 hover:-translate-y-1 relative overflow-hidden group transition-all duration-300">
-              <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-${nextColor}-600/10 to-${nextColor}-400/10 rounded-full blur-3xl opacity-50 group-hover:opacity-70 transition-opacity duration-500`} />
-
-              <div className="absolute top-8 right-8 w-28 h-28 opacity-20">
-                <svg className="transform -rotate-90" width="112" height="112">
-                  <circle cx="56" cy="56" r="50" stroke="currentColor" strokeWidth="6" fill="none" className="text-zinc-700" />
-                  <circle
-                    cx="56" cy="56" r="50" stroke="currentColor" strokeWidth="6" fill="none" className={nextClasses.text}
-                    strokeDasharray={`${2 * Math.PI * 50}`}
-                    strokeDashoffset={`${2 * Math.PI * 50 * (1 - animatedProgress / 100)}`}
-                    style={{ transition: "stroke-dashoffset 0.5s ease" }}
-                  />
-                </svg>
-                <div className={`absolute inset-0 flex items-center justify-center text-sm font-bold ${nextClasses.text} tabular-nums`}>
-                  {animatedProgress}%
-                </div>
-              </div>
-
-              <div className="relative z-10 space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${nextClasses.bg} animate-pulse shadow-lg shadow-${nextColor}-500/50`} />
-                    <span className={`text-xs font-bold tracking-[0.2em] ${nextClasses.text} uppercase`}>Next Mission</span>
-                  </div>
-
-                  <h2 className={`text-4xl md:text-5xl font-bold leading-tight group-hover:text-${nextColor}-100 transition-colors`}>
-                    {nextBlock.subjectName}
-                  </h2>
-
-                  <div className="flex items-center gap-4 text-zinc-400 flex-wrap">
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5">
-                      <Clock size={16} strokeWidth={2.5} />
-                      <span className="font-mono font-semibold tabular-nums">{nextBlock.duration} min</span>
-                    </div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
-                    <span className="font-semibold uppercase tracking-wide text-sm">{nextBlock.type}</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {nextBlock.type === "assignment" && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/15 text-red-300 border border-red-500/25 text-xs font-bold">
-                      <Zap size={14} strokeWidth={2.5} />
-                      High Priority
-                    </span>
-                  )}
-
-                  {nextBlock.type === "review" && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/15 text-blue-300 border border-blue-500/25 text-xs font-bold">
-                      <TrendingUp size={14} strokeWidth={2.5} />
-                      Retention
-                    </span>
-                  )}
-                </div>
-
-                {nextBlock.type === "assignment" && nextBlock.assignmentId && (
-                  <AssignmentProgressBar
-                    assignmentId={String(nextBlock.assignmentId)}
-                    assignments={assignments}
-                  />
-                )}
-
-                <button
-                  onClick={() => onStartFocus(nextBlock)}
-                  aria-label="Start focus session"
-                  className="w-full inline-flex items-center justify-center gap-3 px-8 py-5 bg-white text-zinc-950 rounded-2xl font-bold text-lg tracking-tight hover:scale-[1.01] hover:shadow-[0_14px_44px_-10px_rgba(255,255,255,0.28)] active:scale-[0.99] transition-all duration-200 group/btn min-h-[60px]"
-                >
-                  <Play size={20} fill="currentColor" className="transition-transform group-hover/btn:scale-110" strokeWidth={0} />
-                  <span>Start Focus Session</span>
-                </button>
-              </div>
-            </FrostedTile>
+          {activeBlocks.length === 0 ? (
+            <EmptyTodayPlan />
           ) : (
-            <FrostedTile className="p-12 flex flex-col items-center justify-center text-center min-h-[320px] h-full">
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/5 to-transparent" />
-              <div className="relative z-10 space-y-6">
-                <div className="w-24 h-24 rounded-full bg-emerald-500/15 flex items-center justify-center mb-4 animate-pulse mx-auto border border-emerald-500/30">
-                  <CheckCircle size={48} className="text-emerald-400" strokeWidth={2} />
-                </div>
-                <h2 className="text-3xl font-bold mb-2">Mission Complete</h2>
-                <div className="text-zinc-400 text-base max-w-md">
-                  Way to go Captain! All blocks cleared.
-                </div>
-              </div>
-            </FrostedTile>
+            <div className="space-y-3">
+              {visibleBlocks.map((b) => {
+                const isActive = nextBlock?.id === b.id;
+                if (isActive) {
+                  return (
+                    <div key={b.id} className="rounded-3xl bg-orange-500 text-ink p-5 flex items-center gap-4 animate-in fade-in duration-300">
+                      <div className="font-display font-black text-3xl w-16 shrink-0 tabular-nums">{b.duration}<span className="text-sm">m</span></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-70">Now · {b.type}</div>
+                        <div className="font-display font-black text-xl leading-tight truncate">{b.subjectName}</div>
+                      </div>
+                      <button onClick={() => onStartFocus(b)} className="bg-ink text-white font-bold text-sm px-5 py-3 rounded-2xl whitespace-nowrap hover:bg-ink3 transition-colors active:scale-95 flex items-center gap-2">
+                        <Play size={15} fill="currentColor" strokeWidth={0} /> Start
+                      </button>
+                    </div>
+                  );
+                }
+                if (b.completed) {
+                  return (
+                    <div key={b.id} className="rounded-3xl border border-white/10 p-5 flex items-center gap-4 opacity-50">
+                      <div className="font-display font-black text-2xl w-16 shrink-0 text-zinc-500 tabular-nums">{b.duration}<span className="text-xs">m</span></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-paper">Done</div>
+                        <div className="font-bold text-lg leading-tight truncate line-through decoration-2">{b.subjectName}</div>
+                      </div>
+                      <CheckCircle size={20} className="text-paper shrink-0" strokeWidth={2.5} />
+                    </div>
+                  );
+                }
+                return (
+                  <div key={b.id} className="rounded-3xl bg-ink3 border border-white/10 p-5 flex items-center gap-4 hover:border-white/25 transition-colors">
+                    <div className="font-display font-black text-2xl w-16 shrink-0 text-zinc-500 tabular-nums">{b.duration}<span className="text-xs">m</span></div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-zinc-500">Up next · {b.type}</div>
+                      <div className="font-bold text-lg leading-tight truncate text-white">{b.subjectName}</div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => onStartFocus(b)} aria-label="Start" title="Start" className="p-2.5 rounded-xl bg-orange-500/15 text-orange-400 hover:bg-orange-500/25 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"><Play size={18} strokeWidth={2.5} /></button>
+                      <button onClick={() => markComplete(b.id)} aria-label="Complete" title="Mark complete" className="p-2.5 rounded-xl text-paper hover:bg-white/10 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"><CheckCircle size={18} strokeWidth={2.5} /></button>
+                      <button onClick={() => snoozeBlock(b.id)} aria-label="Move to tomorrow" title="Move to tomorrow" className="p-2.5 rounded-xl text-yellow-400 hover:bg-yellow-400/10 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"><ArrowRight size={18} strokeWidth={2.5} /></button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {hasMoreBlocks && (
+                <button onClick={() => setShowAllBlocks(!showAllBlocks)} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-ink3 border border-white/10 hover:border-white/25 transition-all font-bold text-sm text-zinc-300 hover:text-white">
+                  {showAllBlocks ? <><ChevronUp size={18} strokeWidth={2.5} /> Show less</> : <><ChevronDown size={18} strokeWidth={2.5} /> Show all ({activeBlocks.length - VISIBLE_BLOCKS_DEFAULT} more)</>}
+                </button>
+              )}
+            </div>
           )}
         </div>
 
-        <div className="lg:col-span-4">
-          <SidebarTiles tiles={sidebarTiles.map((tile, idx) => (
-            <React.Fragment key={`sidebar-${idx}`}>{tile.content}</React.Fragment>
-          ))} />
+        {/* Coach */}
+        <div className="lg:col-span-1 flex flex-col gap-4">
+          <div className="rounded-4xl bg-ink2 border border-white/10 p-6 flex flex-col justify-between min-h-[200px]">
+          {(() => {
+            const navReview = () => window.dispatchEvent(new CustomEvent('orbit:navigate', { detail: { tab: 'review' } }));
+            let kicker = 'Coach · today';
+            let headline = 'All clear.';
+            let body = "You've cleared today's plan — rest is part of the process.";
+            let action: { label: string; onClick: () => void } | null = null;
+            if (worst && worst.critical) {
+              kicker = 'Coach · priority';
+              headline = `${worst.name} is slipping.`;
+              body = `Readiness ${worst.score}% — a focused block now pulls it back before it decays further.`;
+              if (nextBlock) action = { label: 'Start next block', onClick: () => onStartFocus(nextBlock) };
+            } else if (reviewsDueCount > 0) {
+              kicker = 'Coach · review';
+              headline = `${reviewsDueCount} review${reviewsDueCount === 1 ? '' : 's'} due today.`;
+              body = 'Clear them while the memory is fresh to lock in what you learned.';
+              action = { label: 'Go to review', onClick: navReview };
+            } else if (nextBlock) {
+              kicker = 'Coach · focus';
+              headline = `Next up: ${nextBlock.subjectName}.`;
+              body = `${fmtDur(remainingMin)} of focused work left today. One block at a time.`;
+              action = { label: 'Start focus', onClick: () => onStartFocus(nextBlock) };
+            }
+            return (
+              <>
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-orange-500">{kicker}</span>
+                  <p className="font-display font-black text-xl mt-3 leading-snug text-white">{headline}</p>
+                  <p className="text-sm text-zinc-400 mt-3 leading-relaxed">{body}</p>
+                </div>
+                {action && (
+                  <button onClick={action.onClick} className="mt-5 bg-white text-ink font-bold text-sm px-5 py-3 rounded-2xl w-full hover:bg-zinc-200 transition-colors active:scale-95">
+                    {action.label}
+                  </button>
+                )}
+              </>
+            );
+          })()}
+          </div>
+          <div className="rounded-4xl bg-ink2 border border-white/10 p-6 flex flex-col flex-1 min-h-[200px]">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display font-black text-2xl">THIS WEEK</h3>
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">{fmtDur(weekMins.reduce((a, m) => a + m, 0))} total</span>
+            </div>
+            <div className="flex-1 flex items-end justify-between gap-2 mt-6 min-h-[120px]">
+              {weekMins.map((m, i) => {
+                const barH = Math.max(6, Math.round((m / weekMax) * 132));
+                const isToday = i === 6;
+                const isBest = i === weekBestIdx && m > 0;
+                return (
+                  <div key={i} className="flex flex-col items-center justify-end gap-2 flex-1 h-full">
+                    <div className={`w-full rounded-xl ${isToday ? 'bg-orange-500' : isBest ? 'bg-yellow-400' : 'bg-white/10'}`} style={{ height: `${barH}px` }} title={fmtDur(m)} />
+                    <span className={`text-[9px] font-mono uppercase ${isToday ? 'text-white' : 'text-zinc-500'}`}>{dayLetters[i]}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1573,175 +977,33 @@ export const Dashboard = ({
         </>
       )}
 
-      <FrostedTile className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold flex items-center gap-3">
-            <Calendar size={22} className="text-indigo-400" strokeWidth={2.5} />
-            <span>Today's Schedule</span>
-          </h3>
-          <div className="flex items-center gap-4 text-sm font-mono font-semibold">
-            <div className="flex items-center gap-1.5 text-indigo-300 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">
-              <Clock size={14} className="text-indigo-400" strokeWidth={2.5} />
-              {(() => {
-                const remainingMinutes = activeBlocks.reduce((acc, b) => !b.completed ? acc + b.duration : acc, 0);
-                const now = new Date();
-                const finishTime = new Date(now.getTime() + remainingMinutes * 60000);
-                const timeString = finishTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const isTomorrow = finishTime.getDate() !== now.getDate();
-                return (
-                  <span>
-                    Finish by {timeString} {isTomorrow ? '(+1d)' : ''}
-                  </span>
-                );
-              })()}
-            </div>
-
-            <div className="text-zinc-500 tabular-nums">
-              {completedCount}/{totalCount} complete
-            </div>
-          </div>
+      {/* ── COURSES ── */}
+      <div className="rounded-4xl bg-ink2 border border-white/10 p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-display font-black text-2xl">COURSES</h3>
+          <button onClick={() => window.dispatchEvent(new CustomEvent('orbit:navigate', { detail: { tab: 'courses' } }))} className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500 hover:text-white transition-colors">{subjects.length} active →</button>
         </div>
-
-        {activeBlocks.length === 0 ? (
-          <EmptyTodayPlan />
+        {topCourses.length === 0 ? (
+          <div className="text-sm text-zinc-500 py-6 text-center">No subjects yet.</div>
         ) : (
-          <div className="space-y-3">
-            {visibleBlocks.map((b, i) => {
-              const isNext = nextBlock?.id === b.id;
-              const isCompleted = b.completed;
-              const isExpanded = expandedBlocks.has(b.id);
-              const hasExplanation = !!(b.reason || b.displaced);
-
-              return (
-                <div key={b.id} className="space-y-2 animate-in slide-in-from-left-2 fade-in duration-300" style={{ animationDelay: `${i * 50}ms` }}>
-                  <FrostedMini
-                    className={`flex items-center gap-4 p-4 transition-all duration-200 ${isCompleted
-                      ? "opacity-60"
-                      : isNext
-                        ? "border-indigo-500/40 shadow-lg shadow-indigo-500/10"
-                        : "hover:border-zinc-700 hover:bg-zinc-900/40"
-                      }`}
-                  >
-                    <div
-                      className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center font-bold text-base transition-all ${isCompleted
-                        ? "bg-zinc-800 text-zinc-600"
-                        : isNext
-                          ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
-                          : "bg-zinc-800 text-zinc-400"
-                        }`}
-                    >
-                      {isCompleted ? <Check size={20} strokeWidth={3} /> : i + 1}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className={`font-semibold text-base truncate ${isCompleted ? "line-through text-zinc-600" : "text-zinc-100"}`}>
-                        {b.subjectName}
-                      </div>
-                      <div className="text-xs text-zinc-500 uppercase mt-1 tracking-wide font-medium">
-                        {b.type} · {b.duration}m
-                      </div>
-
-                      {b.type === 'assignment' && b.assignmentId && (
-                        <AssignmentProgressBar
-                          assignmentId={String(b.assignmentId)}
-                          assignments={assignments}
-                        />
-                      )}
-                    </div>
-
-                    {!isCompleted && (
-                      <div className="flex items-center gap-2">
-                        {hasExplanation && (
-                          <button
-                            onClick={() => toggleBlockExplanation(b.id)}
-                            className={`px-3 py-2 rounded-xl text-xs font-bold uppercase transition-all min-h-[44px] hover:scale-105 active:scale-95 ${isExpanded
-                              ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                              : "bg-zinc-900 text-zinc-500 border border-zinc-800 hover:bg-zinc-800"
-                              }`}
-                          >
-                            {isExpanded ? "Hide" : "Why?"}
-                          </button>
-                        )}
-
-                        <button
-                          onClick={() => onStartFocus(b)}
-                          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 rounded-xl transition-all font-semibold text-sm hover:scale-105 active:scale-95 min-h-[44px]"
-                        >
-                          <Play size={16} strokeWidth={2.5} />
-                          <span className="hidden sm:inline">Start</span>
-                        </button>
-
-                        <button
-                          onClick={() => markComplete(b.id)}
-                          aria-label="Mark block complete"
-                          title="Mark complete"
-                          className="p-2.5 hover:bg-emerald-500/10 text-emerald-400 rounded-xl transition-all hover:scale-110 active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                        >
-                          <CheckCircle size={20} strokeWidth={2.5} />
-                        </button>
-
-                        <button
-                          onClick={() => snoozeBlock(b.id)}
-                          aria-label="Move block to tomorrow"
-                          title="Move to tomorrow"
-                          className="p-2.5 hover:bg-yellow-500/10 text-yellow-400 rounded-xl transition-all hover:scale-110 active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                        >
-                          <ArrowRight size={20} strokeWidth={2.5} />
-                        </button>
-                      </div>
-                    )}
-
-                    {isCompleted && (
-                      <div className="text-xs text-zinc-600 font-mono px-3 uppercase font-bold">
-                        Done
-                      </div>
-                    )}
-                  </FrostedMini>
-
-                  {isExpanded && !isCompleted && hasExplanation && (
-                    <div className="animate-in slide-in-from-top-2 fade-in duration-300 pl-16 pr-2">
-                      <BlockReason block={b} />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {hasMoreBlocks && (
-              <button
-                onClick={() => setShowAllBlocks(!showAllBlocks)}
-                className="w-full flex items-center justify-center gap-2 py-4 mt-2 rounded-xl bg-zinc-900/40 border border-zinc-800/50 hover:bg-zinc-800/40 hover:border-zinc-700 hover:scale-[1.01] active:scale-[0.99] transition-all font-semibold text-sm text-zinc-300 hover:text-white min-h-[44px]"
-              >
-                {showAllBlocks ? (
-                  <>
-                    <ChevronUp size={18} strokeWidth={2.5} />
-                    Show Less
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown size={18} strokeWidth={2.5} />
-                    Show All ({activeBlocks.length - 4} more)
-                  </>
-                )}
-              </button>
-            )}
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {topCourses.map((c, i) => (
+              <div key={c.id} className={`${courseTints[i]} text-ink rounded-3xl px-5 py-5`}>
+                <div className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-70">{c.logs} logs</div>
+                <div className="font-display font-black text-xl truncate mt-1">{c.name}</div>
+                <div className="font-display font-black text-3xl tabular-nums mt-2">{c.score}<span className="text-sm">%</span></div>
+              </div>
+            ))}
           </div>
         )}
-      </FrostedTile>
-
+      </div>
       <div className="flex justify-center pt-4">
-        <div className="flex items-center gap-3 px-5 py-3 rounded-full bg-white/[0.03] border border-white/5 text-zinc-500 text-sm backdrop-blur-sm hover:bg-white/[0.05] hover:border-white/10 transition-all">
+        <div className="flex items-center gap-3 px-5 py-3 rounded-full bg-ink2 border border-white/10 text-zinc-500 text-sm hover:border-white/20 transition-all">
           <Coffee size={18} strokeWidth={2.5} />
           <span className="font-medium">Take a 5-minute break between missions</span>
         </div>
       </div>
 
-      {showWeekPreview && weekPreview && (
-        <WeekPreviewModal
-          weekPreview={weekPreview}
-          onClose={() => setShowWeekPreview(false)}
-        />
-      )}
     </div>
   );
 };

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orbit — Stats & Focus concepts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { ink:'#0A0A0A', ink2:'#131314', ink3:'#1C1C1E', orange:'#FF5A1F', orange2:'#FF7A3C', yellow:'#FFD60A', paper:'#F7F5EF', mute:'#9A9AA2' },
+      fontFamily: { display:['Archivo','sans-serif'], sans:['Inter','sans-serif'], mono:['JetBrains Mono','monospace'] },
+      borderRadius: { '4xl':'28px','5xl':'36px' },
+    }}}
+  </script>
+  <style>
+    body { background:#0A0A0A; color:#fff; -webkit-font-smoothing:antialiased; }
+    .display { font-family:'Archivo',sans-serif; font-weight:900; letter-spacing:-0.04em; line-height:0.9; }
+    .meta { font-family:'JetBrains Mono',monospace; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; }
+    ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#FF5A1F;border-radius:99px;border:3px solid #0A0A0A}::-webkit-scrollbar-track{background:transparent}
+    @keyframes orbit { to { transform: rotate(360deg); } }
+    .orbit-ring { animation: orbit 8s linear infinite; }
+    @media (prefers-reduced-motion: reduce){ .orbit-ring{ animation:none; } }
+  </style>
+</head>
+<body class="font-sans">
+<div class="max-w-[1240px] mx-auto px-5 md:px-8 py-10 space-y-20">
+
+  <!-- brand -->
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl bg-orange flex items-center justify-center text-ink display text-2xl">O</div>
+      <div><div class="display text-2xl">ORBIT</div><div class="meta text-[10px] text-mute mt-1">Concept v3 · stats + focus</div></div>
+    </div>
+    <span class="meta text-[10px] text-ink bg-yellow px-3 py-1.5 rounded-full">Orange · yellow · white</span>
+  </div>
+
+  <!-- ============================================================ STATS -->
+  <section class="space-y-5">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div class="flex items-end gap-3">
+        <h2 class="display text-5xl md:text-6xl">ANALYTICS<span class="text-orange">.</span></h2>
+        <span class="meta text-[10px] text-mute mb-2">Your learning, measured</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="meta text-[10px] bg-ink2 text-mute border border-white/10 px-3 py-2 rounded-full">7D</span>
+        <span class="meta text-[10px] bg-white text-ink px-3 py-2 rounded-full">30D</span>
+        <span class="meta text-[10px] bg-ink2 text-mute border border-white/10 px-3 py-2 rounded-full">All</span>
+        <span class="meta text-[10px] bg-ink2 text-mute border border-white/10 px-3 py-2 rounded-full">↧ Export</span>
+      </div>
+    </div>
+
+    <!-- KPI band -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="rounded-4xl bg-orange text-ink p-6 flex flex-col justify-between min-h-[150px]">
+        <span class="meta text-[9px] opacity-70">Total focus · 30d</span>
+        <div><div class="display text-5xl">48<span class="text-2xl">h</span></div><div class="text-xs font-bold mt-1 opacity-80">↑ 13% vs prev</div></div>
+      </div>
+      <div class="rounded-4xl bg-yellow text-ink p-6 flex flex-col justify-between min-h-[150px]">
+        <span class="meta text-[9px] opacity-70">Day streak 🔥</span>
+        <div><div class="display text-5xl">12</div><div class="text-xs font-bold mt-1 opacity-80">best ever · 21</div></div>
+      </div>
+      <div class="rounded-4xl bg-ink2 border border-white/10 p-6 flex items-center gap-4 min-h-[150px]">
+        <div class="relative w-[72px] h-[72px] shrink-0">
+          <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90"><circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="12"/><circle cx="50" cy="50" r="42" fill="none" stroke="#FF5A1F" stroke-width="12" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="124"/></svg>
+          <div class="absolute inset-0 flex items-center justify-center display text-xl">53<span class="text-[10px]">%</span></div>
+        </div>
+        <div><div class="meta text-[9px] text-mute">Avg readiness</div><div class="text-sm font-bold mt-1">Climbing</div><div class="text-xs text-orange font-semibold mt-0.5">+6% this week</div></div>
+      </div>
+      <div class="rounded-4xl bg-ink2 border border-white/10 p-6 flex flex-col justify-between min-h-[150px]">
+        <span class="meta text-[9px] text-mute">Focus score</span>
+        <div><div class="display text-5xl text-yellow">86</div><div class="text-xs font-bold mt-1 text-mute">avg quality · 4.3/5</div></div>
+      </div>
+    </div>
+
+    <!-- focus trend + subject split -->
+    <div class="grid lg:grid-cols-3 gap-4">
+      <!-- trend -->
+      <div class="lg:col-span-2 rounded-4xl bg-ink2 border border-white/10 p-6">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="display text-2xl">FOCUS · 14 DAYS</h3>
+          <span class="meta text-[10px] bg-orange/15 text-orange px-3 py-1.5 rounded-full">↑ 13%</span>
+        </div>
+        <div class="meta text-[10px] text-mute mb-6">11h 20m total · 48m / day avg</div>
+        <div id="trend" class="flex items-end justify-between gap-1.5 h-44"></div>
+      </div>
+      <!-- subject split -->
+      <div class="rounded-4xl bg-ink2 border border-white/10 p-6">
+        <h3 class="display text-2xl mb-5">BY SUBJECT</h3>
+        <div class="space-y-4">
+          <div><div class="flex justify-between text-sm mb-1.5"><span class="font-bold">Algorithms</span><span class="meta text-[10px] text-mute">14h</span></div><div class="h-3 rounded-full bg-white/10 overflow-hidden"><div class="h-full bg-orange rounded-full" style="width:90%"></div></div></div>
+          <div><div class="flex justify-between text-sm mb-1.5"><span class="font-bold">DBMS</span><span class="meta text-[10px] text-mute">9h</span></div><div class="h-3 rounded-full bg-white/10 overflow-hidden"><div class="h-full bg-orange2 rounded-full" style="width:62%"></div></div></div>
+          <div><div class="flex justify-between text-sm mb-1.5"><span class="font-bold">OS</span><span class="meta text-[10px] text-mute">7h</span></div><div class="h-3 rounded-full bg-white/10 overflow-hidden"><div class="h-full bg-yellow rounded-full" style="width:48%"></div></div></div>
+          <div><div class="flex justify-between text-sm mb-1.5"><span class="font-bold">Maths III</span><span class="meta text-[10px] text-mute">5h</span></div><div class="h-3 rounded-full bg-white/10 overflow-hidden"><div class="h-full bg-paper rounded-full" style="width:33%"></div></div></div>
+          <div><div class="flex justify-between text-sm mb-1.5"><span class="font-bold text-mute">Networks</span><span class="meta text-[10px] text-mute">3h</span></div><div class="h-3 rounded-full bg-white/10 overflow-hidden"><div class="h-full bg-white/40 rounded-full" style="width:20%"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- consistency heatmap + peak window -->
+    <div class="grid lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 rounded-4xl bg-ink2 border border-white/10 p-6">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="display text-2xl">CONSISTENCY</h3>
+          <span class="meta text-[10px] text-mute">12 weeks · 84% days active</span>
+        </div>
+        <div class="meta text-[10px] text-mute mb-5">Every square is a day — brighter = deeper work</div>
+        <div id="heat" class="grid gap-[4px]" style="grid-template-rows:repeat(7,1fr);grid-auto-flow:column"></div>
+        <div class="flex items-center gap-2 mt-4 justify-end">
+          <span class="meta text-[9px] text-mute">less</span>
+          <div class="w-3 h-3 rounded-[3px] bg-white/8"></div><div class="w-3 h-3 rounded-[3px] bg-orange/30"></div><div class="w-3 h-3 rounded-[3px] bg-orange/60"></div><div class="w-3 h-3 rounded-[3px] bg-orange"></div>
+          <span class="meta text-[9px] text-mute">more</span>
+        </div>
+      </div>
+      <!-- peak window -->
+      <div class="rounded-4xl bg-ink2 border border-white/10 p-6 flex flex-col">
+        <h3 class="display text-2xl">PEAK WINDOW</h3>
+        <div class="meta text-[10px] text-mute mt-1 mb-5">When your focus runs hottest</div>
+        <div id="peak" class="flex items-end justify-between gap-1 flex-1 min-h-[120px]"></div>
+        <div class="mt-4 rounded-2xl bg-orange/10 border border-orange/20 p-4">
+          <div class="display text-xl text-orange">9–11 AM</div>
+          <div class="text-xs text-mute mt-1">You focus <b class="text-white">2.1×</b> better than your night sessions.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- records + insight -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="rounded-4xl bg-ink2 border border-white/10 p-5"><div class="meta text-[9px] text-mute">Longest session</div><div class="display text-3xl mt-2">1<span class="text-lg">h</span> 52<span class="text-lg">m</span></div></div>
+      <div class="rounded-4xl bg-ink2 border border-white/10 p-5"><div class="meta text-[9px] text-mute">Best day</div><div class="display text-3xl mt-2">4.2<span class="text-lg">h</span></div><div class="meta text-[9px] text-mute mt-1">Fri, May 30</div></div>
+      <div class="rounded-4xl bg-ink2 border border-white/10 p-5"><div class="meta text-[9px] text-mute">Sessions</div><div class="display text-3xl mt-2 text-yellow">147</div></div>
+      <div class="rounded-4xl bg-orange text-ink p-5 flex flex-col justify-between">
+        <div class="meta text-[9px] opacity-70">Coach insight</div>
+        <div class="text-sm font-bold leading-snug mt-2">Your Tue/Thu output dips 40%. Protect those mornings.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ FOCUS -->
+  <section class="space-y-6">
+    <div class="flex items-end gap-3">
+      <h2 class="display text-5xl md:text-6xl">FOCUS<span class="text-orange">.</span></h2>
+      <span class="meta text-[10px] text-mute mb-2">Deep work · the orbit timer</span>
+    </div>
+
+    <!-- main focus -->
+    <div class="rounded-5xl bg-ink border border-white/10 overflow-hidden">
+      <div class="flex items-center justify-between px-6 md:px-8 py-5">
+        <button class="meta text-[10px] text-mute hover:text-white">✕ Exit</button>
+        <div class="flex items-center gap-2">
+          <span class="meta text-[10px] bg-orange/15 text-orange px-3 py-1.5 rounded-full">● Deep work</span>
+          <span class="meta text-[10px] bg-ink2 border border-white/10 text-mute px-3 py-1.5 rounded-full">Strict</span>
+        </div>
+        <button class="meta text-[10px] text-mute hover:text-white">⤢ Flip clock</button>
+      </div>
+      <div class="grid lg:grid-cols-[1fr_auto_1fr] items-center gap-8 px-6 md:px-12 pb-6">
+        <div class="hidden lg:flex flex-col gap-3 w-44">
+          <div class="bg-ink2 border border-white/10 rounded-2xl p-4"><div class="meta text-[8px] text-mute">Elapsed</div><div class="display text-2xl mt-1">32<span class="text-sm text-mute">m</span></div></div>
+          <div class="bg-ink2 border border-white/10 rounded-2xl p-4"><div class="meta text-[8px] text-mute">Focus intensity</div><div class="display text-2xl mt-1 text-orange">86<span class="text-sm">%</span></div></div>
+          <div class="bg-ink2 border border-white/10 rounded-2xl p-4"><div class="meta text-[8px] text-mute">Readiness gain</div><div class="display text-2xl mt-1 text-yellow">+4<span class="text-sm">%</span></div></div>
+        </div>
+        <div class="flex flex-col items-center">
+          <div class="meta text-[10px] text-orange mb-1">Operating Systems</div>
+          <div class="meta text-[9px] text-mute mb-6">Scheduling &amp; deadlocks</div>
+          <div class="relative w-[300px] h-[300px]">
+            <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90"><circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="3"/><circle cx="50" cy="50" r="45" fill="none" stroke="#FF5A1F" stroke-width="3" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="100"/></svg>
+            <div class="absolute inset-0 orbit-ring"><div class="absolute left-1/2 -translate-x-1/2 -top-1 w-4 h-4 rounded-full bg-yellow shadow-[0_0_12px_4px_rgba(255,214,10,0.4)]"></div></div>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <div class="display text-7xl">32:18</div>
+              <div class="meta text-[9px] text-mute mt-3">of 50:00 · 64%</div>
+              <div class="flex gap-1.5 mt-4"><div class="w-6 h-1.5 rounded-full bg-orange"></div><div class="w-6 h-1.5 rounded-full bg-orange"></div><div class="w-6 h-1.5 rounded-full bg-orange/40"></div><div class="w-6 h-1.5 rounded-full bg-white/10"></div></div>
+            </div>
+          </div>
+          <div class="flex gap-3 mt-8 w-full max-w-sm">
+            <button class="flex-1 bg-ink2 border border-white/10 text-white font-bold text-sm py-4 rounded-2xl hover:border-white/25 transition-colors">Pause</button>
+            <button class="flex-1 bg-orange text-ink font-bold text-sm py-4 rounded-2xl hover:bg-orange2 transition-colors">Done ✓</button>
+          </div>
+        </div>
+        <div class="hidden lg:flex flex-col gap-3 w-44 ml-auto">
+          <button class="bg-ink2 border border-white/10 rounded-2xl p-4 text-left hover:border-orange/40 transition-colors"><div class="text-orange mb-1">✎</div><div class="font-bold text-sm">Notes</div></button>
+          <button class="bg-ink2 border border-white/10 rounded-2xl p-4 text-left hover:border-orange/40 transition-colors"><div class="text-orange mb-1">✦</div><div class="font-bold text-sm">AI help</div></button>
+          <button class="bg-ink2 border border-white/10 rounded-2xl p-4 text-left hover:border-orange/40 transition-colors"><div class="text-yellow mb-1">♫</div><div class="font-bold text-sm">Ambient</div></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- states row: complete / break / flip -->
+    <div class="grid lg:grid-cols-3 gap-4">
+      <!-- session complete / reflection -->
+      <div class="rounded-4xl bg-ink2 border border-white/10 p-7 flex flex-col">
+        <span class="meta text-[10px] text-orange">Session complete</span>
+        <div class="display text-3xl mt-2">50:00 logged.</div>
+        <div class="text-sm text-mute mt-1">Operating Systems · readiness <b class="text-yellow">+4%</b></div>
+        <div class="meta text-[10px] text-mute mt-6 mb-2">How deep was it?</div>
+        <div class="flex gap-2">
+          <div class="flex-1 h-10 rounded-xl bg-orange"></div><div class="flex-1 h-10 rounded-xl bg-orange"></div><div class="flex-1 h-10 rounded-xl bg-orange"></div><div class="flex-1 h-10 rounded-xl bg-orange"></div><div class="flex-1 h-10 rounded-xl bg-white/10"></div>
+        </div>
+        <input class="mt-4 bg-ink3 border border-white/10 rounded-2xl px-4 py-3 text-sm placeholder:text-zinc-600 outline-none" placeholder="One line — what clicked?" />
+        <button class="mt-4 bg-white text-ink font-bold text-sm py-3.5 rounded-2xl">Save &amp; next block →</button>
+      </div>
+
+      <!-- break -->
+      <div class="rounded-4xl bg-yellow text-ink p-7 flex flex-col items-center justify-center text-center">
+        <span class="meta text-[10px] bg-ink text-yellow px-3 py-1.5 rounded-full mb-5">☕ Break · recharge</span>
+        <div class="relative w-[140px] h-[140px]">
+          <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90"><circle cx="50" cy="50" r="45" fill="none" stroke="rgba(10,10,10,.12)" stroke-width="5"/><circle cx="50" cy="50" r="45" fill="none" stroke="#0A0A0A" stroke-width="5" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="200"/></svg>
+          <div class="absolute inset-0 flex items-center justify-center display text-4xl">04:12</div>
+        </div>
+        <div class="display text-xl mt-5">Step away.</div>
+        <div class="text-xs font-semibold opacity-70 mt-1">Stretch · water · look far</div>
+      </div>
+
+      <!-- flip clock alt -->
+      <div class="rounded-4xl bg-ink2 border border-white/10 p-7 flex flex-col items-center justify-center">
+        <span class="meta text-[10px] text-mute mb-5">Alt timer · mechanical flip</span>
+        <div class="flex items-center gap-1.5">
+          <div class="bg-ink3 rounded-xl px-3 py-4 display text-4xl">3</div>
+          <div class="bg-ink3 rounded-xl px-3 py-4 display text-4xl">2</div>
+          <div class="flex flex-col gap-1.5 mx-1"><div class="w-2 h-2 rounded-full bg-orange"></div><div class="w-2 h-2 rounded-full bg-orange"></div></div>
+          <div class="bg-ink3 rounded-xl px-3 py-4 display text-4xl">1</div>
+          <div class="bg-ink3 rounded-xl px-3 py-4 display text-4xl">8</div>
+        </div>
+        <div class="meta text-[9px] text-mute mt-5">Toggle anytime · same orbit accents</div>
+      </div>
+    </div>
+
+    <!-- mobile focus -->
+    <div class="flex justify-center">
+      <div class="w-[260px] rounded-[40px] bg-ink2 border border-white/10 p-3">
+        <div class="rounded-[30px] bg-ink overflow-hidden min-h-[420px] flex flex-col">
+          <div class="flex items-center justify-between px-5 pt-5"><span class="meta text-[9px] text-mute">✕</span><span class="meta text-[9px] text-orange">Deep work</span><span class="meta text-[9px] text-mute">⤢</span></div>
+          <div class="flex-1 flex flex-col items-center justify-center -mt-2">
+            <div class="meta text-[9px] text-mute mb-4">Operating Systems</div>
+            <div class="relative w-[180px] h-[180px]">
+              <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90"><circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="4"/><circle cx="50" cy="50" r="45" fill="none" stroke="#FF5A1F" stroke-width="4" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="100"/></svg>
+              <div class="absolute inset-0 orbit-ring"><div class="absolute left-1/2 -translate-x-1/2 -top-1 w-3 h-3 rounded-full bg-yellow"></div></div>
+              <div class="absolute inset-0 flex flex-col items-center justify-center"><div class="display text-4xl">32:18</div><div class="meta text-[8px] text-mute mt-2">of 50:00</div></div>
+            </div>
+          </div>
+          <div class="px-5 pb-6 flex gap-2"><button class="flex-1 bg-ink2 border border-white/10 text-white font-bold text-xs py-3.5 rounded-2xl">Pause</button><button class="flex-1 bg-orange text-ink font-bold text-xs py-3.5 rounded-2xl">Done ✓</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="text-center meta text-[10px] text-mute pt-6 pb-2">Orbit · concept v3 · not wired to data</div>
+</div>
+
+<script>
+  // focus trend bars (14 days)
+  (function(){
+    const t = document.getElementById('trend');
+    const vals = [40,55,30,70,48,62,80,35,58,90,52,68,44,95];
+    const max = Math.max.apply(null, vals);
+    vals.forEach(function(v,i){
+      const today = i === vals.length-1;
+      const best = v === max;
+      const col = document.createElement('div');
+      col.className = 'flex-1 flex flex-col items-center justify-end gap-2 h-full';
+      const bar = document.createElement('div');
+      bar.className = 'w-full rounded-lg ' + (today ? 'bg-orange' : best ? 'bg-yellow' : 'bg-white/10');
+      bar.style.height = Math.max(8, Math.round(v/max*150)) + 'px';
+      col.appendChild(bar);
+      t.appendChild(col);
+    });
+  })();
+  // consistency heatmap (12 weeks x 7 days)
+  (function(){
+    const hm = document.getElementById('heat');
+    const lv = ['bg-white/8','bg-orange/25','bg-orange/50','bg-orange/80','bg-orange'];
+    for (let i=0;i<84;i++){
+      const n = (Math.sin(i*1.3)+Math.cos(i*0.7)+Math.sin(i*0.21)+3)/6; // 0..~0.9
+      const lvl = Math.min(4, Math.max(0, Math.floor(n*5)));
+      const d = document.createElement('div');
+      d.className = 'w-full rounded-[3px] ' + lv[lvl];
+      d.style.aspectRatio = '1 / 1';
+      hm.appendChild(d);
+    }
+  })();
+  // peak window (24h mini)
+  (function(){
+    const p = document.getElementById('peak');
+    const vals = [];
+    for (let h=0;h<24;h++){ let v = Math.max(2, Math.round(40*Math.exp(-Math.pow(h-10,2)/12) + 30*Math.exp(-Math.pow(h-20,2)/18) + 4)); vals.push(v); }
+    const max = Math.max.apply(null, vals);
+    vals.forEach(function(v,h){
+      const peak = h>=9 && h<=11;
+      const bar = document.createElement('div');
+      bar.className = 'flex-1 rounded-sm ' + (peak ? 'bg-orange' : 'bg-white/10');
+      bar.style.height = Math.max(6, Math.round(v/max*100)) + '%';
+      bar.title = h+':00';
+      p.appendChild(bar);
+    });
+  })();
+</script>
+</body>
+</html>

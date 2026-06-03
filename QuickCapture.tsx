@@ -147,7 +147,7 @@ export const QuickCapture: React.FC<Props> = ({ defaultSubjectId }) => {
               style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-lg flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg,#7c3aed,#3b82f6)' }}>
+                  style={{ background: 'linear-gradient(135deg,#FF5A1F,#FF7A3C)' }}>
                   <Sparkles size={12} className="text-white" />
                 </div>
                 <span className="text-xs font-bold text-white">Quick Capture</span>
@@ -226,7 +226,7 @@ export const QuickCapture: React.FC<Props> = ({ defaultSubjectId }) => {
                 className="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none"
                 style={saved
                   ? { background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.3)', color: '#6ee7b7' }
-                  : { background: 'linear-gradient(135deg,#7c3aed,#3b82f6)', color: '#fff' }
+                  : { background: 'linear-gradient(135deg,#FF5A1F,#FF7A3C)', color: '#fff' }
                 }
               >
                 {saving ? (

@@ -32,8 +32,8 @@ Respond with ONLY the tip. No labels, no quotes, no preamble.`;
 
 const TipShimmer = () => (
   <div className="space-y-2 animate-pulse">
-    <div className="h-3 rounded-full w-full" style={{ background: 'rgba(99,102,241,0.12)' }} />
-    <div className="h-3 rounded-full w-4/5" style={{ background: 'rgba(99,102,241,0.08)' }} />
+    <div className="h-3 rounded-full w-full" style={{ background: 'rgba(255,90,31,0.12)' }} />
+    <div className="h-3 rounded-full w-4/5" style={{ background: 'rgba(255,90,31,0.08)' }} />
   </div>
 );
 
@@ -186,8 +186,8 @@ export const QualityRatingModal = ({
             </div>
 
             {/* AI tip panel */}
-            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(99,102,241,0.2)', background: 'rgba(99,102,241,0.04)' }}>
-              <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
+            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,90,31,0.2)', background: 'rgba(255,90,31,0.04)' }}>
+              <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,90,31,0.1)' }}>
                 <Sparkles size={11} className="text-indigo-400 flex-shrink-0" />
                 <span className="text-[10px] font-bold text-indigo-400/80 uppercase tracking-wider">AI Coach</span>
                 {loadingTip && (

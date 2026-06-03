@@ -54,10 +54,10 @@ const TYPE_CFG = {
   },
   tip: {
     Icon: Zap,
-    iconColor: '#a78bfa',
+    iconColor: '#FF7A3C',
     bg: 'rgba(139,92,246,0.07)',
     border: 'rgba(139,92,246,0.22)',
-    labelColor: 'rgba(167,139,250,0.75)',
+    labelColor: 'rgba(255,122,60,0.75)',
     textColor: 'rgba(237,233,254,0.85)',
     label: 'Smart Tip',
     glow: 'rgba(139,92,246,0.1)',
@@ -171,7 +171,7 @@ const Typewriter: React.FC<{ text: string }> = ({ text }) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 const ReadinessBar: React.FC<{ name: string; score: number; status: string }> = ({ name, score, status }) => {
-  const color = status === 'critical' ? '#ef4444' : status === 'mastered' ? '#34d399' : '#a78bfa';
+  const color = status === 'critical' ? '#ef4444' : status === 'mastered' ? '#34d399' : '#FF7A3C';
   return (
     <div className="flex items-center gap-2">
       <span className="text-[10px] truncate w-16 shrink-0" style={{ color: 'rgba(255,255,255,0.4)' }}>{name}</span>
@@ -286,11 +286,11 @@ export const AIInsightBanner: React.FC = () => {
   if (loading) {
     return (
       <div className="animate-pulse flex items-center gap-3 px-4 py-3 rounded-2xl"
-        style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.1)' }}>
-        <div className="w-5 h-5 rounded-full shrink-0" style={{ background: 'rgba(99,102,241,0.15)' }} />
+        style={{ background: 'rgba(255,90,31,0.05)', border: '1px solid rgba(255,90,31,0.1)' }}>
+        <div className="w-5 h-5 rounded-full shrink-0" style={{ background: 'rgba(255,90,31,0.15)' }} />
         <div className="flex-1 space-y-2">
-          <div className="h-2.5 rounded-full w-3/4" style={{ background: 'rgba(99,102,241,0.1)' }} />
-          <div className="h-2 rounded-full w-1/2" style={{ background: 'rgba(99,102,241,0.07)' }} />
+          <div className="h-2.5 rounded-full w-3/4" style={{ background: 'rgba(255,90,31,0.1)' }} />
+          <div className="h-2 rounded-full w-1/2" style={{ background: 'rgba(255,90,31,0.07)' }} />
         </div>
         <Sparkles size={12} className="text-violet-400 animate-pulse" />
       </div>

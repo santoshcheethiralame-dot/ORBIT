@@ -785,7 +785,7 @@ html {
    keyboard users always get a clear focus indicator (WCAG 2.4.7/2.4.11).
    The `.light-mode *:focus-visible` rule above overrides the color in light mode. */
 *:focus-visible {
-    outline: 2px solid #818cf8 !important; /* indigo-400 */
+    outline: 2px solid #FF5A1F !important; /* orange */
     outline-offset: 2px !important;
     border-radius: 4px;
     transition: outline-color 0.2s ease, outline-offset 0.2s ease;
@@ -800,6 +800,18 @@ html {
         scroll-behavior: auto !important;
     }
 }
+
+/* Animations toggle (Settings → Appearance → Animations off) */
+[data-no-anim] *, [data-no-anim] *::before, [data-no-anim] *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+}
+
+/* Brutalist range slider (Settings sliders) — white knob on a track filled via inline gradient */
+input.os-range { -webkit-appearance: none; appearance: none; height: 8px; border-radius: 999px; outline: none; }
+input.os-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 999px; background: #fff; cursor: pointer; border: none; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); }
+input.os-range::-moz-range-thumb { width: 20px; height: 20px; border-radius: 999px; background: #fff; cursor: pointer; border: none; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); }
 
 /* Better button press feel */
 button:active {
@@ -917,37 +929,39 @@ button:active {
    classes are adopted screen-by-screen during the re-skin.
 ============================================================ */
 :root {
-  /* Accent — cosmic indigo/violet */
-  --os-accent: #818cf8;             /* indigo-400 */
-  --os-accent-strong: #6366f1;      /* indigo-500 */
-  --os-accent-soft: rgba(129, 140, 248, 0.14);
-  --os-accent-ring: rgba(129, 140, 248, 0.55);
+  /* Accent — brutalist orange (primary) + yellow (secondary) */
+  --os-accent: #FF5A1F;             /* orange */
+  --os-accent-strong: #FF5A1F;      /* orange */
+  --os-accent-soft: rgba(255, 90, 31, 0.16);
+  --os-accent-ring: rgba(255, 90, 31, 0.55);
+  --os-yellow: #FFD60A;
+  --os-paper: #F7F5EF;
 
-  /* Foreground — AA-compliant on the dark surface */
-  --os-fg: #ededf2;
-  --os-fg-muted: #a8a8b3;           /* ~6:1   */
-  --os-fg-subtle: #8b8b97;          /* ~4.7:1 */
+  /* Foreground — white-on-black */
+  --os-fg: #ffffff;
+  --os-fg-muted: #a1a1aa;           /* zinc-400 */
+  --os-fg-subtle: #71717a;          /* zinc-500 */
 
-  /* Surfaces & borders */
-  --os-bg: #08080c;
-  --os-surface-1: rgba(255, 255, 255, 0.035);
-  --os-surface-2: rgba(255, 255, 255, 0.06);
-  --os-surface-3: rgba(255, 255, 255, 0.09);
-  --os-border: rgba(255, 255, 255, 0.09);
-  --os-border-strong: rgba(255, 255, 255, 0.16);
-  --os-glass-blur: 20px;
+  /* Surfaces & borders — flat, solid (no glass) */
+  --os-bg: #0A0A0A;
+  --os-surface-1: #131314;
+  --os-surface-2: #1C1C1E;
+  --os-surface-3: #232325;
+  --os-border: rgba(255, 255, 255, 0.10);
+  --os-border-strong: rgba(255, 255, 255, 0.18);
+  --os-glass-blur: 0px;
 
-  /* Radius scale */
-  --os-r-sm: 10px;
-  --os-r-md: 14px;
-  --os-r-lg: 18px;
-  --os-r-card: 22px;
+  /* Radius scale — chunkier, brutalist */
+  --os-r-sm: 12px;
+  --os-r-md: 16px;
+  --os-r-lg: 22px;
+  --os-r-card: 28px;
   --os-r-pill: 999px;
 
-  /* Elevation */
-  --os-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
-  --os-shadow-2: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  --os-glow: 0 0 0 1px var(--os-accent-soft), 0 8px 40px rgba(99, 102, 241, 0.25);
+  /* Elevation — minimal; brutalism leans on contrast, not shadow */
+  --os-shadow-1: none;
+  --os-shadow-2: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --os-glow: 0 0 0 1px var(--os-accent-soft), 0 8px 32px rgba(255, 90, 31, 0.22);
 
   /* Motion */
   --os-ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -962,7 +976,10 @@ body {
   letter-spacing: -0.006em;
   text-rendering: optimizeLegibility;
 }
-.font-display, h1, h2, h3 { letter-spacing: -0.021em; }
+/* Brutalist display type: Archivo black-weight wins over Tailwind's font-bold
+   (this custom rule is sourced after @tailwind utilities, so it overrides). */
+.font-display { font-family: 'Archivo', sans-serif; font-weight: 900; letter-spacing: -0.03em; }
+h1, h2, h3 { letter-spacing: -0.03em; }
 
 /* Premium scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -1007,8 +1024,8 @@ html:not(.light-mode) .text-zinc-600 { color: var(--os-fg-subtle); }
     transform var(--os-dur-fast) var(--os-ease), border-color var(--os-dur-fast) var(--os-ease);
 }
 .os-btn:active { transform: scale(0.97); }
-.os-btn-primary { background: var(--os-accent-strong); color: #fff; box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35); }
-.os-btn-primary:hover { background: #717bf6; box-shadow: 0 8px 28px rgba(99, 102, 241, 0.5); }
+.os-btn-primary { background: var(--os-accent-strong); color: #0A0A0A; font-weight: 800; box-shadow: none; }
+.os-btn-primary:hover { background: #FF7A3C; box-shadow: none; }
 .os-btn-ghost { background: var(--os-surface-2); color: var(--os-fg); border-color: var(--os-border); }
 .os-btn-ghost:hover { background: var(--os-surface-3); border-color: var(--os-border-strong); }
 .os-btn-danger { background: rgba(244, 63, 94, 0.12); color: #fda4af; border-color: rgba(244, 63, 94, 0.3); }

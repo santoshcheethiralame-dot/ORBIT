@@ -1,35 +1,34 @@
-// DailyContextModal — redesigned with inline advanced options (no nested modal),
-// clean linear flow: presets → day type → exam subject → submit.
+// DailyContextModal — brutalist daily check-in (concept v8).
+// Vibe presets → day type → exam focus → advanced → generate.
+// Black/orange/yellow/white, flat surfaces, Lucide icons, "Orbit Brain" build overlay.
 
 import React, { useState, useEffect, useRef } from "react";
 import { useDialogA11y } from "./utils/useDialogA11y";
 import {
   CloudRain, Activity, ThermometerSun, X, Zap, Coffee, Flame,
   BookOpen, Sparkles, AlertCircle, Settings as SettingsIcon,
-  ChevronDown, ChevronUp, Plus, Trash2,
+  ChevronDown, ChevronUp, Plus, Trash2, Rocket, Moon,
+  Sun, Thermometer, EyeOff, BarChart3, Brain, Scale, CalendarDays,
 } from "lucide-react";
 import { Subject, DailyContext, ExamEntry, SubjectReadiness } from "./types";
 import { ProbabilisticReadiness } from "./brain-ultimate";
-import { Input, Button } from "./components";
-import { SpaceBackground } from "./SpaceBackground";
 import { db } from "./db";
 import { getAllReadinessScores } from "./brain-ultimate";
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   PLAN GENERATING OVERLAY
+   PLAN GENERATING OVERLAY — "Orbit Brain"
 ───────────────────────────────────────────────────────────────────────────── */
 
 const PLAN_STAGES = [
-  { icon: '📊', line: 'Reading your readiness scores…', detail: 'Ebbinghaus decay calculated' },
-  { icon: '🧮', line: 'Running the triple-brain algorithm…', detail: 'Core + Enhanced + Research layers' },
-  { icon: '⚖️', line: 'Balancing your subject load…', detail: 'Interleaving & burnout check' },
-  { icon: '📅', line: 'Scheduling blocks by energy…', detail: 'Hard subjects → peak hours' },
-  { icon: '✨', line: 'Finalising your mission brief…', detail: 'Almost there' },
+  { Icon: BarChart3, line: 'Reading your readiness scores…', detail: 'Ebbinghaus decay calculated' },
+  { Icon: Brain, line: 'Running the triple-brain algorithm…', detail: 'Core + Enhanced + Research layers' },
+  { Icon: Scale, line: 'Balancing your subject load…', detail: 'Interleaving & burnout check' },
+  { Icon: CalendarDays, line: 'Scheduling blocks by energy…', detail: 'Hard subjects → peak hours' },
+  { Icon: Sparkles, line: 'Finalising your mission brief…', detail: 'Almost there' },
 ];
 
 const moodLabel: Record<string, string> = { low: 'Recovery Mode', normal: 'Standard Day', high: 'Peak Sprint' };
-const moodColor: Record<string, string> = { low: '#10b981', normal: '#3b82f6', high: '#f59e0b' };
-const dayTypeLabel: Record<string, string> = { normal: 'Normal', isa: 'ISA Prep', esa: 'ESA Prep', pd: 'PD Day' };
+const dayTypeLabel: Record<string, string> = { normal: 'Normal', isa: 'ISA Prep', esa: 'ESA Prep', pd: 'Proj Focus' };
 
 const PlanGeneratingOverlay: React.FC<{
   mood: string; dayType: string; subjects: Subject[];
@@ -52,155 +51,99 @@ const PlanGeneratingOverlay: React.FC<{
   }, []);
 
   const cur = PLAN_STAGES[stage];
-  const col = moodColor[mood] ?? '#3b82f6';
+  const CurIcon = cur.Icon;
+  const pct = Math.round(Math.min(barPct, 98));
 
   return (
-    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-8 px-6"
-      style={{ background: 'rgba(3,2,10,0.97)' }}>
-
-      {/* Ambient glow */}
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: `radial-gradient(ellipse 50% 40% at 50% 50%, ${col}08 0%, transparent 70%)` }} />
-
-      {/* Central icon */}
-      <div className="relative">
-        <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl"
-          style={{
-            background: `linear-gradient(135deg,${col}18,rgba(59,130,246,0.1))`,
-            border: `1px solid ${col}25`,
-            boxShadow: `0 0 40px ${col}18`,
-          }}>
-          {cur.icon}
+    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-7 px-6 bg-ink">
+      {/* spinning orbit + current stage icon */}
+      <div className="meta text-[10px] text-zinc-500">Orbit Brain · building your day</div>
+      <div className="relative w-28 h-28 flex items-center justify-center">
+        <div className="absolute inset-0 rounded-full border-2 border-orange-500/20" />
+        <div className="absolute inset-2 rounded-full border-2 border-white/[0.06]" />
+        <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-orange-500" style={{ animation: 'spin 2.4s linear infinite' }} />
+        <div className="w-16 h-16 rounded-2xl bg-orange-500/12 border border-orange-500/25 flex items-center justify-center text-orange-400">
+          <CurIcon size={28} strokeWidth={2} />
         </div>
-        {/* Spinning ring */}
-        <svg className="absolute -inset-3 w-[104px] h-[104px]" style={{ animation: 'spin 3s linear infinite' }}>
-          <circle cx="52" cy="52" r="48" fill="none" stroke={col} strokeWidth="1.5" opacity="0.25"
-            strokeDasharray="60 240" strokeLinecap="round" />
-        </svg>
       </div>
 
-      {/* Text */}
-      <div className="text-center space-y-2 max-w-xs">
-        <h2 className="text-base font-bold text-white/90">
-          {cur.line}{dots}
-        </h2>
-        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>{cur.detail}</p>
+      <div className="text-center max-w-sm">
+        <h2 className="font-display font-black text-2xl leading-tight text-white">{cur.line}{dots}</h2>
+        <p className="text-sm text-zinc-500 mt-2">{cur.detail}</p>
       </div>
 
-      {/* Config chips */}
+      {/* config chips */}
       <div className="flex items-center gap-2 flex-wrap justify-center">
-        <span className="text-[10px] px-3 py-1 rounded-full font-semibold"
-          style={{ background: `${col}14`, border: `1px solid ${col}28`, color: col }}>
-          {moodLabel[mood] ?? mood}
-        </span>
-        <span className="text-[10px] px-3 py-1 rounded-full font-semibold"
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>
-          {dayTypeLabel[dayType] ?? dayType}
-        </span>
-        <span className="text-[10px] px-3 py-1 rounded-full font-semibold"
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>
-          {subjects.length} subject{subjects.length !== 1 ? 's' : ''}
-        </span>
+        <span className="meta text-[9px] bg-orange-500/14 text-orange-400 px-3 py-1.5 rounded-full">{moodLabel[mood] ?? mood}</span>
+        <span className="meta text-[9px] bg-white/5 text-zinc-400 px-3 py-1.5 rounded-full">{dayTypeLabel[dayType] ?? dayType}</span>
+        <span className="meta text-[9px] bg-white/5 text-zinc-400 px-3 py-1.5 rounded-full">{subjects.length} subject{subjects.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {/* Progress bar */}
-      <div className="w-full max-w-sm space-y-2">
-        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-          <div className="h-full rounded-full"
-            style={{
-              width: `${Math.min(barPct, 98)}%`,
-              background: `linear-gradient(90deg,${col},#3b82f6)`,
-              boxShadow: `0 0 10px ${col}60`,
-              transition: 'width 0.06s linear',
-            }} />
+      {/* progress */}
+      <div className="w-full max-w-sm">
+        <div className="h-2 rounded-full overflow-hidden bg-white/10">
+          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#FF5A1F,#FFD60A)', transition: 'width 0.06s linear' }} />
         </div>
-        <div className="flex justify-between">
-          <span className="text-[9px] font-mono" style={{ color: 'rgba(255,255,255,0.2)' }}>
-            Orbit Brain v3 · {Math.round(Math.min(barPct, 98))}%
-          </span>
-          <span className="text-[9px] font-mono" style={{ color: 'rgba(255,255,255,0.2)' }}>
-            {elapsed}s
-          </span>
+        <div className="flex justify-between meta text-[9px] text-zinc-500 mt-2">
+          <span>Orbit Brain v3 · {pct}%</span>
+          <span>{elapsed}s</span>
         </div>
       </div>
 
-      {/* Stage dots */}
-      <div className="flex gap-2 items-center">
-        {PLAN_STAGES.map((s, i) => (
-          <div key={i} className="transition-all duration-500 rounded-full flex items-center justify-center"
-            style={{
-              width: i === stage ? 28 : 8,
-              height: 8,
-              background: i < stage ? col : i === stage ? col + 'ee' : 'rgba(255,255,255,0.1)',
-              fontSize: 10,
-            }}>
-            {i < stage && <span style={{ fontSize: 8 }}>✓</span>}
-          </div>
-        ))}
+      {/* 5-pass live checklist */}
+      <div className="w-full max-w-sm space-y-1.5">
+        {PLAN_STAGES.map((s, i) => {
+          const Icon = s.Icon;
+          const done = i < stage, active = i === stage;
+          return (
+            <div key={i} className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border transition-all duration-300 ${active ? 'bg-orange-500/10 border-orange-500/30' : 'bg-ink2 border-white/8'} ${done ? 'opacity-50' : active ? '' : 'opacity-40'}`}>
+              <Icon size={15} className={active ? 'text-orange-400' : done ? 'text-zinc-400' : 'text-zinc-600'} strokeWidth={2.5} />
+              <span className={`text-xs font-bold flex-1 ${active ? 'text-orange-300' : 'text-zinc-400'}`}>{s.line.replace('…', '')}</span>
+              {done && <span className="text-orange-400 text-xs">✓</span>}
+              {active && <span className="inline-block w-3 h-3 rounded-full border-2 border-orange-400 border-t-transparent" style={{ animation: 'spin 0.8s linear infinite' }} />}
+            </div>
+          );
+        })}
       </div>
-
-      {elapsed > 6 && (
-        <p className="text-[10px] text-center" style={{ color: 'rgba(255,255,255,0.18)' }}>
-          Running advanced optimisation across {subjects.length} subjects…
-        </p>
-      )}
     </div>
   );
 };
 
 // ─── Preset definitions ───────────────────────────────────────────────────────
+type Tone = 'orange' | 'yellow' | 'paper';
 const PRESETS = {
-  regular: { name: "Regular Day", icon: BookOpen, desc: "Normal study day", color: "indigo", mood: "normal" as const, dayType: "normal" as const, isHoliday: false, isSick: false },
-  sprint: { name: "Peak Sprint", icon: Flame, desc: "High energy, max output", color: "orange", mood: "high" as const, dayType: "normal" as const, isHoliday: false, isSick: false },
-  recovery: { name: "Recovery Mode", icon: Coffee, desc: "Light load, catch up", color: "emerald", mood: "low" as const, dayType: "normal" as const, isHoliday: false, isSick: false },
-  isa: { name: "ISA Crunch", icon: Zap, desc: "Internal exam prep", color: "yellow", mood: "normal" as const, dayType: "isa" as const, isHoliday: false, isSick: false },
-  esa: { name: "ESA Sprint", icon: Flame, desc: "End-semester exam mode", color: "red", mood: "normal" as const, dayType: "esa" as const, isHoliday: false, isSick: false },
-  chill: { name: "Chill Day", icon: Sparkles, desc: "Holiday or rest day", color: "purple", mood: "normal" as const, dayType: "normal" as const, isHoliday: true, isSick: false },
+  regular: { name: "Regular Day", Icon: BookOpen, desc: "steady & balanced", tone: "paper" as Tone, energy: 3, mood: "normal" as const, dayType: "normal" as const, isHoliday: false, isSick: false },
+  sprint: { name: "Peak Sprint", Icon: Flame, desc: "max output", tone: "orange" as Tone, energy: 5, mood: "high" as const, dayType: "normal" as const, isHoliday: false, isSick: false },
+  recovery: { name: "Recovery", Icon: Coffee, desc: "light & kind", tone: "yellow" as Tone, energy: 2, mood: "low" as const, dayType: "normal" as const, isHoliday: false, isSick: false },
+  isa: { name: "ISA Crunch", Icon: Zap, desc: "internal exams", tone: "yellow" as Tone, energy: 4, mood: "normal" as const, dayType: "isa" as const, isHoliday: false, isSick: false },
+  esa: { name: "ESA Sprint", Icon: Rocket, desc: "finals mode", tone: "orange" as Tone, energy: 5, mood: "normal" as const, dayType: "esa" as const, isHoliday: false, isSick: false },
+  chill: { name: "Chill Day", Icon: Moon, desc: "rest & reset", tone: "paper" as Tone, energy: 1, mood: "normal" as const, dayType: "normal" as const, isHoliday: true, isSick: false },
 } as const;
 
-// Tailwind classes per preset color — must be literal strings for Tailwind JIT
-const PRESET_COLORS: Record<string, { idle: string; active: string }> = {
-  indigo: {
-    idle: "border-indigo-500/25 bg-indigo-500/8 text-indigo-300 hover:bg-indigo-500/15 hover:border-indigo-500/50",
-    active: "border-indigo-400 bg-gradient-to-br from-indigo-600 to-indigo-500 text-white shadow-2xl shadow-indigo-500/40",
-  },
-  orange: {
-    idle: "border-orange-500/25 bg-orange-500/8 text-orange-300 hover:bg-orange-500/15 hover:border-orange-500/50",
-    active: "border-orange-400 bg-gradient-to-br from-orange-600 to-orange-500 text-white shadow-2xl shadow-orange-500/40",
-  },
-  emerald: {
-    idle: "border-emerald-500/25 bg-emerald-500/8 text-emerald-300 hover:bg-emerald-500/15 hover:border-emerald-500/50",
-    active: "border-emerald-400 bg-gradient-to-br from-emerald-600 to-emerald-500 text-white shadow-2xl shadow-emerald-500/40",
-  },
-  yellow: {
-    idle: "border-yellow-500/25 bg-yellow-500/8 text-yellow-300 hover:bg-yellow-500/15 hover:border-yellow-500/50",
-    active: "border-yellow-400 bg-gradient-to-br from-yellow-600 to-yellow-500 text-white shadow-2xl shadow-yellow-500/40",
-  },
-  red: {
-    idle: "border-red-500/25 bg-red-500/8 text-red-300 hover:bg-red-500/15 hover:border-red-500/50",
-    active: "border-red-400 bg-gradient-to-br from-red-600 to-red-500 text-white shadow-2xl shadow-red-500/40",
-  },
-  purple: {
-    idle: "border-purple-500/25 bg-purple-500/8 text-purple-300 hover:bg-purple-500/15 hover:border-purple-500/50",
-    active: "border-purple-400 bg-gradient-to-br from-purple-600 to-purple-500 text-white shadow-2xl shadow-purple-500/40",
-  },
+const TONE: Record<Tone, { sel: string; icon: string; dot: string }> = {
+  orange: { sel: "bg-orange-500 text-ink border-orange-500", icon: "text-orange-400", dot: "bg-orange-500" },
+  yellow: { sel: "bg-yellow-400 text-ink border-yellow-400", icon: "text-yellow-400", dot: "bg-yellow-400" },
+  paper: { sel: "bg-paper text-ink border-paper", icon: "text-paper", dot: "bg-paper" },
 };
+
+const EnergyMeter = ({ level, tone, selected }: { level: number; tone: Tone; selected: boolean }) => (
+  <div className="flex gap-1">
+    {[1, 2, 3, 4, 5].map(i => (
+      <span key={i} className={`w-1.5 h-1.5 rounded-full ${i <= level ? (selected ? 'bg-ink' : TONE[tone].dot) : (selected ? 'bg-ink/25' : 'bg-white/15')}`} />
+    ))}
+  </div>
+);
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 const Section = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div className="space-y-3">
-    <div className="flex items-center gap-2">
-      <div className="w-1 h-1 rounded-full bg-indigo-500" />
-      <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-[0.2em]">{label}</span>
-    </div>
+    <div className="meta text-[10px] text-zinc-500">{label}</div>
     {children}
   </div>
 );
 
 // ─── Day-type pill selector ───────────────────────────────────────────────────
-const DayTypeTabs = ({
-  value, onChange,
-}: { value: string; onChange: (v: "normal" | "isa" | "esa" | "pd") => void }) => {
+const DayTypeTabs = ({ value, onChange }: { value: string; onChange: (v: "normal" | "isa" | "esa" | "pd") => void }) => {
   const options: { key: "normal" | "isa" | "esa" | "pd"; label: string }[] = [
     { key: "normal", label: "Normal" },
     { key: "isa", label: "ISA Prep" },
@@ -208,18 +151,11 @@ const DayTypeTabs = ({
     { key: "pd", label: "Proj Focus" },
   ];
   return (
-    <div className="grid grid-cols-4 gap-1 bg-black/40 p-1.5 rounded-2xl border border-white/5">
+    <div className="grid grid-cols-4 gap-1.5 bg-ink3 p-1.5 rounded-2xl border border-white/10">
       {options.map(o => (
-        <button
-          key={o.key}
-          onClick={() => onChange(o.key)}
-          className={`py-2.5 rounded-xl text-xs font-bold transition-all duration-300 relative ${value === o.key ? "text-white" : "text-zinc-500 hover:text-zinc-300"
-            }`}
-        >
-          {value === o.key && (
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-[0_0_12px_rgba(99,102,241,0.4)]" />
-          )}
-          <span className="relative z-10">{o.label}</span>
+        <button key={o.key} onClick={() => onChange(o.key)}
+          className={`py-2.5 rounded-xl text-xs font-bold transition-colors ${value === o.key ? "bg-white text-ink" : "text-zinc-500 hover:text-white"}`}>
+          {o.label}
         </button>
       ))}
     </div>
@@ -233,8 +169,6 @@ interface DailyContextModalProps {
 }
 
 export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalProps) => {
-  // Focus-trap + initial focus + focus return. No Escape-close: this is an
-  // intentional gate (the user picks "Skip for Now" or "Initialize Day").
   const dialogRef = useRef<HTMLDivElement>(null);
   useDialogA11y(dialogRef);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
@@ -298,7 +232,6 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
 
   const handleDayTypeChange = (type: "normal" | "isa" | "esa" | "pd") => {
     setDayType(type);
-    // Deselect preset if it conflicts
     if (selectedPreset) {
       const p = PRESETS[selectedPreset as keyof typeof PRESETS];
       if (p.dayType !== type) setSelectedPreset(null);
@@ -335,11 +268,7 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
         bunkedSubjectId: bunked ? bunkedSubjectId : undefined,
         daysToExam: examDays !== "" ? Number(examDays) : undefined,
       });
-      // On success, the parent sets needsContext=false which unmounts this modal.
-      // Do NOT set isGenerating(false) here — let the unmount handle it so the
-      // overlay doesn't flicker off before the modal closes.
     } catch (err) {
-      // On failure the modal stays open, so we must reset the overlay.
       console.error("Plan generation failed in modal:", err);
       setIsGenerating(false);
     }
@@ -369,156 +298,127 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
   const criticalList = Object.entries(readinessScores).filter(([, r]) => r.status === "critical");
   const needsExamSubject = dayType === "isa" || dayType === "esa" || dayType === "pd";
 
+  const now = new Date();
+  const kicker = `${now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+
+  const selectCls = "w-full bg-ink2 border border-white/10 text-white p-3.5 rounded-xl outline-none font-semibold text-sm min-h-[52px] transition-colors focus:border-orange-500/50";
+  const inputCls = "w-full bg-ink2 border border-white/10 text-white p-3.5 rounded-xl outline-none font-semibold text-sm min-h-[52px] transition-colors focus:border-orange-500/50 placeholder:text-zinc-600";
+
   return (
     <div ref={dialogRef} aria-label="Set today's context" className="fixed inset-0 z-[100]" role="dialog" aria-modal="true">
-      <div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-start justify-center p-4 overflow-y-auto">
-        <SpaceBackground />
+      <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
 
         {/* ── PLAN GENERATING OVERLAY ── */}
         {isGenerating && <PlanGeneratingOverlay mood={mood} dayType={dayType} subjects={subjects} />}
 
         <div className={`relative w-full max-w-2xl my-6 transition-all duration-300 ${isGenerating ? 'opacity-0 pointer-events-none scale-95' : 'opacity-100'}`}>
-          {/* Card */}
-          <div className="relative bg-gradient-to-br from-zinc-900/70 to-zinc-900/50 backdrop-blur-2xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
-            {/* Background glow */}
-            <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-indigo-600/15 to-purple-600/10 rounded-full blur-[80px] pointer-events-none" />
+          <div className="relative bg-ink2 border border-white/10 rounded-5xl overflow-hidden">
+            <div className="relative z-10 p-7 md:p-9 space-y-7">
 
-            <div className="relative z-10 p-7 md:p-8 space-y-7">
-
-              {/* ── Header ─────────────────────────────────────────────────── */}
+              {/* ── Header ── */}
               <div>
-                <h2 className="text-3xl font-bold mb-1.5 flex items-center gap-3">
-                  Morning Protocol
-                  <span className="w-16 h-[2px] bg-gradient-to-r from-indigo-500/50 to-transparent animate-pulse" />
-                </h2>
-                <p className="text-zinc-400 text-sm tracking-wider font-medium">
-                  Quick-start your day with a preset or customise below
-                </p>
+                <div className="meta text-[10px] text-orange-400 mb-3">{kicker}</div>
+                <h2 className="font-display font-black text-4xl md:text-5xl leading-[0.92]">How are we<br />playing today?</h2>
+                <p className="text-sm text-zinc-400 mt-3">Pick a vibe and Orbit builds the whole day around it.</p>
               </div>
 
-              {/* ── Critical subjects alert ─────────────────────────────── */}
+              {/* ── Critical subjects nudge ── */}
               {criticalList.length > 0 && (
-                <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/25 animate-in fade-in duration-500">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                    <AlertCircle size={16} className="text-red-400" />
-                    <span className="text-sm font-bold text-red-300 uppercase tracking-wider">Critical Subjects</span>
+                <div className="rounded-3xl bg-orange-500/[0.08] border border-orange-500/25 p-4 animate-in fade-in duration-500">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                    <AlertCircle size={14} className="text-orange-400" />
+                    <span className="meta text-[10px] text-orange-400">{criticalList.length} subject{criticalList.length === 1 ? '' : 's'} slipping</span>
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="flex flex-wrap gap-2">
                     {criticalList.map(([id, r]) => {
                       const sub = subjects.find(s => s.id === Number(id));
                       return (
-                        <div key={id} className="flex justify-between items-center p-2.5 bg-red-500/5 rounded-xl border border-red-500/15">
-                          <span className="text-red-200 font-semibold text-sm">{sub?.name}</span>
-                          <span className="text-red-400 font-mono text-xs font-bold">
-                            {r.score}% · {r.lastStudiedDays === 999 ? 'never' : `${r.lastStudiedDays}d ago`}
-                          </span>
-                        </div>
+                        <span key={id} className="text-xs font-bold bg-orange-500/12 text-orange-400 px-2.5 py-1 rounded-lg">
+                          {sub?.name} · {r.score}% · {r.lastStudiedDays === 999 ? 'never' : `${r.lastStudiedDays}d`}
+                        </span>
                       );
                     })}
                   </div>
                 </div>
               )}
 
-              {/* ── Preset grid — always 2×3 (6 tiles) ─────────────────── */}
-              <Section label="Quick Presets">
+              {/* ── Vibe presets ── */}
+              <Section label="Pick your vibe">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
                   {Object.entries(PRESETS).map(([key, preset]) => {
-                    const colors = PRESET_COLORS[preset.color];
-                    const Icon = preset.icon;
+                    const Icon = preset.Icon;
                     const isActive = selectedPreset === key;
+                    const t = TONE[preset.tone];
                     return (
-                      <button
-                        key={key}
-                        onClick={() => handlePresetSelect(key)}
-                        className={`relative overflow-hidden p-4 rounded-2xl border-2 transition-all duration-300 group flex flex-col items-center text-center min-h-[100px] justify-center ${isActive ? colors.active : colors.idle}`}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
-                        <Icon size={24} className={`mb-2 relative z-10 transition-all duration-300 ${isActive ? 'scale-110 rotate-6' : 'group-hover:scale-105'}`} strokeWidth={2.5} />
-                        <div className="text-sm font-bold relative z-10 mb-0.5">{preset.name}</div>
-                        <div className={`text-[11px] relative z-10 ${isActive ? 'text-white/80' : 'opacity-60'}`}>{preset.desc}</div>
+                      <button key={key} onClick={() => handlePresetSelect(key)}
+                        className={`relative rounded-3xl border-2 p-4 text-left transition-all duration-200 min-h-[112px] ${isActive ? `${t.sel} scale-[1.02]` : "bg-ink3 border-white/10 text-white hover:border-white/25"}`}>
+                        {isActive && <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-ink text-orange-400 flex items-center justify-center text-[10px] font-black">✓</div>}
+                        <Icon size={26} strokeWidth={2.5} className={`mb-2 ${isActive ? 'text-ink' : t.icon}`} />
+                        <div className="font-bold text-sm">{preset.name}</div>
+                        <div className={`text-[11px] mb-2.5 ${isActive ? 'opacity-70' : 'text-zinc-500'}`}>{preset.desc}</div>
+                        <EnergyMeter level={preset.energy} tone={preset.tone} selected={isActive} />
                       </button>
                     );
                   })}
                 </div>
               </Section>
 
-              {/* ── Day type tabs ────────────────────────────────────────── */}
-              <Section label="Day Type">
+              {/* ── Day type ── */}
+              <Section label="Day type">
                 <DayTypeTabs value={dayType} onChange={handleDayTypeChange} />
               </Section>
 
-              {/* ── Exam focus subject — shown when isa/esa/pd selected ─── */}
+              {/* ── Exam focus subject ── */}
               {needsExamSubject && (
                 <div className="animate-in slide-in-from-top-2 fade-in duration-300">
-                  <div className={`p-5 rounded-2xl border-2 ${dayType === 'esa' ? 'bg-red-500/8 border-red-500/25' : 'bg-orange-500/8 border-orange-500/25'}`}>
+                  <div className="rounded-3xl border-2 bg-orange-500/[0.07] border-orange-500/25 p-5">
                     <div className="flex items-center gap-2 mb-4">
-                      <Flame size={15} className={dayType === 'esa' ? 'text-red-400' : 'text-orange-400'} />
-                      <span className={`text-xs font-bold uppercase tracking-[0.2em] ${dayType === 'esa' ? 'text-red-400' : 'text-orange-400'}`}>
-                        {dayType === 'esa' ? 'ESA' : dayType === 'isa' ? 'ISA' : 'Project'} Focus Subject{dayType !== 'pd' ? ' (Required)' : ''}
+                      <Flame size={15} className="text-orange-400" />
+                      <span className="meta text-[10px] text-orange-400">
+                        {dayType === 'esa' ? 'ESA' : dayType === 'isa' ? 'ISA' : 'Project'} focus subject{dayType !== 'pd' ? ' (required)' : ''}
                       </span>
                     </div>
-
-                    <select
-                      className="w-full bg-black/40 border border-white/10 text-white p-3.5 rounded-xl outline-none font-semibold text-sm mb-4 min-h-[52px] transition-all hover:bg-black/50"
-                      value={focusSubjectId}
-                      onChange={e => setFocusSubjectId(Number(e.target.value))}
-                    >
-                      <option value={0}>-- Select Subject --</option>
-                      {subjects.map(s => (
-                        <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
-                      ))}
+                    <select className={`${selectCls} mb-4`} value={focusSubjectId} onChange={e => setFocusSubjectId(Number(e.target.value))}>
+                      <option value={0}>-- Select subject --</option>
+                      {subjects.map(s => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
                     </select>
-
                     {dayType !== 'pd' && (
                       <>
-                        <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.2em] block mb-2">Days Until Exam</label>
-                        <Input
-                          type="number"
-                          placeholder="e.g. 5"
-                          className="p-3.5 text-sm bg-black/30 border border-white/10 rounded-xl min-h-[52px]"
-                          value={examDays}
-                          onChange={(e: any) => setExamDays(e.target.value)}
-                        />
+                        <label className="meta text-[10px] text-zinc-500 block mb-2">Days until exam</label>
+                        <input type="number" placeholder="e.g. 5" className={inputCls} value={examDays} onChange={(e) => setExamDays(e.target.value === "" ? "" : Number(e.target.value))} />
                       </>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* ── ESA Exam Schedule ─────────────────────────────────── */}
+              {/* ── ESA exam schedule ── */}
               {dayType === 'esa' && (
                 <div className="animate-in slide-in-from-top-2 fade-in duration-300">
-                  <div className="p-5 rounded-2xl border bg-red-500/5 border-red-500/20">
+                  <div className="rounded-3xl border bg-orange-500/5 border-orange-500/20 p-5">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
-                        <Flame size={14} className="text-red-400" />
-                        <span className="text-xs font-bold text-red-400 uppercase tracking-[0.2em]">Exam Schedule</span>
+                        <CalendarDays size={14} className="text-orange-400" />
+                        <span className="meta text-[10px] text-orange-400">Exam schedule</span>
                       </div>
-                      <button
-                        onClick={() => setShowExamForm(f => !f)}
-                        className="text-xs font-bold text-red-300 hover:text-white px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all flex items-center gap-1.5"
-                      >
+                      <button onClick={() => setShowExamForm(f => !f)}
+                        className="text-xs font-bold text-orange-300 hover:text-white px-3 py-1.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 transition-all flex items-center gap-1.5">
                         {showExamForm ? <ChevronUp size={13} /> : <Plus size={13} />}
                         {showExamForm ? 'Hide' : examSchedule.filter(e => !e.completed).length > 0 ? `${examSchedule.filter(e => !e.completed).length} exams` : 'Add exams'}
                       </button>
                     </div>
-
-                    {/* Existing exams */}
                     {examSchedule.filter(e => !e.completed).length > 0 && (
                       <div className="space-y-1.5 mb-3">
                         {examSchedule.filter(e => !e.completed).map(exam => {
                           const sub = subjects.find(s => s.id === exam.subjectId);
                           return (
-                            <div key={exam.id} className="flex items-center justify-between p-2.5 bg-red-500/8 rounded-xl border border-red-500/15">
+                            <div key={exam.id} className="flex items-center justify-between p-2.5 bg-orange-500/8 rounded-xl border border-orange-500/15">
                               <div>
-                                <span className="text-sm text-red-200 font-semibold">{sub?.name || 'Unknown'}</span>
-                                <span className="text-xs text-red-400/60 ml-2 font-mono">{exam.examDate}</span>
+                                <span className="text-sm text-orange-200 font-semibold">{sub?.name || 'Unknown'}</span>
+                                <span className="text-xs text-orange-400/60 ml-2 font-mono">{exam.examDate}</span>
                               </div>
-                              <button
-                                onClick={() => exam.id && removeExamEntry(exam.id)}
-                                className="p-1.5 hover:bg-red-500/20 rounded-lg transition-all text-red-400 hover:text-white"
-                              >
+                              <button onClick={() => exam.id && removeExamEntry(exam.id)} className="p-1.5 hover:bg-orange-500/20 rounded-lg transition-all text-orange-400 hover:text-white">
                                 <Trash2 size={13} strokeWidth={2.5} />
                               </button>
                             </div>
@@ -526,80 +426,55 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
                         })}
                       </div>
                     )}
-
-                    {/* Add exam form */}
                     {showExamForm && (
-                      <div className="space-y-2.5 p-3.5 bg-red-500/5 rounded-xl border border-red-500/15 animate-in slide-in-from-top-1 fade-in duration-200">
-                        <select
-                          className="w-full bg-black/40 border border-white/10 text-white p-3 rounded-xl outline-none text-sm font-semibold min-h-[46px]"
-                          value={newExamSubjectId}
-                          onChange={e => setNewExamSubjectId(Number(e.target.value))}
-                        >
-                          <option value={0}>-- Select Subject --</option>
+                      <div className="space-y-2.5 p-3.5 bg-orange-500/5 rounded-xl border border-orange-500/15 animate-in slide-in-from-top-1 fade-in duration-200">
+                        <select className={selectCls} value={newExamSubjectId} onChange={e => setNewExamSubjectId(Number(e.target.value))}>
+                          <option value={0}>-- Select subject --</option>
                           {subjects.map(s => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
                         </select>
-                        <Input
-                          type="date" placeholder="Exam Date"
-                          className="p-3 text-sm bg-black/30 border border-white/10 rounded-xl min-h-[46px]"
-                          value={newExamDate}
-                          onChange={(e: any) => setNewExamDate(e.target.value)}
-                        />
-                        <button
-                          onClick={addExamEntry}
-                          disabled={!newExamSubjectId || !newExamDate}
-                          className="w-full py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-xl font-bold text-sm uppercase tracking-wider transition-all border border-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed min-h-[44px]"
-                        >
-                          + Add Exam Date
+                        <input type="date" className={inputCls} value={newExamDate} onChange={(e) => setNewExamDate(e.target.value)} />
+                        <button onClick={addExamEntry} disabled={!newExamSubjectId || !newExamDate}
+                          className="w-full py-2.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 rounded-xl font-bold text-sm uppercase tracking-wider transition-all border border-orange-500/20 disabled:opacity-40 disabled:cursor-not-allowed min-h-[44px]">
+                          + Add exam date
                         </button>
                       </div>
                     )}
-
                     {examSchedule.filter(e => !e.completed).length === 0 && !showExamForm && (
-                      <p className="text-xs text-red-400/40 italic text-center py-1">No exams scheduled. Add your dates for smarter planning.</p>
+                      <p className="text-xs text-orange-400/40 italic text-center py-1">No exams scheduled. Add your dates for smarter planning.</p>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* ── Advanced Options — inline accordion ─────────────────── */}
+              {/* ── Advanced (accordion) ── */}
               <div>
-                <button
-                  onClick={() => setShowAdvanced(v => !v)}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.07] border border-white/8 hover:border-indigo-500/30 text-zinc-400 hover:text-zinc-200 transition-all duration-300 group"
-                >
+                <button onClick={() => setShowAdvanced(v => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl bg-ink3 border border-white/10 hover:border-orange-500/30 text-zinc-400 hover:text-white transition-all group">
                   <div className="flex items-center gap-2.5">
-                    <SettingsIcon size={15} className="text-indigo-400 group-hover:rotate-45 transition-transform duration-300" strokeWidth={2.5} />
-                    <span className="text-sm font-semibold">Advanced Options</span>
-                    <span className="text-[10px] uppercase tracking-widest text-zinc-600 font-bold ml-1">
-                      {[isHoliday && 'Holiday', isSick && 'Sick', bunked && 'Bunked', hasAssignment && 'Assignment'].filter(Boolean).join(' · ') || 'mood, events, assignments'}
+                    <SettingsIcon size={15} className="text-orange-400 group-hover:rotate-45 transition-transform duration-300" strokeWidth={2.5} />
+                    <span className="text-sm font-semibold">Tweak it</span>
+                    <span className="meta text-[9px] text-zinc-600 ml-1">
+                      {[isHoliday && 'Holiday', isSick && 'Sick', bunked && 'Bunked', hasAssignment && 'Assignment'].filter(Boolean).join(' · ') || 'energy · life events · assignment'}
                     </span>
                   </div>
                   {showAdvanced ? <ChevronUp size={16} strokeWidth={2.5} /> : <ChevronDown size={16} strokeWidth={2.5} />}
                 </button>
 
                 {showAdvanced && (
-                  <div className="mt-3 space-y-4 animate-in slide-in-from-top-2 fade-in duration-300">
+                  <div className="mt-3 space-y-3 animate-in slide-in-from-top-2 fade-in duration-300">
 
                     {/* Energy Override */}
-                    <div className="bg-white/[0.03] rounded-2xl p-5 border border-white/6 space-y-3">
-                      <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                        <div className="w-1 h-1 rounded-full bg-indigo-500" /> Energy Override
-                      </label>
+                    <div className="rounded-3xl bg-ink3 border border-white/10 p-5 space-y-3">
+                      <label className="meta text-[10px] text-zinc-500">Energy override</label>
                       <div className="grid grid-cols-3 gap-2">
                         {([
                           { val: "low", icon: CloudRain, label: "Low" },
                           { val: "normal", icon: Activity, label: "Normal" },
                           { val: "high", icon: ThermometerSun, label: "Peak" },
                         ] as const).map(opt => (
-                          <button
-                            key={opt.val}
-                            onClick={() => setMood(opt.val)}
-                            className={`p-3.5 rounded-xl border-2 flex flex-col items-center gap-2 transition-all duration-300 min-h-[80px] justify-center ${mood === opt.val
-                              ? "bg-gradient-to-br from-indigo-600 to-indigo-500 border-indigo-400 text-white shadow-lg shadow-indigo-500/30 scale-[1.03]"
-                              : "bg-black/20 border-white/8 text-zinc-500 hover:bg-white/5 hover:border-white/15"
-                              }`}
-                          >
-                            <opt.icon size={20} strokeWidth={2.5} className={mood === opt.val ? 'rotate-6' : ''} />
+                          <button key={opt.val} onClick={() => setMood(opt.val)}
+                            className={`p-3.5 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all min-h-[80px] justify-center ${mood === opt.val ? "bg-orange-500 border-orange-500 text-ink" : "bg-ink2 border-white/10 text-zinc-500 hover:text-white hover:border-white/20"}`}>
+                            <opt.icon size={20} strokeWidth={2.5} />
                             <span className="text-[11px] font-bold uppercase tracking-wider">{opt.label}</span>
                           </button>
                         ))}
@@ -607,35 +482,27 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
                     </div>
 
                     {/* Life Events */}
-                    <div className="bg-white/[0.03] rounded-2xl p-5 border border-white/6 space-y-3">
-                      <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                        <div className="w-1 h-1 rounded-full bg-indigo-500" /> Life Events
-                      </label>
+                    <div className="rounded-3xl bg-ink3 border border-white/10 p-5 space-y-3">
+                      <label className="meta text-[10px] text-zinc-500">Life happens</label>
                       <div className="grid grid-cols-3 gap-2">
                         {[
-                          { key: 'holiday', label: 'Holiday', active: isHoliday, toggle: () => setIsHoliday(v => !v), activeClass: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300' },
-                          { key: 'sick', label: 'Sick', active: isSick, toggle: () => setIsSick(v => !v), activeClass: 'bg-red-500/20 border-red-500/50 text-red-300' },
-                          { key: 'bunked', label: 'Bunked', active: bunked, toggle: () => setBunked(v => !v), activeClass: 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300' },
-                        ].map(item => (
-                          <button
-                            key={item.key}
-                            onClick={item.toggle}
-                            className={`py-3 px-2 rounded-xl border-2 text-xs font-bold uppercase tracking-wider transition-all min-h-[52px] ${item.active ? item.activeClass : 'bg-black/20 border-white/8 text-zinc-600 hover:bg-white/5 hover:border-white/15'
-                              }`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
+                          { key: 'holiday', label: 'Holiday', Icon: Sun, active: isHoliday, toggle: () => setIsHoliday(v => !v), cls: 'bg-yellow-400/15 border-yellow-400/50 text-yellow-300' },
+                          { key: 'sick', label: 'Sick', Icon: Thermometer, active: isSick, toggle: () => setIsSick(v => !v), cls: 'bg-orange-500/15 border-orange-500/50 text-orange-300' },
+                          { key: 'bunked', label: 'Bunked', Icon: EyeOff, active: bunked, toggle: () => setBunked(v => !v), cls: 'bg-yellow-400/15 border-yellow-400/50 text-yellow-300' },
+                        ].map(item => {
+                          const Icon = item.Icon;
+                          return (
+                            <button key={item.key} onClick={item.toggle}
+                              className={`py-3.5 px-2 rounded-2xl border-2 text-xs font-bold uppercase tracking-wider transition-all min-h-[56px] flex flex-col items-center gap-1.5 ${item.active ? item.cls : 'bg-ink2 border-white/10 text-zinc-600 hover:text-white hover:border-white/20'}`}>
+                              <Icon size={16} strokeWidth={2.5} />{item.label}
+                            </button>
+                          );
+                        })}
                       </div>
-
                       {bunked && (
-                        <div className="p-3.5 bg-yellow-900/10 border border-yellow-500/20 rounded-xl animate-in slide-in-from-top-1 duration-200">
-                          <label className="text-[11px] text-yellow-400 font-bold uppercase tracking-wider block mb-2">Which class did you bunk?</label>
-                          <select
-                            className="w-full bg-black/40 border border-white/10 text-white p-3 rounded-xl outline-none text-sm font-semibold min-h-[46px]"
-                            value={bunkedSubjectId}
-                            onChange={e => setBunkedSubjectId(Number(e.target.value))}
-                          >
+                        <div className="p-3.5 bg-yellow-400/[0.06] border border-yellow-400/20 rounded-xl animate-in slide-in-from-top-1 duration-200">
+                          <label className="meta text-[9px] text-yellow-400 block mb-2">Which class did you bunk?</label>
+                          <select className={selectCls} value={bunkedSubjectId} onChange={e => setBunkedSubjectId(Number(e.target.value))}>
                             {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                           </select>
                         </div>
@@ -643,93 +510,55 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
                     </div>
 
                     {/* Urgent Assignment */}
-                    <div className="bg-white/[0.03] rounded-2xl p-5 border border-white/6 space-y-3">
+                    <div className="rounded-3xl bg-ink3 border border-white/10 p-5 space-y-3">
                       <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                          <div className="w-1 h-1 rounded-full bg-indigo-500" /> Urgent Assignment
-                        </label>
+                        <label className="meta text-[10px] text-zinc-500">Urgent assignment</label>
                         {hasAssignment && (
-                          <button onClick={() => setHasAssignment(false)} className="text-zinc-500 hover:text-white transition-colors">
-                            <X size={15} strokeWidth={2.5} />
-                          </button>
+                          <button onClick={() => setHasAssignment(false)} className="text-zinc-500 hover:text-white transition-colors"><X size={15} strokeWidth={2.5} /></button>
                         )}
                       </div>
-
                       {!hasAssignment ? (
-                        <button
-                          onClick={() => setHasAssignment(true)}
-                          className="w-full py-3.5 border-2 border-dashed border-white/15 rounded-xl text-zinc-500 text-sm hover:text-white hover:border-indigo-500/40 hover:bg-white/5 transition-all font-bold uppercase tracking-wider min-h-[52px]"
-                        >
-                          + Add Assignment
+                        <button onClick={() => setHasAssignment(true)}
+                          className="w-full py-3.5 border-2 border-dashed border-white/15 rounded-2xl text-zinc-500 text-sm hover:text-white hover:border-orange-500/40 transition-all font-bold uppercase tracking-wider min-h-[52px]">
+                          + Add assignment
                         </button>
                       ) : (
-                        <div className="space-y-2.5 p-4 bg-indigo-500/8 border border-indigo-500/20 rounded-xl animate-in slide-in-from-top-1 duration-200">
-                          <select
-                            className="w-full bg-black/40 border border-white/10 p-3 rounded-xl outline-none text-sm text-white font-semibold min-h-[46px]"
-                            value={newAssignment.subjectId}
-                            onChange={e => setNewAssignment({ ...newAssignment, subjectId: Number(e.target.value) })}
-                          >
+                        <div className="space-y-2.5 p-4 bg-orange-500/8 border border-orange-500/20 rounded-xl animate-in slide-in-from-top-1 duration-200">
+                          <select className={selectCls} value={newAssignment.subjectId} onChange={e => setNewAssignment({ ...newAssignment, subjectId: Number(e.target.value) })}>
                             {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                           </select>
-                          <Input
-                            placeholder="Assignment title"
-                            className="p-3 text-sm bg-black/40 border border-white/10 rounded-xl min-h-[46px]"
-                            value={newAssignment.title}
-                            onChange={(e: any) => setNewAssignment({ ...newAssignment, title: e.target.value })}
-                          />
+                          <input placeholder="Assignment title" className={inputCls} value={newAssignment.title} onChange={(e) => setNewAssignment({ ...newAssignment, title: e.target.value })} />
                           <div className="grid grid-cols-2 gap-2">
-                            <Input
-                              type="date" placeholder="Due date"
-                              className="p-3 text-sm bg-black/40 border border-white/10 rounded-xl min-h-[46px]"
-                              value={newAssignment.dueDate || ""}
-                              onChange={(e: any) => setNewAssignment({ ...newAssignment, dueDate: e.target.value })}
-                            />
-                            <div>
-                              <input
-                                type="number" min="0.5" max="20" step="0.5" placeholder="Hours"
-                                value={newAssignment.estimatedEffort / 60}
-                                onChange={e => setNewAssignment({ ...newAssignment, estimatedEffort: Math.round(parseFloat(e.target.value || "0") * 60) })}
-                                className="w-full bg-black/40 border border-white/10 p-3 rounded-xl text-sm font-semibold min-h-[46px] text-white outline-none"
-                              />
-                            </div>
+                            <input type="date" className={inputCls} value={newAssignment.dueDate || ""} onChange={(e) => setNewAssignment({ ...newAssignment, dueDate: e.target.value })} />
+                            <input type="number" min="0.5" max="20" step="0.5" placeholder="Hours" value={newAssignment.estimatedEffort / 60}
+                              onChange={e => setNewAssignment({ ...newAssignment, estimatedEffort: Math.round(parseFloat(e.target.value || "0") * 60) })} className={inputCls} />
                           </div>
                           <p className="text-[10px] text-zinc-600 italic">Estimated hours to complete this assignment</p>
                         </div>
                       )}
                     </div>
-
                   </div>
                 )}
               </div>
 
-              {/* ── Actions ──────────────────────────────────────────────── */}
+              {/* ── Actions ── */}
               <div className="flex items-center justify-between gap-4 pt-1">
                 <button
                   onClick={async () => {
                     setIsGenerating(true);
-                    try {
-                      await onGenerate({ mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false });
-                    } catch {
-                      setIsGenerating(false);
-                    }
+                    try { await onGenerate({ mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false }); }
+                    catch { setIsGenerating(false); }
                   }}
-                  className="text-xs font-bold text-zinc-600 hover:text-zinc-300 uppercase tracking-widest transition-colors px-2 py-2"
-                >
-                  Skip for Now
+                  className="meta text-[10px] text-zinc-500 hover:text-white transition-colors px-2 py-2">
+                  Skip for now
                 </button>
-
-                <Button
-                  onClick={handleSubmit}
-                  disabled={!canSubmit()}
-                  className={`flex-1 max-w-[200px] py-3.5 text-sm font-bold border-none rounded-xl uppercase tracking-wider min-h-[52px] transition-all duration-200 ${canSubmit()
-                    ? "bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-[0_6px_20px_rgba(99,102,241,0.4)] hover:shadow-[0_8px_28px_rgba(99,102,241,0.55)] hover:brightness-110 active:scale-[0.97]"
-                    : "bg-zinc-700 text-zinc-500 cursor-not-allowed opacity-60"
-                    }`}
-                >
-                  {(dayType === "isa" || dayType === "esa") && !focusSubjectId
-                    ? "📦 Select Subject"
-                    : "🚀 Initialize Day"}
-                </Button>
+                <button onClick={handleSubmit} disabled={!canSubmit()}
+                  className={`flex-1 max-w-[260px] py-4 text-base font-bold rounded-2xl min-h-[52px] flex items-center justify-center gap-2 transition-all ${canSubmit()
+                    ? "bg-orange-500 text-ink hover:scale-[1.02] active:scale-[0.98]"
+                    : "bg-ink3 text-zinc-600 cursor-not-allowed"}`}>
+                  <Rocket size={17} strokeWidth={2.5} />
+                  {(dayType === "isa" || dayType === "esa") && !focusSubjectId ? "Select subject" : "Initialize day"}
+                </button>
               </div>
 
             </div>

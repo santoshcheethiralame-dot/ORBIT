@@ -50,10 +50,10 @@ type NotesMode = 'idle' | 'generating' | 'done';
 interface GenStatus { stage: string; detail?: string; }
 
 const NoteResourceIcon = ({ type }: { type: string }) => {
-  if (type === 'pdf') return <FileText size={14} className="text-red-400" strokeWidth={2} />;
-  if (type === 'video') return <Layers size={14} className="text-blue-400" strokeWidth={2} />;
-  if (type === 'slide') return <Layers size={14} className="text-amber-400" strokeWidth={2} />;
-  return <Globe size={14} className="text-violet-400" strokeWidth={2} />;
+  if (type === 'pdf') return <FileText size={14} className="text-orange-400" strokeWidth={2} />;
+  if (type === 'video') return <Layers size={14} className="text-orange-400" strokeWidth={2} />;
+  if (type === 'slide') return <Layers size={14} className="text-yellow-400" strokeWidth={2} />;
+  return <Globe size={14} className="text-orange-400" strokeWidth={2} />;
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -78,11 +78,11 @@ const NotesMD = ({ text }: { text: string }) => {
         if (!line.trim()) return <div key={i} className="h-1.5" />;
         let html = escHtml(line)
           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\*(.*?)\*/g, '<em style="color:rgba(167,139,250,0.85)">$1</em>')
+          .replace(/\*(.*?)\*/g, '<em style="color:rgba(255,122,60,0.85)">$1</em>')
           .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:4px;font-size:0.85em;font-family:monospace">$1</code>');
         if (line.match(/^###\s/)) return (
           <div key={i} className="text-[11px] font-black uppercase tracking-widest mt-3 mb-1"
-            style={{ color: 'rgba(167,139,250,0.65)' }} dangerouslySetInnerHTML={{ __html: html.replace(/^###\s/, '') }} />
+            style={{ color: 'rgba(255,122,60,0.65)' }} dangerouslySetInnerHTML={{ __html: html.replace(/^###\s/, '') }} />
         );
         if (line.match(/^##\s/)) return (
           <div key={i} className="text-sm font-bold text-white/80 mt-4 mb-1 pb-1.5"
@@ -93,19 +93,19 @@ const NotesMD = ({ text }: { text: string }) => {
         );
         if (line.match(/^[-•*]\s/)) return (
           <div key={i} className="flex gap-2 text-sm leading-relaxed">
-            <span style={{ color: 'rgba(167,139,250,0.5)', flexShrink: 0, marginTop: 4 }}>▸</span>
+            <span style={{ color: 'rgba(255,122,60,0.5)', flexShrink: 0, marginTop: 4 }}>▸</span>
             <span className="text-white/75" dangerouslySetInnerHTML={{ __html: html.replace(/^[-•*]\s/, '') }} />
           </div>
         );
         if (line.match(/^\d+\.\s/)) return (
           <div key={i} className="flex gap-2 text-sm leading-relaxed">
-            <span style={{ color: 'rgba(167,139,250,0.5)', flexShrink: 0, fontSize: 11, marginTop: 2, minWidth: 16 }}>{line.match(/^(\d+)/)?.[1]}.</span>
+            <span style={{ color: 'rgba(255,122,60,0.5)', flexShrink: 0, fontSize: 11, marginTop: 2, minWidth: 16 }}>{line.match(/^(\d+)/)?.[1]}.</span>
             <span className="text-white/75" dangerouslySetInnerHTML={{ __html: html.replace(/^\d+\.\s/, '') }} />
           </div>
         );
         if (line.match(/^>\s/)) return (
           <div key={i} className="pl-3 py-1 text-sm leading-relaxed border-l-2 italic"
-            style={{ borderColor: 'rgba(167,139,250,0.35)', color: 'rgba(255,255,255,0.5)' }}
+            style={{ borderColor: 'rgba(255,122,60,0.35)', color: 'rgba(255,255,255,0.5)' }}
             dangerouslySetInnerHTML={{ __html: html.replace(/^>\s/, '') }} />
         );
         return <p key={i} className="text-sm leading-relaxed text-white/75" dangerouslySetInnerHTML={{ __html: html }} />;
@@ -124,6 +124,7 @@ const NotesGenerator: React.FC<NotesGeneratorProps> = ({ block, subject, topics,
   const [sourceLabel, setSourceLabel] = useState('');
   const [ankiCards, setAnkiCards] = useState<AnkiCard[]>([]);
   const [generatingAnki, setGeneratingAnki] = useState(false);
+  const [format, setFormat] = useState<'concise' | 'detailed' | 'cheatsheet'>('detailed');
 
   const syllabus = subject?.syllabus ?? [];
 
@@ -173,10 +174,17 @@ Use **bold** for all key terms. Be comprehensive.`;
     setSourceLabel(label);
 
     let full = '';
+    // Format toggle steers depth/density of the generated notes.
+    const styleHint = format === 'concise'
+      ? '\n\n---OUTPUT STYLE: CONCISE---\nKeep it tight — only the highest-yield points as short bullets, minimal prose. Aim for a one-page revision sheet.'
+      : format === 'cheatsheet'
+      ? '\n\n---OUTPUT STYLE: CHEAT-SHEET---\nUltra-dense exam cheat-sheet — compact bullets, formulas, definitions and mnemonics only. No full sentences, no filler.'
+      : '\n\n---OUTPUT STYLE: DETAILED---\nBe comprehensive and thorough — full explanations, worked examples and depth on every section.';
+    const finalPrompt = prompt + styleHint;
     // FIX: Uses geminiStream from gemini.ts (not raw fetch + hardcoded model)
     await new Promise<void>((resolve) => {
       geminiStream(
-        [{ role: 'user', parts: [{ text: prompt }] }],
+        [{ role: 'user', parts: [{ text: finalPrompt }] }],
         'You are a world-class academic notes writer. Generate comprehensive, dense, exam-ready notes in markdown.',
         (chunk) => { full += chunk; setStreaming(full); },
         () => { setNotes(full); setStreaming(''); setMode('done'); resolve(); },
@@ -290,24 +298,24 @@ Use **bold** for all key terms. No filler.`;
     return (
       <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3" style={{ scrollbarWidth: 'none' }}>
         <div className="flex items-center gap-3 px-3.5 py-2 rounded-xl shrink-0"
-          style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)' }}>
-          <Loader2 size={13} className="animate-spin shrink-0" style={{ color: '#a78bfa' }} strokeWidth={2} />
+          style={{ background: 'rgba(255,90,31,0.08)', border: '1px solid rgba(255,90,31,0.15)' }}>
+          <Loader2 size={13} className="animate-spin shrink-0" style={{ color: '#FF7A3C' }} strokeWidth={2} />
           <div className="flex-1 min-w-0">
-            <span className="text-xs font-semibold" style={{ color: '#c4b5fd' }}>{status.stage}</span>
-            {status.detail && <span className="text-xs ml-1.5" style={{ color: 'rgba(167,139,250,0.45)' }}>{status.detail}</span>}
+            <span className="text-xs font-semibold" style={{ color: '#FF7A3C' }}>{status.stage}</span>
+            {status.detail && <span className="text-xs ml-1.5" style={{ color: 'rgba(255,122,60,0.45)' }}>{status.detail}</span>}
           </div>
         </div>
         {streaming ? (
           <div className="px-4 py-3 rounded-2xl flex-1" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
             <NotesMD text={streaming} />
             <div className="flex items-center gap-1.5 mt-3">
-              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#a78bfa' }} />
-              <span className="text-[10px]" style={{ color: 'rgba(167,139,250,0.4)' }}>writing…</span>
+              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#FF7A3C' }} />
+              <span className="text-[10px]" style={{ color: 'rgba(255,122,60,0.4)' }}>writing…</span>
             </div>
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center gap-3">
-            <Brain size={20} style={{ color: '#a78bfa' }} strokeWidth={1.5} className="animate-pulse" />
+            <Brain size={20} style={{ color: '#FF7A3C' }} strokeWidth={1.5} className="animate-pulse" />
             <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Reading "{sourceLabel}"…</p>
           </div>
         )}
@@ -327,6 +335,10 @@ Use **bold** for all key terms. No filler.`;
             </button>
             <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
             <span className="text-[11px] font-semibold truncate" style={{ color: 'rgba(255,255,255,0.4)' }}>{sourceLabel}</span>
+            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
+              style={{ background: 'rgba(255,90,31,0.12)', color: '#FF7A3C' }}>
+              {format === 'cheatsheet' ? 'Cheat-sheet' : format}
+            </span>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {/* Anki export */}
@@ -335,14 +347,14 @@ Use **bold** for all key terms. No filler.`;
               disabled={generatingAnki}
               title="Export as Anki CSV"
               className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold hover:bg-white/8 disabled:opacity-40"
-              style={{ color: '#a78bfa' }}>
+              style={{ color: '#FF7A3C' }}>
               {generatingAnki ? <Loader2 size={10} className="animate-spin" /> : <Download size={10} strokeWidth={2.5} />}
               Anki
             </button>
             {/* Copy */}
             <button onClick={async () => { await navigator.clipboard.writeText(notes); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
               className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold hover:bg-white/8"
-              style={{ color: copied ? '#6ee7b7' : '#a78bfa' }}>
+              style={{ color: copied ? '#F7F5EF' : '#FF7A3C' }}>
               {copied ? <Check size={11} strokeWidth={2.5} /> : <Copy size={11} strokeWidth={2.5} />}
               {copied ? 'Copied!' : 'Copy'}
             </button>
@@ -353,7 +365,7 @@ Use **bold** for all key terms. No filler.`;
         </div>
         <button onClick={onSwitchToChat}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold shrink-0"
-          style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.14)', color: '#c4b5fd' }}>
+          style={{ background: 'rgba(255,90,31,0.08)', border: '1px solid rgba(255,90,31,0.14)', color: '#FF7A3C' }}>
           <Sparkles size={12} strokeWidth={2.5} />Ask AI questions about these notes
         </button>
       </div>
@@ -375,13 +387,32 @@ Use **bold** for all key terms. No filler.`;
       )}
       <div className="text-center pt-1">
         <div className="w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-2"
-          style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.18)' }}>
-          <StickyNote size={18} style={{ color: '#a78bfa' }} strokeWidth={1.5} />
+          style={{ background: 'rgba(255,90,31,0.1)', border: '1px solid rgba(255,90,31,0.18)' }}>
+          <StickyNote size={18} style={{ color: '#FF7A3C' }} strokeWidth={1.5} />
         </div>
         <p className="text-sm font-bold text-white/55">Deep Notes</p>
         <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.22)' }}>
           Pick a source — AI reads everything including PDFs
         </p>
+      </div>
+
+      {/* Format toggle — steers depth of generated notes */}
+      <div>
+        <p className="text-[10px] font-black uppercase tracking-widest mb-2 px-0.5" style={{ color: 'rgba(255,255,255,0.18)' }}>Format</p>
+        <div className="grid grid-cols-3 gap-1.5">
+          {([['concise', 'Concise'], ['detailed', 'Detailed'], ['cheatsheet', 'Cheat-sheet']] as const).map(([id, lbl]) => {
+            const on = format === id;
+            return (
+              <button key={id} onClick={() => setFormat(id)}
+                className="py-2 rounded-xl text-[11px] font-bold transition-colors"
+                style={on
+                  ? { background: '#FF5A1F', color: '#0A0A0A' }
+                  : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.45)' }}>
+                {lbl}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {syllabus.length > 0 && (
@@ -392,7 +423,7 @@ Use **bold** for all key terms. No filler.`;
               <button key={unit.id} onClick={() => onUnit(unit)}
                 className="w-full text-left flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all"
                 style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-                onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(139,92,246,0.3)'; el.style.background = 'rgba(139,92,246,0.07)'; }}
+                onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(255,90,31,0.3)'; el.style.background = 'rgba(255,90,31,0.07)'; }}
                 onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(255,255,255,0.06)'; el.style.background = 'rgba(255,255,255,0.03)'; }}>
                 {unit.completed
                   ? <CheckCircle2 size={13} className="shrink-0" style={{ color: 'rgba(16,185,129,0.55)' }} strokeWidth={2} />
@@ -401,7 +432,7 @@ Use **bold** for all key terms. No filler.`;
                   style={{ color: unit.completed ? 'rgba(255,255,255,0.42)' : 'rgba(255,255,255,0.72)' }}>
                   {unit.title}
                 </span>
-                <ChevronRight size={12} className="shrink-0" style={{ color: 'rgba(167,139,250,0.35)' }} strokeWidth={2.5} />
+                <ChevronRight size={12} className="shrink-0" style={{ color: 'rgba(255,122,60,0.35)' }} strokeWidth={2.5} />
               </button>
             ))}
           </div>
@@ -417,13 +448,13 @@ Use **bold** for all key terms. No filler.`;
               return (
                 <button key={topic.id} onClick={() => onTopic(topic)}
                   className="w-full text-left flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all"
-                  style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${isDue ? 'rgba(167,139,250,0.14)' : 'rgba(255,255,255,0.06)'}` }}
-                  onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(139,92,246,0.3)'; el.style.background = 'rgba(139,92,246,0.07)'; }}
-                  onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = isDue ? 'rgba(167,139,250,0.14)' : 'rgba(255,255,255,0.06)'; el.style.background = 'rgba(255,255,255,0.03)'; }}>
-                  <Brain size={13} className="shrink-0" style={{ color: isDue ? '#a78bfa' : 'rgba(255,255,255,0.2)' }} strokeWidth={2} />
+                  style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${isDue ? 'rgba(255,122,60,0.14)' : 'rgba(255,255,255,0.06)'}` }}
+                  onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(255,90,31,0.3)'; el.style.background = 'rgba(255,90,31,0.07)'; }}
+                  onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = isDue ? 'rgba(255,122,60,0.14)' : 'rgba(255,255,255,0.06)'; el.style.background = 'rgba(255,255,255,0.03)'; }}>
+                  <Brain size={13} className="shrink-0" style={{ color: isDue ? '#FF7A3C' : 'rgba(255,255,255,0.2)' }} strokeWidth={2} />
                   <span className="text-sm font-medium flex-1" style={{ color: 'rgba(255,255,255,0.7)' }}>{topic.name}</span>
-                  {isDue && <span className="text-[9px] px-1.5 py-0.5 rounded font-black shrink-0" style={{ background: 'rgba(167,139,250,0.12)', color: '#c4b5fd' }}>DUE</span>}
-                  <ChevronRight size={12} className="shrink-0" style={{ color: 'rgba(167,139,250,0.35)' }} strokeWidth={2.5} />
+                  {isDue && <span className="text-[9px] px-1.5 py-0.5 rounded font-black shrink-0" style={{ background: 'rgba(255,122,60,0.12)', color: '#FF7A3C' }}>DUE</span>}
+                  <ChevronRight size={12} className="shrink-0" style={{ color: 'rgba(255,122,60,0.35)' }} strokeWidth={2.5} />
                 </button>
               );
             })}
@@ -439,7 +470,7 @@ Use **bold** for all key terms. No filler.`;
               <button key={r.id} onClick={() => onResource(r)}
                 className="w-full text-left flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all"
                 style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-                onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(139,92,246,0.3)'; el.style.background = 'rgba(139,92,246,0.07)'; }}
+                onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(255,90,31,0.3)'; el.style.background = 'rgba(255,90,31,0.07)'; }}
                 onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(255,255,255,0.06)'; el.style.background = 'rgba(255,255,255,0.03)'; }}>
                 <div className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
                   <NoteResourceIcon type={r.type} />
@@ -450,13 +481,13 @@ Use **bold** for all key terms. No filler.`;
                     <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded"
                       style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.28)' }}>{r.type}</span>
                     {r.type === 'pdf' && r.fileData && (
-                      <span className="text-[9px] font-semibold flex items-center gap-1" style={{ color: 'rgba(167,139,250,0.55)' }}>
+                      <span className="text-[9px] font-semibold flex items-center gap-1" style={{ color: 'rgba(255,122,60,0.55)' }}>
                         <Eye size={9} strokeWidth={2.5} />reads all pages
                       </span>
                     )}
                   </div>
                 </div>
-                <ChevronRight size={12} className="shrink-0" style={{ color: 'rgba(167,139,250,0.35)' }} strokeWidth={2.5} />
+                <ChevronRight size={12} className="shrink-0" style={{ color: 'rgba(255,122,60,0.35)' }} strokeWidth={2.5} />
               </button>
             ))}
           </div>
@@ -468,17 +499,17 @@ Use **bold** for all key terms. No filler.`;
         {chatMessages && chatMessages.length >= 2 ? (
           <button onClick={onChat}
             className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all"
-            style={{ background: 'linear-gradient(135deg,rgba(124,58,237,0.08),rgba(59,130,246,0.08))', border: '1px solid rgba(139,92,246,0.18)' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.38)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.18)'; }}>
-            <div className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.12)' }}>
-              <Sparkles size={13} style={{ color: '#a78bfa' }} strokeWidth={2} />
+            style={{ background: 'linear-gradient(135deg,rgba(255,90,31,0.08),rgba(255,90,31,0.08))', border: '1px solid rgba(255,90,31,0.18)' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,90,31,0.38)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,90,31,0.18)'; }}>
+            <div className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,90,31,0.12)' }}>
+              <Sparkles size={13} style={{ color: '#FF7A3C' }} strokeWidth={2} />
             </div>
             <div className="flex-1 text-left">
-              <div className="text-sm font-semibold" style={{ color: '#c4b5fd' }}>Synthesise This Chat</div>
-              <div className="text-[10px]" style={{ color: 'rgba(167,139,250,0.45)' }}>{chatMessages.length} messages → comprehensive notes</div>
+              <div className="text-sm font-semibold" style={{ color: '#FF7A3C' }}>Synthesise This Chat</div>
+              <div className="text-[10px]" style={{ color: 'rgba(255,122,60,0.45)' }}>{chatMessages.length} messages → comprehensive notes</div>
             </div>
-            <ChevronRight size={12} className="shrink-0" style={{ color: 'rgba(167,139,250,0.35)' }} strokeWidth={2.5} />
+            <ChevronRight size={12} className="shrink-0" style={{ color: 'rgba(255,122,60,0.35)' }} strokeWidth={2.5} />
           </button>
         ) : (
           <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl opacity-30"
@@ -722,7 +753,7 @@ const CopyBtn = ({ text }: { text: string }) => {
   return (
     <button onClick={async () => { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
       className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all"
-      style={{ color: copied ? '#6ee7b7' : 'rgba(255,255,255,0.25)' }}>
+      style={{ color: copied ? '#F7F5EF' : 'rgba(255,255,255,0.25)' }}>
       {copied ? <Check size={12} strokeWidth={2.5} /> : <Copy size={12} strokeWidth={2.5} />}
     </button>
   );
@@ -746,13 +777,13 @@ const MD = ({ text }: { text: string }) => {
         }
         if (line.match(/^[-•*]\s/)) return (
           <div key={i} className="flex gap-2 text-sm leading-relaxed">
-            <span style={{ color: 'rgba(167,139,250,0.5)', flexShrink: 0, marginTop: 3 }}>▸</span>
+            <span style={{ color: 'rgba(255,122,60,0.5)', flexShrink: 0, marginTop: 3 }}>▸</span>
             <span dangerouslySetInnerHTML={{ __html: html.replace(/^[-•*]\s/, '') }} />
           </div>
         );
         if (line.match(/^\d+\.\s/)) return (
           <div key={i} className="flex gap-2 text-sm leading-relaxed">
-            <span style={{ color: 'rgba(167,139,250,0.5)', flexShrink: 0, fontSize: 11, marginTop: 1 }}>{line.match(/^(\d+)/)?.[1]}.</span>
+            <span style={{ color: 'rgba(255,122,60,0.5)', flexShrink: 0, fontSize: 11, marginTop: 1 }}>{line.match(/^(\d+)/)?.[1]}.</span>
             <span dangerouslySetInnerHTML={{ __html: html.replace(/^\d+\.\s/, '') }} />
           </div>
         );
@@ -796,7 +827,7 @@ const TypingDots = () => {
         {[0,1,2].map(i => (
           <div key={i} className="w-1 h-1 rounded-full"
             style={{
-              background: 'rgba(167,139,250,0.7)',
+              background: 'rgba(255,122,60,0.7)',
               animation: `bounce 0.9s ease-in-out ${i * 0.18}s infinite`,
             }} />
         ))}
@@ -985,16 +1016,16 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
 
   const readiness = subjectIntelligence?.readiness;
   const readinessColor = readiness === undefined ? '#71717a'
-    : readiness < 35 ? '#ef4444' : readiness < 60 ? '#f59e0b' : readiness < 80 ? '#10b981' : '#6ee7b7';
+    : readiness < 35 ? '#FF5A1F' : readiness < 60 ? '#FF7A3C' : readiness < 80 ? '#FFD60A' : '#F7F5EF';
   const starters = getStarters(block, subjectIntelligence, richCtx);
   const topicsDue = richCtx.topicsDueReview?.length ?? 0;
   const pendingAssignments = richCtx.assignments?.filter(a => !a.completed).length ?? 0;
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'chat', label: 'Chat', icon: <MessageSquare size={13} strokeWidth={2.5} /> },
-    { id: 'exam', label: 'Exam', icon: <Trophy size={13} strokeWidth={2.5} /> },  // NEW
-    { id: 'resources', label: 'Resources', icon: <BookOpen size={13} strokeWidth={2.5} /> },
+    { id: 'exam', label: 'Exam', icon: <Trophy size={13} strokeWidth={2.5} /> },
     { id: 'notes', label: 'Notes', icon: <StickyNote size={13} strokeWidth={2.5} /> },
+    { id: 'resources', label: 'Resources', icon: <BookOpen size={13} strokeWidth={2.5} /> },
   ];
 
   return (
@@ -1011,40 +1042,27 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           borderRadius: window.innerWidth >= 640 ? '1.5rem' : '1.5rem 1.5rem 0 0',
         }}>
         <div className="absolute top-0 left-12 right-12 h-px rounded-full"
-          style={{ background: 'linear-gradient(90deg,transparent,rgba(139,92,246,0.6),rgba(59,130,246,0.4),transparent)' }} />
+          style={{ background: 'linear-gradient(90deg,transparent,rgba(255,90,31,0.6),rgba(255,90,31,0.4),transparent)' }} />
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 shrink-0"
           style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'linear-gradient(135deg,#7c3aed,#3b82f6)', boxShadow: '0 0 12px rgba(124,58,237,0.4)' }}>
+              style={{ background: 'linear-gradient(135deg,#FF5A1F,#FF7A3C)', boxShadow: '0 0 12px rgba(255,90,31,0.4)' }}>
               <Wand2 size={15} className="text-white" strokeWidth={2} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-white">Study Assistant</span>
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-sm font-bold text-white">Orbit Coach</span>
+                <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
               </div>
-              <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                {block.subjectName} · {block.duration}min {block.type}
-                {block.notes ? ` · ${block.notes.slice(0, 30)}` : ''}
+              <div className="text-[10px] font-mono uppercase tracking-[0.12em]" style={{ color: '#FF7A3C' }}>
+                {block.subjectName}{readiness !== undefined ? ` · readiness ${readiness}%` : ''}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            {readiness !== undefined && (
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold"
-                style={{ background: `${readinessColor}18`, border: `1px solid ${readinessColor}28`, color: readinessColor }}>
-                <Brain size={10} strokeWidth={2.5} />{readiness}%
-              </div>
-            )}
-            {sessionCount > 0 && (
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold"
-                style={{ background: 'rgba(139,92,246,0.12)', color: '#c4b5fd' }}>
-                <Flame size={10} strokeWidth={2.5} />{sessionCount}
-              </div>
-            )}
             {messages.length > 0 && (
               <button onClick={() => { setMessages([]); setStreamText(''); setError(''); }}
                 className="p-1.5 rounded-lg hover:bg-white/8" style={{ color: 'rgba(255,255,255,0.25)' }}>
@@ -1057,21 +1075,24 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex px-5 pt-3 gap-1 shrink-0">
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
-              style={tab === t.id
-                ? { background: 'rgba(139,92,246,0.18)', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.25)' }
-                : { background: 'transparent', color: 'rgba(255,255,255,0.28)', border: '1px solid transparent' }}>
-              {t.icon}{t.label}
-              {t.id === 'resources' && resources.length > 0 && (
-                <span className="w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-black"
-                  style={{ background: 'rgba(139,92,246,0.3)', color: '#c4b5fd' }}>{resources.length}</span>
-              )}
-            </button>
-          ))}
+        {/* Tabs + Feynman */}
+        <div className="flex items-center justify-between px-5 pt-3 gap-2 shrink-0">
+          <div className="flex gap-1 overflow-x-auto">
+            {TABS.map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[11px] font-mono font-bold uppercase tracking-[0.12em] transition-colors shrink-0 ${tab === t.id ? 'bg-white text-ink' : 'text-zinc-400 hover:text-white'}`}>
+                {t.icon}{t.label}
+                {t.id === 'resources' && resources.length > 0 && (
+                  <span className="w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-black bg-orange-500/30 text-orange-400">{resources.length}</span>
+                )}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setFeynmanMode(v => !v)} title="Explain like I'm 16"
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-[0.12em] shrink-0 transition-colors border ${feynmanMode ? 'bg-yellow-400/15 text-yellow-300 border-yellow-400/30' : 'bg-ink2 text-zinc-400 border-white/10 hover:text-white'}`}>
+            ✦ Feynman
+            <span className={`w-7 h-4 rounded-full p-0.5 flex items-center transition-colors ${feynmanMode ? 'bg-yellow-400' : 'bg-zinc-700'}`}><span className={`w-3 h-3 rounded-full bg-ink transition-transform ${feynmanMode ? 'translate-x-3' : ''}`} /></span>
+          </button>
         </div>
 
         {/* ── CHAT TAB ── */}
@@ -1081,12 +1102,12 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
               <div className="mx-5 mt-3 shrink-0 space-y-1.5">
                 {subjectIntelligence?.weakTopics?.length ? (
                   <div className="px-3 py-2 rounded-xl flex items-center gap-2 flex-wrap"
-                    style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.12)' }}>
-                    <AlertTriangle size={10} className="text-amber-400 shrink-0" strokeWidth={2.5} />
-                    <span className="text-[10px] font-semibold text-amber-400/60">Weak:</span>
+                    style={{ background: 'rgba(255,214,10,0.06)', border: '1px solid rgba(255,214,10,0.16)' }}>
+                    <AlertTriangle size={10} className="text-yellow-400 shrink-0" strokeWidth={2.5} />
+                    <span className="text-[10px] font-semibold text-yellow-400/70">Weak:</span>
                     {subjectIntelligence.weakTopics.slice(0, 4).map((t, i) => (
                       <span key={i} className="text-[10px] px-2 py-0.5 rounded-md font-medium"
-                        style={{ background: 'rgba(245,158,11,0.1)', color: '#fcd34d', border: '1px solid rgba(245,158,11,0.18)' }}>{t}</span>
+                        style={{ background: 'rgba(255,214,10,0.1)', color: '#FFD60A', border: '1px solid rgba(255,214,10,0.22)' }}>{t}</span>
                     ))}
                   </div>
                 ) : null}
@@ -1094,13 +1115,13 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                   <div className="flex gap-2">
                     {topicsDue > 0 && (
                       <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold"
-                        style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)', color: '#c4b5fd' }}>
+                        style={{ background: 'rgba(255,90,31,0.08)', border: '1px solid rgba(255,90,31,0.15)', color: '#FF7A3C' }}>
                         <RotateCcw size={10} strokeWidth={2.5} />{topicsDue} review{topicsDue !== 1 ? 's' : ''} due
                       </div>
                     )}
                     {pendingAssignments > 0 && (
                       <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold"
-                        style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.14)', color: '#fca5a5' }}>
+                        style={{ background: 'rgba(255,90,31,0.08)', border: '1px solid rgba(255,90,31,0.16)', color: '#FF7A3C' }}>
                         <Target size={10} strokeWidth={2.5} />{pendingAssignments} assignment{pendingAssignments !== 1 ? 's' : ''} pending
                       </div>
                     )}
@@ -1114,8 +1135,8 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                 <div className="flex flex-col items-center justify-center h-full gap-5">
                   <div className="text-center">
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
-                      style={{ background: 'linear-gradient(135deg,rgba(124,58,237,0.15),rgba(59,130,246,0.15))', border: '1px solid rgba(139,92,246,0.2)' }}>
-                      <Sparkles size={22} style={{ color: '#a78bfa' }} strokeWidth={2} />
+                      style={{ background: 'linear-gradient(135deg,rgba(255,90,31,0.15),rgba(255,90,31,0.15))', border: '1px solid rgba(255,90,31,0.2)' }}>
+                      <Sparkles size={22} style={{ color: '#FF7A3C' }} strokeWidth={2} />
                     </div>
                     <h3 className="text-sm font-bold text-white mb-1">Ready for {block.subjectName}</h3>
                     <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
@@ -1131,53 +1152,12 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                       )}
                       {richCtx.subject?.grades?.length ? (() => {
                         const avg = richCtx.subject!.grades!.reduce((s, g) => s + (g.score / g.maxScore) * 100, 0) / richCtx.subject!.grades!.length;
-                        return <ContextBadge icon={<TrendingUp size={11} strokeWidth={2.5} />} label="Avg Score" value={`${avg.toFixed(0)}%`} color="#6ee7b7" />;
+                        return <ContextBadge icon={<TrendingUp size={11} strokeWidth={2.5} />} label="Avg Score" value={`${avg.toFixed(0)}%`} color="#F7F5EF" />;
                       })() : null}
-                      {topicsDue > 0 && <ContextBadge icon={<RotateCcw size={11} strokeWidth={2.5} />} label="Due Today" value={`${topicsDue} topics`} color="#a78bfa" />}
-                      {subjectIntelligence?.nextExam && <ContextBadge icon={<Clock size={11} strokeWidth={2.5} />} label="Next Exam" value={subjectIntelligence.nextExam} color="#fbbf24" />}
+                      {topicsDue > 0 && <ContextBadge icon={<RotateCcw size={11} strokeWidth={2.5} />} label="Due Today" value={`${topicsDue} topics`} color="#FF7A3C" />}
+                      {subjectIntelligence?.nextExam && <ContextBadge icon={<Clock size={11} strokeWidth={2.5} />} label="Next Exam" value={subjectIntelligence.nextExam} color="#FFD60A" />}
                       {richCtx.globalStreak !== undefined && richCtx.globalStreak > 1 && (
                         <ContextBadge icon={<Flame size={11} strokeWidth={2.5} />} label="Streak" value={`${richCtx.globalStreak}d`} color="#f97316" />
-                      )}
-                    </div>
-                  )}
-
-                  {/* Cross-subject readiness mini-map */}
-                  {ctxLoaded && richCtx.allSubjects && richCtx.allReadiness && richCtx.allSubjects.length > 1 && (
-                    <div className="w-full px-1">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-center mb-2"
-                        style={{ color: 'rgba(255,255,255,0.15)' }}>Your academic snapshot</p>
-                      <div className="space-y-1.5">
-                        {richCtx.allSubjects.slice(0, 5).map(sub => {
-                          const r = richCtx.allReadiness![sub.id!];
-                          if (!r) return null;
-                          const col = r.score < 35 ? '#ef4444' : r.score < 60 ? '#f59e0b' : r.score < 80 ? '#10b981' : '#6ee7b7';
-                          const isCurrent = sub.id === block.subjectId;
-                          return (
-                            <div key={sub.id} className="flex items-center gap-2">
-                              <span className="text-[10px] w-24 truncate shrink-0"
-                                style={{ color: isCurrent ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.35)', fontWeight: isCurrent ? 700 : 400 }}>
-                                {sub.name}
-                              </span>
-                              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                                <div className="h-full rounded-full transition-all duration-700"
-                                  style={{ width: `${r.score}%`, background: col, opacity: isCurrent ? 1 : 0.5 }} />
-                              </div>
-                              <span className="text-[9px] font-bold font-mono w-7 text-right shrink-0"
-                                style={{ color: col + (isCurrent ? 'ff' : '80') }}>
-                                {r.score}%
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {richCtx.weakestSubject && richCtx.weakestSubject.name !== block.subjectName && richCtx.weakestSubject.score < 45 && (
-                        <div className="mt-2 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5"
-                          style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.12)' }}>
-                          <AlertTriangle size={9} style={{ color: '#fca5a5' }} strokeWidth={2.5} />
-                          <span className="text-[9px]" style={{ color: 'rgba(252,165,165,0.7)' }}>
-                            {richCtx.weakestSubject.name} is critical at {richCtx.weakestSubject.score}% — I'll factor that into my coaching
-                          </span>
-                        </div>
                       )}
                     </div>
                   )}
@@ -1188,7 +1168,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                       <button key={i} onClick={() => sendMessage(s.text)}
                         className="w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
                         style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.58)' }}
-                        onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(139,92,246,0.35)'; el.style.background = 'rgba(139,92,246,0.08)'; }}
+                        onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(255,90,31,0.35)'; el.style.background = 'rgba(255,90,31,0.08)'; }}
                         onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(255,255,255,0.06)'; el.style.background = 'rgba(255,255,255,0.03)'; }}>
                         <span className="mr-2">{s.icon}</span>{s.text}
                       </button>
@@ -1201,14 +1181,14 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                 <div key={msg.id} className={`flex gap-2.5 group ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                   <div className="shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black mt-0.5"
                     style={msg.role === 'user'
-                      ? { background: 'rgba(139,92,246,0.2)', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.2)' }
-                      : { background: 'linear-gradient(135deg,#7c3aed,#3b82f6)', color: '#fff', boxShadow: '0 0 6px rgba(124,58,237,0.3)' }}>
+                      ? { background: '#FF5A1F', color: '#0A0A0A' }
+                      : { background: 'linear-gradient(135deg,#FF5A1F,#FF7A3C)', color: '#fff', boxShadow: '0 0 6px rgba(255,90,31,0.3)' }}>
                     {msg.role === 'user' ? 'U' : <Wand2 size={11} strokeWidth={2} />}
                   </div>
                   <div className={`max-w-[85%] flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                     <div className="px-3.5 py-2.5 rounded-2xl"
                       style={msg.role === 'user'
-                        ? { background: 'rgba(139,92,246,0.18)', border: '1px solid rgba(139,92,246,0.22)', color: '#e9d5ff' }
+                        ? { background: '#FF5A1F', color: '#0A0A0A', fontWeight: 500 }
                         : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.85)' }}>
                       {msg.role === 'assistant' ? <MD text={msg.content} /> : <p className="text-sm leading-relaxed">{msg.content}</p>}
                     </div>
@@ -1225,7 +1205,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
               {streaming && (
                 <div className="flex gap-2.5">
                   <div className="shrink-0 w-6 h-6 rounded-lg flex items-center justify-center"
-                    style={{ background: 'linear-gradient(135deg,#7c3aed,#3b82f6)', boxShadow: '0 0 6px rgba(124,58,237,0.3)' }}>
+                    style={{ background: 'linear-gradient(135deg,#FF5A1F,#FF7A3C)', boxShadow: '0 0 6px rgba(255,90,31,0.3)' }}>
                     <Wand2 size={11} className="text-white" strokeWidth={2} />
                   </div>
                   <div className="max-w-[85%] px-3.5 py-2.5 rounded-2xl"
@@ -1246,41 +1226,35 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
 
             {/* Input area */}
             <div className="px-4 py-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-              {/* Feynman toggle */}
-              <div className="flex items-center justify-between mb-2">
-                <button
-                  onClick={() => setFeynmanMode(v => !v)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all"
-                  style={feynmanMode
-                    ? { background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24' }
-                    : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.3)' }}>
-                  <Lightbulb size={10} strokeWidth={2.5} />
-                  Feynman Mode {feynmanMode ? 'ON' : 'OFF'}
-                </button>
-                {feynmanMode && (
-                  <span className="text-[9px]" style={{ color: 'rgba(245,158,11,0.5)' }}>
-                    Explains like you're 16
-                  </span>
-                )}
+              {/* Suggested prompts */}
+              <div className="flex gap-2 mb-2.5 overflow-x-auto">
+                {([
+                  ['⚡ Quiz me', `Quiz me on ${block.subjectName} — 5 questions, don't go easy.`],
+                  ['≡ Summarize', `Summarize the key ideas of ${block.subjectName} I should know.`],
+                  ['✦ Flashcards', `Make 5 flashcards for ${block.subjectName}.`],
+                  ['↗ Past paper Qs', `Give me exam-style questions for ${block.subjectName}.`],
+                ] as const).map(([label, prompt]) => (
+                  <button key={label} onClick={() => sendMessage(prompt)} disabled={streaming}
+                    className="shrink-0 text-[10px] font-mono font-bold uppercase tracking-[0.12em] px-3 py-2 rounded-full bg-ink2 border border-white/10 text-zinc-400 hover:text-white transition-colors disabled:opacity-40">
+                    {label}
+                  </button>
+                ))}
               </div>
 
-              <div className="flex items-end gap-2 px-3.5 py-2.5 rounded-2xl"
+              <div className="flex items-end gap-2 px-3.5 py-2 rounded-full"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
                 <textarea ref={inputRef} value={input} rows={1} disabled={streaming}
                   onChange={e => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px'; }}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-                  placeholder={streaming ? 'Thinking...' : feynmanMode ? "Ask anything — I'll explain it simply..." : 'Ask anything about your studies...'}
-                className="flex-1 bg-transparent text-sm text-white placeholder:text-white/20 resize-none focus:outline-none leading-relaxed"
-                style={{ maxHeight: 100 }} />
+                  placeholder={streaming ? 'Thinking…' : feynmanMode ? "Ask anything — I'll explain it simply…" : `Ask anything about ${block.subjectName}…`}
+                  className="flex-1 bg-transparent text-sm text-white placeholder:text-white/20 resize-none focus:outline-none leading-relaxed py-1.5"
+                  style={{ maxHeight: 100 }} />
                 <button onClick={() => sendMessage(input)} disabled={!input.trim() || streaming}
-                  className="shrink-0 w-7 h-7 rounded-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-30"
-                  style={{ background: feynmanMode ? 'linear-gradient(135deg,#d97706,#f59e0b)' : 'linear-gradient(135deg,#7c3aed,#3b82f6)' }}>
-                  <Send size={13} className="text-white" strokeWidth={2.5} />
+                  className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-30"
+                  style={{ background: feynmanMode ? 'linear-gradient(135deg,#FFD60A,#FFC400)' : 'linear-gradient(135deg,#FF5A1F,#FF7A3C)' }}>
+                  <Send size={15} className={feynmanMode ? 'text-ink' : 'text-white'} strokeWidth={2.5} />
                 </button>
               </div>
-              <p className="text-center text-[9px] mt-1.5 font-mono" style={{ color: 'rgba(255,255,255,0.12)' }}>
-                Enter · Shift+Enter new line · ESC close
-              </p>
             </div>
           </>
         )}
@@ -1312,9 +1286,9 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                 style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center mt-0.5"
                   style={{ background: 'rgba(255,255,255,0.06)' }}>
-                  {r.type === 'pdf' ? <FileText size={14} className="text-red-400" strokeWidth={2} />
-                    : r.type === 'video' ? <Layers size={14} className="text-blue-400" strokeWidth={2} />
-                      : <Link size={14} className="text-violet-400" strokeWidth={2} />}
+                  {r.type === 'pdf' ? <FileText size={14} className="text-orange-400" strokeWidth={2} />
+                    : r.type === 'video' ? <Layers size={14} className="text-orange-400" strokeWidth={2} />
+                      : <Link size={14} className="text-orange-400" strokeWidth={2} />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
@@ -1322,7 +1296,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                     {r.priority && (
                       <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md shrink-0"
                         style={r.priority === 'required'
-                          ? { background: 'rgba(239,68,68,0.15)', color: '#f87171' }
+                          ? { background: 'rgba(255,90,31,0.15)', color: '#FF7A3C' }
                           : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}>{r.priority}</span>
                     )}
                   </div>
@@ -1333,13 +1307,13 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                     {r.url && (
                       <a href={r.url} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1 text-[11px] font-semibold hover:opacity-80"
-                        style={{ color: '#a78bfa' }}>
+                        style={{ color: '#FF7A3C' }}>
                         <ExternalLink size={11} strokeWidth={2.5} />Open
                       </a>
                     )}
                     {r.fileData && (
                       <button onClick={() => { const a = document.createElement('a'); a.href = r.fileData!; a.download = r.title; a.click(); }}
-                        className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: '#a78bfa' }}>
+                        className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: '#FF7A3C' }}>
                         <Download size={11} strokeWidth={2.5} />Download
                       </button>
                     )}

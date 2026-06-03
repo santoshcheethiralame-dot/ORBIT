@@ -262,7 +262,7 @@ const QuestionCard: React.FC<{
                         onClick={() => onSubmit(question.type === 'short' ? shortInput : selected)}
                         disabled={grading || !canSubmit}
                         className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-30 transition-all"
-                        style={{ background: 'linear-gradient(135deg,#7c3aed,#3b82f6)', color: '#fff' }}>
+                        style={{ background: 'linear-gradient(135deg,#FF5A1F,#FF7A3C)', color: '#fff' }}>
                         {grading ? <Loader2 size={14} className="animate-spin" /> : <><Send size={13} strokeWidth={2.5} />Submit</>}
                     </button>
                 </div>
@@ -367,7 +367,7 @@ const Results: React.FC<{
                 </button>
                 <button onClick={onNew}
                     className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold"
-                    style={{ background: 'linear-gradient(135deg,rgba(124,58,237,0.3),rgba(59,130,246,0.3))', border: '1px solid rgba(139,92,246,0.3)', color: '#c4b5fd' }}>
+                    style={{ background: 'linear-gradient(135deg,rgba(255,90,31,0.3),rgba(255,90,31,0.3))', border: '1px solid rgba(139,92,246,0.3)', color: '#c4b5fd' }}>
                     <Brain size={12} strokeWidth={2.5} />New Exam
                 </button>
             </div>
@@ -433,9 +433,9 @@ const ExamGeneratingLoader: React.FC<{
             <div className="relative">
                 <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
                     style={{
-                        background: 'linear-gradient(135deg,rgba(124,58,237,0.15),rgba(59,130,246,0.12))',
+                        background: 'linear-gradient(135deg,rgba(255,90,31,0.15),rgba(255,90,31,0.12))',
                         border: '1px solid rgba(139,92,246,0.25)',
-                        boxShadow: '0 0 30px rgba(124,58,237,0.15)',
+                        boxShadow: '0 0 30px rgba(255,90,31,0.15)',
                         animation: 'pulse 2s ease-in-out infinite',
                     }}>
                     {current.icon}
@@ -443,7 +443,7 @@ const ExamGeneratingLoader: React.FC<{
                 {/* Orbiting dot */}
                 <div className="absolute inset-0" style={{ animation: 'spin 2s linear infinite' }}>
                     <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full"
-                        style={{ background: 'rgba(167,139,250,0.7)', boxShadow: '0 0 6px rgba(167,139,250,0.5)' }} />
+                        style={{ background: 'rgba(255,122,60,0.7)', boxShadow: '0 0 6px rgba(255,122,60,0.5)' }} />
                 </div>
             </div>
 
@@ -463,8 +463,8 @@ const ExamGeneratingLoader: React.FC<{
                     <div className="h-full rounded-full transition-none"
                         style={{
                             width: `${Math.min(barWidth, 98)}%`,
-                            background: 'linear-gradient(90deg,#7c3aed,#3b82f6)',
-                            boxShadow: '0 0 8px rgba(124,58,237,0.5)',
+                            background: 'linear-gradient(90deg,#FF5A1F,#FF7A3C)',
+                            boxShadow: '0 0 8px rgba(255,90,31,0.5)',
                             transition: 'width 0.08s linear',
                         }} />
                 </div>
@@ -501,7 +501,7 @@ const ExamGeneratingLoader: React.FC<{
                         style={{
                             width: i === stage ? 16 : 6,
                             height: 6,
-                            background: i < stage ? '#7c3aed' : i === stage ? 'rgba(167,139,250,0.9)' : 'rgba(255,255,255,0.1)',
+                            background: i < stage ? '#FF5A1F' : i === stage ? 'rgba(255,122,60,0.9)' : 'rgba(255,255,255,0.1)',
                         }} />
                 ))}
             </div>
@@ -571,8 +571,8 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({ block, subject, to
             <div className="space-y-5 py-2">
                 <div className="text-center">
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
-                        style={{ background: 'linear-gradient(135deg,rgba(124,58,237,0.15),rgba(59,130,246,0.15))', border: '1px solid rgba(139,92,246,0.2)' }}>
-                        <Trophy size={20} style={{ color: '#a78bfa' }} strokeWidth={1.5} />
+                        style={{ background: 'linear-gradient(135deg,rgba(255,90,31,0.15),rgba(255,90,31,0.15))', border: '1px solid rgba(139,92,246,0.2)' }}>
+                        <Trophy size={20} style={{ color: '#FF7A3C' }} strokeWidth={1.5} />
                     </div>
                     <p className="text-sm font-bold text-white/70">Exam Simulator</p>
                     <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>
@@ -634,7 +634,7 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({ block, subject, to
 
                 <button onClick={startExam}
                     className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all"
-                    style={{ background: 'linear-gradient(135deg,#7c3aed,#3b82f6)', color: '#fff', boxShadow: '0 4px 16px rgba(124,58,237,0.3)' }}>
+                    style={{ background: 'linear-gradient(135deg,#FF5A1F,#FF7A3C)', color: '#fff', boxShadow: '0 4px 16px rgba(255,90,31,0.3)' }}>
                     <Zap size={15} strokeWidth={2.5} />Start {count}-Question Exam
                 </button>
             </div>
@@ -677,7 +677,7 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({ block, subject, to
                     </div>
                     <div className="h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }}>
                         <div className="h-full rounded-full transition-all duration-500"
-                            style={{ width: `${progress}%`, background: 'linear-gradient(90deg,#7c3aed,#3b82f6)' }} />
+                            style={{ width: `${progress}%`, background: 'linear-gradient(90deg,#FF5A1F,#FF7A3C)' }} />
                     </div>
                 </div>
 

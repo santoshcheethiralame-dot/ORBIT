@@ -27,7 +27,7 @@ export interface AppSettings {
     milestoneSound: boolean;
   };
   display: {
-    theme: 'dark' | 'space' | 'midnight';
+    theme: 'dark' | 'light';
     compactMode: boolean;
     animationsEnabled: boolean;
     showProgressPercentage: boolean;
@@ -56,7 +56,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   },
   study: {
     dayStartHour: 4,
-    defaultFocusDuration: 25,
+    defaultFocusDuration: 50,
     breakDuration: 5,
     longBreakInterval: 4,
     autoStartBreaks: false,
@@ -164,18 +164,14 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   // Apply theme + compact mode to <html> element whenever they change
   useEffect(() => {
     const html = document.documentElement;
-    const theme = settings.display?.theme ?? 'dark';
-    if (theme === 'dark') {
-      html.removeAttribute('data-theme');
-    } else {
-      html.setAttribute('data-theme', theme);
-    }
-    if (settings.display?.compactMode) {
-      html.setAttribute('data-compact', 'true');
-    } else {
-      html.removeAttribute('data-compact');
-    }
-  }, [settings.display?.theme, settings.display?.compactMode]);
+    // Dark-only brutalist theme. Legacy cosmic themes + the half-baked light mode
+    // are disabled (light needs a full surface pass before it ships).
+    html.removeAttribute('data-theme');
+    html.classList.remove('light-mode');
+    html.toggleAttribute('data-compact', !!settings.display?.compactMode);
+    // Animations toggle: when disabled, neutralize all CSS animation/transition.
+    html.toggleAttribute('data-no-anim', settings.display?.animationsEnabled === false);
+  }, [settings.display?.compactMode, settings.display?.animationsEnabled]);
 
   const updateSetting = (path: string, value: any) => {
     setSettings(prev => {

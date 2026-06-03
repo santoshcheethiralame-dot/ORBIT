@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orbit — Notes · AI · Projects · Schedule · Review concepts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { ink:'#0A0A0A', ink2:'#131314', ink3:'#1C1C1E', orange:'#FF5A1F', orange2:'#FF7A3C', yellow:'#FFD60A', paper:'#F7F5EF', mute:'#9A9AA2', danger:'#F4453B' },
+      fontFamily: { display:['Archivo','sans-serif'], sans:['Inter','sans-serif'], mono:['JetBrains Mono','monospace'] },
+      borderRadius: { '4xl':'28px','5xl':'36px' },
+    }}}
+  </script>
+  <style>
+    body { background:#0A0A0A; color:#fff; -webkit-font-smoothing:antialiased; }
+    .display { font-family:'Archivo',sans-serif; font-weight:900; letter-spacing:-0.04em; line-height:0.9; }
+    .meta { font-family:'JetBrains Mono',monospace; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; }
+    ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#FF5A1F;border-radius:99px;border:3px solid #0A0A0A}::-webkit-scrollbar-track{background:transparent}
+    .no-bar::-webkit-scrollbar{height:0;width:0}
+  </style>
+</head>
+<body class="font-sans">
+<div class="max-w-[1240px] mx-auto px-5 md:px-8 py-10 space-y-20">
+
+  <!-- top bar -->
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl bg-orange flex items-center justify-center text-ink display text-2xl">O</div>
+      <div><div class="display text-2xl">ORBIT</div><div class="meta text-[10px] text-mute mt-1">Concept v5 · notes · AI · projects · schedule · review</div></div>
+    </div>
+    <span class="meta text-[10px] text-ink bg-yellow px-3 py-1.5 rounded-full">Orange · yellow · white</span>
+  </div>
+
+  <!-- ============================================================ NOTES -->
+  <section class="space-y-6">
+    <div class="flex items-end gap-3">
+      <h2 class="display text-5xl md:text-6xl">NOTES<span class="text-orange">.</span></h2>
+      <span class="meta text-[10px] text-mute mb-2">AI reads your PDFs, syllabus &amp; chats</span>
+    </div>
+
+    <div class="grid lg:grid-cols-[380px_1fr] gap-4">
+      <!-- SOURCE PICKER -->
+      <div class="rounded-4xl bg-ink2 border border-white/10 p-5 md:p-6 space-y-5">
+        <div class="text-center">
+          <div class="w-11 h-11 rounded-2xl bg-orange/12 border border-orange/20 flex items-center justify-center mx-auto mb-2 text-orange text-lg">✎</div>
+          <div class="display text-xl">Deep Notes</div>
+          <p class="text-xs text-mute mt-1">Pick a source — AI reads everything, even PDFs</p>
+        </div>
+
+        <!-- format toggle (NEW useful option) -->
+        <div>
+          <p class="meta text-[9px] text-mute mb-2">Format</p>
+          <div class="grid grid-cols-3 gap-1.5 bg-ink3 rounded-2xl p-1 border border-white/10">
+            <button class="text-mute text-xs font-bold py-2 rounded-xl">Concise</button>
+            <button class="bg-orange text-ink text-xs font-bold py-2 rounded-xl">Detailed</button>
+            <button class="text-mute text-xs font-bold py-2 rounded-xl">Cheat-sheet</button>
+          </div>
+        </div>
+
+        <!-- syllabus units -->
+        <div>
+          <p class="meta text-[9px] text-mute mb-2">Syllabus unit</p>
+          <div class="space-y-1.5">
+            <button class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 hover:border-orange/30 transition-colors text-left">
+              <span class="text-orange text-sm">✓</span><span class="text-sm text-mute flex-1">Process Scheduling</span><span class="text-orange/50">›</span></button>
+            <button class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-orange/[0.06] border border-orange/30 transition-colors text-left">
+              <span class="text-white/30 text-sm">○</span><span class="text-sm font-medium text-white flex-1">Deadlocks</span><span class="text-orange">›</span></button>
+            <button class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 hover:border-orange/30 transition-colors text-left">
+              <span class="text-white/30 text-sm">○</span><span class="text-sm text-white/70 flex-1">Memory Management</span><span class="text-orange/50">›</span></button>
+          </div>
+        </div>
+
+        <!-- flashcard topics -->
+        <div>
+          <p class="meta text-[9px] text-mute mb-2">Flashcard topic</p>
+          <div class="space-y-1.5">
+            <button class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-orange/15 hover:border-orange/30 transition-colors text-left">
+              <span class="text-orange">◈</span><span class="text-sm text-white/70 flex-1">Banker's Algorithm</span>
+              <span class="meta text-[8px] bg-orange/12 text-orange px-1.5 py-0.5 rounded">Due</span><span class="text-orange/50">›</span></button>
+            <button class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 hover:border-orange/30 transition-colors text-left">
+              <span class="text-white/30">◈</span><span class="text-sm text-white/70 flex-1">Paging vs Segmentation</span><span class="text-orange/50">›</span></button>
+          </div>
+        </div>
+
+        <!-- resources -->
+        <div>
+          <p class="meta text-[9px] text-mute mb-2">Resource</p>
+          <div class="space-y-1.5">
+            <button class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 hover:border-orange/30 transition-colors text-left">
+              <div class="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center text-xs">▦</div>
+              <div class="flex-1 min-w-0"><div class="text-sm text-white/70 truncate">OS Lecture 7.pdf</div>
+                <div class="flex items-center gap-1.5 mt-0.5"><span class="meta text-[8px] bg-white/5 text-mute px-1.5 py-0.5 rounded">PDF</span><span class="text-[9px] text-orange2/70 font-semibold">⊙ reads all pages</span></div></div></button>
+          </div>
+        </div>
+
+        <button class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-xs font-bold bg-yellow/10 border border-yellow/25 text-yellow hover:bg-yellow/15 transition-colors">
+          ✦ Synthesize this conversation
+        </button>
+      </div>
+
+      <!-- READING VIEW -->
+      <div class="rounded-4xl bg-ink2 border border-white/10 flex flex-col overflow-hidden">
+        <!-- toolbar -->
+        <div class="flex items-center justify-between px-5 py-3.5 border-b border-white/10">
+          <div class="flex items-center gap-2 min-w-0">
+            <button class="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold text-mute hover:bg-white/8">‹ New</button>
+            <span class="text-white/15">·</span>
+            <span class="text-[11px] font-semibold text-white/50 truncate">Deadlocks</span>
+            <span class="meta text-[8px] bg-orange/12 text-orange px-2 py-0.5 rounded-full ml-1">Detailed</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <button class="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold text-orange2 hover:bg-white/8">↧ Anki</button>
+            <button class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-orange2 hover:bg-white/8">⧉ Copy</button>
+          </div>
+        </div>
+
+        <!-- notes body -->
+        <div class="px-6 py-5 overflow-y-auto no-bar" style="max-height:520px">
+          <h1 class="display text-3xl mb-1">Deadlocks</h1>
+          <div class="h-1 w-12 bg-orange rounded-full mb-5"></div>
+
+          <p class="meta text-[10px] text-orange mb-2">Overview</p>
+          <p class="text-sm text-white/75 leading-relaxed mb-5">A <b class="text-yellow">deadlock</b> is a state where a set of processes are each <b class="text-yellow">blocked</b>, waiting on a resource held by another process in the same set — so none can ever proceed.</p>
+
+          <p class="meta text-[10px] text-orange mb-2">Four Coffman Conditions <span class="text-mute normal-case tracking-normal">(all must hold)</span></p>
+          <ul class="space-y-1.5 mb-5 text-sm text-white/75">
+            <li class="flex gap-2"><span class="text-orange">▸</span><span><b class="text-yellow">Mutual exclusion</b> — resource held in non-shareable mode</span></li>
+            <li class="flex gap-2"><span class="text-orange">▸</span><span><b class="text-yellow">Hold &amp; wait</b> — holds ≥1 resource while requesting more</span></li>
+            <li class="flex gap-2"><span class="text-orange">▸</span><span><b class="text-yellow">No preemption</b> — resources released only voluntarily</span></li>
+            <li class="flex gap-2"><span class="text-orange">▸</span><span><b class="text-yellow">Circular wait</b> — closed chain, each waiting on the next</span></li>
+          </ul>
+
+          <p class="meta text-[10px] text-orange mb-2">Banker's Algorithm</p>
+          <p class="text-sm text-white/75 leading-relaxed mb-2">Grant a request only if the resulting state is <b class="text-yellow">safe</b> — there exists a sequence in which every process can still finish.</p>
+          <div class="rounded-2xl bg-ink3 border border-white/10 px-4 py-3 mb-5 font-mono text-xs text-orange2">Need[i] = Max[i] − Allocation[i]</div>
+
+          <p class="meta text-[10px] text-orange mb-2">Common Mistakes</p>
+          <ul class="space-y-1.5 text-sm text-white/75">
+            <li class="flex gap-2"><span class="text-mute">×</span><span>Confusing <b class="text-yellow">deadlock</b> with <b class="text-yellow">starvation</b> — starvation is indefinite postponement, not mutual blocking.</span></li>
+            <li class="flex gap-2"><span class="text-mute">×</span><span>Assuming detection alone resolves it — you still need a recovery step.</span></li>
+          </ul>
+        </div>
+
+        <!-- footer cta -->
+        <div class="px-5 py-4 border-t border-white/10">
+          <button class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-orange/10 border border-orange/20 text-orange2 hover:bg-orange/15 transition-colors">
+            ✦ Ask AI questions about these notes
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ AI COACH -->
+  <section class="space-y-6">
+    <div class="flex items-end gap-3">
+      <h2 class="display text-5xl md:text-6xl">AI&nbsp;COACH<span class="text-orange">.</span></h2>
+      <span class="meta text-[10px] text-mute mb-2">Knows your subjects, not just facts</span>
+    </div>
+
+    <div class="rounded-5xl bg-ink border border-white/10 overflow-hidden flex flex-col" style="height:640px">
+      <!-- header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-white/10">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-orange flex items-center justify-center text-ink display">AI</div>
+          <div><div class="display text-lg">Orbit Coach</div><div class="meta text-[9px] text-orange">● Operating Systems · readiness 56%</div></div>
+        </div>
+        <div class="flex items-center gap-1">
+          <button class="meta text-[10px] text-mute hover:text-white px-2 py-1">⟳ Reset</button>
+          <button class="meta text-[10px] text-mute hover:text-white px-2 py-1">✕</button>
+        </div>
+      </div>
+      <!-- tabs -->
+      <div class="flex items-center gap-2 px-6 py-3 border-b border-white/5">
+        <span class="meta text-[10px] bg-white text-ink px-4 py-2 rounded-full">Chat</span>
+        <span class="meta text-[10px] bg-ink2 text-mute border border-white/10 px-4 py-2 rounded-full">Exam</span>
+        <span class="meta text-[10px] bg-ink2 text-mute border border-white/10 px-4 py-2 rounded-full">Notes</span>
+        <span class="meta text-[10px] bg-ink2 text-mute border border-white/10 px-4 py-2 rounded-full flex items-center gap-1.5">Resources <span class="bg-orange/30 text-orange rounded-full w-4 h-4 flex items-center justify-center text-[9px]">3</span></span>
+        <div class="ml-auto flex items-center gap-2 bg-ink2 border border-white/10 rounded-full px-3 py-1.5"><span class="text-xs font-semibold text-yellow">✦ Feynman</span><div class="w-9 h-5 rounded-full bg-yellow p-0.5 flex items-center"><div class="w-4 h-4 rounded-full bg-ink ml-auto"></div></div></div>
+      </div>
+      <!-- messages -->
+      <div class="flex-1 overflow-hidden px-6 py-5 space-y-4">
+        <div class="flex gap-3 max-w-[80%]">
+          <div class="w-8 h-8 rounded-xl bg-orange flex items-center justify-center text-ink text-sm shrink-0 display">AI</div>
+          <div class="bg-ink2 border border-white/10 rounded-3xl rounded-tl-md px-5 py-4">
+            <p class="text-sm leading-relaxed">You've drifted on <b class="text-orange">deadlocks</b> for 3 days. Want a 5-question warm-up, or should I explain the Banker's algorithm like you're 16 first?</p>
+          </div>
+        </div>
+        <div class="flex justify-end">
+          <div class="bg-orange text-ink rounded-3xl rounded-tr-md px-5 py-4 max-w-[75%] font-medium text-sm">Explain it simply, then quiz me.</div>
+        </div>
+        <div class="flex gap-3 max-w-[80%]">
+          <div class="w-8 h-8 rounded-xl bg-orange flex items-center justify-center text-ink text-sm shrink-0 display">AI</div>
+          <div class="bg-ink2 border border-white/10 rounded-3xl rounded-tl-md px-5 py-4">
+            <p class="text-sm leading-relaxed">Think of the Banker's algorithm as a cautious bank manager: it only grants a loan (resource) if, even in the worst case, everyone can still be paid back…</p>
+            <div class="flex items-center gap-1 mt-3"><div class="w-1.5 h-1.5 rounded-full bg-orange animate-pulse"></div><div class="w-1.5 h-1.5 rounded-full bg-orange/50"></div><div class="w-1.5 h-1.5 rounded-full bg-orange/30"></div></div>
+          </div>
+        </div>
+      </div>
+      <!-- suggestions + input -->
+      <div class="px-6 pb-5 pt-2 border-t border-white/5">
+        <div class="flex gap-2 mb-3 overflow-x-auto no-bar">
+          <span class="meta text-[9px] bg-ink2 border border-white/10 text-mute px-3 py-2 rounded-full whitespace-nowrap hover:text-white">⚡ Quiz me</span>
+          <span class="meta text-[9px] bg-ink2 border border-white/10 text-mute px-3 py-2 rounded-full whitespace-nowrap hover:text-white">≡ Summarize</span>
+          <span class="meta text-[9px] bg-ink2 border border-white/10 text-mute px-3 py-2 rounded-full whitespace-nowrap hover:text-white">✦ Flashcards</span>
+          <span class="meta text-[9px] bg-ink2 border border-white/10 text-mute px-3 py-2 rounded-full whitespace-nowrap hover:text-white">↗ Past paper Qs</span>
+        </div>
+        <div class="flex items-center gap-2 bg-ink2 border border-white/10 rounded-full px-4 py-2.5">
+          <input class="flex-1 bg-transparent text-sm outline-none placeholder:text-zinc-600" placeholder="Ask anything about Operating Systems…" />
+          <button class="w-10 h-10 rounded-full bg-orange text-ink flex items-center justify-center font-bold">↑</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ PROJECTS -->
+  <section class="space-y-6">
+    <div class="flex items-end gap-3">
+      <h2 class="display text-5xl md:text-6xl">PROJECTS<span class="text-orange">.</span></h2>
+      <span class="meta text-[10px] text-mute mb-2">Every deliverable, one trajectory</span>
+    </div>
+
+    <!-- control bar -->
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <div class="inline-flex bg-ink2 rounded-full p-1 border border-white/10">
+          <button class="bg-white text-ink meta text-[10px] px-4 py-2 rounded-full">▦ Grid</button>
+          <button class="text-mute meta text-[10px] px-4 py-2 rounded-full">▥ Board</button>
+        </div>
+        <div class="inline-flex bg-ink2 rounded-full p-1 border border-white/10">
+          <button class="text-mute meta text-[10px] px-3.5 py-2 rounded-full">All</button>
+          <button class="bg-orange/15 text-orange meta text-[10px] px-3.5 py-2 rounded-full">Active 4</button>
+          <button class="text-mute meta text-[10px] px-3.5 py-2 rounded-full">Done 7</button>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="meta text-[10px] text-mute bg-ink2 border border-white/10 px-3 py-2 rounded-full">Sort: Deadline ▾</span>
+        <button class="bg-orange text-ink font-bold text-sm px-4 py-2.5 rounded-full flex items-center gap-1.5">+ New project</button>
+      </div>
+    </div>
+
+    <!-- stat strip -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div class="rounded-3xl bg-ink2 border border-white/10 p-5"><div class="w-8 h-8 rounded-xl bg-orange/15 border border-orange/20 flex items-center justify-center text-orange mb-3">▦</div><div class="display text-3xl">4</div><div class="meta text-[9px] text-mute mt-1">Active</div></div>
+      <div class="rounded-3xl bg-ink2 border border-white/10 p-5"><div class="w-8 h-8 rounded-xl bg-yellow/15 border border-yellow/20 flex items-center justify-center text-yellow mb-3">◷</div><div class="display text-3xl">12.5<span class="text-base text-mute">h</span></div><div class="meta text-[9px] text-mute mt-1">Hours left</div></div>
+      <div class="rounded-3xl bg-ink2 border border-white/10 p-5"><div class="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-paper mb-3">↗</div><div class="display text-3xl">6.0<span class="text-base text-mute">h</span></div><div class="meta text-[9px] text-mute mt-1">This week</div></div>
+      <div class="rounded-3xl bg-ink2 border border-white/10 p-5"><div class="w-8 h-8 rounded-xl bg-yellow/15 border border-yellow/20 flex items-center justify-center text-yellow mb-3">▲</div><div class="display text-3xl">2</div><div class="meta text-[9px] text-mute mt-1">High · urgent</div></div>
+      <div class="rounded-3xl bg-orange/[0.07] border border-orange/25 p-5"><div class="w-8 h-8 rounded-xl bg-orange/15 border border-orange/25 flex items-center justify-center text-orange mb-3">!</div><div class="display text-3xl text-orange">1</div><div class="meta text-[9px] text-orange/70 mt-1">Overdue</div></div>
+    </div>
+
+    <!-- deadline timeline -->
+    <div class="rounded-4xl bg-ink2 border border-white/10 p-6">
+      <p class="meta text-[10px] text-mute mb-5">Deadline timeline</p>
+      <div class="space-y-3.5">
+        <div class="flex items-center gap-3"><span class="w-32 shrink-0 text-right text-[11px] text-white/60 truncate">OS Term Paper</span>
+          <div class="flex-1 relative h-3 flex items-center"><div class="absolute inset-x-0 h-1 rounded-full bg-white/[0.06]"></div><div class="absolute w-3 h-3 rounded-full bg-orange" style="left:6%;box-shadow:0 0 8px #FF5A1F99"></div></div>
+          <span class="w-12 text-right meta text-[9px] text-orange">2d</span></div>
+        <div class="flex items-center gap-3"><span class="w-32 shrink-0 text-right text-[11px] text-white/60 truncate">DBMS Lab Report</span>
+          <div class="flex-1 relative h-3 flex items-center"><div class="absolute inset-x-0 h-1 rounded-full bg-white/[0.06]"></div><div class="absolute w-3 h-3 rounded-full bg-yellow" style="left:34%;box-shadow:0 0 8px #FFD60A99"></div></div>
+          <span class="w-12 text-right meta text-[9px] text-yellow">6d</span></div>
+        <div class="flex items-center gap-3"><span class="w-32 shrink-0 text-right text-[11px] text-white/60 truncate">CN Mini Project</span>
+          <div class="flex-1 relative h-3 flex items-center"><div class="absolute inset-x-0 h-1 rounded-full bg-white/[0.06]"></div><div class="absolute w-3 h-3 rounded-full bg-paper" style="left:78%"></div></div>
+          <span class="w-12 text-right meta text-[9px] text-mute">14d</span></div>
+      </div>
+    </div>
+
+    <!-- project cards -->
+    <div class="grid md:grid-cols-2 gap-3.5">
+      <!-- expanded card -->
+      <div class="rounded-4xl bg-ink2 border border-white/10 relative overflow-hidden">
+        <div class="absolute left-0 top-5 bottom-5 w-[3px] rounded-full bg-orange"></div>
+        <div class="pl-6 pr-4 py-5">
+          <div class="flex items-start gap-2.5 mb-3">
+            <div class="flex-1">
+              <span class="inline-flex items-center gap-1.5 meta text-[9px] px-2 py-1 rounded-lg mb-2 bg-orange/12 text-orange border border-orange/25"><span class="w-1 h-1 rounded-full bg-orange"></span>Operating Systems</span>
+              <h3 class="font-bold text-[15px] text-white leading-snug">OS Term Paper — Deadlock Avoidance</h3>
+            </div>
+            <button class="bg-orange text-ink text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1">⊕ Log</button>
+            <button class="text-mute hover:text-white px-1.5 py-1.5">⋯</button>
+          </div>
+          <div class="flex items-center justify-between text-[11px] mb-1.5">
+            <span class="font-mono text-mute">3h 20m</span>
+            <span class="font-bold text-orange">62% <span class="text-mute font-normal">· 3/5 steps</span></span>
+            <span class="font-mono text-white/30">2h left</span>
+          </div>
+          <div class="h-2 rounded-full bg-white/[0.06] overflow-hidden mb-3"><div class="h-full rounded-full" style="width:62%;background:linear-gradient(90deg,#FF5A1F,#FF7A3C)"></div></div>
+          <div class="flex items-center justify-between pt-3 border-t border-white/[0.06] text-[11px] mb-3">
+            <div class="flex items-center gap-3">
+              <span class="flex items-center gap-1 font-semibold text-orange">▣ Due in 2d</span>
+              <span class="flex items-center gap-1 text-yellow"><span class="w-1 h-1 rounded-full bg-yellow"></span>High</span>
+            </div>
+            <div class="flex items-end gap-[3px] h-4">
+              <div class="w-[5px] rounded-sm bg-orange/30" style="height:30%"></div><div class="w-[5px] rounded-sm bg-orange/60" style="height:60%"></div><div class="w-[5px] rounded-sm bg-white/10" style="height:15%"></div><div class="w-[5px] rounded-sm bg-orange/80" style="height:80%"></div><div class="w-[5px] rounded-sm bg-orange/50" style="height:45%"></div><div class="w-[5px] rounded-sm bg-white/10" style="height:15%"></div><div class="w-[5px] rounded-sm bg-orange" style="height:100%;outline:1px solid #FF5A1F73;outline-offset:1px"></div>
+            </div>
+          </div>
+          <!-- expand tabs -->
+          <div class="flex items-center gap-1.5 flex-wrap mb-3">
+            <span class="meta text-[9px] bg-orange/15 text-orange border border-orange/25 px-2 py-1 rounded-lg">✓ Steps 3/5</span>
+            <span class="meta text-[9px] bg-white/[0.03] text-mute px-2 py-1 rounded-lg">≣ Notes</span>
+            <span class="meta text-[9px] bg-white/[0.03] text-mute px-2 py-1 rounded-lg">⎇ Repo</span>
+            <span class="meta text-[9px] bg-white/[0.03] text-mute px-2 py-1 rounded-lg">↻ Log 4</span>
+          </div>
+          <!-- milestones -->
+          <div class="pt-3 border-t border-white/[0.06] space-y-2">
+            <div class="flex items-center gap-2"><span class="text-orange text-sm">✓</span><span class="text-xs text-mute line-through flex-1">Lit review</span></div>
+            <div class="flex items-center gap-2"><span class="text-orange text-sm">✓</span><span class="text-xs text-mute line-through flex-1">Outline</span></div>
+            <div class="flex items-center gap-2"><span class="text-orange text-sm">✓</span><span class="text-xs text-mute line-through flex-1">Draft §1–3</span></div>
+            <div class="flex items-center gap-2"><span class="text-white/25 text-sm">○</span><span class="text-xs text-white/75 flex-1">Banker's algorithm proof</span></div>
+            <div class="flex items-center gap-2"><span class="text-white/25 text-sm">○</span><span class="text-xs text-white/75 flex-1">Proofread &amp; submit</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- compact card -->
+      <div class="rounded-4xl bg-ink2 border border-white/10 relative overflow-hidden h-max">
+        <div class="absolute left-0 top-5 bottom-5 w-[3px] rounded-full bg-yellow"></div>
+        <div class="pl-6 pr-4 py-5">
+          <div class="flex items-start gap-2.5 mb-3">
+            <div class="flex-1">
+              <span class="inline-flex items-center gap-1.5 meta text-[9px] px-2 py-1 rounded-lg mb-2 bg-yellow/12 text-yellow border border-yellow/25"><span class="w-1 h-1 rounded-full bg-yellow"></span>DBMS</span>
+              <h3 class="font-bold text-[15px] text-white leading-snug">Lab Report — Normalization</h3>
+            </div>
+            <button class="bg-orange text-ink text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1">⊕ Log</button>
+            <button class="text-mute hover:text-white px-1.5 py-1.5">⋯</button>
+          </div>
+          <div class="flex items-center justify-between text-[11px] mb-1.5">
+            <span class="font-mono text-mute">1h 0m</span><span class="font-bold text-white/60">33%</span><span class="font-mono text-white/30">2h left</span>
+          </div>
+          <div class="h-2 rounded-full bg-white/[0.06] overflow-hidden mb-3"><div class="h-full rounded-full" style="width:33%;background:linear-gradient(90deg,#FFD60A,#FF7A3C)"></div></div>
+          <div class="flex items-center justify-between pt-3 border-t border-white/[0.06] text-[11px]">
+            <div class="flex items-center gap-3">
+              <span class="flex items-center gap-1 font-semibold text-yellow">▣ Due in 6d</span>
+              <span class="flex items-center gap-1 text-paper"><span class="w-1 h-1 rounded-full bg-paper"></span>Normal</span>
+            </div>
+            <div class="flex items-end gap-[3px] h-4">
+              <div class="w-[5px] rounded-sm bg-white/10" style="height:15%"></div><div class="w-[5px] rounded-sm bg-orange/40" style="height:40%"></div><div class="w-[5px] rounded-sm bg-white/10" style="height:15%"></div><div class="w-[5px] rounded-sm bg-white/10" style="height:15%"></div><div class="w-[5px] rounded-sm bg-orange/60" style="height:60%"></div><div class="w-[5px] rounded-sm bg-white/10" style="height:15%"></div><div class="w-[5px] rounded-sm bg-white/10" style="height:15%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- board view preview -->
+    <div>
+      <p class="meta text-[10px] text-mute mb-3">Board view</p>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="rounded-3xl bg-ink2 border border-white/10 p-3 min-h-[150px]">
+          <div class="flex items-center gap-2 mb-3"><span class="w-2 h-2 rounded-full bg-mute"></span><span class="meta text-[9px] text-mute">Not started</span><span class="ml-auto meta text-[9px] text-mute">1</span></div>
+          <div class="rounded-2xl bg-ink3 border border-white/10 p-3"><div class="h-0.5 w-full rounded-full bg-paper/50 mb-2"></div><div class="text-[11px] font-semibold text-white/80">CN Mini Project</div><div class="text-[9px] text-mute mt-0.5">Computer Networks</div></div>
+        </div>
+        <div class="rounded-3xl bg-ink2 border border-white/10 p-3 min-h-[150px]">
+          <div class="flex items-center gap-2 mb-3"><span class="w-2 h-2 rounded-full bg-orange"></span><span class="meta text-[9px] text-orange">In progress</span><span class="ml-auto meta text-[9px] text-mute">2</span></div>
+          <div class="rounded-2xl bg-ink3 border border-white/10 p-3 mb-2"><div class="h-0.5 w-full rounded-full bg-orange/60 mb-2"></div><div class="text-[11px] font-semibold text-white/80">OS Term Paper</div><div class="flex items-center justify-between mt-1.5"><span class="meta text-[9px] text-orange">62%</span><span class="meta text-[9px] text-orange">2d</span></div></div>
+          <div class="rounded-2xl bg-ink3 border border-white/10 p-3"><div class="h-0.5 w-full rounded-full bg-yellow/60 mb-2"></div><div class="text-[11px] font-semibold text-white/80">DBMS Lab Report</div><div class="flex items-center justify-between mt-1.5"><span class="meta text-[9px] text-orange">33%</span><span class="meta text-[9px] text-yellow">6d</span></div></div>
+        </div>
+        <div class="rounded-3xl bg-ink2 border border-white/10 p-3 min-h-[150px]">
+          <div class="flex items-center gap-2 mb-3"><span class="w-2 h-2 rounded-full bg-yellow"></span><span class="meta text-[9px] text-yellow">Near done</span><span class="ml-auto meta text-[9px] text-mute">1</span></div>
+          <div class="rounded-2xl bg-ink3 border border-white/10 p-3"><div class="h-0.5 w-full rounded-full bg-yellow/60 mb-2"></div><div class="text-[11px] font-semibold text-white/80">ML Assignment 3</div><div class="flex items-center justify-between mt-1.5"><span class="meta text-[9px] text-yellow">88%</span><span class="meta text-[9px] text-mute">9d</span></div></div>
+        </div>
+        <div class="rounded-3xl bg-ink2 border border-white/10 p-3 min-h-[150px]">
+          <div class="flex items-center gap-2 mb-3"><span class="w-2 h-2 rounded-full bg-paper"></span><span class="meta text-[9px] text-paper">Complete</span><span class="ml-auto meta text-[9px] text-mute">7</span></div>
+          <div class="rounded-2xl bg-paper/[0.04] border border-white/10 p-3 opacity-60"><div class="h-0.5 w-full rounded-full bg-paper mb-2"></div><div class="text-[11px] font-semibold text-white/80 line-through">SE UML Diagrams</div><div class="meta text-[9px] text-paper mt-1.5">100% ✓</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ SCHEDULE -->
+  <section class="space-y-6">
+    <div class="flex items-end gap-3">
+      <h2 class="display text-5xl md:text-6xl">SCHEDULE<span class="text-orange">.</span></h2>
+      <span class="meta text-[10px] text-mute mb-2">Your week, blocked out</span>
+    </div>
+
+    <!-- next class + add row -->
+    <div class="grid lg:grid-cols-[1fr_auto] gap-3 items-stretch">
+      <div class="rounded-4xl bg-orange text-ink p-5 flex items-center gap-4">
+        <div class="meta text-[9px] bg-ink text-orange px-2.5 py-1 rounded-full">Up next</div>
+        <div class="flex-1"><div class="display text-xl">Operating Systems</div><div class="text-xs font-semibold opacity-70">11:00–12:00 · Room CS-204 · in 35 min</div></div>
+        <div class="display text-3xl">11<span class="text-base align-top opacity-60">:00</span></div>
+      </div>
+      <div class="rounded-4xl bg-ink2 border border-white/10 p-2 flex items-center gap-2">
+        <span class="meta text-[9px] bg-ink3 text-mute px-3 py-2.5 rounded-xl">Wed ▾</span>
+        <span class="meta text-[9px] bg-ink3 text-mute px-3 py-2.5 rounded-xl">14:00 ▾</span>
+        <span class="meta text-[9px] bg-ink3 text-mute px-3 py-2.5 rounded-xl">Subject ▾</span>
+        <button class="bg-orange text-ink font-bold text-sm px-4 py-2.5 rounded-xl">+ Add</button>
+      </div>
+    </div>
+
+    <!-- timetable -->
+    <div class="rounded-4xl bg-ink2 border border-white/10 overflow-hidden">
+      <div class="overflow-x-auto no-bar">
+        <table class="w-full min-w-[720px] border-collapse">
+          <thead>
+            <tr class="border-b border-white/10">
+              <th class="px-4 py-3 text-left meta text-[9px] text-mute w-24">Time</th>
+              <th class="px-3 py-3 meta text-[9px] text-mute">Mon</th>
+              <th class="px-3 py-3 meta text-[9px] text-mute">Tue</th>
+              <th class="px-3 py-3 meta text-[9px] text-ink bg-orange">Wed</th>
+              <th class="px-3 py-3 meta text-[9px] text-mute">Thu</th>
+              <th class="px-3 py-3 meta text-[9px] text-mute">Fri</th>
+              <th class="px-3 py-3 meta text-[9px] text-mute">Sat</th>
+              <th class="px-3 py-3 meta text-[9px] text-mute">Sun</th>
+            </tr>
+          </thead>
+          <tbody class="text-center">
+            <tr class="border-b border-white/[0.05]">
+              <td class="px-4 py-2.5 text-left font-mono text-[11px] text-mute">09:00</td>
+              <td class="p-2"><div class="bg-orange text-ink rounded-xl px-2 py-2"><div class="display text-xs">OS</div><div class="text-[8px] font-mono opacity-70">CS-204</div></div></td>
+              <td class="p-2"></td>
+              <td class="p-2 bg-orange/5"></td>
+              <td class="p-2"><div class="bg-orange text-ink rounded-xl px-2 py-2"><div class="display text-xs">OS</div><div class="text-[8px] font-mono opacity-70">CS-204</div></div></td>
+              <td class="p-2"></td>
+              <td class="p-2"></td>
+              <td class="p-2"></td>
+            </tr>
+            <tr class="border-b border-white/[0.05]">
+              <td class="px-4 py-2.5 text-left font-mono text-[11px] text-mute">10:00</td>
+              <td class="p-2"></td>
+              <td class="p-2"><div class="bg-yellow text-ink rounded-xl px-2 py-2"><div class="display text-xs">MATH</div><div class="text-[8px] font-mono opacity-70">M-110</div></div></td>
+              <td class="p-2 bg-orange/5"><div class="bg-yellow text-ink rounded-xl px-2 py-2"><div class="display text-xs">MATH</div><div class="text-[8px] font-mono opacity-70">M-110</div></div></td>
+              <td class="p-2"></td>
+              <td class="p-2"><div class="bg-yellow text-ink rounded-xl px-2 py-2"><div class="display text-xs">MATH</div><div class="text-[8px] font-mono opacity-70">M-110</div></div></td>
+              <td class="p-2"></td>
+              <td class="p-2"></td>
+            </tr>
+            <tr class="border-b border-white/[0.05]">
+              <td class="px-4 py-2.5 text-left font-mono text-[11px] text-mute">11:00</td>
+              <td class="p-2"></td>
+              <td class="p-2"></td>
+              <td class="p-2 bg-orange/5"><div class="bg-orange text-ink rounded-xl px-2 py-2 ring-2 ring-white/30"><div class="display text-xs">OS</div><div class="text-[8px] font-mono opacity-70">CS-204</div></div></td>
+              <td class="p-2"></td>
+              <td class="p-2"></td>
+              <td class="p-2"></td>
+              <td class="p-2"></td>
+            </tr>
+            <tr class="border-b border-white/[0.05]">
+              <td class="px-4 py-2.5 text-left font-mono text-[11px] text-mute">12:00</td>
+              <td class="p-2"><div class="bg-paper text-ink rounded-xl px-2 py-2"><div class="display text-xs">PHY</div><div class="text-[8px] font-mono opacity-70">P-007</div></div></td>
+              <td class="p-2"></td>
+              <td class="p-2 bg-orange/5"></td>
+              <td class="p-2"><div class="bg-paper text-ink rounded-xl px-2 py-2"><div class="display text-xs">PHY</div><div class="text-[8px] font-mono opacity-70">P-007</div></div></td>
+              <td class="p-2"></td>
+              <td class="p-2"></td>
+              <td class="p-2"></td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 text-left font-mono text-[11px] text-mute">14:00</td>
+              <td class="p-2"></td>
+              <td class="p-2"><div class="bg-orange2 text-ink rounded-xl px-2 py-2"><div class="display text-xs">DBMS</div><div class="text-[8px] font-mono opacity-70">Lab-3</div></div></td>
+              <td class="p-2 bg-orange/5"></td>
+              <td class="p-2"></td>
+              <td class="p-2"><div class="bg-orange2 text-ink rounded-xl px-2 py-2"><div class="display text-xs">DBMS</div><div class="text-[8px] font-mono opacity-70">Lab-3</div></div></td>
+              <td class="p-2"></td>
+              <td class="p-2"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="px-4 py-3 border-t border-white/10 flex items-center gap-4 flex-wrap">
+        <span class="flex items-center gap-1.5 text-[10px] text-mute"><span class="w-2.5 h-2.5 rounded bg-orange"></span>OS</span>
+        <span class="flex items-center gap-1.5 text-[10px] text-mute"><span class="w-2.5 h-2.5 rounded bg-yellow"></span>Math</span>
+        <span class="flex items-center gap-1.5 text-[10px] text-mute"><span class="w-2.5 h-2.5 rounded bg-paper"></span>Physics</span>
+        <span class="flex items-center gap-1.5 text-[10px] text-mute"><span class="w-2.5 h-2.5 rounded bg-orange2"></span>DBMS</span>
+        <span class="meta text-[9px] text-mute ml-auto">↤ swipe · mobile stacks by day</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ REVIEW QUEUE -->
+  <section class="space-y-6">
+    <div class="flex items-end gap-3">
+      <h2 class="display text-5xl md:text-6xl">REVIEW<span class="text-orange">.</span></h2>
+      <span class="meta text-[10px] text-mute mb-2">Spaced repetition · zero decay</span>
+    </div>
+
+    <!-- deck strip -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="rounded-3xl bg-orange text-ink p-5"><div class="display text-3xl">7</div><div class="meta text-[9px] opacity-70 mt-1">Due today</div></div>
+      <div class="rounded-3xl bg-ink2 border border-white/10 p-5"><div class="display text-3xl">3</div><div class="meta text-[9px] text-mute mt-1">Reviewed</div></div>
+      <div class="rounded-3xl bg-ink2 border border-white/10 p-5"><div class="display text-3xl text-yellow">12<span class="text-base text-mute">d</span></div><div class="meta text-[9px] text-mute mt-1">Streak</div></div>
+      <div class="rounded-3xl bg-ink2 border border-white/10 p-5"><div class="display text-3xl">88<span class="text-base text-mute">%</span></div><div class="meta text-[9px] text-mute mt-1">Retention</div></div>
+    </div>
+
+    <div class="grid lg:grid-cols-[1fr_300px] gap-4 items-start">
+      <!-- flashcard -->
+      <div>
+        <div class="flex items-center justify-between meta text-[10px] text-mute mb-2"><span>4 / 7</span><span>3 rated</span></div>
+        <div class="h-1.5 bg-white/10 rounded-full overflow-hidden mb-5"><div class="h-full rounded-full" style="width:43%;background:linear-gradient(90deg,#FF5A1F,#FFD60A)"></div></div>
+
+        <div class="rounded-5xl bg-ink2 border border-white/10 p-8 md:p-10 text-center">
+          <div class="inline-flex items-center gap-2 meta text-[9px] bg-orange/12 text-orange border border-orange/25 px-3 py-1.5 rounded-xl mb-6">◈ Operating Systems</div>
+          <p class="meta text-[9px] text-mute mb-3">Question</p>
+          <h2 class="display text-2xl md:text-3xl leading-tight mb-6">State the four Coffman conditions necessary for a deadlock.</h2>
+
+          <!-- revealed answer -->
+          <div class="rounded-3xl bg-orange/[0.07] border border-orange/20 p-5 text-left mb-2">
+            <p class="meta text-[9px] text-orange mb-2">Answer</p>
+            <p class="text-sm text-white/80 leading-relaxed"><b class="text-yellow">Mutual exclusion</b>, <b class="text-yellow">hold &amp; wait</b>, <b class="text-yellow">no preemption</b>, and <b class="text-yellow">circular wait</b> — all four must hold simultaneously for a deadlock to occur.</p>
+          </div>
+
+          <div class="flex items-center justify-center gap-5 meta text-[9px] text-white/25 my-6"><span>Review #4</span><span>·</span><span>Avg 2.3</span><span>·</span><span>Ease 1.8</span></div>
+
+          <!-- rating buttons -->
+          <div class="grid grid-cols-3 gap-3">
+            <button class="rounded-3xl border-2 border-orange/30 bg-orange/10 hover:bg-orange/20 py-5 transition-colors"><div class="text-3xl mb-1">😓</div><div class="text-xs font-bold text-orange">Hard</div><div class="text-[10px] text-orange/60 mt-0.5">soon</div></button>
+            <button class="rounded-3xl border-2 border-yellow/30 bg-yellow/10 hover:bg-yellow/20 py-5 transition-colors"><div class="text-3xl mb-1">😐</div><div class="text-xs font-bold text-yellow">Good</div><div class="text-[10px] text-yellow/60 mt-0.5">normal</div></button>
+            <button class="rounded-3xl border-2 border-white/20 bg-white/[0.06] hover:bg-white/10 py-5 transition-colors"><div class="text-3xl mb-1">😃</div><div class="text-xs font-bold text-paper">Easy</div><div class="text-[10px] text-mute mt-0.5">later</div></button>
+          </div>
+        </div>
+
+        <!-- history -->
+        <div class="flex items-center gap-2 justify-center mt-4">
+          <span class="meta text-[9px] text-mute">History</span>
+          <div class="flex gap-1">
+            <div class="w-3 h-3 rounded-sm bg-orange" style="opacity:.5"></div><div class="w-3 h-3 rounded-sm bg-yellow" style="opacity:.6"></div><div class="w-3 h-3 rounded-sm bg-orange" style="opacity:.7"></div><div class="w-3 h-3 rounded-sm bg-yellow" style="opacity:.8"></div><div class="w-3 h-3 rounded-sm bg-paper" style="opacity:.9"></div><div class="w-3 h-3 rounded-sm bg-yellow"></div>
+          </div>
+          <span class="meta text-[9px] text-mute ml-2">skip ›</span>
+        </div>
+      </div>
+
+      <!-- side: queue + complete state -->
+      <div class="space-y-3">
+        <div class="rounded-4xl bg-ink2 border border-white/10 p-5">
+          <p class="meta text-[10px] text-mute mb-3">Up next</p>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2.5"><span class="text-orange">◈</span><span class="text-xs text-white/70 flex-1 truncate">Banker's Algorithm</span><span class="meta text-[8px] bg-orange/12 text-orange px-1.5 py-0.5 rounded">Due</span></div>
+            <div class="flex items-center gap-2.5"><span class="text-white/30">◈</span><span class="text-xs text-white/60 flex-1 truncate">Page Replacement</span><span class="meta text-[8px] text-mute">1/7</span></div>
+            <div class="flex items-center gap-2.5"><span class="text-white/30">◈</span><span class="text-xs text-white/60 flex-1 truncate">Semaphores</span><span class="meta text-[8px] text-mute">1/7</span></div>
+          </div>
+        </div>
+        <!-- complete state preview -->
+        <div class="rounded-4xl bg-orange text-ink p-6 text-center">
+          <div class="display text-2xl mb-1">Session done</div>
+          <p class="text-xs font-semibold opacity-70 mb-4">You reviewed 7 topics today.</p>
+          <button class="bg-ink text-orange meta text-[10px] px-4 py-2.5 rounded-full">↻ Review again</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="text-center meta text-[10px] text-mute pt-6 pb-2">Orbit · concept v5 · not wired to data</div>
+</div>
+</body>
+</html>

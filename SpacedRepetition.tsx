@@ -103,7 +103,7 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">New Flashcard</span>
         {aiGenerated && (
-          <span className="flex items-center gap-1 text-[10px] font-bold text-violet-400/80 px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.2)' }}>
+          <span className="flex items-center gap-1 text-[10px] font-bold text-orange-400/80 px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,90,31,0.12)', border: '1px solid rgba(255,90,31,0.2)' }}>
             <Sparkles size={9} />
             AI Generated
           </span>
@@ -113,7 +113,7 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
       <select
         value={chosenSubjectId}
         onChange={e => setChosenSubjectId(Number(e.target.value) || '')}
-        className="w-full bg-zinc-800/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-purple-500/60 transition-all"
+        className="w-full bg-zinc-800/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-orange-500/60 transition-all"
       >
         <option value="">Select subject…</option>
         {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -127,7 +127,7 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
           onChange={e => setName(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && canGenerate) handleGenerate(); }}
           placeholder="Topic / concept name *"
-          className="w-full bg-zinc-800/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 pr-24 text-sm text-white placeholder-zinc-600 outline-none focus:border-purple-500/60 transition-all"
+          className="w-full bg-zinc-800/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 pr-24 text-sm text-white placeholder-zinc-600 outline-none focus:border-orange-500/60 transition-all"
         />
         <button
           onClick={handleGenerate}
@@ -135,13 +135,13 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
           title={aiGenerated ? 'Regenerate with AI' : 'Generate Q&A with AI'}
           className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
           style={{
-            background: aiGenerated ? 'rgba(139,92,246,0.15)' : 'rgba(139,92,246,0.12)',
-            border: '1px solid rgba(139,92,246,0.25)',
-            color: 'rgba(196,181,253,0.9)',
+            background: aiGenerated ? 'rgba(255,90,31,0.15)' : 'rgba(255,90,31,0.12)',
+            border: '1px solid rgba(255,90,31,0.25)',
+            color: 'rgba(255,122,60,0.9)',
           }}
         >
           {generating ? (
-            <div className="w-3 h-3 rounded-full border-2 border-violet-400/30 border-t-violet-300 animate-spin" />
+            <div className="w-3 h-3 rounded-full border-2 border-orange-400/30 border-t-orange-300 animate-spin" />
           ) : aiGenerated ? (
             <RotateCcw size={11} />
           ) : (
@@ -161,20 +161,20 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
 
       {/* Q&A fields — highlighted when AI-generated */}
       <div className={`space-y-2 transition-all duration-300 ${aiGenerated ? 'rounded-xl p-2.5 -mx-2.5' : ''}`}
-        style={aiGenerated ? { background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.12)' } : {}}>
+        style={aiGenerated ? { background: 'rgba(255,90,31,0.05)', border: '1px solid rgba(255,90,31,0.12)' } : {}}>
         <textarea
           value={question}
           onChange={e => handleQuestionChange(e.target.value)}
           placeholder="Question (optional — or let AI generate)"
           rows={2}
-          className="w-full bg-zinc-800/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 outline-none focus:border-purple-500/60 transition-all resize-none"
+          className="w-full bg-zinc-800/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 outline-none focus:border-orange-500/60 transition-all resize-none"
         />
         <textarea
           value={answer}
           onChange={e => handleAnswerChange(e.target.value)}
           placeholder="Answer / hint (optional)"
           rows={2}
-          className="w-full bg-zinc-800/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 outline-none focus:border-purple-500/60 transition-all resize-none"
+          className="w-full bg-zinc-800/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 outline-none focus:border-orange-500/60 transition-all resize-none"
         />
       </div>
 
@@ -184,13 +184,13 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
         disabled={!canSave}
         className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
         style={{
-          background: saved ? 'rgba(16,185,129,0.2)' : 'rgba(168,85,247,0.18)',
-          border: saved ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(168,85,247,0.3)',
-          color: saved ? 'rgb(110,231,183)' : 'rgb(216,180,254)',
+          background: saved ? 'rgba(255,214,10,0.2)' : 'rgba(255,90,31,0.18)',
+          border: saved ? '1px solid rgba(255,214,10,0.35)' : '1px solid rgba(255,90,31,0.3)',
+          color: saved ? '#FFD60A' : 'rgb(255,122,60)',
         }}
       >
         {saving ? (
-          <><div className="w-4 h-4 rounded-full border-2 border-purple-400/30 border-t-purple-300 animate-spin" />Saving…</>
+          <><div className="w-4 h-4 rounded-full border-2 border-orange-400/30 border-t-orange-300 animate-spin" />Saving…</>
         ) : saved ? (
           <><CheckCircle2 size={15} />Saved!</>
         ) : (
@@ -228,8 +228,8 @@ export const ComprehensionRatingModal = ({
     <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6">
       <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full space-y-6 border border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
         <div className="text-center">
-          <div className="w-16 h-16 bg-indigo-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-indigo-500/30">
-            <Brain size={32} className="text-indigo-400" />
+          <div className="w-16 h-16 bg-orange-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-orange-500/30">
+            <Brain size={32} className="text-orange-400" />
           </div>
           <h2 className="text-2xl font-bold mb-2">How well did you understand?</h2>
           <p className="text-zinc-400 text-sm">This helps schedule your next review</p>
@@ -244,7 +244,7 @@ export const ComprehensionRatingModal = ({
             value={selectedTopic}
             onChange={(e) => setSelectedTopic(e.target.value)}
             placeholder="e.g., Pointers, Linked Lists, Derivatives"
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-indigo-500 transition-all"
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-orange-500 transition-all"
             autoFocus
           />
           <p className="text-xs text-zinc-600 mt-2">
@@ -257,31 +257,31 @@ export const ComprehensionRatingModal = ({
           <button
             onClick={() => selectedTopic.trim() && onRate(1, selectedTopic)}
             disabled={!selectedTopic.trim()}
-            className="group p-6 rounded-2xl border-2 border-red-500/30 bg-red-500/10 hover:bg-red-500/20 hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className="group p-6 rounded-2xl border-2 border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20 hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             <div className="text-4xl mb-2">😓</div>
-            <div className="text-sm font-bold text-red-300">Hard</div>
-            <div className="text-xs text-red-400/60 mt-1">Review soon</div>
+            <div className="text-sm font-bold text-orange-400">Hard</div>
+            <div className="text-xs text-orange-400/60 mt-1">Review soon</div>
           </button>
 
           <button
             onClick={() => selectedTopic.trim() && onRate(2, selectedTopic)}
             disabled={!selectedTopic.trim()}
-            className="group p-6 rounded-2xl border-2 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className="group p-6 rounded-2xl border-2 border-yellow-500/30 bg-yellow-500/10 hover:bg-yellow-500/20 hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             <div className="text-4xl mb-2">😐</div>
-            <div className="text-sm font-bold text-amber-300">Good</div>
-            <div className="text-xs text-amber-400/60 mt-1">Normal pace</div>
+            <div className="text-sm font-bold text-yellow-300">Good</div>
+            <div className="text-xs text-yellow-400/60 mt-1">Normal pace</div>
           </button>
 
           <button
             onClick={() => selectedTopic.trim() && onRate(3, selectedTopic)}
             disabled={!selectedTopic.trim()}
-            className="group p-6 rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className="group p-6 rounded-2xl border-2 border-white/25 bg-white/[0.06] hover:bg-white/10 hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             <div className="text-4xl mb-2">😃</div>
-            <div className="text-sm font-bold text-emerald-300">Easy</div>
-            <div className="text-xs text-emerald-400/60 mt-1">Review later</div>
+            <div className="text-sm font-bold text-paper">Easy</div>
+            <div className="text-xs text-mute mt-1">Review later</div>
           </button>
         </div>
 
@@ -320,12 +320,12 @@ export const UpcomingReviewsWidget = () => {
       <div className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Brain size={16} className="text-purple-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-400">
+            <Brain size={16} className="text-orange-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
               Reviews Due
             </span>
           </div>
-          <span className="text-3xl font-mono font-bold text-purple-200">0</span>
+          <span className="text-3xl font-mono font-bold text-orange-200">0</span>
         </div>
         <div className="p-4 bg-zinc-900/50 rounded-xl border border-zinc-800">
           <div className="text-xs text-zinc-500 text-center">
@@ -340,12 +340,12 @@ export const UpcomingReviewsWidget = () => {
     <div className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-2xl">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Brain size={16} className="text-purple-400" />
-          <span className="text-xs font-bold uppercase tracking-wider text-purple-400">
+          <Brain size={16} className="text-orange-400" />
+          <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
             Reviews Due
           </span>
         </div>
-        <span className="text-3xl font-mono font-bold text-purple-200">
+        <span className="text-3xl font-mono font-bold text-orange-200">
           {dueToday.length}
         </span>
       </div>
@@ -355,17 +355,17 @@ export const UpcomingReviewsWidget = () => {
           {dueToday.slice(0, 3).map(topic => (
             <div
               key={topic.id}
-              className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20 animate-in slide-in-from-left-2 fade-in duration-300"
+              className="p-3 bg-orange-500/10 rounded-xl border border-orange-500/20 animate-in slide-in-from-left-2 fade-in duration-300"
               style={{ animationDelay: `${dueToday.indexOf(topic) * 50}ms` }}
             >
               <div className="flex items-center gap-2 mb-1">
-                <AlertCircle size={12} className="text-purple-400" />
-                <span className="text-xs font-bold text-purple-300">
+                <AlertCircle size={12} className="text-orange-400" />
+                <span className="text-xs font-bold text-orange-300">
                   {topic.subjectName}
                 </span>
               </div>
               <div className="text-sm text-white font-medium">{topic.name}</div>
-              <div className="text-xs text-purple-400/60 mt-1">
+              <div className="text-xs text-orange-400/60 mt-1">
                 Review #{topic.reviewCount} • Ease: {topic.easeFactor.toFixed(1)}
               </div>
             </div>
@@ -377,12 +377,12 @@ export const UpcomingReviewsWidget = () => {
           )}
         </div>
       ) : (
-        <div className="p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20 mb-4">
+        <div className="p-4 bg-yellow-500/10 rounded-xl border border-yellow-500/20 mb-4">
           <div className="flex items-center gap-2 mb-1">
-            <CheckCircle size={14} className="text-emerald-400" />
-            <span className="text-xs font-bold text-emerald-300">All caught up!</span>
+            <CheckCircle size={14} className="text-yellow-400" />
+            <span className="text-xs font-bold text-yellow-300">All caught up!</span>
           </div>
-          <div className="text-xs text-emerald-400/60">
+          <div className="text-xs text-yellow-400/60">
             No reviews due today
           </div>
         </div>
@@ -429,19 +429,21 @@ export const TopicMasteryCard = ({ topic }: { topic: StudyTopic & { subjectName?
       avgComprehension >= 1.5 ? 'Learning' :
         'Struggling';
 
-  const masteryColor = avgComprehension >= 2.5 ? 'emerald' :
-    avgComprehension >= 2.0 ? 'cyan' :
-      avgComprehension >= 1.5 ? 'amber' :
-        'red';
+  // Palette-only mastery hue (no dynamic tailwind classes — those don't get generated).
+  const masteryColor = avgComprehension >= 2.5 ? '#F7F5EF' :   // Mastered  → white
+    avgComprehension >= 2.0 ? '#FFD60A' :                      // Proficient → yellow
+      avgComprehension >= 1.5 ? '#FF7A3C' :                    // Learning   → orange2
+        '#FF5A1F';                                             // Struggling → orange
 
   return (
-    <div className="p-4 rounded-xl bg-zinc-900/50 border border-white/10 hover:border-white/20 transition-all">
+    <div className="p-4 rounded-xl bg-ink2 border border-white/10 hover:border-white/20 transition-all">
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
           <h4 className="font-bold text-white truncate">{topic.name}</h4>
           <p className="text-xs text-zinc-500">{topic.subjectName || 'Unknown'}</p>
         </div>
-        <span className={`text-xs px-2 py-1 rounded-full bg-${masteryColor}-500/20 text-${masteryColor}-400 border border-${masteryColor}-500/30 whitespace-nowrap`}>
+        <span className="text-xs px-2 py-1 rounded-full border whitespace-nowrap"
+          style={{ color: masteryColor, borderColor: masteryColor + '55', background: masteryColor + '1a' }}>
           {masteryLevel}
         </span>
       </div>
@@ -470,11 +472,8 @@ export const TopicMasteryCard = ({ topic }: { topic: StudyTopic & { subjectName?
         {topic.comprehensionHistory.slice(-10).map((rating, i) => (
           <div
             key={i}
-            className={`flex-1 h-6 rounded ${rating === 3 ? 'bg-emerald-500' :
-              rating === 2 ? 'bg-amber-500' :
-                'bg-red-500'
-              }`}
-            style={{ opacity: Math.max(0.3, 1 - (i * 0.1)) }}
+            className="flex-1 h-6 rounded"
+            style={{ opacity: Math.max(0.3, 1 - (i * 0.1)), background: rating === 3 ? '#F7F5EF' : rating === 2 ? '#FFD60A' : '#FF5A1F' }}
             title={`Review ${i + 1}: ${rating === 3 ? 'Easy' : rating === 2 ? 'Good' : 'Hard'}`}
           />
         ))}
@@ -488,7 +487,7 @@ export const TopicMasteryCard = ({ topic }: { topic: StudyTopic & { subjectName?
 const AddFlashcardFormInline = () => {
   const [show, setShow] = React.useState(false);
   if (!show) return (
-    <button onClick={() => setShow(true)} className="px-6 py-3 rounded-2xl bg-purple-500/20 border border-purple-500/30 text-purple-300 text-sm font-bold hover:bg-purple-500/30 transition-all hover:scale-105 active:scale-95">
+    <button onClick={() => setShow(true)} className="px-6 py-3 rounded-2xl bg-orange-500/20 border border-orange-500/30 text-orange-300 text-sm font-bold hover:bg-orange-500/30 transition-all hover:scale-105 active:scale-95">
       + Add Flashcard
     </button>
   );
@@ -525,6 +524,14 @@ export const ReviewQueueView = () => {
 
   const current = topics[currentIdx];
   const totalDue = topics.length;
+
+  // Deck-wide stats for the header strip (whole deck, not just what's due today).
+  const deckStats = useLiveQuery(async () => {
+    const all = await db.topics.toArray();
+    const ratings = all.flatMap(t => t.comprehensionHistory || []);
+    const retention = ratings.length ? Math.round((ratings.filter(r => r >= 2).length / ratings.length) * 100) : 0;
+    return { deckSize: all.length, retention };
+  }) || { deckSize: 0, retention: 0 };
 
   // Reset the per-card timer whenever the current topic changes.
   React.useEffect(() => { cardShownAt.current = Date.now(); }, [currentIdx]);
@@ -577,10 +584,10 @@ export const ReviewQueueView = () => {
   if (totalDue === 0 && !sessionComplete) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-        <div className="w-20 h-20 rounded-3xl bg-emerald-500/20 flex items-center justify-center mb-6 border border-emerald-500/30">
-          <CheckCircle size={36} className="text-emerald-400" />
+        <div className="w-16 h-16 rounded-3xl bg-yellow-500/15 flex items-center justify-center mb-6 border border-yellow-500/25">
+          <CheckCircle size={32} className="text-yellow-400" />
         </div>
-        <h2 className="text-2xl font-bold text-white mb-3">All caught up!</h2>
+        <h2 className="font-display text-3xl text-white mb-2">All caught up<span className="text-orange-500">.</span></h2>
         <p className="text-zinc-400 max-w-xs mb-6">No topics are due for review today. Add flashcards to grow your deck.</p>
         <AddFlashcardFormInline />
       </div>
@@ -589,18 +596,17 @@ export const ReviewQueueView = () => {
 
   if (sessionComplete) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-        <div className="w-20 h-20 rounded-3xl bg-purple-500/20 flex items-center justify-center mb-6 border border-purple-500/30">
-          <Brain size={36} className="text-purple-400" />
+      <div className="max-w-2xl mx-auto px-4 py-10">
+        <div className="rounded-4xl bg-orange-500 text-ink p-10 text-center">
+          <div className="font-display text-4xl mb-2">Session done.</div>
+          <p className="text-sm font-semibold opacity-70 mb-6">You reviewed {doneCount} topic{doneCount !== 1 ? 's' : ''} today.</p>
+          <button
+            onClick={() => { setCurrentIdx(0); setDoneCount(0); setSessionComplete(false); setShowRating(false); }}
+            className="inline-flex items-center gap-2 bg-ink text-orange-400 font-mono font-bold uppercase tracking-widest text-[11px] px-5 py-3 rounded-full hover:scale-105 transition-transform"
+          >
+            ↻ Review again
+          </button>
         </div>
-        <h2 className="text-2xl font-bold text-white mb-3">Session Complete!</h2>
-        <p className="text-zinc-400 mb-6">You reviewed <span className="text-purple-300 font-bold">{doneCount}</span> topic{doneCount !== 1 ? 's' : ''} today.</p>
-        <button
-          onClick={() => { setCurrentIdx(0); setDoneCount(0); setSessionComplete(false); setShowRating(false); }}
-          className="px-6 py-3 bg-purple-500/20 hover:bg-purple-500/30 rounded-2xl font-bold border border-purple-500/30 transition-all hover:scale-105 active:scale-95"
-        >
-          Review Again
-        </button>
       </div>
     );
   }
@@ -612,25 +618,45 @@ export const ReviewQueueView = () => {
     : '—';
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-8">
+    <div className="max-w-2xl mx-auto px-4 py-8">
+      {/* Deck strip */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="rounded-3xl bg-orange-500 text-ink p-4">
+          <div className="font-display text-3xl">{totalDue}</div>
+          <div className="font-mono text-[9px] uppercase tracking-widest opacity-70 mt-1">Remaining</div>
+        </div>
+        <div className="rounded-3xl bg-ink2 border border-white/10 p-4">
+          <div className="font-display text-3xl text-white">{doneCount}</div>
+          <div className="font-mono text-[9px] uppercase tracking-widest text-zinc-500 mt-1">Reviewed</div>
+        </div>
+        <div className="rounded-3xl bg-ink2 border border-white/10 p-4">
+          <div className="font-display text-3xl text-white">{deckStats.deckSize}</div>
+          <div className="font-mono text-[9px] uppercase tracking-widest text-zinc-500 mt-1">Deck</div>
+        </div>
+        <div className="rounded-3xl bg-ink2 border border-white/10 p-4">
+          <div className="font-display text-3xl text-yellow-400">{deckStats.retention}<span className="text-base text-zinc-600">%</span></div>
+          <div className="font-mono text-[9px] uppercase tracking-widest text-zinc-500 mt-1">Retention</div>
+        </div>
+      </div>
+
       {/* Progress bar */}
-      <div className="mb-8">
-        <div className="flex justify-between text-xs text-zinc-500 mb-2 font-mono">
+      <div className="mb-6">
+        <div className="flex justify-between text-[11px] text-zinc-500 mb-2 font-mono uppercase tracking-widest">
           <span>{currentIdx + 1} / {totalDue}</span>
           <span>{doneCount} rated</span>
         </div>
-        <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full transition-all duration-500"
-            style={{ width: `${((currentIdx) / totalDue) * 100}%` }}
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${((currentIdx) / totalDue) * 100}%`, background: 'linear-gradient(90deg,#FF5A1F,#FFD60A)' }}
           />
         </div>
       </div>
 
       {/* Flashcard */}
-      <div className="rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-2xl p-8 mb-6 text-center min-h-[280px] flex flex-col justify-between shadow-2xl">
+      <div className="rounded-4xl border border-white/10 bg-ink2 p-7 md:p-9 mb-5 text-center min-h-[280px] flex flex-col justify-between">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-500/15 border border-purple-500/25 text-purple-300 text-xs font-bold uppercase tracking-wider mb-5">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-500/15 border border-orange-500/25 text-orange-300 text-xs font-bold uppercase tracking-wider mb-5">
             <Brain size={12} />
             {current.subjectName}
           </div>
@@ -650,8 +676,8 @@ export const ReviewQueueView = () => {
                   Reveal Answer
                 </button>
               ) : (
-                <div className="rounded-2xl bg-indigo-500/10 border border-indigo-500/20 p-5 text-left animate-in fade-in zoom-in-95 duration-200">
-                  <div className="text-xs text-indigo-400 uppercase tracking-wider font-bold mb-2">Answer</div>
+                <div className="rounded-2xl bg-orange-500/10 border border-orange-500/20 p-5 text-left animate-in fade-in zoom-in-95 duration-200">
+                  <div className="text-xs text-orange-400 uppercase tracking-wider font-bold mb-2">Answer</div>
                   <p className="text-zinc-200 leading-relaxed">{current.answer || '—'}</p>
                 </div>
               )}
@@ -677,24 +703,28 @@ export const ReviewQueueView = () => {
           <button
             onClick={() => setShowRating(true)}
             disabled={!!(current.question && !isFlipped)}
-            className="mt-6 w-full py-4 bg-purple-500/20 hover:bg-purple-500/30 disabled:opacity-40 disabled:cursor-not-allowed rounded-2xl font-bold text-purple-300 border border-purple-500/30 transition-all hover:scale-[1.02] active:scale-[0.98] text-lg"
+            className="mt-6 w-full py-4 rounded-2xl font-bold transition-all hover:scale-[1.02] active:scale-[0.98] text-base bg-orange-500 text-ink disabled:bg-white/5 disabled:text-zinc-500 disabled:cursor-not-allowed"
           >
-            {current.question && !isFlipped ? 'Reveal answer first' : 'Rate Understanding ↓'}
+            {current.question && !isFlipped ? 'Reveal answer first' : 'Rate understanding ↓'}
           </button>
         ) : (
           <div className="mt-6 grid grid-cols-3 gap-3">
             {[
-              { rating: 1 as const, emoji: '😓', label: 'Hard', color: 'red' },
-              { rating: 2 as const, emoji: '😐', label: 'Good', color: 'amber' },
-              { rating: 3 as const, emoji: '😃', label: 'Easy', color: 'emerald' },
-            ].map(({ rating, emoji, label, color }) => (
+              { rating: 1 as const, emoji: '😓', label: 'Hard', sub: 'soon',   accent: '#FF5A1F', bg: 'rgba(255,90,31,0.10)',  bd: 'rgba(255,90,31,0.40)',  hov: 'rgba(255,90,31,0.20)' },
+              { rating: 2 as const, emoji: '😐', label: 'Good', sub: 'normal', accent: '#FFD60A', bg: 'rgba(255,214,10,0.10)', bd: 'rgba(255,214,10,0.35)', hov: 'rgba(255,214,10,0.20)' },
+              { rating: 3 as const, emoji: '😃', label: 'Easy', sub: 'later',  accent: '#F7F5EF', bg: 'rgba(255,255,255,0.06)', bd: 'rgba(255,255,255,0.22)', hov: 'rgba(255,255,255,0.12)' },
+            ].map(({ rating, emoji, label, sub, accent, bg, bd, hov }) => (
               <button
                 key={rating}
                 onClick={() => handleRate(rating)}
-                className={`py-4 rounded-2xl border-2 border-${color}-500/30 bg-${color}-500/10 hover:bg-${color}-500/20 hover:scale-105 active:scale-95 transition-all`}
+                className="py-4 rounded-2xl border-2 transition-all hover:scale-105 active:scale-95"
+                style={{ background: bg, borderColor: bd }}
+                onMouseEnter={e => { e.currentTarget.style.background = hov; }}
+                onMouseLeave={e => { e.currentTarget.style.background = bg; }}
               >
                 <div className="text-3xl mb-1">{emoji}</div>
-                <div className={`text-xs font-bold text-${color}-300`}>{label}</div>
+                <div className="text-xs font-bold" style={{ color: accent }}>{label}</div>
+                <div className="text-[10px] mt-0.5" style={{ color: accent, opacity: 0.6 }}>{sub}</div>
               </button>
             ))}
           </div>
@@ -704,13 +734,13 @@ export const ReviewQueueView = () => {
       {/* Comprehension history micro-chart */}
       {current.comprehensionHistory?.length > 0 && (
         <div className="flex items-center gap-2 justify-center">
-          <span className="text-xs text-zinc-600">History:</span>
+          <span className="text-[10px] text-zinc-600 font-mono uppercase tracking-widest">History</span>
           <div className="flex gap-1">
             {current.comprehensionHistory.slice(-12).map((r: number, i: number) => (
               <div
                 key={i}
-                className={`w-3 h-3 rounded-sm ${r === 3 ? 'bg-emerald-500' : r === 2 ? 'bg-amber-500' : 'bg-red-500'}`}
-                style={{ opacity: 0.4 + (i / current.comprehensionHistory.length) * 0.6 }}
+                className="w-3 h-3 rounded-sm"
+                style={{ opacity: 0.4 + (i / current.comprehensionHistory.length) * 0.6, background: r === 3 ? '#F7F5EF' : r === 2 ? '#FFD60A' : '#FF5A1F' }}
               />
             ))}
           </div>

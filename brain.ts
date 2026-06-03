@@ -17,6 +17,7 @@ import {
 export type { SubjectReadiness };
 import { getISTEffectiveDate, formatLocalDate } from "./utils/time";
 import { notifyDataChange } from "./db";
+import { getDefaultFocusDuration } from "./utils/settingsHelper";
 
 // --------------------
 // Pure brain engine contract (fact-only)
@@ -778,7 +779,8 @@ function getOptimalDuration(
     duration = Math.min(duration, 60);
   }
 
-  return clampDuration(duration, maxBlockDuration);
+  // Cap by the user's preferred default session length (Settings → Focus).
+  return clampDuration(duration, Math.min(maxBlockDuration, getDefaultFocusDuration()));
 }
 
 /* ======================================================
