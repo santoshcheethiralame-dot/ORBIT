@@ -902,3 +902,123 @@ button:active {
 [data-compact="true"] .mb-6 { margin-bottom: 0.75rem !important; }
 [data-compact="true"] .rounded-2xl { border-radius: 0.75rem !important; }
 [data-compact="true"] .rounded-3xl { border-radius: 1rem !important; }
+
+/* ============================================================
+   ORBIT DESIGN SYSTEM v2 — premium "refined cosmic"
+   Tokens (CSS variables) + app-wide base refinements + component
+   classes. The base refinements apply immediately; the .os-*
+   classes are adopted screen-by-screen during the re-skin.
+============================================================ */
+:root {
+  /* Accent — cosmic indigo/violet */
+  --os-accent: #818cf8;             /* indigo-400 */
+  --os-accent-strong: #6366f1;      /* indigo-500 */
+  --os-accent-soft: rgba(129, 140, 248, 0.14);
+  --os-accent-ring: rgba(129, 140, 248, 0.55);
+
+  /* Foreground — AA-compliant on the dark surface */
+  --os-fg: #ededf2;
+  --os-fg-muted: #a8a8b3;           /* ~6:1   */
+  --os-fg-subtle: #8b8b97;          /* ~4.7:1 */
+
+  /* Surfaces & borders */
+  --os-bg: #08080c;
+  --os-surface-1: rgba(255, 255, 255, 0.035);
+  --os-surface-2: rgba(255, 255, 255, 0.06);
+  --os-surface-3: rgba(255, 255, 255, 0.09);
+  --os-border: rgba(255, 255, 255, 0.09);
+  --os-border-strong: rgba(255, 255, 255, 0.16);
+  --os-glass-blur: 20px;
+
+  /* Radius scale */
+  --os-r-sm: 10px;
+  --os-r-md: 14px;
+  --os-r-lg: 18px;
+  --os-r-card: 22px;
+  --os-r-pill: 999px;
+
+  /* Elevation */
+  --os-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+  --os-shadow-2: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --os-glow: 0 0 0 1px var(--os-accent-soft), 0 8px 40px rgba(99, 102, 241, 0.25);
+
+  /* Motion */
+  --os-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --os-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --os-dur: 240ms;
+  --os-dur-fast: 150ms;
+}
+
+/* ---- Base refinements (apply app-wide) ---- */
+body {
+  background-color: var(--os-bg);
+  letter-spacing: -0.006em;
+  text-rendering: optimizeLegibility;
+}
+.font-display, h1, h2, h3 { letter-spacing: -0.021em; }
+
+/* Premium scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); background-clip: padding-box; }
+* { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.14) transparent; }
+
+::selection { background: var(--os-accent-soft); color: #fff; }
+
+/* Contrast fix: muted-text utility that failed WCAG AA on the dark surface
+   (text-zinc-600 #52525b ~3.4:1 -> ~4.7:1). */
+html:not(.light-mode) .text-zinc-600 { color: var(--os-fg-subtle); }
+
+/* ---- Component classes (adopted during the re-skin) ---- */
+.os-card {
+  background: var(--os-surface-1);
+  border: 1px solid var(--os-border);
+  border-radius: var(--os-r-card);
+  backdrop-filter: blur(var(--os-glass-blur));
+  -webkit-backdrop-filter: blur(var(--os-glass-blur));
+  box-shadow: var(--os-shadow-1);
+}
+.os-card-interactive {
+  cursor: pointer;
+  transition: transform var(--os-dur) var(--os-ease), border-color var(--os-dur) var(--os-ease),
+    box-shadow var(--os-dur) var(--os-ease), background var(--os-dur) var(--os-ease);
+}
+.os-card-interactive:hover { transform: translateY(-2px); border-color: var(--os-border-strong); box-shadow: var(--os-shadow-2); background: var(--os-surface-2); }
+.os-card-interactive:active { transform: translateY(0) scale(0.995); }
+
+.os-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  border-radius: var(--os-r-md); font-weight: 600; font-size: 0.875rem; line-height: 1;
+  padding: 0.7rem 1.1rem; min-height: 44px; border: 1px solid transparent;
+  transition: background var(--os-dur-fast) var(--os-ease), box-shadow var(--os-dur-fast) var(--os-ease),
+    transform var(--os-dur-fast) var(--os-ease), border-color var(--os-dur-fast) var(--os-ease);
+}
+.os-btn:active { transform: scale(0.97); }
+.os-btn-primary { background: var(--os-accent-strong); color: #fff; box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35); }
+.os-btn-primary:hover { background: #717bf6; box-shadow: 0 8px 28px rgba(99, 102, 241, 0.5); }
+.os-btn-ghost { background: var(--os-surface-2); color: var(--os-fg); border-color: var(--os-border); }
+.os-btn-ghost:hover { background: var(--os-surface-3); border-color: var(--os-border-strong); }
+.os-btn-danger { background: rgba(244, 63, 94, 0.12); color: #fda4af; border-color: rgba(244, 63, 94, 0.3); }
+.os-btn-danger:hover { background: rgba(244, 63, 94, 0.2); }
+
+.os-input {
+  width: 100%; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--os-border);
+  border-radius: var(--os-r-md); padding: 0.7rem 0.9rem; color: var(--os-fg); font-size: 0.9rem;
+  transition: border-color var(--os-dur-fast) var(--os-ease), box-shadow var(--os-dur-fast) var(--os-ease);
+}
+.os-input::placeholder { color: var(--os-fg-subtle); }
+.os-input:focus { outline: none; border-color: var(--os-accent-ring); box-shadow: 0 0 0 3px var(--os-accent-soft); }
+
+.os-chip {
+  display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.6rem;
+  border-radius: var(--os-r-pill); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
+  background: var(--os-surface-2); border: 1px solid var(--os-border); color: var(--os-fg-muted);
+}
+
+.os-meta { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--os-fg-subtle); }
