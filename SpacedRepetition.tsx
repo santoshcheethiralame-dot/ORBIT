@@ -535,7 +535,22 @@ export const ReviewQueueView = () => {
     const elapsedMin = Math.max(1, Math.round((Date.now() - cardShownAt.current) / 60_000));
 
     const { recordTopicReview } = await import('./tracking');
-    await recordTopicReview(current.subjectId, current.name, rating, elapsedMin, today);
+    const sr = await recordTopicReview(current.subjectId, current.name, rating, elapsedMin, today);
+    // recordTopicReview no longer writes a StudyLog — the caller owns logging, so
+    // write the single review log here (this is the only logger for the queue path).
+    try {
+      await db.logs.add({
+        subjectId: current.subjectId,
+        duration: elapsedMin,
+        date: today,
+        timestamp: Date.now(),
+        type: 'review',
+        topicId: sr.topicId,
+        comprehensionRating: sr.comprehensionRating,
+        reviewNumber: sr.reviewNumber,
+        nextReviewDate: sr.nextReview,
+      } as any);
+    } catch (e) { console.error('Failed to log review', e); }
 
     setDoneCount(d => d + 1);
     setShowRating(false);

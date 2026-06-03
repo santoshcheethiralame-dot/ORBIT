@@ -554,6 +554,22 @@ async function addSpacedRepetitionReviews(
 /**
  * After completing a review block, record comprehension and update schedule
  */
+export interface TopicReviewResult {
+  topicId: string;
+  comprehensionRating: 1 | 2 | 3;
+  reviewNumber: number;
+  nextReview: string;
+}
+
+/**
+ * Update a topic's spaced-repetition state for one review.
+ *
+ * NOTE: this NO LONGER writes a StudyLog. The caller owns logging so that a
+ * single completion produces exactly one StudyLog (previously the focus-session
+ * path double-logged: once here and once in index.tsx). It returns the review
+ * metadata the caller should attach to its log. `duration` is kept for
+ * signature compatibility but is unused here.
+ */
 export async function recordTopicReview(
   subjectId: number,
   topicName: string,
@@ -561,7 +577,11 @@ export async function recordTopicReview(
   duration: number,
   dateStr: string,
   dbInstance: OrbitDB = db
-): Promise<void> {
+): Promise<TopicReviewResult> {
+  void duration;
+  const topicId = topicName.toLowerCase().replace(/\s+/g, '-');
+  let reviewNumber = 1;
+  let nextReview = dateStr;
   try {
     // Find or create topic
     let topic = await dbInstance.topics
@@ -571,12 +591,10 @@ export async function recordTopicReview(
     if (!topic) {
       // New topic - create it
       const { nextReviewDate, newEaseFactor } = calculateNextReview(
-        dateStr,
-        1.8,  // Default ease factor
-        0,    // First review
-        comprehensionRating
+        dateStr, 1.8, 0, comprehensionRating
       );
-
+      reviewNumber = 1;
+      nextReview = nextReviewDate;
       await dbInstance.topics.add({
         subjectId,
         name: topicName,
@@ -589,12 +607,10 @@ export async function recordTopicReview(
     } else {
       // Update existing topic
       const { nextReviewDate, newEaseFactor } = calculateNextReview(
-        topic.lastStudied,
-        topic.easeFactor,
-        topic.reviewCount,
-        comprehensionRating
+        topic.lastStudied, topic.easeFactor, topic.reviewCount, comprehensionRating
       );
-
+      reviewNumber = topic.reviewCount + 1;
+      nextReview = nextReviewDate;
       await dbInstance.topics.update(topic.id!, {
         lastStudied: dateStr,
         nextReview: nextReviewDate,
@@ -603,22 +619,10 @@ export async function recordTopicReview(
         comprehensionHistory: [...topic.comprehensionHistory, comprehensionRating]
       });
     }
-
-    // Also update the study log
-    await dbInstance.logs.add({
-      subjectId,
-      duration,
-      date: dateStr,
-      timestamp: Date.now(),
-      type: "review",
-      topicId: topicName.toLowerCase().replace(/\s+/g, '-'),
-      comprehensionRating,
-      reviewNumber: topic ? topic.reviewCount + 1 : 1,
-    } as StudyLog);
-
   } catch (err) {
     console.error('Failed to record topic review:', err);
   }
+  return { topicId, comprehensionRating, reviewNumber, nextReview };
 }
 
 /**

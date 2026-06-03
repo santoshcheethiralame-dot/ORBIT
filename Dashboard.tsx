@@ -1125,8 +1125,14 @@ export const Dashboard = ({
           topicId: block.topicId,
         } as StudyLog);
       }
+      // Assignment blocks bump progress; completion is derived from progress vs.
+      // estimate (updateAssignmentProgress) — consistent with the focus path, so
+      // a multi-session assignment isn't marked done after a single block.
+      let priorAssignment: { progressMinutes: number; completed: boolean } | null = null;
       if (block.type === 'assignment' && block.assignmentId) {
-        await db.assignments.update(block.assignmentId, { completed: true });
+        const a = await db.assignments.get(block.assignmentId);
+        if (a) priorAssignment = { progressMinutes: a.progressMinutes ?? 0, completed: !!a.completed };
+        await updateAssignmentProgress(block.assignmentId, block.duration);
       }
 
       toast.success('Block marked complete!', {
@@ -1142,8 +1148,8 @@ export const Dashboard = ({
             }
             await db.studyBlocks.update(blockId, { completed: false });
             if (logId !== undefined) await db.logs.delete(logId);
-            if (block.type === 'assignment' && block.assignmentId) {
-              await db.assignments.update(block.assignmentId, { completed: false });
+            if (block.type === 'assignment' && block.assignmentId && priorAssignment) {
+              await db.assignments.update(block.assignmentId, priorAssignment);
             }
             onRefresh();
             toast.info('Block marked as incomplete');

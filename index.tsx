@@ -459,16 +459,18 @@ const App = () => {
 
   const handleFocusComplete = async (
     actualDuration?: number,
-    sessionNotes?: string
+    sessionNotes?: string,
+    reviewMeta?: { topicId: string; comprehensionRating: 1 | 2 | 3; reviewNumber: number; nextReview: string }
   ) => {
     if (activeBlock) {
       const durationToLog = actualDuration || activeBlock.duration;
       const dateStr = getISTEffectiveDate();
       const blockId = activeBlock.id;
-      const blockType = activeBlock.type;
-      const assignmentId = activeBlock.assignmentId;
 
       try {
+        // Single StudyLog for this completion. For reviews, recordTopicReview
+        // (called in FocusSession) returns the metadata to attach here — it no
+        // longer writes its own log, so reviews are logged exactly once.
         const newLogId = await db.logs.add({
           subjectId: activeBlock.subjectId,
           duration: durationToLog,
@@ -477,6 +479,12 @@ const App = () => {
           projectId: activeBlock.projectId,
           type: activeBlock.type,
           notes: sessionNotes,
+          ...(reviewMeta ? {
+            topicId: reviewMeta.topicId,
+            comprehensionRating: reviewMeta.comprehensionRating,
+            reviewNumber: reviewMeta.reviewNumber,
+            nextReviewDate: reviewMeta.nextReview,
+          } : {}),
         } as any);
 
         if (todayPlan) {
@@ -492,23 +500,21 @@ const App = () => {
           setTodayPlan(newPlan);
         }
 
-        if (
-          activeBlock.type === "assignment" &&
-          activeBlock.assignmentId
-        ) {
-          await db.assignments.update(activeBlock.assignmentId, {
-            completed: true,
-          });
-        }
+        // Assignment progress + completion is owned by updateAssignmentProgress
+        // (called in FocusSession.handleFocusComplete), which derives `completed`
+        // from progressMinutes vs. estimatedEffort. We deliberately do NOT force
+        // completed:true here — that marked multi-session assignments done after
+        // a single block (the progress-vs-completed split-brain).
 
-        // âœ¨ NEW: Success toast with undo
+        // Success toast with undo
         toast.success("Study block completed!", {
           label: "UNDO",
           onClick: async () => {
             try {
               // Re-read the plan from the DB (never trust the stale closure) and
-              // fully revert: block completion, the StudyLog, the studyBlocks row,
-              // and any linked assignment.
+              // revert: block completion, the StudyLog, and the studyBlocks row.
+              // (Assignment progress is owned by updateAssignmentProgress and is
+              // not reverted here.)
               const planNow = await db.plans.get(dateStr);
               if (planNow) {
                 const revertBlocks = planNow.blocks.map((b) =>
@@ -518,9 +524,6 @@ const App = () => {
               }
               if (typeof newLogId === "number") await db.logs.delete(newLogId);
               await db.studyBlocks.update(blockId, { completed: false });
-              if (blockType === "assignment" && assignmentId) {
-                await db.assignments.update(assignmentId, { completed: false });
-              }
               await loadData();
               toast.info("Block marked as incomplete");
             } catch (e) {

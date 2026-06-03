@@ -118,7 +118,7 @@ export interface SubjectIntelligence {
 
 interface FocusSessionProps {
   block: StudyBlock;
-  onComplete: (elapsedMin?: number, sessionNotes?: string) => void;
+  onComplete: (elapsedMin?: number, sessionNotes?: string, reviewMeta?: { topicId: string; comprehensionRating: 1 | 2 | 3; reviewNumber: number; nextReview: string }) => void;
   onExit: () => void;
   subjectIntelligence?: SubjectIntelligence;
 }
@@ -462,11 +462,15 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
       skipped: wasSkipped
     });
 
+    // Update spaced-repetition state and capture the review metadata so the
+    // SINGLE StudyLog (written by onComplete -> index.tsx) carries it. This
+    // replaces the old double-log (recordTopicReview used to write its own log).
+    let reviewMeta: { topicId: string; comprehensionRating: 1 | 2 | 3; reviewNumber: number; nextReview: string } | undefined;
     if (block.type === 'review' && topic && topic.trim()) {
       let srRating: 1 | 2 | 3 = 2;
       if (rating <= 2) srRating = 1;
       else if (rating >= 4) srRating = 3;
-      await recordTopicReview(
+      reviewMeta = await recordTopicReview(
         block.subjectId,
         topic.trim(),
         srRating,
@@ -481,7 +485,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     setShowSummary(true);
     setTimeout(() => {
       setShowSummary(false);
-      onComplete(completedDuration, sessionNotes);
+      onComplete(completedDuration, sessionNotes, reviewMeta);
     }, aiTip ? 4500 : 3500);
   };
 
