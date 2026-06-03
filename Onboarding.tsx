@@ -1322,7 +1322,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
                           </div>
                           <div className="h-3 bg-white/5 rounded-full overflow-hidden border border-white/10">
                             <div
-                              className="h-full bg-gradient-to-r from-purple-600 to-pink-600 transition-all duration-500 ease-out rounded-full"
+                              className="h-full bg-gradient-to-r from-indigo-500 to-violet-600 transition-all duration-500 ease-out rounded-full"
                               style={{ width: `${p.progression}%` }}
                             />
                           </div>
