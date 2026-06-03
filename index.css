@@ -1,3 +1,10 @@
+/* Compiled Tailwind v3.4 (replaces cdn.tailwindcss.com Play CDN). Preflight + the
+   used utilities are injected here at build time; the custom design-system CSS below
+   intentionally follows so its overrides win by source order. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* ============================================
    ORBIT LIGHT MODE ENHANCEMENT v2.0
    Comprehensive light mode styling improvements
