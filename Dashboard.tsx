@@ -1457,9 +1457,9 @@ export const Dashboard = ({
                 <button
                   onClick={() => onStartFocus(nextBlock)}
                   aria-label="Start focus session"
-                  className="w-full inline-flex items-center justify-center gap-3 px-8 py-5 bg-white text-black rounded-2xl font-bold text-lg hover:bg-indigo-500 hover:text-white hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/30 active:scale-[0.98] transition-all duration-300 group/btn min-h-[60px]"
+                  className="w-full inline-flex items-center justify-center gap-3 px-8 py-5 bg-white text-zinc-950 rounded-2xl font-bold text-lg tracking-tight hover:scale-[1.01] hover:shadow-[0_14px_44px_-10px_rgba(255,255,255,0.28)] active:scale-[0.99] transition-all duration-200 group/btn min-h-[60px]"
                 >
-                  <Play size={20} fill="currentColor" className="group-hover/btn:animate-pulse" strokeWidth={0} />
+                  <Play size={20} fill="currentColor" className="transition-transform group-hover/btn:scale-110" strokeWidth={0} />
                   <span>Start Focus Session</span>
                 </button>
               </div>

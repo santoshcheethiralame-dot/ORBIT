@@ -110,14 +110,16 @@ export const FrostedTile: React.FC<React.PropsWithChildren<FrostedProps>> = ({
       className={
         [
           "group relative overflow-hidden rounded-3xl border",
-          // Use variant border if available, otherwise default white/10
-          variantStyles ? variantStyles.border : "border-white/10",
-          "bg-gradient-to-br from-zinc-900 via-zinc-900 to-black",
-          "[background:linear-gradient(to_bottom_right,rgba(255,255,255,0.03),transparent)]",
-          "backdrop-blur-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
-          "transition-all duration-500",
-          onClick ? "cursor-pointer active:scale-[0.98]" : "",
-          variantStyles ? "hover:-translate-y-1" : "",
+          // Use variant border if available, otherwise default subtle border
+          variantStyles ? variantStyles.border : "border-white/[0.08]",
+          // Premium glass: one translucent dark surface (not the old conflicting
+          // double background), an inset top highlight for a glass edge, and a
+          // refined drop shadow.
+          "bg-zinc-900/70 backdrop-blur-2xl",
+          "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_18px_40px_-18px_rgba(0,0,0,0.6)]",
+          "transition-all duration-300",
+          onClick ? "cursor-pointer active:scale-[0.99]" : "",
+          variantStyles ? "hover:-translate-y-1 hover:border-white/20" : "",
           className,
           hoverClassName,
         ].join(' ')
