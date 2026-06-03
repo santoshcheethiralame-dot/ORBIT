@@ -381,9 +381,25 @@ const App = () => {
       const result = await generateEnhancedPlan(ctx);
       const dateStr = getISTEffectiveDate();
 
+      // FIX (data-loss): if a plan already exists for today and has completed
+      // work, preserve those completed blocks rather than overwriting them with a
+      // fresh all-incomplete plan. Drop regenerated blocks that duplicate a
+      // completed one (same subject + type + topic) to avoid re-presenting done work.
+      const existingPlan = await db.plans.get(dateStr);
+      const completedPrior = existingPlan?.blocks.filter(b => b.completed) ?? [];
+      const isDuplicateOfCompleted = (nb: StudyBlock) =>
+        completedPrior.some(cb =>
+          cb.subjectId === nb.subjectId &&
+          cb.type === nb.type &&
+          (cb.topicId || '') === (nb.topicId || '')
+        );
+      const mergedBlocks = completedPrior.length
+        ? [...completedPrior, ...result.blocks.filter(b => !isDuplicateOfCompleted(b))]
+        : result.blocks;
+
       const plan: DailyPlan = {
         date: dateStr,
-        blocks: result.blocks,
+        blocks: mergedBlocks,
         context: ctx,
         warning: result.loadAnalysis?.warning,
         loadLevel: result.loadAnalysis?.loadLevel,
@@ -447,9 +463,12 @@ const App = () => {
     if (activeBlock) {
       const durationToLog = actualDuration || activeBlock.duration;
       const dateStr = getISTEffectiveDate();
+      const blockId = activeBlock.id;
+      const blockType = activeBlock.type;
+      const assignmentId = activeBlock.assignmentId;
 
       try {
-        await db.logs.add({
+        const newLogId = await db.logs.add({
           subjectId: activeBlock.subjectId,
           duration: durationToLog,
           date: dateStr,
@@ -485,17 +504,26 @@ const App = () => {
         toast.success("Study block completed!", {
           label: "UNDO",
           onClick: async () => {
-            // Undo logic: mark block as incomplete
-            if (todayPlan) {
-              const revertBlocks = todayPlan.blocks.map((b) =>
-                b.id === activeBlock.id
-                  ? { ...b, completed: false }
-                  : b
-              );
-              const revertPlan = { ...todayPlan, blocks: revertBlocks };
-              await db.plans.put(revertPlan);
-              setTodayPlan(revertPlan);
+            try {
+              // Re-read the plan from the DB (never trust the stale closure) and
+              // fully revert: block completion, the StudyLog, the studyBlocks row,
+              // and any linked assignment.
+              const planNow = await db.plans.get(dateStr);
+              if (planNow) {
+                const revertBlocks = planNow.blocks.map((b) =>
+                  b.id === blockId ? { ...b, completed: false } : b
+                );
+                await db.plans.put({ ...planNow, blocks: revertBlocks });
+              }
+              if (typeof newLogId === "number") await db.logs.delete(newLogId);
+              await db.studyBlocks.update(blockId, { completed: false });
+              if (blockType === "assignment" && assignmentId) {
+                await db.assignments.update(assignmentId, { completed: false });
+              }
+              await loadData();
               toast.info("Block marked as incomplete");
+            } catch (e) {
+              toast.error("Failed to undo");
             }
           },
         });

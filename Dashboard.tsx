@@ -387,17 +387,24 @@ export const Dashboard = ({
     [upcomingReviews, todayStr]
   );
 
+  // Dropped/snoozed blocks stay in plan.blocks (so the planner can recover them
+  // tomorrow) but are hidden from today's view via the droppedBlocks id-list.
+  const activeBlocks = useMemo(() => {
+    const dropped = new Set(plan.droppedBlocks || []);
+    return plan.blocks.filter((b) => !dropped.has(b.id));
+  }, [plan.blocks, plan.droppedBlocks]);
+
   const nextBlock = useMemo(() =>
-    plan.blocks.find((b) => !b.completed),
-    [plan.blocks]
+    activeBlocks.find((b) => !b.completed),
+    [activeBlocks]
   );
 
   const completedCount = useMemo(() =>
-    plan.blocks.filter((b) => b.completed).length,
-    [plan.blocks]
+    activeBlocks.filter((b) => b.completed).length,
+    [activeBlocks]
   );
 
-  const totalCount = plan.blocks.length;
+  const totalCount = activeBlocks.length;
 
   const progressPercent = useMemo(() =>
     totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0,
@@ -430,8 +437,8 @@ export const Dashboard = ({
     [readinessScores, subjects]
   );
 
-  const visibleBlocks = showAllBlocks ? plan.blocks : plan.blocks.slice(0, VISIBLE_BLOCKS_DEFAULT);
-  const hasMoreBlocks = plan.blocks.length > VISIBLE_BLOCKS_DEFAULT;
+  const visibleBlocks = showAllBlocks ? activeBlocks : activeBlocks.slice(0, VISIBLE_BLOCKS_DEFAULT);
+  const hasMoreBlocks = activeBlocks.length > VISIBLE_BLOCKS_DEFAULT;
 
   interface MessageTile {
     priority: number;
@@ -520,7 +527,7 @@ export const Dashboard = ({
                   Full schedule planned — maintain steady pace throughout the day
                 </div>
                 <div className="text-xs text-orange-400/50 mt-2 font-medium">
-                  {totalCount} blocks · Est. {plan.blocks.reduce((sum, b) => sum + b.duration, 0)}min total
+                  {totalCount} blocks · Est. {activeBlocks.reduce((sum, b) => sum + b.duration, 0)}min total
                 </div>
               </div>
             </div>
@@ -633,7 +640,7 @@ export const Dashboard = ({
     const tileIds = new Set<string>();
 
     while (tiles.length < 3) {
-      const assignmentBlocks = plan.blocks.filter(b => b.type === 'assignment').length;
+      const assignmentBlocks = activeBlocks.filter(b => b.type === 'assignment').length;
 
       if (assignmentBlocks > 0 && !tileIds.has('assignment')) {
         tiles.push({
@@ -675,7 +682,7 @@ export const Dashboard = ({
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-base text-blue-300 mb-1.5">Study Sessions Planned</div>
                   <div className="text-sm text-blue-200/70 leading-relaxed">
-                    {plan.blocks.length} focused blocks covering {subjects.filter(s => plan.blocks.some(b => b.subjectId === s.id)).length} subjects
+                    {activeBlocks.length} focused blocks covering {subjects.filter(s => activeBlocks.some(b => b.subjectId === s.id)).length} subjects
                   </div>
                   <div className="text-xs text-blue-400/50 mt-2 font-medium">
                     Comprehensive learning schedule
@@ -1095,11 +1102,34 @@ export const Dashboard = ({
       const currentPlan = await db.plans.get(todayStr);
       if (!currentPlan) return;
 
+      const block = currentPlan.blocks.find((b: StudyBlock) => b.id === blockId);
+      if (!block || block.completed) return;
+
       const updatedBlocks = currentPlan.blocks.map((b: StudyBlock) =>
         b.id === blockId ? { ...b, completed: true } : b
       );
-
       await db.plans.put({ ...currentPlan, blocks: updatedBlocks });
+      await db.studyBlocks.update(blockId, { completed: true });
+
+      // FIX (analytics integrity): marking complete must log study time so it
+      // counts toward streaks/stats/readiness — identical to the focus path.
+      // 'break' blocks are not study and are not logged.
+      let logId: number | undefined;
+      if (block.type !== 'break') {
+        logId = await db.logs.add({
+          subjectId: block.subjectId,
+          duration: block.duration,
+          date: todayStr,
+          timestamp: Date.now(),
+          type: block.type as StudyLog['type'],
+          projectId: block.projectId,
+          assignmentId: block.assignmentId,
+          topicId: block.topicId,
+        } as StudyLog);
+      }
+      if (block.type === 'assignment' && block.assignmentId) {
+        await db.assignments.update(block.assignmentId, { completed: true });
+      }
 
       toast.success('Block marked complete!', {
         label: 'UNDO',
@@ -1111,9 +1141,14 @@ export const Dashboard = ({
                 b.id === blockId ? { ...b, completed: false } : b
               );
               await db.plans.put({ ...planToRevert, blocks: revertBlocks });
-              onRefresh();
-              toast.info('Block marked as incomplete');
             }
+            await db.studyBlocks.update(blockId, { completed: false });
+            if (logId !== undefined) await db.logs.delete(logId);
+            if (block.type === 'assignment' && block.assignmentId) {
+              await db.assignments.update(block.assignmentId, { completed: false });
+            }
+            onRefresh();
+            toast.info('Block marked as incomplete');
           } catch (err) {
             toast.error('Failed to undo');
           }
@@ -1133,14 +1168,18 @@ export const Dashboard = ({
       if (!currentPlan) return;
 
       const block = currentPlan.blocks.find((b) => b.id === blockId);
-      if (!block) return;
+      if (!block || block.completed) return;
 
-      const updatedTodayBlocks = currentPlan.blocks.filter((b) => b.id !== blockId);
-      const droppedBlocks = [...(currentPlan.droppedBlocks || []), blockId];
+      // FIX (data-loss): KEEP the block in plan.blocks (the recovery engine reads
+      // the dropped block's body from pastPlan.blocks by id). Only record its id in
+      // droppedBlocks; the dashboard hides dropped blocks via the activeBlocks filter.
+      const already = (currentPlan.droppedBlocks || []).includes(blockId);
+      const droppedBlocks = already
+        ? (currentPlan.droppedBlocks || [])
+        : [...(currentPlan.droppedBlocks || []), blockId];
 
       await db.plans.put({
         ...currentPlan,
-        blocks: updatedTodayBlocks,
         droppedBlocks,
       });
 
@@ -1149,13 +1188,11 @@ export const Dashboard = ({
         onClick: async () => {
           try {
             const todayStr = getISTEffectiveDate();
-            const currentPlan = await db.plans.get(todayStr);
-            if (currentPlan) {
-              const restoredBlocks = [...currentPlan.blocks, block];
-              const updatedDropped = (currentPlan.droppedBlocks || []).filter(id => id !== blockId);
+            const latestPlan = await db.plans.get(todayStr);
+            if (latestPlan) {
+              const updatedDropped = (latestPlan.droppedBlocks || []).filter(id => id !== blockId);
               await db.plans.put({
-                ...currentPlan,
-                blocks: restoredBlocks,
+                ...latestPlan,
                 droppedBlocks: updatedDropped,
               });
               onRefresh();
@@ -1530,7 +1567,7 @@ export const Dashboard = ({
             <div className="flex items-center gap-1.5 text-indigo-300 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">
               <Clock size={14} className="text-indigo-400" strokeWidth={2.5} />
               {(() => {
-                const remainingMinutes = plan.blocks.reduce((acc, b) => !b.completed ? acc + b.duration : acc, 0);
+                const remainingMinutes = activeBlocks.reduce((acc, b) => !b.completed ? acc + b.duration : acc, 0);
                 const now = new Date();
                 const finishTime = new Date(now.getTime() + remainingMinutes * 60000);
                 const timeString = finishTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1549,7 +1586,7 @@ export const Dashboard = ({
           </div>
         </div>
 
-        {plan.blocks.length === 0 ? (
+        {activeBlocks.length === 0 ? (
           <EmptyTodayPlan />
         ) : (
           <div className="space-y-3">
@@ -1667,7 +1704,7 @@ export const Dashboard = ({
                 ) : (
                   <>
                     <ChevronDown size={18} strokeWidth={2.5} />
-                    Show All ({plan.blocks.length - 4} more)
+                    Show All ({activeBlocks.length - 4} more)
                   </>
                 )}
               </button>

@@ -485,6 +485,15 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     }, aiTip ? 4500 : 3500);
   };
 
+  // Dismissing the rating prompt must NOT fabricate a score (it previously
+  // recorded a fake 3/5 into the adaptive engine + SR schedule). The session
+  // still completes — the StudyLog is written by onComplete — we just record
+  // no quality outcome for this block.
+  const handleQualityDismiss = () => {
+    setShowQualityModal(false);
+    onComplete(completedDuration, sessionNotes);
+  };
+
   const handleResourceClick = (resource: Resource) => {
     if (resource.fileData && resource.fileType) {
       const base64Data = resource.fileData.includes('base64,')
@@ -1225,7 +1234,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           block={block}
           initialTopic={block.type === 'review' ? (block.topicId?.replace(/-/g, ' ') || block.notes || "") : undefined}
           onRate={handleQualityRating}
-          onClose={() => handleQualityRating(3)}
+          onClose={handleQualityDismiss}
         />
       )}
     </div>

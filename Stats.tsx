@@ -663,17 +663,10 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   const prevRangeStartStr = prevRangeStart.toISOString().split("T")[0];
   const prevLogs = logs.filter((l) => l.date >= prevRangeStartStr && l.date < rangeStartStr);
 
-  if (filteredLogs.length === 0) {
-    return (
-      <div className="pb-32 pt-8 px-4 lg:px-10 w-full max-w-[1400px] mx-auto">
-        <PageHeader
-          title="Learning Analytics"
-          meta={<MetaText>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }).toUpperCase()}</MetaText>}
-        />
-        <EmptyStats onStartStudying={() => window.dispatchEvent(new CustomEvent("navigate-to-dashboard"))} />
-      </div>
-    );
-  }
+  // NOTE: the empty-state early return previously lived here, but it sat BEFORE
+  // ~14 hooks below (Rules of Hooks violation -> crash when filteredLogs flips
+  // empty/non-empty). The empty state is now rendered after all hooks run.
+  const isEmptyRange = filteredLogs.length === 0;
 
   const totalMinutes = filteredLogs.reduce((acc, l) => acc + l.duration, 0);
   const totalHours = (totalMinutes / 60).toFixed(1);
@@ -1110,6 +1103,19 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
 
     return list.slice(0, 4);
   }, [burnoutSignals, streakInfo, subjectStats, productivityPattern, completionRate, avgQuality]);
+
+  // Empty state — rendered only after every hook above has executed.
+  if (isEmptyRange) {
+    return (
+      <div className="pb-32 pt-8 px-4 lg:px-10 w-full max-w-[1400px] mx-auto">
+        <PageHeader
+          title="Learning Analytics"
+          meta={<MetaText>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }).toUpperCase()}</MetaText>}
+        />
+        <EmptyStats onStartStudying={() => window.dispatchEvent(new CustomEvent("navigate-to-dashboard"))} />
+      </div>
+    );
+  }
 
   return (
     <div className="pb-24 md:pb-32 pt-4 md:pt-6 lg:pt-8 px-3 md:px-4 lg:px-10 w-full max-w-[1600px] mx-auto space-y-4 md:space-y-6 lg:space-y-8">
