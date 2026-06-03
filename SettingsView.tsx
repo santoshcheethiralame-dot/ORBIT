@@ -167,8 +167,20 @@ export const SettingsView = () => {
       const text = await file.text();
       const imported = JSON.parse(text);
 
-      if (!imported.version || !imported.data) {
-        throw new Error('Invalid backup file');
+      if (!imported.version || !imported.data || typeof imported.data !== 'object') {
+        throw new Error('not an Orbit backup');
+      }
+      // Validate shape BEFORE clearing anything, so a malformed file can never
+      // wipe existing data: every present table must be an array, and subjects
+      // (if present) must actually look like subjects.
+      const TABLES = ['subjects', 'logs', 'assignments', 'plans', 'topics', 'projects', 'schedule', 'blockOutcomes', 'studyBlocks', 'semesters', 'exams', 'settings'];
+      for (const t of TABLES) {
+        if (imported.data[t] !== undefined && !Array.isArray(imported.data[t])) {
+          throw new Error(`"${t}" is not a list`);
+        }
+      }
+      if (Array.isArray(imported.data.subjects) && imported.data.subjects.some((s: any) => !s || typeof s.name !== 'string')) {
+        throw new Error('a subject record is missing a name');
       }
 
       await db.transaction(
@@ -221,9 +233,10 @@ export const SettingsView = () => {
       toast.success(`Imported ${d.subjects?.length || 0} subjects, ${d.logs?.length || 0} logs, ${d.topics?.length || 0} topics`);
       setShowImportModal(false);
       setTimeout(() => window.location.reload(), 1000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Import failed:', err);
-      toast.error('Import failed. Your existing data is unchanged.');
+      const reason = err?.message ? ` (${err.message})` : '';
+      toast.error(`Import failed${reason}. Your existing data is unchanged.`);
     }
   };
 
@@ -252,7 +265,15 @@ export const SettingsView = () => {
         }
       );
 
-      localStorage.clear();
+      // Remove only Orbit's own localStorage keys — including the recovery
+      // snapshot (orbit-db-snapshot), since leaving it would silently restore
+      // this just-deleted data on next load. Other origins' keys are untouched
+      // (no blanket localStorage.clear()).
+      try {
+        Object.keys(localStorage)
+          .filter(k => k.startsWith('orbit'))
+          .forEach(k => localStorage.removeItem(k));
+      } catch { /* ignore */ }
 
       toast.success('All data cleared successfully');
       setShowDeleteModal(false);

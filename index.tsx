@@ -311,7 +311,13 @@ const App = () => {
         } catch (innerErr) {
           if (confirm('Critical database error. Reset all data? (This cannot be undone)')) {
             await db.delete();
-            localStorage.clear();
+            // Remove only Orbit's own keys (incl. the recovery snapshot) rather
+            // than nuking the whole origin's localStorage.
+            try {
+              Object.keys(localStorage)
+                .filter(k => k.startsWith('orbit'))
+                .forEach(k => localStorage.removeItem(k));
+            } catch { /* ignore */ }
             window.location.reload();
           }
         }
