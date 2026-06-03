@@ -101,32 +101,37 @@ export async function generateUltimatePlan(
     subjectId: number; reason: string; oldDuration: number; newDuration: number;
   }> = [];
 
-  /* ── Strategy selection ── */
-  if (uniqueDays < 5) {
-    planningStrategy = 'research';
-    try {
-      const effectiveDate = getISTEffectiveDate();
-      const researchPlan = await generateResearchGradePlan(
-        context, effectiveDate, timeAvailableMinutes, energyLevel,
-      );
-      blocks = researchPlan.blocks;
-      confidence = 0.7;
-    } catch (err) {
-      console.warn('Research-grade planning failed, falling back to core:', err);
-      const corePlan = await coreGeneratePlan(context, dbInstance);
-      blocks = corePlan.blocks;
-      coreLoadAnalysis = corePlan.loadAnalysis;
-      confidence = 0.6;
-    }
-  } else if (uniqueDays < 30) {
-    planningStrategy = 'enhanced';
+  /* ── Strategy selection ──
+     ALL maturity tiers run the core engine (brain.ts), which is the only planner
+     that honors the full Daily Context — holiday, sick day, dayType (ISA/ESA/PD),
+     focus subject, bunked subject, and exam exclusions — and does displacement,
+     circadian ordering, and spaced-repetition scheduling. We then adapt block
+     durations using REAL, PERSISTED block-outcome performance.
+
+     Previously, users with <5 or >=30 distinct study days were routed to the
+     research-grade engine, which ignored nearly the entire Daily Context and
+     relied on an in-memory mastery tracker that resets on every page reload.
+     That routing is removed; the research engine is no longer on the happy path. */
+  {
     const corePlan = await coreGeneratePlan(context, dbInstance);
     blocks = corePlan.blocks;
     coreLoadAnalysis = corePlan.loadAnalysis;
 
+    // Adapt durations from persisted performance. getSubjectPerformance returns
+    // null when a subject lacks enough history, so new users are unaffected.
     for (const block of blocks) {
       const perf = await getSubjectPerformance(block.subjectId, 30, dbInstance);
-      if (perf && perf.avgQuality < 2.5 && block.duration > 30) {
+      if (!perf) continue;
+      if (perf.avgCompletionRate < 0.6 && block.duration > 30) {
+        const newDuration = Math.max(20, Math.floor(block.duration * 0.7));
+        performanceAdjustments.push({
+          subjectId: block.subjectId,
+          reason: 'Low completion rate — reducing block size',
+          oldDuration: block.duration,
+          newDuration,
+        });
+        block.duration = newDuration;
+      } else if (perf.avgQuality < 2.5 && block.duration > 30) {
         const newDuration = Math.max(25, Math.floor(block.duration * 0.8));
         performanceAdjustments.push({
           subjectId: block.subjectId,
@@ -135,51 +140,20 @@ export async function generateUltimatePlan(
           newDuration,
         });
         block.duration = newDuration;
+      } else if (perf.avgQuality > 3.5 && block.duration < 60) {
+        const newDuration = Math.min(90, Math.floor(block.duration * 1.2));
+        performanceAdjustments.push({
+          subjectId: block.subjectId,
+          reason: 'High quality — extending block duration',
+          oldDuration: block.duration,
+          newDuration,
+        });
+        block.duration = newDuration;
       }
     }
-    confidence = 0.8;
-  } else {
-    planningStrategy = 'hybrid';
-    try {
-      const effectiveDate = getISTEffectiveDate();
-      const researchPlan = await generateResearchGradePlan(
-        context, effectiveDate, timeAvailableMinutes, energyLevel,
-      );
-      blocks = researchPlan.blocks;
 
-      for (const block of blocks) {
-        const perf = await getSubjectPerformance(block.subjectId, 30, dbInstance);
-        if (perf) {
-          if (perf.avgCompletionRate < 0.6 && block.duration > 30) {
-            const newDuration = Math.max(20, Math.floor(block.duration * 0.7));
-            performanceAdjustments.push({
-              subjectId: block.subjectId,
-              reason: 'Low completion rate — reducing block size',
-              oldDuration: block.duration,
-              newDuration,
-            });
-            block.duration = newDuration;
-          } else if (perf.avgQuality > 3.5 && block.duration < 60) {
-            const newDuration = Math.min(90, Math.floor(block.duration * 1.2));
-            performanceAdjustments.push({
-              subjectId: block.subjectId,
-              reason: 'High quality — extending block duration',
-              oldDuration: block.duration,
-              newDuration,
-            });
-            block.duration = newDuration;
-          }
-        }
-      }
-      confidence = 0.95;
-    } catch (err) {
-      console.warn('Hybrid planning failed, falling back to enhanced:', err);
-      const corePlan = await coreGeneratePlan(context, dbInstance);
-      blocks = corePlan.blocks;
-      coreLoadAnalysis = corePlan.loadAnalysis;
-      confidence = 0.75;
-      planningStrategy = 'enhanced';
-    }
+    planningStrategy = uniqueDays < 5 ? 'core' : 'enhanced';
+    confidence = uniqueDays >= 30 ? 0.9 : uniqueDays >= 5 ? 0.8 : 0.65;
   }
 
   /* ── Load analysis ── */
