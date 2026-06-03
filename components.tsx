@@ -5,8 +5,20 @@ import {
   TrendingUp, Brain, Star, BookOpen, Flame, Clock, Download, X
 } from "lucide-react";
 
+// When an onClick is provided, expose the div as a real keyboard-operable button.
+const keyActivate = (onClick?: (e: any) => void): any =>
+  onClick
+    ? {
+        role: 'button',
+        tabIndex: 0,
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e); }
+        },
+      }
+    : {};
+
 export const GlassCard = ({ children, className = "", onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) => (
-  <div onClick={onClick} className={`glass-panel p-4 rounded-2xl border border-white/5 transition-all active:scale-[0.98] ${className}`}>
+  <div onClick={onClick} {...keyActivate(onClick)} className={`glass-panel p-4 rounded-2xl border border-white/5 transition-all active:scale-[0.98] ${className}`}>
     {children}
   </div>
 );
@@ -94,6 +106,7 @@ export const FrostedTile: React.FC<React.PropsWithChildren<FrostedProps>> = ({
   return (
     <div
       onClick={onClick}
+      {...keyActivate(onClick as any)}
       className={
         [
           "group relative overflow-hidden rounded-3xl border",
@@ -137,6 +150,7 @@ export const FrostedMini: React.FC<React.PropsWithChildren<FrostedProps>> = ({
   return (
     <div
       onClick={onClick}
+      {...keyActivate(onClick as any)}
       className={[
         "p-4 rounded-2xl border transition-all",
         onClick ? "cursor-pointer active:scale-[0.98]" : "",

@@ -3,6 +3,7 @@ import { StudyBlock } from './types';
 import { getQualityRatingOptions } from './brain-enhanced-integration';
 import { X, Brain, Sparkles, ArrowRight, RotateCcw } from 'lucide-react';
 import { geminiChat } from './gemini';
+import { useDialogA11y } from './utils/useDialogA11y';
 
 async function fetchCoachingTip(
   block: StudyBlock,
@@ -77,6 +78,9 @@ export const QualityRatingModal = ({
   useEffect(() => { if (initialTopic !== undefined) setTopic(initialTopic); }, [initialTopic]);
   const isReview = !!initialTopic;
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogA11y(dialogRef, onClose);
+
   const fetchTip = async (rating: 1 | 2 | 3 | 4 | 5) => {
     setLoadingTip(true);
     setAiTip('');
@@ -105,8 +109,8 @@ export const QualityRatingModal = ({
   const selectedOption = options.find(o => o.value === selectedRating);
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-200 p-4">
-      <div className="bg-zinc-900 rounded-3xl p-7 max-w-md w-full border border-zinc-800 shadow-2xl animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-200 p-4" onClick={onClose}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Rate your session" onClick={e => e.stopPropagation()} className="bg-zinc-900 rounded-3xl p-7 max-w-md w-full border border-zinc-800 shadow-2xl animate-in zoom-in-95 duration-200">
 
         {/* Header */}
         <div className="flex justify-between items-center mb-5">
@@ -119,7 +123,7 @@ export const QualityRatingModal = ({
               <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">{block.subjectName}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-full transition-colors text-zinc-500 hover:text-white">
+          <button onClick={onClose} aria-label="Close and skip rating" className="p-2 hover:bg-zinc-800 rounded-full transition-colors text-zinc-500 hover:text-white">
             <X size={18} />
           </button>
         </div>

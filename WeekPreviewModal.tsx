@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import ReactDOM from 'react-dom';
+import { useDialogA11y } from './utils/useDialogA11y';
 import {
     Calendar,
     X,
@@ -25,6 +26,9 @@ export const WeekPreviewModal = ({
     onClose: () => void
 }) => {
 
+    const dialogRef = useRef<HTMLDivElement>(null);
+    useDialogA11y(dialogRef, onClose);
+
     const getLevelStyle = (level: DayPreview['loadLevel']) => {
         switch (level) {
             case 'extreme': return { accent: 'text-red-400',     bar: 'bg-red-500'     };
@@ -39,6 +43,7 @@ export const WeekPreviewModal = ({
 
     return ReactDOM.createPortal(
         <div
+            onClick={onClose}
             className="
                 fixed inset-0 z-[9999]
                 bg-black/70 backdrop-blur-md
@@ -47,6 +52,11 @@ export const WeekPreviewModal = ({
             "
         >
             <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Week ahead preview"
+                onClick={e => e.stopPropagation()}
                 className="
                     w-full max-w-6xl
                     mx-auto

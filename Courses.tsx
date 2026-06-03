@@ -40,6 +40,7 @@ const PredictionModal = ({ subject, currentReadiness, onClose }: any) => {
             </div>
             <button
               onClick={onClose}
+              aria-label="Close"
               className="p-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <X size={20} />
@@ -162,14 +163,16 @@ export default function CoursesView_Enhanced() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (selectedResource) setSelectedResource(null);
+        if (showSubjectForm) setShowSubjectForm(false);
+        else if (deletingSubjectId !== null) setDeletingSubjectId(null);
+        else if (selectedResource) setSelectedResource(null);
         else if (selectedSubjectId) setSelectedSubjectId(null);
         else if (showPrediction !== null) setShowPrediction(null);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedResource, selectedSubjectId, showPrediction]);
+  }, [selectedResource, selectedSubjectId, showPrediction, showSubjectForm, deletingSubjectId]);
 
   useEffect(() => {
     if (!selectedResource) {
@@ -432,6 +435,7 @@ export default function CoursesView_Enhanced() {
 
             <button
               onClick={() => setSelectedResource(null)}
+              aria-label="Close preview"
               className="p-3 md:p-4 min-h-[48px] min-w-[48px] md:min-h-[56px] md:min-w-[56px]">
               <FrostedTile className="w-full h-full flex items-center justify-center text-zinc-300 hover:text-white hover:border-red-500/30 hover:-translate-y-1 transition-all">
                 <X size={22} />
@@ -872,7 +876,8 @@ export default function CoursesView_Enhanced() {
                               });
                               toast.success('Grade removed');
                             }}
-                            className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-500/10 rounded-xl transition-all min-h-[40px] min-w-[40px] flex items-center justify-center"
+                            aria-label="Remove grade"
+                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-2 hover:bg-red-500/10 rounded-xl transition-all min-h-[40px] min-w-[40px] flex items-center justify-center"
                           >
                             <Trash2 size={15} className="text-red-400" />
                           </button>
@@ -929,7 +934,8 @@ export default function CoursesView_Enhanced() {
                           )}
                           <button
                             onClick={() => removeResource(r.id)}
-                            className="p-2 hover:bg-red-500/10 rounded-xl transition-all opacity-0 group-hover:opacity-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                            aria-label="Remove resource"
+                            className="p-2 hover:bg-red-500/10 rounded-xl transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
                           >
                             <Trash2 size={16} className="text-red-400" />
                           </button>

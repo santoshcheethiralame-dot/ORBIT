@@ -1,0 +1,71 @@
+import { useEffect, RefObject } from 'react';
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Make a modal/dialog keyboard-accessible (WCAG 2.1.2 / 2.4.3):
+ *  - moves focus into the dialog on open (first focusable, else the container),
+ *  - traps Tab focus within the container,
+ *  - closes on Escape when `onClose` is provided,
+ *  - restores focus to the previously-focused element on close.
+ *
+ * Call from a modal component that mounts when opened and unmounts when closed.
+ * The container element must carry the passed ref (and ideally
+ * role="dialog" aria-modal="true").
+ */
+export function useDialogA11y(
+  ref: RefObject<HTMLElement | null>,
+  onClose?: () => void
+): void {
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
+    const focusables = (): HTMLElement[] =>
+      Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+        .filter(el => el.offsetParent !== null || el === document.activeElement);
+
+    // Move focus into the dialog.
+    const first = focusables()[0];
+    if (first) {
+      first.focus();
+    } else {
+      node.setAttribute('tabindex', '-1');
+      node.focus();
+    }
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && onClose) {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key === 'Tab') {
+        const f = focusables();
+        if (f.length === 0) { e.preventDefault(); return; }
+        const firstEl = f[0];
+        const lastEl = f[f.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+        if (e.shiftKey && (active === firstEl || !node.contains(active))) {
+          e.preventDefault();
+          lastEl.focus();
+        } else if (!e.shiftKey && active === lastEl) {
+          e.preventDefault();
+          firstEl.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+        previouslyFocused.focus();
+      }
+    };
+    // Runs once per open/close (the dialog mounts on open, unmounts on close).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}

@@ -773,9 +773,25 @@ html {
     will-change: transform, opacity;
 }
 
-/* Smoother focus rings */
+/* Visible keyboard focus ring — applies in the default dark theme too.
+   !important defeats the many `outline-none` utilities on inputs/buttons so
+   keyboard users always get a clear focus indicator (WCAG 2.4.7/2.4.11).
+   The `.light-mode *:focus-visible` rule above overrides the color in light mode. */
 *:focus-visible {
+    outline: 2px solid #818cf8 !important; /* indigo-400 */
+    outline-offset: 2px !important;
+    border-radius: 4px;
     transition: outline-color 0.2s ease, outline-offset 0.2s ease;
+}
+
+/* Respect users who prefer reduced motion: neutralize CSS animations/transitions. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
 }
 
 /* Better button press feel */

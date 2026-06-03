@@ -83,7 +83,11 @@ const ToastContainer = ({
   onRemove: (id: string) => void;
 }) => {
   return (
-    <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none">
+    <div
+      role="region"
+      aria-label="Notifications"
+      className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none"
+    >
       {toasts.map(toast => (
         <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
       ))}
@@ -129,12 +133,16 @@ const ToastItem = ({
   const style = styles[toast.type];
   const Icon = style.icon;
 
+  const isUrgent = toast.type === 'error' || toast.type === 'warning';
+
   return (
-    <div 
+    <div
+      role={isUrgent ? 'alert' : 'status'}
+      aria-atomic="true"
       className={`
-        ${style.bg} ${style.border} 
-        border backdrop-blur-xl rounded-2xl 
-        px-6 py-4 shadow-2xl 
+        ${style.bg} ${style.border}
+        border backdrop-blur-xl rounded-2xl
+        px-6 py-4 shadow-2xl
         flex items-center gap-4 min-w-[320px] max-w-md
         pointer-events-auto
         animate-in slide-in-from-bottom-4 fade-in duration-300
@@ -161,6 +169,7 @@ const ToastItem = ({
 
       <button
         onClick={() => onRemove(toast.id)}
+        aria-label="Dismiss notification"
         className="p-1 hover:bg-white/10 rounded-lg transition-all"
       >
         <X size={18} className="text-white/60 hover:text-white" />

@@ -2,6 +2,7 @@
 // clean linear flow: presets → day type → exam subject → submit.
 
 import React, { useState, useEffect, useRef } from "react";
+import { useDialogA11y } from "./utils/useDialogA11y";
 import {
   CloudRain, Activity, ThermometerSun, X, Zap, Coffee, Flame,
   BookOpen, Sparkles, AlertCircle, Settings as SettingsIcon,
@@ -232,6 +233,10 @@ interface DailyContextModalProps {
 }
 
 export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalProps) => {
+  // Focus-trap + initial focus + focus return. No Escape-close: this is an
+  // intentional gate (the user picks "Skip for Now" or "Initialize Day").
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogA11y(dialogRef);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -365,7 +370,7 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
   const needsExamSubject = dayType === "isa" || dayType === "esa" || dayType === "pd";
 
   return (
-    <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true">
+    <div ref={dialogRef} aria-label="Set today's context" className="fixed inset-0 z-[100]" role="dialog" aria-modal="true">
       <div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-start justify-center p-4 overflow-y-auto">
         <SpaceBackground />
 
