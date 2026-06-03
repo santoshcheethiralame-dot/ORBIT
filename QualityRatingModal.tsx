@@ -110,7 +110,7 @@ export const QualityRatingModal = ({
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-200 p-4" onClick={onClose}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Rate your session" onClick={e => e.stopPropagation()} className="bg-zinc-900 rounded-3xl p-7 max-w-md w-full border border-zinc-800 shadow-2xl animate-in zoom-in-95 duration-200">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Rate your session" onClick={e => e.stopPropagation()} className="bg-zinc-900/80 backdrop-blur-2xl rounded-3xl p-7 max-w-md w-full border border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_24px_60px_-20px_rgba(0,0,0,0.7)] animate-in zoom-in-95 duration-200">
 
         {/* Header */}
         <div className="flex justify-between items-center mb-5">

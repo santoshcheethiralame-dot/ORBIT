@@ -721,8 +721,8 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
                 <Button
                   onClick={handleSubmit}
                   disabled={!canSubmit()}
-                  className={`flex-1 max-w-[200px] py-3.5 text-sm font-bold border-none rounded-xl uppercase tracking-wider min-h-[52px] transition-all duration-300 ${canSubmit()
-                    ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-white hover:to-white hover:text-black shadow-xl shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:scale-[1.03] active:scale-[0.97]"
+                  className={`flex-1 max-w-[200px] py-3.5 text-sm font-bold border-none rounded-xl uppercase tracking-wider min-h-[52px] transition-all duration-200 ${canSubmit()
+                    ? "bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-[0_6px_20px_rgba(99,102,241,0.4)] hover:shadow-[0_8px_28px_rgba(99,102,241,0.55)] hover:brightness-110 active:scale-[0.97]"
                     : "bg-zinc-700 text-zinc-500 cursor-not-allowed opacity-60"
                     }`}
                 >
