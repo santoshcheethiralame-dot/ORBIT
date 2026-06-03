@@ -132,9 +132,8 @@ const BacklogItem = React.memo(({
     const swipeDistance = touchStart - touchEnd;
 
     if (swipeDistance > SWIPE_THRESHOLD) {
-      if (confirm("Remove from backlog?")) {
-        onDelete(block.id);
-      }
+      // Recoverable via the toast UNDO in deleteFromBacklog (no native confirm).
+      onDelete(block.id);
     } else if (swipeDistance < -SWIPE_THRESHOLD) {
       onAdd(block);
     }
@@ -1073,14 +1072,32 @@ export const Dashboard = ({
     try {
       const blockToDelete = backlog.find(b => b.id === blockId) as any;
       if (!blockToDelete) return;
+      const sourceDate = blockToDelete.sourceDate;
 
-      const originalPlan = await db.plans.get(blockToDelete.sourceDate);
+      const originalPlan = await db.plans.get(sourceDate);
       if (originalPlan) {
         const updatedBlocks = originalPlan.blocks.filter(b => b.id !== blockId);
         await db.plans.put({ ...originalPlan, blocks: updatedBlocks });
       }
       setBacklog(prev => prev.filter(b => b.id !== blockId));
-      toast.success('Backlog item removed');
+      // Toast-based undo so the swipe-delete is recoverable (replaces the old
+      // native confirm() guard).
+      toast.success('Backlog item removed', {
+        label: 'UNDO',
+        onClick: async () => {
+          try {
+            const plan = await db.plans.get(sourceDate);
+            if (plan && !plan.blocks.some(b => b.id === blockId)) {
+              const { sourceDate: _omit, ...restored } = blockToDelete;
+              await db.plans.put({ ...plan, blocks: [...plan.blocks, restored] });
+            }
+            setBacklog(prev => prev.some(b => b.id === blockId) ? prev : [...prev, blockToDelete]);
+            toast.info('Backlog item restored');
+          } catch (e) {
+            toast.error('Failed to restore item');
+          }
+        }
+      });
     } catch (err) {
       console.error("Failed to delete backlog item", err);
       toast.error('Failed to remove item');
@@ -1655,18 +1672,18 @@ export const Dashboard = ({
                         </button>
 
                         <button
-                          onClick={async () => {
-                            if (confirm("Mark as complete?")) await markComplete(b.id);
-                          }}
+                          onClick={() => markComplete(b.id)}
+                          aria-label="Mark block complete"
+                          title="Mark complete"
                           className="p-2.5 hover:bg-emerald-500/10 text-emerald-400 rounded-xl transition-all hover:scale-110 active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
                         >
                           <CheckCircle size={20} strokeWidth={2.5} />
                         </button>
 
                         <button
-                          onClick={async () => {
-                            if (confirm("Move to tomorrow?")) await snoozeBlock(b.id);
-                          }}
+                          onClick={() => snoozeBlock(b.id)}
+                          aria-label="Move block to tomorrow"
+                          title="Move to tomorrow"
                           className="p-2.5 hover:bg-yellow-500/10 text-yellow-400 rounded-xl transition-all hover:scale-110 active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
                         >
                           <ArrowRight size={20} strokeWidth={2.5} />

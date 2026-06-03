@@ -43,7 +43,10 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
 
   const showToast = useCallback((toast: Omit<Toast, 'id'>) => {
     const id = `${Date.now()}-${Math.random()}`;
-    const newToast: Toast = { id, duration: 5000, ...toast };
+    // Toasts that carry an action (e.g. UNDO) get a longer window so the action
+    // is actually reachable; a 5s default is too short for destructive undos.
+    const defaultDuration = toast.action ? 9000 : 5000;
+    const newToast: Toast = { id, duration: defaultDuration, ...toast };
     setToasts(prev => [...prev, newToast]);
     if (newToast.duration) {
       setTimeout(() => removeToast(id), newToast.duration);

@@ -377,6 +377,34 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const sessionMinutes = Math.floor(elapsedSeconds / 60);
   const focusIntensity = Math.min(100, Math.round((sessionMinutes / block.duration) * 100));
 
+  // ── Exit safety: never silently discard elapsed study time ──
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const requestExit = () => {
+    if (!isBreak && elapsedSeconds >= 60) setShowExitConfirm(true);
+    else onExit();
+  };
+  const logAndExit = async () => {
+    try {
+      const mins = Math.max(1, Math.floor(elapsedSeconds / 60));
+      await db.logs.add({
+        subjectId: block.subjectId,
+        duration: mins,
+        date: getISTEffectiveDate(),
+        timestamp: Date.now(),
+        type: block.type,
+        projectId: block.projectId,
+        notes: 'Partial session (exited early)',
+      } as any);
+      if (block.type === 'assignment' && block.assignmentId) {
+        await updateAssignmentProgress(block.assignmentId, mins);
+      }
+    } catch (e) {
+      console.error('Failed to log partial session', e);
+    }
+    setShowExitConfirm(false);
+    onExit();
+  };
+
   const time = useMemo(() => {
     const val = isOvertime ? -overtime : (isBreak ? breakTime : timeLeft);
     const absSeconds = Math.abs(val);
@@ -943,7 +971,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
                       </button>
                     )}
 
-                    <button onClick={onExit} className="btn-smooth uniform-card h-10 flex items-center justify-center gap-2 text-zinc-400 hover:text-red-400 text-sm font-medium">
+                    <button onClick={requestExit} className="btn-smooth uniform-card h-10 flex items-center justify-center gap-2 text-zinc-400 hover:text-red-400 text-sm font-medium">
                       <X size={14} />
                       <span>Exit</span>
                     </button>
@@ -1240,6 +1268,30 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           onRate={handleQualityRating}
           onClose={handleQualityDismiss}
         />
+      )}
+
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md p-6 animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-label="End session?">
+          <div className="w-full max-w-sm bg-zinc-900 border border-white/10 rounded-3xl p-7 space-y-5 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div>
+              <h3 className="text-xl font-bold text-white mb-1">End this session?</h3>
+              <p className="text-sm text-zinc-400">
+                You've studied <span className="font-bold text-white">{sessionMinutes} min</span>. Log it before leaving, or discard.
+              </p>
+            </div>
+            <div className="space-y-2.5">
+              <button onClick={logAndExit} className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-all active:scale-95">
+                Log {sessionMinutes} min &amp; exit
+              </button>
+              <button onClick={() => setShowExitConfirm(false)} className="w-full py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-sm transition-all">
+                Keep studying
+              </button>
+              <button onClick={() => { setShowExitConfirm(false); onExit(); }} className="w-full py-2.5 rounded-2xl text-zinc-500 hover:text-red-400 font-medium text-sm transition-all">
+                Discard &amp; exit
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

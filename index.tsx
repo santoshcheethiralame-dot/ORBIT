@@ -639,10 +639,11 @@ const App = () => {
             </div>
             <div>
               <h2 className="text-2xl font-bold text-white mb-2">
-                New Orbit Cycle
+                A new day has started
               </h2>
               <p className="text-zinc-400 text-sm">
-                Your day start threshold was crossed.
+                We'll set up today's plan. Anything you didn't finish yesterday is
+                saved to your <span className="text-zinc-200 font-semibold">Backlog</span> — nothing is lost.
               </p>
             </div>
             <button
@@ -660,7 +661,7 @@ const App = () => {
               }}
               className="w-full py-4 bg-white text-black rounded-2xl font-bold hover:bg-zinc-200 transition-all flex items-center justify-center gap-2"
             >
-              Start New Cycle <ArrowRight size={18} />
+              Plan today <ArrowRight size={18} />
             </button>
           </div>
         </div>

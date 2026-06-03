@@ -219,17 +219,9 @@ export const QualityRatingModal = ({
             {/* CTA */}
             <button
               onClick={handleContinue}
-              disabled={loadingTip}
-              className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-wait text-white font-bold text-sm transition-all active:scale-[0.98]"
+              className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-all active:scale-[0.98]"
             >
-              {loadingTip ? (
-                <>
-                  <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  Getting your tip…
-                </>
-              ) : (
-                <>Continue <ArrowRight size={15} /></>
-              )}
+              Continue <ArrowRight size={15} />
             </button>
           </div>
         )}
