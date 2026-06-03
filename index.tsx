@@ -65,6 +65,8 @@ const MOBILE_TABS = [
   { id: "dashboard", icon: LayoutGrid,   label: "Home",     activeGradient: "from-blue-500 to-cyan-500"   },
   { id: "courses",   icon: BookOpen,     label: "Courses",  activeGradient: "from-purple-500 to-pink-500" },
   { id: "projects",  icon: FolderKanban, label: "Projects", activeGradient: "from-indigo-500 to-blue-500" },
+  { id: "schedule",  icon: Calendar,     label: "Schedule", activeGradient: "from-teal-500 to-cyan-500"   },
+  { id: "review",    icon: ListTodo,     label: "Review",   activeGradient: "from-fuchsia-500 to-purple-500" },
   { id: "stats",     icon: BarChart2,    label: "Stats",    activeGradient: "from-orange-500 to-red-500"  },
   { id: "settings",  icon: Settings,     label: "Settings", activeGradient: "from-green-500 to-emerald-500" },
 ];
@@ -731,6 +733,30 @@ const App = () => {
               <div className="flex items-center gap-2 shrink-0">
                 {/* Icon group */}
                 <div className="flex items-center gap-1 p-1 rounded-2xl bg-white/5 border border-white/10">
+                  <button
+                    onClick={() => switchTab("review" as any)}
+                    className={`
+                      relative p-2 rounded-xl transition-all duration-300
+                      ${activeTab === "review" ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'}
+                    `}
+                    title="Review queue"
+                    aria-label="Review queue"
+                  >
+                    <ListTodo size={16} />
+                    {activeTab === "review" && <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-fuchsia-500/20 to-purple-500/20 blur-sm" />}
+                  </button>
+                  <button
+                    onClick={() => switchTab("schedule" as any)}
+                    className={`
+                      relative p-2 rounded-xl transition-all duration-300
+                      ${activeTab === "schedule" ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'}
+                    `}
+                    title="Schedule"
+                    aria-label="Schedule"
+                  >
+                    <Calendar size={16} />
+                    {activeTab === "schedule" && <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-teal-500/20 to-cyan-500/20 blur-sm" />}
+                  </button>
                   <button
                     onClick={() => switchTab("about" as any)}
                     className={`

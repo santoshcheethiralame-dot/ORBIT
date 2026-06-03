@@ -22,6 +22,7 @@ import { useToast } from './Toast';
 import { FrostedTile, FrostedMini, PageHeader, MetaText, getSubjectColor, SUBJECT_COLOR_CLASSES, SUBJECT_COLORS } from './components';
 
 import { predictReadiness } from './brain';
+import { getISTEffectiveDate } from './utils/time';
 
 const PredictionModal = ({ subject, currentReadiness, onClose }: any) => {
   const prediction = subject && currentReadiness
@@ -140,6 +141,11 @@ export default function CoursesView_Enhanced() {
   const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness | ProbabilisticReadiness>>({});
   const [showPrediction, setShowPrediction] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // Subject CRUD — CoursesView is the authoritative source for subjects.
+  const [showSubjectForm, setShowSubjectForm] = useState(false);
+  const [editingSubjectId, setEditingSubjectId] = useState<number | null>(null);
+  const [subjectForm, setSubjectForm] = useState({ name: "", code: "", credits: "3", difficulty: "3" });
+  const [deletingSubjectId, setDeletingSubjectId] = useState<number | null>(null);
 
   useEffect(() => {
     const loadReadiness = async () => {
@@ -485,6 +491,134 @@ export default function CoursesView_Enhanced() {
     );
   }
 
+  const openAddSubject = () => {
+    setEditingSubjectId(null);
+    setSubjectForm({ name: "", code: "", credits: "3", difficulty: "3" });
+    setShowSubjectForm(true);
+  };
+  const openEditSubject = (s: any) => {
+    setEditingSubjectId(s.id ?? null);
+    setSubjectForm({ name: s.name || "", code: s.code || "", credits: String(s.credits ?? 3), difficulty: String(s.difficulty ?? 3) });
+    setShowSubjectForm(true);
+  };
+  const saveSubject = async () => {
+    const name = subjectForm.name.trim();
+    if (!name) { toast.error("Subject name is required"); return; }
+    const code = subjectForm.code.trim();
+    const credits = Math.max(0, Math.min(20, parseInt(subjectForm.credits, 10) || 0));
+    const difficulty = Math.max(1, Math.min(5, parseInt(subjectForm.difficulty, 10) || 3));
+    try {
+      if (editingSubjectId != null) {
+        await db.subjects.update(editingSubjectId, { name, code, credits, difficulty });
+        toast.success("Subject updated");
+      } else {
+        if (code && subjects.some(s => (s.code || "").toLowerCase() === code.toLowerCase())) {
+          toast.error("A subject with that code already exists"); return;
+        }
+        await db.subjects.add({ name, code, credits, difficulty, createdAt: getISTEffectiveDate(), syllabus: [], resources: [], grades: [] } as any);
+        toast.success("Subject added");
+      }
+      setShowSubjectForm(false);
+    } catch (e) {
+      console.error("Failed to save subject", e);
+      toast.error("Failed to save subject");
+    }
+  };
+  const cascadeDeleteSubject = async (id: number) => {
+    try {
+      // Remove the subject AND every record that references it, so no orphans
+      // are left behind (logs/topics/outcomes/plans drive analytics & planning).
+      await db.transaction('rw',
+        [db.subjects, db.projects, db.assignments, db.logs, db.topics, db.blockOutcomes, db.schedule, db.exams, db.studyBlocks, db.plans],
+        async () => {
+          await db.subjects.delete(id);
+          await db.projects.filter((x: any) => Number(x.subjectId) === id).delete();
+          await db.assignments.filter((x: any) => Number(x.subjectId) === id).delete();
+          await db.logs.filter((x: any) => Number(x.subjectId) === id).delete();
+          await db.topics.filter((x: any) => Number(x.subjectId) === id).delete();
+          await db.blockOutcomes.filter((x: any) => Number(x.subjectId) === id).delete();
+          await db.schedule.filter((x: any) => Number(x.subjectId) === id).delete();
+          await db.exams.filter((x: any) => Number(x.subjectId) === id).delete();
+          await db.studyBlocks.filter((x: any) => Number(x.subjectId) === id).delete();
+          const plans = await db.plans.toArray();
+          for (const p of plans) {
+            const blocks = (p.blocks || []).filter((b: any) => Number(b.subjectId) !== id);
+            if (blocks.length !== (p.blocks || []).length) {
+              const keep = new Set(blocks.map((b: any) => b.id));
+              const droppedBlocks = (p.droppedBlocks || []).filter((bid: string) => keep.has(bid));
+              await db.plans.update(p.date, { blocks, droppedBlocks });
+            }
+          }
+        });
+      toast.success("Subject and its data deleted");
+    } catch (e) {
+      console.error("Failed to delete subject", e);
+      toast.error("Failed to delete subject");
+    } finally {
+      setDeletingSubjectId(null);
+      setSelectedSubjectId(null);
+    }
+  };
+
+  const deletingSubject = deletingSubjectId != null ? subjects.find(s => s.id === deletingSubjectId) : null;
+
+  const subjectFormModal = showSubjectForm ? (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-200 p-6" onClick={() => setShowSubjectForm(false)}>
+      <div className="w-full max-w-md animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        <FrostedTile className="overflow-hidden">
+          <div className="p-6 border-b border-white/10 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-white">{editingSubjectId != null ? "Edit Subject" : "Add Subject"}</h2>
+            <button onClick={() => setShowSubjectForm(false)} aria-label="Close" className="p-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"><X size={20} /></button>
+          </div>
+          <div className="p-6 space-y-4">
+            <label className="block">
+              <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Name</span>
+              <input autoFocus value={subjectForm.name} onChange={e => setSubjectForm(f => ({ ...f, name: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") saveSubject(); }} placeholder="e.g., Data Structures" className="mt-1.5 w-full bg-zinc-900/60 border border-zinc-700/50 rounded-xl px-4 py-3 text-white placeholder-zinc-600 outline-none focus:border-indigo-500/50 transition-all text-sm" />
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Code</span>
+              <input value={subjectForm.code} onChange={e => setSubjectForm(f => ({ ...f, code: e.target.value }))} placeholder="e.g., CS201" className="mt-1.5 w-full bg-zinc-900/60 border border-zinc-700/50 rounded-xl px-4 py-3 text-white placeholder-zinc-600 outline-none focus:border-indigo-500/50 transition-all text-sm font-mono" />
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <label className="block">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Credits</span>
+                <input type="number" min={0} max={20} value={subjectForm.credits} onChange={e => setSubjectForm(f => ({ ...f, credits: e.target.value }))} className="mt-1.5 w-full bg-zinc-900/60 border border-zinc-700/50 rounded-xl px-4 py-3 text-white outline-none focus:border-indigo-500/50 transition-all text-sm" />
+              </label>
+              <label className="block">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Difficulty (1–5)</span>
+                <input type="number" min={1} max={5} value={subjectForm.difficulty} onChange={e => setSubjectForm(f => ({ ...f, difficulty: e.target.value }))} className="mt-1.5 w-full bg-zinc-900/60 border border-zinc-700/50 rounded-xl px-4 py-3 text-white outline-none focus:border-indigo-500/50 transition-all text-sm" />
+              </label>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={saveSubject} className="flex-1 px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-all active:scale-95">{editingSubjectId != null ? "Save changes" : "Add subject"}</button>
+              <button onClick={() => setShowSubjectForm(false)} className="px-4 py-3 rounded-xl border border-zinc-700/50 text-zinc-300 hover:bg-white/5 font-semibold text-sm transition-all">Cancel</button>
+            </div>
+          </div>
+        </FrostedTile>
+      </div>
+    </div>
+  ) : null;
+
+  const deleteSubjectModal = deletingSubject ? (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-200 p-6" onClick={() => setDeletingSubjectId(null)}>
+      <div className="w-full max-w-md animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        <FrostedTile className="overflow-hidden">
+          <div className="p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center"><Trash2 size={18} className="text-rose-400" /></div>
+              <h2 className="text-lg font-bold text-white">Delete “{deletingSubject.name}”?</h2>
+            </div>
+            <p className="text-sm text-zinc-400">This permanently removes the subject and all of its data — resources, grades, syllabus, projects, assignments, study logs, review topics, schedule slots, exams, and plan blocks. This cannot be undone.</p>
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => cascadeDeleteSubject(deletingSubject.id!)} className="flex-1 px-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm transition-all active:scale-95">Delete everything</button>
+              <button onClick={() => setDeletingSubjectId(null)} className="px-4 py-3 rounded-xl border border-zinc-700/50 text-zinc-300 hover:bg-white/5 font-semibold text-sm transition-all">Cancel</button>
+            </div>
+          </div>
+        </FrostedTile>
+      </div>
+    </div>
+  ) : null;
+
   if (selectedSubject) {
     const subjectColor = getSubjectColor(selectedSubject.id!, selectedSubject.colorIndex);
     const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
@@ -492,6 +626,8 @@ export default function CoursesView_Enhanced() {
 
     return (
       <div className="pb-32 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {subjectFormModal}
+        {deleteSubjectModal}
         <button
           onClick={() => setSelectedSubjectId(null)}
           className="mb-6 flex items-center gap-2 text-sm font-bold text-zinc-400 hover:text-white transition-all hover:-translate-x-1 min-h-[44px]"
@@ -530,6 +666,10 @@ export default function CoursesView_Enhanced() {
               <span>{selectedSubject.credits ?? 0} credits</span>
               <span className="text-[10px] text-zinc-600 font-medium hidden sm:inline">(hover avatar to change color)</span>
             </div>
+          </div>
+          <div className="ml-auto flex items-center gap-2 shrink-0">
+            <button onClick={() => openEditSubject(selectedSubject)} aria-label="Edit subject details" className="flex items-center gap-2 px-3 md:px-4 py-2.5 rounded-xl border border-zinc-700/50 text-zinc-300 hover:text-white hover:bg-white/5 font-semibold text-sm transition-all min-h-[44px]"><Edit2 size={16} /><span className="hidden sm:inline">Edit</span></button>
+            <button onClick={() => setDeletingSubjectId(selectedSubject.id!)} aria-label="Delete subject" className="flex items-center gap-2 px-3 md:px-4 py-2.5 rounded-xl border border-rose-500/30 text-rose-300 hover:bg-rose-500/10 font-semibold text-sm transition-all min-h-[44px]"><Trash2 size={16} /><span className="hidden sm:inline">Delete</span></button>
           </div>
         </div>
 
@@ -945,6 +1085,8 @@ export default function CoursesView_Enhanced() {
         />
       )}
 
+      {subjectFormModal}
+
       <div className="flex flex-col sm:flex-row gap-3 md:gap-4 animate-in fade-in duration-300">
         <div className="relative flex-1">
           <Search className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
@@ -964,6 +1106,12 @@ export default function CoursesView_Enhanced() {
           <option value="difficulty">Sort by Difficulty</option>
           <option value="progress">Sort by Progress</option>
         </select>
+        <button
+          onClick={openAddSubject}
+          className="flex items-center justify-center gap-2 px-5 py-3 md:py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-sm md:text-base font-bold transition-all min-h-[56px] md:min-h-[64px] active:scale-95 whitespace-nowrap"
+        >
+          <Plus size={18} /> Add Subject
+        </button>
       </div>
 
       {filtered.length === 0 ? (
@@ -985,7 +1133,7 @@ export default function CoursesView_Enhanced() {
             </button>
           </div>
         ) : (
-          <EmptyCourses />
+          <EmptyCourses onAddCourse={openAddSubject} />
         )
       ) : (
         <>
