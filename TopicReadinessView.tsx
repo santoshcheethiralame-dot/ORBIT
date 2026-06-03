@@ -5,6 +5,7 @@
  */
 
 import { StudyTopic } from './types';
+import { getISTEffectiveDate } from './utils/time';
 
 export interface TopicWithReadiness extends StudyTopic {
   /** 0–100 computed readiness score */
@@ -18,7 +19,7 @@ export interface TopicWithReadiness extends StudyTopic {
  * Uses SM-2 ease factor and review history as signals.
  */
 export function enrichTopics(topics: StudyTopic[]): TopicWithReadiness[] {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getISTEffectiveDate();
 
   return topics.map(topic => {
     const avgComprehension =

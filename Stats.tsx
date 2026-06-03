@@ -77,7 +77,7 @@ type BurnoutSignals = {
   recommendation?: string;
 };
 
-import { getISTEffectiveDate, formatLocalDate, parseLocalDate } from "./utils/time";
+import { getISTEffectiveDate, formatLocalDate, parseLocalDate, effectiveDatePlus } from "./utils/time";
 
 type TimeRange = "week" | "10days" | "month" | "3months" | "all";
 type ViewMode = "overview" | "subjects" | "performance" | "insights" | "habits";
@@ -564,12 +564,9 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetDraft, setTargetDraft] = useState<string>('');
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split("T")[0];
-  const sevenDaysLater = new Date(today);
-  sevenDaysLater.setDate(today.getDate() + 7);
-  const sevenDaysLaterStr = sevenDaysLater.toISOString().split("T")[0];
+  // IST effective dates so the review window matches how nextReview is keyed.
+  const todayStr = getISTEffectiveDate();
+  const sevenDaysLaterStr = effectiveDatePlus(7);
 
   const upcomingReviews = useLiveQuery(async () => {
     const topics = await db.topics.where("nextReview").between(todayStr, sevenDaysLaterStr).toArray();
@@ -835,7 +832,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   const handleScheduleReview = async (subjectId: number, subjectName: string) => {
     try {
       // Find all topics for this subject that are overdue or due today and reset nextReview to today
-      const today = new Date().toISOString().split('T')[0];
+      const today = getISTEffectiveDate();
       const overdue = await db.topics
         .where('subjectId').equals(subjectId)
         .and(t => t.nextReview <= today)

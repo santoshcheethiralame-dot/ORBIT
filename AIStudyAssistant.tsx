@@ -29,6 +29,7 @@ import { db } from './db';
 import { getAllReadinessScores } from './brain-ultimate';
 import { enrichTopics, TopicWithReadiness } from './TopicReadinessView';
 import { ExamSimulator } from './ExamSimulator';  // NEW: Exam tab
+import { getISTEffectiveDate } from './utils/time';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    NOTES GENERATOR
@@ -362,7 +363,7 @@ Use **bold** for all key terms. No filler.`;
   // Idle picker
   const pendingUnits = syllabus.filter(u => !u.completed);
   const doneUnits = syllabus.filter(u => u.completed);
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getISTEffectiveDate();
 
   return (
     <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4" style={{ scrollbarWidth: 'none' }}>
@@ -521,7 +522,7 @@ interface RichContext {
 
 function buildSystemPrompt(block: StudyBlock, intel?: SubjectIntelligence, ctx?: RichContext): string {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getISTEffectiveDate();
   const lines: string[] = [];
 
   lines.push(`You are Orbit AI — an elite, deeply personalized study coach.`);
@@ -860,7 +861,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
   useEffect(() => {
     async function load() {
       try {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getISTEffectiveDate();
         const [subject, allLogs, topics, assignments, allSubjects, rawReadiness] = await Promise.all([
           db.subjects.get(block.subjectId),
           db.logs.where('subjectId').equals(block.subjectId).reverse().sortBy('timestamp'),

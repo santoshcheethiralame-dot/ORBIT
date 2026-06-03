@@ -5,6 +5,7 @@ import { db } from './db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { safeDB, withToast } from './utils/dbErrorHandler';
 import { geminiChat } from './gemini';
+import { getISTEffectiveDate } from './utils/time';
 
 // ─── AI: generate Q&A for a topic ────────────────────────────────────────────
 async function generateFlashcard(
@@ -67,7 +68,7 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
   const handleSave = async () => {
     if (!name.trim() || !chosenSubjectId) return;
     setSaving(true);
-    const today = new Date().toISOString().split('T')[0];
+    const today = getISTEffectiveDate();
     try {
       await db.topics.add({
         subjectId: Number(chosenSubjectId),
@@ -297,7 +298,7 @@ export const ComprehensionRatingModal = ({
 
 // Upcoming Reviews Widget
 export const UpcomingReviewsWidget = () => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getISTEffectiveDate();
 
   // Fetch topics with subject names
   const topics = useLiveQuery(async () => {
@@ -499,7 +500,7 @@ const AddFlashcardFormInline = () => {
 // Shows all topics due today in a card-flip queue
 // ============================================================
 export const ReviewQueueView = () => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getISTEffectiveDate();
   const [currentIdx, setCurrentIdx] = useState(0);
   const [showRating, setShowRating] = useState(false);
   const [doneCount, setDoneCount] = useState(0);

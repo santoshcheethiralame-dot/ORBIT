@@ -358,15 +358,10 @@ export const Dashboard = ({
     return d;
   }, []);
 
-  const todayStr = useMemo(() => today.toISOString().split("T")[0], [today]);
-
-  const sevenDaysLater = useMemo(() => {
-    const d = new Date(today);
-    d.setDate(today.getDate() + 7);
-    return d;
-  }, [today]);
-
-  const sevenDaysLaterStr = useMemo(() => sevenDaysLater.toISOString().split('T')[0], [sevenDaysLater]);
+  // IST effective dates so "due today" / "next 7 days" match how topic
+  // nextReview is keyed (avoids the UTC off-by-one for IST users).
+  const todayStr = getISTEffectiveDate();
+  const sevenDaysLaterStr = effectiveDatePlus(7);
 
   const upcomingReviews = useLiveQuery(async () => {
     const topics = await db.topics
