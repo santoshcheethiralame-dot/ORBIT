@@ -5,6 +5,7 @@ import {
   StudyLog, Project, Assignment, StudyTopic,
   StudyBlock, BlockOutcome, ExamEntry
 } from "./types";
+import { effectiveDatePlus } from "./utils/time";
 
 // ─── User Preferences stored in IndexedDB ────────────────────────────────────
 // Single-row key-value store (key = "user"). Keeps user prefs durable and
@@ -166,9 +167,9 @@ export function saveDbSnapshot() {
   if (snapshotTimer) clearTimeout(snapshotTimer);
   snapshotTimer = setTimeout(async () => {
     try {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const cutoffDate = thirtyDaysAgo.toISOString().split('T')[0];
+      // IST-anchored cutoff so it matches how plan.date is keyed (avoids pruning
+      // the current logical day's plan early at UTC midnight).
+      const cutoffDate = effectiveDatePlus(-30);
 
       const [
         semesters, subjects, projects, schedule,

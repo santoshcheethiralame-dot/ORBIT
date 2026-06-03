@@ -11,6 +11,7 @@
 
 import { db, OrbitDB } from "./db";
 import { DailyContext, StudyBlock, Subject, DailyPlan } from "./types";
+import { getISTEffectiveDate } from "./utils/time";
 
 import {
   generateDailyPlan as coreGeneratePlan,
@@ -104,7 +105,7 @@ export async function generateUltimatePlan(
   if (uniqueDays < 5) {
     planningStrategy = 'research';
     try {
-      const effectiveDate = new Date().toISOString().split('T')[0];
+      const effectiveDate = getISTEffectiveDate();
       const researchPlan = await generateResearchGradePlan(
         context, effectiveDate, timeAvailableMinutes, energyLevel,
       );
@@ -140,7 +141,7 @@ export async function generateUltimatePlan(
   } else {
     planningStrategy = 'hybrid';
     try {
-      const effectiveDate = new Date().toISOString().split('T')[0];
+      const effectiveDate = getISTEffectiveDate();
       const researchPlan = await generateResearchGradePlan(
         context, effectiveDate, timeAvailableMinutes, energyLevel,
       );

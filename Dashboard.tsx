@@ -6,7 +6,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { SubjectReadiness, StudyBlock, Subject, StudyLog, DailyPlan, DailyContext } from './types';
 import { WeekPreviewModal } from "./WeekPreviewModal";
 import { BlockReason, PageHeader, MetaText, HeaderChip } from "./components";
-import { getISTTime, getISTEffectiveDate } from "./utils/time";
+import { getISTTime, getISTEffectiveDate, effectiveDatePlus } from "./utils/time";
 import { EmptyBacklog, EmptyTodayPlan } from './EmptyStates';
 import { updateAssignmentProgress } from './brain';
 import { getAllReadinessScores } from './brain-ultimate';
@@ -413,16 +413,14 @@ export const Dashboard = ({
 
   const streak = useMemo(() => {
     if (!logs || logs.length === 0) return 0;
-    const today = new Date();
     let count = 0;
     const daysSeen = new Set<string>();
     logs.forEach((l) => {
       if (l && l.date) daysSeen.add(String(l.date));
     });
+    // Key days by the IST effective date (matching how logs are stored).
     for (let i = 0; i < MAX_STREAK_DAYS; i++) {
-      const d = new Date();
-      d.setDate(today.getDate() - i);
-      const key = d.toISOString().split("T")[0];
+      const key = effectiveDatePlus(-i);
       if (daysSeen.has(key)) count++;
       else break;
     }

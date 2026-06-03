@@ -396,12 +396,12 @@ const calculateStreak = (logs: StudyLog[]): StreakInfo => {
   for (let i = 0; i < 7; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
-    const dateStr = d.toISOString().split("T")[0];
+    const dateStr = formatLocalDate(d);
     if (uniqueDates.includes(dateStr)) thisWeek++;
   }
   let checkDate = new Date(today);
   while (true) {
-    const dateStr = checkDate.toISOString().split("T")[0];
+    const dateStr = formatLocalDate(checkDate);
     if (uniqueDates.includes(dateStr)) {
       current++;
       checkDate.setDate(checkDate.getDate() - 1);
@@ -660,7 +660,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   const filteredOutcomes = blockOutcomes.filter((o) => o.date >= rangeStartStr);
   const daysDiff = Math.floor((now.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24));
   const prevRangeStart = new Date(rangeStart.getTime() - (daysDiff * 24 * 60 * 60 * 1000));
-  const prevRangeStartStr = prevRangeStart.toISOString().split("T")[0];
+  const prevRangeStartStr = formatLocalDate(prevRangeStart);
   const prevLogs = logs.filter((l) => l.date >= prevRangeStartStr && l.date < rangeStartStr);
 
   // NOTE: the empty-state early return previously lived here, but it sat BEFORE
@@ -746,7 +746,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       .map((_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - (89 - i));
-        const dateStr = d.toISOString().split("T")[0];
+        const dateStr = formatLocalDate(d);
         const dailyMins = logs.filter((l) => l.date === dateStr).reduce((sum, log) => sum + log.duration, 0);
         return {
           date: dateStr,

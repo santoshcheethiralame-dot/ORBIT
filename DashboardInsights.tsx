@@ -6,6 +6,7 @@ import { Subject } from './types';
 import { AlertTriangle, TrendingUp, AlertCircle, Sparkles, RefreshCw, Brain } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { geminiChat } from './gemini';
+import { effectiveDatePlus } from './utils/time';
 
 interface InsightCard {
   type: 'burnout' | 'strong' | 'struggling' | 'tip';
@@ -17,9 +18,7 @@ interface InsightCard {
 // ─── Static fallback calculation (no AI) ──────────────────────────────────────
 function calcStaticInsights(outcomes: any[], subjects: Subject[]): InsightCard[] {
   const cards: InsightCard[] = [];
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 7);
-  const cutoffStr = cutoff.toISOString().split('T')[0];
+  const cutoffStr = effectiveDatePlus(-7);
   const recent = outcomes.filter(o => (o.date || '') >= cutoffStr);
   if (recent.length === 0) return [];
 
@@ -45,8 +44,7 @@ function calcStaticInsights(outcomes: any[], subjects: Subject[]): InsightCard[]
   }
 
   // Subject performance
-  const cutoff14 = new Date(); cutoff14.setDate(cutoff14.getDate() - 14);
-  const cut14Str = cutoff14.toISOString().split('T')[0];
+  const cut14Str = effectiveDatePlus(-14);
   const recent14 = outcomes.filter(o => (o.date || '') >= cut14Str && !o.skipped);
   const subjectMap = new Map<number, { q: number; n: number; min: number }>();
   recent14.forEach(o => {
@@ -76,8 +74,7 @@ function calcStaticInsights(outcomes: any[], subjects: Subject[]): InsightCard[]
 
 // ─── Ask Gemini for insights ───────────────────────────────────────────────────
 async function fetchAIInsights(outcomes: any[], subjects: Subject[]): Promise<InsightCard[]> {
-  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
-  const cutoffStr = cutoff.toISOString().split('T')[0];
+  const cutoffStr = effectiveDatePlus(-7);
   const recent = outcomes.filter(o => (o.date || '') >= cutoffStr);
   if (recent.length < 3) return calcStaticInsights(outcomes, subjects);
 

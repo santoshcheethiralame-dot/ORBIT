@@ -15,7 +15,7 @@ import {
 
 // Re-export for consumers
 export type { SubjectReadiness };
-import { getISTEffectiveDate } from "./utils/time";
+import { getISTEffectiveDate, formatLocalDate } from "./utils/time";
 import { notifyDataChange } from "./db";
 
 // --------------------
@@ -952,7 +952,8 @@ export const generateDailyPlan = async (
     for (let backDays = 1; backDays <= 3; backDays++) {
       const pastDate = new Date(y, m - 1, d);
       pastDate.setDate(pastDate.getDate() - backDays);
-      const pastStr = pastDate.toISOString().split('T')[0];
+      // Use local calendar fields (not UTC) so this matches IST-keyed plan dates.
+      const pastStr = formatLocalDate(pastDate);
       const pastPlan = await dbInstance.plans.get(pastStr);
 
       if (pastPlan?.droppedBlocks && pastPlan.droppedBlocks.length > 0) {

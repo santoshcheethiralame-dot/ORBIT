@@ -50,7 +50,7 @@ import { NotificationManager } from "./utils/notifications";
 import { getSubjectIntelligence, SubjectIntelligence } from "./utils/subjectIntelligence";
 import { ToastProvider, useToast } from "./Toast";
 
-import { getISTEffectiveDate, isPlanCurrent } from "./utils/time";
+import { getISTEffectiveDate, isPlanCurrent, effectiveDatePlus } from "./utils/time";
 
 // --- Hybrid Enhancement: Define consistent tab structures for desktop/mobile ---
 
@@ -440,16 +440,15 @@ const App = () => {
 
   const calculateStreak = (): number => {
     if (!logs || logs.length === 0) return 0;
-    const today = new Date();
     let count = 0;
     const daysSeen = new Set<string>();
     logs.forEach((l) => {
       if (l && l.date) daysSeen.add(String(l.date));
     });
+    // Key days by the IST effective date (matching how logs are stored),
+    // stepping back from today; stop at the first gap.
     for (let i = 0; i < 365; i++) {
-      const d = new Date();
-      d.setDate(today.getDate() - i);
-      const key = d.toISOString().split("T")[0];
+      const key = effectiveDatePlus(-i);
       if (daysSeen.has(key)) count++;
       else break;
     }

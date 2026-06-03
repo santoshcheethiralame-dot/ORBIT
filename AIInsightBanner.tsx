@@ -10,7 +10,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
 import { getAllReadinessScores } from './brain-ultimate';
 import { geminiStream } from './gemini';
-import { getISTEffectiveDate } from './utils/time';
+import { getISTEffectiveDate, effectiveDatePlus } from './utils/time';
 import {
   Sparkles, X, RefreshCw, TrendingUp, AlertTriangle,
   Zap, ChevronDown, ChevronUp, Target, ArrowRight,
@@ -94,7 +94,7 @@ async function generateInsight(
   const today = getISTEffectiveDate();
   const todayLogs = logs.filter((l: any) => l.date === today);
   const todayMin = todayLogs.reduce((s: number, l: any) => s + (l.duration ?? 0), 0);
-  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+  const weekAgo = effectiveDatePlus(-7);
   const weekMin = logs.filter((l: any) => l.date >= weekAgo).reduce((s: number, l: any) => s + (l.duration ?? 0), 0);
   const critical = subjectData.filter(s => s.status === 'critical');
   const weakest = subjectData[0];

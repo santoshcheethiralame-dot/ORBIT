@@ -92,6 +92,19 @@ export function getISTEffectiveDate(): string {
 }
 
 /**
+ * YYYY-MM-DD for the IST effective date shifted by `deltaDays`
+ * (negative = past, positive = future). Use this for ALL relative day-keys
+ * (streaks, heatmaps, ranges, review windows) so they match how logs, plans,
+ * and outcomes are stored — never `new Date().toISOString()` (which is UTC and
+ * drifts a day for IST users).
+ */
+export function effectiveDatePlus(deltaDays: number): string {
+  const d = parseLocalDate(getISTEffectiveDate());
+  d.setDate(d.getDate() + deltaDays);
+  return formatLocalDate(d);
+}
+
+/**
  * Validate if a stored plan date matches the current effective date
  */
 export function validateEffectiveDate(planDate: string): boolean {

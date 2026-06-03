@@ -14,7 +14,7 @@ import {
   EnhancedLoadAnalysis,
   SubjectReadiness
 } from "./types";
-import { getISTEffectiveDate } from "./utils/time";
+import { getISTEffectiveDate, getISTTime, effectiveDatePlus } from "./utils/time";
 import { generateDailyPlan as originalGeneratePlan, analyzeLoad as coreAnalyzeLoad } from "./brain";
 
 /* ======================================================
@@ -192,8 +192,10 @@ export async function recordBlockOutcome(
 ): Promise<void> {
   try {
     const now = Date.now();
-    const date = new Date(now).toISOString().split('T')[0];
-    const timeOfDay = new Date(now).getHours();
+    // Use the IST effective date + IST hour so outcomes group on the same day as
+    // StudyLogs (which use getISTEffectiveDate) and the user's real time-of-day.
+    const date = getISTEffectiveDate();
+    const timeOfDay = getISTTime().getHours();
 
     const blockOutcome: BlockOutcome = {
       blockId: block.id,
@@ -859,8 +861,8 @@ export async function getStudyStreak(
     let longestStreak = 0;
     let tempStreak = 1;
 
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const today = getISTEffectiveDate();
+    const yesterday = effectiveDatePlus(-1);
 
     if (dates[dates.length - 1] === today || dates[dates.length - 1] === yesterday) {
       currentStreak = 1;
