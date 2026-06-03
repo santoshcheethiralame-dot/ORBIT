@@ -760,18 +760,23 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
         }
         
-        /* Uniform Card */
+        /* Uniform Card — aligned to the Orbit design tokens for a cohesive
+           premium glass across the focus screen (stat cards, side panels, etc.). */
         .uniform-card {
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 16px;
+          background: var(--os-surface-1, rgba(255, 255, 255, 0.035));
+          border: 1px solid var(--os-border, rgba(255, 255, 255, 0.09));
+          border-radius: var(--os-r-lg, 18px);
           backdrop-filter: blur(20px);
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          -webkit-backdrop-filter: blur(20px);
+          box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+          transition: transform var(--os-dur-fast, 150ms) var(--os-ease, ease),
+            border-color var(--os-dur-fast, 150ms) var(--os-ease, ease),
+            background var(--os-dur-fast, 150ms) var(--os-ease, ease);
         }
-        
+
         .uniform-card:hover {
-          background: rgba(255, 255, 255, 0.03);
-          border-color: rgba(255, 255, 255, 0.1);
+          background: var(--os-surface-2, rgba(255, 255, 255, 0.06));
+          border-color: var(--os-border-strong, rgba(255, 255, 255, 0.16));
           transform: translateY(-1px);
         }
         
@@ -783,12 +788,16 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
         
         .btn-smooth {
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: transform var(--os-dur-fast, 150ms) var(--os-ease, ease),
+            background var(--os-dur-fast, 150ms) var(--os-ease, ease),
+            border-color var(--os-dur-fast, 150ms) var(--os-ease, ease),
+            box-shadow var(--os-dur-fast, 150ms) var(--os-ease, ease),
+            color var(--os-dur-fast, 150ms) var(--os-ease, ease);
         }
-        .btn-smooth:hover:not(:disabled) { 
+        .btn-smooth:hover:not(:disabled) {
           transform: translateY(-1px);
         }
-        .btn-smooth:active:not(:disabled) { 
+        .btn-smooth:active:not(:disabled) {
           transform: scale(0.98);
         }
       `}</style>
