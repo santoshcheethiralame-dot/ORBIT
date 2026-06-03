@@ -1,27 +1,21 @@
 // gemini.ts v2.1 — Centralized AI wrapper: model routing, retry, streaming, shared utilities
 // ALL AI calls in the app should go through this file.
 
-// SECURITY: never embed a secret in the shipped client bundle. The user supplies
-// their own OpenRouter key, stored locally; any build-time env var is only a
-// dev-time fallback. getApiKey() is read at call time, not module-load time.
-// DEV-only: a build-time env var is convenient for local development. In a
-// production build `import.meta.env.DEV` is statically false, so this collapses
-// to '' and dead-code elimination strips any embedded secret from the bundle.
-const ENV_API_KEY: string = import.meta.env.DEV
-    ? ((import.meta.env.VITE_OPENROUTER_API_KEY as string) || '')
-    : '';
+// SECURITY: the API key is NEVER embedded in the shipped client bundle. We do
+// not read any build-time VITE_ env var here — referencing one would inline the
+// secret into the JS that every visitor downloads. The user supplies their own
+// OpenRouter key at runtime (Settings → AI Assistant), stored only in this
+// browser's localStorage. getApiKey() is read at call time.
 const API_KEY_STORAGE = 'orbit-openrouter-key';
 const BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-/** Read the active OpenRouter key — a user-provided key (localStorage) takes
- *  precedence over any build-time env var, so production builds never need to
- *  embed a secret. */
+/** Read the user-provided OpenRouter key from localStorage (this device only). */
 export function getApiKey(): string {
     try {
         const stored = localStorage.getItem(API_KEY_STORAGE);
         if (stored && stored.trim()) return stored.trim();
     } catch { /* localStorage unavailable (private mode) */ }
-    return ENV_API_KEY;
+    return '';
 }
 
 /** Save (or clear, when empty) the user's OpenRouter key. */

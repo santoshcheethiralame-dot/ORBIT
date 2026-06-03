@@ -7,6 +7,7 @@ import React, { useState, useCallback } from 'react';
 import { db } from './db';
 import { getAllReadinessScores } from './brain-ultimate';
 import { getISTEffectiveDate } from './utils/time';
+import { getApiKey } from './gemini';
 import {
   CheckCircle2, XCircle, Loader2, Play, RefreshCw, Database,
   Brain, Clock, Zap,
@@ -76,8 +77,8 @@ const tests: Array<{
     name: 'AI API reachable',
     icon: Zap,
     run: async () => {
-      const key = import.meta.env?.VITE_OPENROUTER_API_KEY as string | undefined;
-      if (!key) return { ok: false, detail: 'VITE_OPENROUTER_API_KEY not set' };
+      const key = getApiKey();
+      if (!key) return { ok: false, detail: 'No API key set — add one in Settings → AI Assistant' };
       const res = await fetch('https://openrouter.ai/api/v1/models', {
         headers: { Authorization: `Bearer ${key}` },
       });
