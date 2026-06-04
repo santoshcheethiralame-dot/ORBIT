@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StudyBlock } from './types';
-import { getQualityRatingOptions } from './brain-analytics';
+import { getQualityRatingOptions } from './brain-ultimate';
 import { X, Brain, Sparkles, ArrowRight, RotateCcw } from 'lucide-react';
 import { geminiChat } from './gemini';
 import { useDialogA11y } from './utils/useDialogA11y';

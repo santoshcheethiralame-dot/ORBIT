@@ -11,7 +11,6 @@ import {
   Sun, Thermometer, EyeOff, BarChart3, Brain, Scale, CalendarDays,
 } from "lucide-react";
 import { Subject, DailyContext, ExamEntry, SubjectReadiness } from "./types";
-import { ProbabilisticReadiness } from "./brain-ultimate";
 import { db } from "./db";
 import { getAllReadinessScores } from "./brain-ultimate";
 
@@ -201,7 +200,7 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
   const [newExamDate, setNewExamDate] = useState("");
 
   // Readiness
-  const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness | ProbabilisticReadiness>>({});
+  const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness>>({});
 
   useEffect(() => {
     if (subjects.length > 0) {

@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { db } from "./db";
 import { ResourceType, SubjectReadiness } from "./types";
-import { ProbabilisticReadiness } from "./brain-ultimate";
 import { useLiveQuery } from "dexie-react-hooks";
 import { safeDB, withToast } from './utils/dbErrorHandler';
 import {
@@ -21,7 +20,7 @@ import { getAllReadinessScores } from './brain-ultimate';
 import { useToast } from './Toast';
 import { FrostedTile, FrostedMini, PageHeader, MetaText, getSubjectColor, SUBJECT_COLOR_CLASSES, SUBJECT_COLORS } from './components';
 
-import { predictReadiness } from './brain';
+import { predictReadiness } from './brain-ultimate';
 import { getISTEffectiveDate } from './utils/time';
 
 const PredictionModal = ({ subject, currentReadiness, onClose }: any) => {
@@ -141,7 +140,7 @@ export default function CoursesView_Enhanced() {
   const [newGrade, setNewGrade] = useState({ type: "", score: "", maxScore: "100", date: "" });
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [newLink, setNewLink] = useState({ title: "", url: "" });
-  const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness | ProbabilisticReadiness>>({});
+  const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness>>({});
   const [showPrediction, setShowPrediction] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   // Subject CRUD — CoursesView is the authoritative source for subjects.

@@ -13,7 +13,7 @@ import { db } from "./db";
 import { recordTopicReview, getISTEffectiveDate } from "./tracking";
 import { effectiveDatePlus } from "./utils/time";
 import { QualityRatingModal } from "./QualityRatingModal";
-import { recordBlockOutcome } from "./brain-analytics";
+import { recordBlockOutcome } from "./brain-ultimate";
 import { AIStudyAssistant } from "./AIStudyAssistant";
 import { useSettings } from "./SettingsContext";
 import { SoundManager } from "./utils/sounds";

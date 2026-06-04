@@ -1,22 +1,23 @@
 /**
- * ORBIT BRAIN - ULTIMATE INTEGRATION v3.1
- * ========================================
- * Single entry point for all AI planning. Consumers should import ONLY from here.
+ * ORBIT BRAIN — public barrel (single import path).
+ * ===================================================
+ * Consumers import planning / readiness / analytics ONLY from here.
  *
- * v3.1 fixes:
- * - timeAvailableMinutes now derived from resolveConstraints (not hardcoded 240)
- * - recordBlockOutcome now feeds BOTH the Dexie store AND the research-grade mastery tracker
- * - getAllReadinessScores routes correctly based on data maturity
+ * Unified architecture (one engine, no parallel "research" brain):
+ *   brain.ts            → the engine: planner, load, spaced-repetition, readiness, assignments
+ *   brain-analytics.ts  → outcomes, performance, burnout, interleaving, energy, quality
+ *   brain-ultimate.ts   → this barrel: the public surface + the plan-enrichment pass
  */
 
 import { db, OrbitDB } from "./db";
-import { DailyContext, StudyBlock, Subject, DailyPlan } from "./types";
-import { getISTEffectiveDate } from "./utils/time";
+import { DailyContext, StudyBlock } from "./types";
 
 import {
   generateDailyPlan as coreGeneratePlan,
   getAllReadinessScores as coreGetReadiness,
   resolveConstraints,
+  predictReadiness,
+  updateAssignmentProgress,
   SubjectReadiness,
   PlanResult,
 } from "./brain";
@@ -26,24 +27,15 @@ import {
   detectBurnout,
   analyzeInterleaving,
   validateEnergyBudget,
-  recordBlockOutcome as enhancedRecordOutcome,
+  recordBlockOutcome,
   getDashboardInsights,
   getQualityRatingOptions,
   getQualityEmoji,
   getEnergyProfile,
 } from "./brain-analytics";
 
-import {
-  calculateProbabilisticReadiness,
-  generateResearchGradePlan,
-  getAllReadinessScores as researchGetReadiness,
-  recordBlockOutcome as researchRecordOutcome,
-  ProbabilisticReadiness,
-  RESEARCH_CONFIG,
-} from "./brain-research-grade";
-
 /* ======================================================
-  ULTIMATE PLAN RESULT
+  PLAN RESULT
 ====================================================== */
 
 export interface UltimatePlanResult {
@@ -60,11 +52,6 @@ export interface UltimatePlanResult {
     burnoutRisk: Awaited<ReturnType<typeof detectBurnout>>;
     interleaving: ReturnType<typeof analyzeInterleaving>;
     energyBudget: ReturnType<typeof validateEnergyBudget>;
-    researchMetrics?: {
-      averageMasteryProbability: number;
-      confidenceScore: number;
-      optimizationScore: number;
-    };
   };
   performanceAdjustments?: Array<{
     subjectId: number;
@@ -72,12 +59,16 @@ export interface UltimatePlanResult {
     oldDuration: number;
     newDuration: number;
   }>;
-  planningStrategy: 'core' | 'enhanced' | 'research' | 'hybrid';
+  planningStrategy: 'core' | 'enhanced';
   confidence: number;
 }
 
 /* ======================================================
   MAIN PLAN GENERATOR
+  The core engine (brain.ts) does all real planning — it honors the full Daily
+  Context (holiday / sick / ISA·ESA·PD / focus subject / bunk / exam exclusions)
+  and does displacement, circadian ordering, and spaced-repetition. We then adapt
+  block durations using REAL, PERSISTED block-outcome performance.
 ====================================================== */
 
 export async function generateUltimatePlan(
@@ -88,75 +79,40 @@ export async function generateUltimatePlan(
   const allLogs = await dbInstance.logs.toArray();
   const uniqueDays = new Set(allLogs.map((log: any) => log.date)).size;
 
-  // FIX: Derive time budget from resolveConstraints (not hardcoded 240)
   const constraints = resolveConstraints(context);
   const timeAvailableMinutes = constraints.maxMinutes;
-  const energyLevel = context.mood === 'high' ? 90 : context.mood === 'low' ? 60 : 80;
 
-  let planningStrategy: 'core' | 'enhanced' | 'research' | 'hybrid';
-  let blocks: StudyBlock[];
-  let confidence: number;
-  let coreLoadAnalysis: any = null;
+  const corePlan: PlanResult = await coreGeneratePlan(context, dbInstance);
+  const blocks = corePlan.blocks;
+  const coreLoadAnalysis = corePlan.loadAnalysis;
+
+  // Adapt durations from persisted performance. getSubjectPerformance returns
+  // null when a subject lacks enough history, so new users are unaffected.
   const performanceAdjustments: Array<{
     subjectId: number; reason: string; oldDuration: number; newDuration: number;
   }> = [];
-
-  /* ── Strategy selection ──
-     ALL maturity tiers run the core engine (brain.ts), which is the only planner
-     that honors the full Daily Context — holiday, sick day, dayType (ISA/ESA/PD),
-     focus subject, bunked subject, and exam exclusions — and does displacement,
-     circadian ordering, and spaced-repetition scheduling. We then adapt block
-     durations using REAL, PERSISTED block-outcome performance.
-
-     Previously, users with <5 or >=30 distinct study days were routed to the
-     research-grade engine, which ignored nearly the entire Daily Context and
-     relied on an in-memory mastery tracker that resets on every page reload.
-     That routing is removed; the research engine is no longer on the happy path. */
-  {
-    const corePlan = await coreGeneratePlan(context, dbInstance);
-    blocks = corePlan.blocks;
-    coreLoadAnalysis = corePlan.loadAnalysis;
-
-    // Adapt durations from persisted performance. getSubjectPerformance returns
-    // null when a subject lacks enough history, so new users are unaffected.
-    for (const block of blocks) {
-      const perf = await getSubjectPerformance(block.subjectId, 30, dbInstance);
-      if (!perf) continue;
-      if (perf.avgCompletionRate < 0.6 && block.duration > 30) {
-        const newDuration = Math.max(20, Math.floor(block.duration * 0.7));
-        performanceAdjustments.push({
-          subjectId: block.subjectId,
-          reason: 'Low completion rate — reducing block size',
-          oldDuration: block.duration,
-          newDuration,
-        });
-        block.duration = newDuration;
-      } else if (perf.avgQuality < 2.5 && block.duration > 30) {
-        const newDuration = Math.max(25, Math.floor(block.duration * 0.8));
-        performanceAdjustments.push({
-          subjectId: block.subjectId,
-          reason: 'Low quality trend — reducing block duration',
-          oldDuration: block.duration,
-          newDuration,
-        });
-        block.duration = newDuration;
-      } else if (perf.avgQuality > 3.5 && block.duration < 60) {
-        const newDuration = Math.min(90, Math.floor(block.duration * 1.2));
-        performanceAdjustments.push({
-          subjectId: block.subjectId,
-          reason: 'High quality — extending block duration',
-          oldDuration: block.duration,
-          newDuration,
-        });
-        block.duration = newDuration;
-      }
+  for (const block of blocks) {
+    const perf = await getSubjectPerformance(block.subjectId, 30, dbInstance);
+    if (!perf) continue;
+    if (perf.avgCompletionRate < 0.6 && block.duration > 30) {
+      const newDuration = Math.max(20, Math.floor(block.duration * 0.7));
+      performanceAdjustments.push({ subjectId: block.subjectId, reason: 'Low completion rate — reducing block size', oldDuration: block.duration, newDuration });
+      block.duration = newDuration;
+    } else if (perf.avgQuality < 2.5 && block.duration > 30) {
+      const newDuration = Math.max(25, Math.floor(block.duration * 0.8));
+      performanceAdjustments.push({ subjectId: block.subjectId, reason: 'Low quality trend — reducing block duration', oldDuration: block.duration, newDuration });
+      block.duration = newDuration;
+    } else if (perf.avgQuality > 3.5 && block.duration < 60) {
+      const newDuration = Math.min(90, Math.floor(block.duration * 1.2));
+      performanceAdjustments.push({ subjectId: block.subjectId, reason: 'High quality — extending block duration', oldDuration: block.duration, newDuration });
+      block.duration = newDuration;
     }
-
-    planningStrategy = uniqueDays < 5 ? 'core' : 'enhanced';
-    confidence = uniqueDays >= 30 ? 0.9 : uniqueDays >= 5 ? 0.8 : 0.65;
   }
 
-  /* ── Load analysis ── */
+  const planningStrategy: 'core' | 'enhanced' = uniqueDays < 5 ? 'core' : 'enhanced';
+  const confidence = uniqueDays >= 30 ? 0.9 : uniqueDays >= 5 ? 0.8 : 0.65;
+
+  /* ── Load analysis (prefer the core engine's numbers; enrich with analytics) ── */
   const totalMinutes = blocks.reduce((sum, b) => sum + b.duration, 0);
   const subjectIds = new Set(blocks.map(b => b.subjectId));
   const avgBlockDuration = blocks.length > 0 ? totalMinutes / blocks.length : 0;
@@ -170,23 +126,6 @@ export async function generateUltimatePlan(
     coreLoadAnalysis?.loadLevel ??
     (loadScore >= 80 ? 'extreme' : loadScore >= 60 ? 'heavy' : loadScore <= 30 ? 'light' : 'normal');
   const readinessImpact = coreLoadAnalysis?.readinessImpact ?? 0;
-
-  /* ── Research metrics (14+ days) ── */
-  let researchMetrics: UltimatePlanResult['loadAnalysis']['researchMetrics'];
-  if (uniqueDays >= 14) {
-    try {
-      const readinessScores = await researchGetReadiness();
-      const masteryProbs = Object.values(readinessScores).map((r: any) => r.masteryProbability ?? 0.5);
-      const avgMastery = masteryProbs.length > 0
-        ? masteryProbs.reduce((s: number, p: number) => s + p, 0) / masteryProbs.length
-        : 0.5;
-      researchMetrics = {
-        averageMasteryProbability: avgMastery,
-        confidenceScore: confidence,
-        optimizationScore: burnoutRisk.atRisk ? 0.5 : 0.9,
-      };
-    } catch { /* ignore */ }
-  }
 
   return {
     blocks,
@@ -202,7 +141,6 @@ export async function generateUltimatePlan(
       burnoutRisk,
       interleaving,
       energyBudget,
-      researchMetrics,
     },
     performanceAdjustments: performanceAdjustments.length > 0 ? performanceAdjustments : undefined,
     planningStrategy,
@@ -210,100 +148,48 @@ export async function generateUltimatePlan(
   };
 }
 
-/* ======================================================
-  DUAL-TRACK recordBlockOutcome
-  FIX: Now updates BOTH the Dexie persistence layer AND
-  the in-memory research-grade mastery tracker.
-====================================================== */
-
-export async function recordBlockOutcome(
-  block: StudyBlock,
-  outcome: {
-    actualDuration: number;
-    completionQuality: 1 | 2 | 3 | 4 | 5;
-    skipped?: boolean;
-    notes?: string;
-  },
-  dbInstance: OrbitDB = db,
-): Promise<void> {
-  // 1. Save to Dexie (persistent, feeds analytics)
-  await enhancedRecordOutcome(block, outcome, dbInstance);
-
-  // 2. Update in-memory research-grade mastery tracker (feedback loop)
-  try {
-    await researchRecordOutcome(block.id, {
-      actualDuration: outcome.actualDuration,
-      completionQuality: outcome.completionQuality,
-      skipped: outcome.skipped ?? false,
-    });
-  } catch (err) {
-    // Research tracker is in-memory — failure is non-critical
-    console.warn('Research tracker update failed (non-critical):', err);
-  }
-}
-
-/* ======================================================
-  UNIFIED READINESS
-====================================================== */
-
-export async function getUnifiedReadiness(
-  dbInstance: OrbitDB = db,
-): Promise<Record<number, SubjectReadiness | ProbabilisticReadiness>> {
-  const allLogs = await dbInstance.logs.toArray();
-  const uniqueDays = new Set(allLogs.map((log: any) => log.date)).size;
-
-  if (uniqueDays >= 14) {
-    try {
-      return await researchGetReadiness() as Record<number, SubjectReadiness | ProbabilisticReadiness>;
-    } catch (err) {
-      console.warn('Research readiness failed, using core:', err);
-    }
-  }
-
-  return await coreGetReadiness(dbInstance) as Record<number, SubjectReadiness | ProbabilisticReadiness>;
-}
-
-/* Convenience alias — consumers use this, not the individual brain files */
-export async function getAllReadinessScores(
-  dbInstance: OrbitDB = db,
-): Promise<Record<number, SubjectReadiness | ProbabilisticReadiness>> {
-  return getUnifiedReadiness(dbInstance);
-}
-
-/* Backward-compatible alias */
-export async function generateEnhancedPlan(
-  context: DailyContext,
-): Promise<UltimatePlanResult> {
+/** Backward-compatible alias — the single plan entry point used by index.tsx. */
+export async function generateEnhancedPlan(context: DailyContext): Promise<UltimatePlanResult> {
   return generateUltimatePlan(context);
 }
 
 /* ======================================================
-  RE-EXPORTS — consumers import everything from brain-ultimate
+  READINESS — one model (core), one stable shape.
+====================================================== */
+
+export async function getAllReadinessScores(
+  dbInstance: OrbitDB = db,
+): Promise<Record<number, SubjectReadiness>> {
+  return coreGetReadiness(dbInstance);
+}
+
+/* ======================================================
+  RE-EXPORTS — the public API surface
 ====================================================== */
 
 export {
   type SubjectReadiness,
-  type ProbabilisticReadiness,
   type PlanResult,
-  getSubjectPerformance,
-  detectBurnout,
-  getDashboardInsights,
-  getQualityRatingOptions,
-  getQualityEmoji,
-  getEnergyProfile,
-  calculateProbabilisticReadiness,
-  RESEARCH_CONFIG,
-  resolveConstraints,
-};
-
-export default {
-  generateUltimatePlan,
-  getAllReadinessScores: getUnifiedReadiness,
   recordBlockOutcome,
   getSubjectPerformance,
   detectBurnout,
   getDashboardInsights,
   getQualityRatingOptions,
   getQualityEmoji,
+  getEnergyProfile,
+  resolveConstraints,
+  predictReadiness,
+  updateAssignmentProgress,
+};
+
+export default {
+  generateUltimatePlan,
   generateEnhancedPlan,
+  getAllReadinessScores,
+  recordBlockOutcome,
+  getSubjectPerformance,
+  detectBurnout,
+  getDashboardInsights,
+  getQualityRatingOptions,
+  getQualityEmoji,
 };

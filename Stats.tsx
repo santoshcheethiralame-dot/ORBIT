@@ -21,10 +21,8 @@ import {
   getSubjectColor,
   SUBJECT_COLOR_CLASSES,
 } from "./components";
-import {
-  calculateReadiness,
-  getAllReadinessScores,
-} from "./brain";
+import { calculateReadiness } from "./brain";
+import { getAllReadinessScores } from "./brain-ultimate";
 import { SubjectReadiness } from "./types";
 // These are initialized with safe fallbacks so they never throw before the
 // brain-analytics module finishes its dynamic import.
