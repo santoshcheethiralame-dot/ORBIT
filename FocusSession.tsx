@@ -526,6 +526,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
         .nebula.calm .blob.b1{background:radial-gradient(circle at 35% 35%,#FFD60A,transparent 68%);opacity:.22}
         .nebula.calm .blob.b3{background:radial-gradient(circle at 50% 40%,#FFB020,transparent 70%);opacity:.20}
         .nebula.bright .blob{opacity:.42}
+        @media (max-width:640px){.nebula .blob{opacity:.09;filter:blur(70px)}.nebula.calm .blob.b1,.nebula.calm .blob.b3{opacity:.12}.nebula.bright .blob{opacity:.3}}
         @keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(70px,50px) scale(1.18)}}
         @keyframes drift2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-55px,40px) scale(1.12)}}
         @keyframes drift3{0%,100%{transform:translate(0,0) scale(1.05)}50%{transform:translate(45px,-60px) scale(.92)}}
@@ -594,14 +595,14 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
                   <span className="hidden sm:inline">{scape === "silence" ? "Sound" : SOUNDSCAPES.find(s => s.id === scape)?.label}</span>
                   <ChevronDown size={10} className="opacity-60" />
                 </button>
-                <button onClick={cycleSkin} title="Timer skin" className="w-9 h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><CircleDashed size={14} /></button>
-                <button onClick={() => setHideTime(h => !h)} title={hideTime ? "Show time" : "Hide time"} className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center transition-colors ${hideTime ? "bg-orange-500/15 border-orange-500/30 text-orange-400" : "bg-ink2/80 border-white/15 text-mute hover:text-white"}`}>{hideTime ? <EyeOff size={14} /> : <Eye size={14} />}</button>
+                <button onClick={cycleSkin} title="Timer skin" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><CircleDashed size={14} /></button>
+                <button onClick={() => setHideTime(h => !h)} title={hideTime ? "Show time" : "Hide time"} className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg border-2 flex items-center justify-center transition-colors ${hideTime ? "bg-orange-500/15 border-orange-500/30 text-orange-400" : "bg-ink2/80 border-white/15 text-mute hover:text-white"}`}>{hideTime ? <EyeOff size={14} /> : <Eye size={14} />}</button>
                 <button onClick={() => { if (!isRunning) setStrictMode(s => !s); }} title={strictMode ? "Strict on" : "Strict off"} disabled={isRunning}
-                  className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-colors ${strictMode ? "bg-yellow-400/15 border-yellow-400/30 text-yellow-400" : "bg-ink2/80 border-white/10 text-mute hover:text-white"} ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}>
+                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg border flex items-center justify-center transition-colors ${strictMode ? "bg-yellow-400/15 border-yellow-400/30 text-yellow-400" : "bg-ink2/80 border-white/10 text-mute hover:text-white"} ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}>
                   {strictMode ? <Lock size={14} /> : <Unlock size={14} />}
                 </button>
-                <button onClick={() => setZen(true)} title="Zen mode (F)" className="w-9 h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><Maximize2 size={13} /></button>
-                <button onClick={requestExit} title="Exit" className="w-9 h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><X size={15} /></button>
+                <button onClick={() => setZen(true)} title="Zen mode (F)" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><Maximize2 size={13} /></button>
+                <button onClick={requestExit} title="Exit" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><X size={15} /></button>
               </div>
             </div>
           )}
@@ -677,7 +678,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
                   <button onClick={() => { setIsRunning(false); setCompletedDuration(sessionMinutes); setShowQualityModal(true); }} className="meta text-[9px] text-mute hover:text-yellow-400 transition-colors inline-flex items-center gap-1.5"><CheckCircle size={11} /> Finish early · log {sessionMinutes} min</button>
                 </div>
               )}
-              <div className="text-center meta text-[8px] text-mute/50 mt-3">space = {isRunning ? "pause" : "start"} · F = zen · tap timer = +5 min</div>
+              <div className="hidden sm:block text-center meta text-[8px] text-mute/50 mt-3">space = {isRunning ? "pause" : "start"} · F = zen · tap timer = +5 min</div>
             </div>
           )}
 
