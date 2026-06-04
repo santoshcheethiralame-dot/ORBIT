@@ -125,6 +125,7 @@ const NotesGenerator: React.FC<NotesGeneratorProps> = ({ block, subject, topics,
   const [ankiCards, setAnkiCards] = useState<AnkiCard[]>([]);
   const [generatingAnki, setGeneratingAnki] = useState(false);
   const [format, setFormat] = useState<'concise' | 'detailed' | 'cheatsheet'>('detailed');
+  const [saved, setSaved] = useState(false);
 
   const syllabus = subject?.syllabus ?? [];
 
@@ -292,6 +293,17 @@ Use **bold** for all key terms. No filler.`;
     }
   }, [notes, block.subjectName, generatingAnki]);
 
+  const saveToSubject = useCallback(async () => {
+    if (!subject?.id || !notes) return;
+    try {
+      const fresh = await db.subjects.get(subject.id);
+      const stamp = new Date().toLocaleDateString();
+      const appended = (fresh?.notes ? fresh.notes + '\n\n' : '') + `--- ${sourceLabel} · ${stamp} ---\n` + notes;
+      await db.subjects.update(subject.id, { notes: appended });
+      setSaved(true); setTimeout(() => setSaved(false), 1500);
+    } catch { /* non-critical */ }
+  }, [subject, notes, sourceLabel]);
+
   const reset = () => { setMode('idle'); setNotes(''); setStreaming(''); setError(''); setSourceLabel(''); setAnkiCards([]); };
 
   if (mode === 'generating') {
@@ -341,6 +353,13 @@ Use **bold** for all key terms. No filler.`;
             </span>
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {/* Save to subject notes */}
+            <button onClick={saveToSubject} disabled={!subject?.id} title="Save to subject notes"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold hover:bg-white/8 disabled:opacity-40"
+              style={{ color: saved ? '#F7F5EF' : '#FF7A3C' }}>
+              {saved ? <Check size={10} strokeWidth={2.5} /> : <StickyNote size={10} strokeWidth={2.5} />}
+              {saved ? 'Saved' : 'Save'}
+            </button>
             {/* Anki export */}
             <button
               onClick={exportAnki}
@@ -872,7 +891,8 @@ interface Message {
   timestamp: number;
 }
 
-type Tab = 'chat' | 'resources' | 'notes' | 'exam';
+type Tab = 'chat' | 'notes' | 'exam';
+type CoachMode = 'coach' | 'feynman' | 'quiz';
 
 export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subjectIntelligence, onClose }) => {
   const [tab, setTab] = useState<Tab>('chat');
@@ -885,7 +905,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
   const [sessionCount, setSessionCount] = useState(0);
   const [richCtx, setRichCtx] = useState<RichContext>({});
   const [ctxLoaded, setCtxLoaded] = useState(false);
-  const [feynmanMode, setFeynmanMode] = useState(false);  // NEW: Feynman toggle
+  const [mode, setMode] = useState<CoachMode>('coach');  // Coach / Feynman / Quiz
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -975,8 +995,8 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
     setMessages(prev => [...prev, userMsg]);
     setStreaming(true); setStreamText('');
 
-    // NEW: Feynman mode — pipe last AI message through feynmanify
-    if (feynmanMode) {
+    // Feynman mode — pipe last AI message through feynmanify
+    if (mode === 'feynman') {
       const lastAI = messages.filter(m => m.role === 'assistant').slice(-1)[0];
       const concept = lastAI ? lastAI.content.split('\n')[0].replace(/[#*]/g, '').trim() : trimmed;
       let full = '';
@@ -999,8 +1019,11 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
     }));
 
     let full = '';
+    const sysForMode = mode === 'quiz'
+      ? systemPrompt + '\n\n## QUIZ MODE\nRelentlessly quiz the student one question at a time. After each answer: mark it right/wrong, explain briefly, then ask the next — progressively harder. Never dump all questions at once.'
+      : systemPrompt;
     geminiStream(
-      history, systemPrompt,
+      history, sysForMode,
       (chunk) => { full += chunk; setStreamText(full); },
       () => {
         setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: full, timestamp: Date.now() }]);
@@ -1012,7 +1035,31 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
       1800,
       'standard',
     );
-  }, [messages, streaming, systemPrompt, sessionCount, feynmanMode, block]);
+  }, [messages, streaming, systemPrompt, sessionCount, mode, block]);
+
+  // Turn an AI answer into Anki flashcards (CSV) — quick capture for SR
+  const flashcardsFromText = useCallback(async (content: string) => {
+    try {
+      const cards = await generateAnkiCards(block.subjectName, content.slice(0, 3000), 6);
+      if (!cards.length) return;
+      const csv = ['Front,Back,Tags', ...cards.map(c => `"${c.front.replace(/"/g, '""')}","${c.back.replace(/"/g, '""')}","${c.tags.join(' ')}"`)].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `${block.subjectName}-flashcards.csv`; a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* non-critical */ }
+  }, [block.subjectName]);
+
+  // Save an AI answer into the subject's notes
+  const saveTextToNotes = useCallback(async (content: string) => {
+    try {
+      const subj = await db.subjects.get(block.subjectId);
+      if (!subj) return;
+      const stamp = new Date().toLocaleDateString();
+      const appended = (subj.notes ? subj.notes + '\n\n' : '') + `--- Orbit Coach · ${stamp} ---\n` + content;
+      await db.subjects.update(block.subjectId, { notes: appended });
+    } catch { /* non-critical */ }
+  }, [block.subjectId]);
 
   const readiness = subjectIntelligence?.readiness;
   const readinessColor = readiness === undefined ? '#71717a'
@@ -1025,7 +1072,6 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
     { id: 'chat', label: 'Chat', icon: <MessageSquare size={13} strokeWidth={2.5} /> },
     { id: 'exam', label: 'Exam', icon: <Trophy size={13} strokeWidth={2.5} /> },
     { id: 'notes', label: 'Notes', icon: <StickyNote size={13} strokeWidth={2.5} /> },
-    { id: 'resources', label: 'Resources', icon: <BookOpen size={13} strokeWidth={2.5} /> },
   ];
 
   return (
@@ -1082,17 +1128,17 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
               <button key={t.id} onClick={() => setTab(t.id)}
                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[11px] font-mono font-bold uppercase tracking-[0.12em] transition-colors shrink-0 ${tab === t.id ? 'bg-white text-ink' : 'text-zinc-400 hover:text-white'}`}>
                 {t.icon}{t.label}
-                {t.id === 'resources' && resources.length > 0 && (
-                  <span className="w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-black bg-orange-500/30 text-orange-400">{resources.length}</span>
-                )}
               </button>
             ))}
           </div>
-          <button onClick={() => setFeynmanMode(v => !v)} title="Explain like I'm 16"
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-[0.12em] shrink-0 transition-colors border ${feynmanMode ? 'bg-yellow-400/15 text-yellow-300 border-yellow-400/30' : 'bg-ink2 text-zinc-400 border-white/10 hover:text-white'}`}>
-            ✦ Feynman
-            <span className={`w-7 h-4 rounded-full p-0.5 flex items-center transition-colors ${feynmanMode ? 'bg-yellow-400' : 'bg-zinc-700'}`}><span className={`w-3 h-3 rounded-full bg-ink transition-transform ${feynmanMode ? 'translate-x-3' : ''}`} /></span>
-          </button>
+          <div className="flex items-center bg-ink2 border-2 border-white/10 rounded-lg p-0.5 shrink-0">
+            {(['coach', 'feynman', 'quiz'] as const).map(m => (
+              <button key={m} onClick={() => setMode(m)} title={m === 'feynman' ? "Explain it simply" : m === 'quiz' ? 'Quiz me relentlessly' : 'Socratic coaching'}
+                className={`text-[9px] font-mono font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 rounded-md transition-colors ${mode === m ? (m === 'feynman' ? 'bg-yellow-400 text-ink' : 'bg-orange-500 text-ink') : 'text-zinc-400 hover:text-white'}`}>
+                {m}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ── CHAT TAB ── */}
@@ -1197,6 +1243,12 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                       <CopyBtn text={msg.content} />
+                      {msg.role === 'assistant' && (
+                        <>
+                          <button onClick={() => flashcardsFromText(msg.content)} title="Make flashcards (Anki)" className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all" style={{ color: 'rgba(255,122,60,0.7)' }}><Sparkles size={12} strokeWidth={2.5} /></button>
+                          <button onClick={() => saveTextToNotes(msg.content)} title="Save to subject notes" className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all" style={{ color: 'rgba(255,255,255,0.3)' }}><StickyNote size={12} strokeWidth={2.5} /></button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1246,13 +1298,13 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                 <textarea ref={inputRef} value={input} rows={1} disabled={streaming}
                   onChange={e => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px'; }}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-                  placeholder={streaming ? 'Thinking…' : feynmanMode ? "Ask anything — I'll explain it simply…" : `Ask anything about ${block.subjectName}…`}
+                  placeholder={streaming ? 'Thinking…' : mode === 'feynman' ? "Ask anything — I'll explain it simply…" : `Ask anything about ${block.subjectName}…`}
                   className="flex-1 bg-transparent text-sm text-white placeholder:text-white/20 resize-none focus:outline-none leading-relaxed py-1.5"
                   style={{ maxHeight: 100 }} />
                 <button onClick={() => sendMessage(input)} disabled={!input.trim() || streaming}
                   className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-30"
-                  style={{ background: feynmanMode ? 'linear-gradient(135deg,#FFD60A,#FFC400)' : 'linear-gradient(135deg,#FF5A1F,#FF7A3C)' }}>
-                  <Send size={15} className={feynmanMode ? 'text-ink' : 'text-white'} strokeWidth={2.5} />
+                  style={{ background: mode === 'feynman' ? 'linear-gradient(135deg,#FFD60A,#FFC400)' : 'linear-gradient(135deg,#FF5A1F,#FF7A3C)' }}>
+                  <Send size={15} className={mode === 'feynman' ? 'text-ink' : 'text-white'} strokeWidth={2.5} />
                 </button>
               </div>
             </div>
@@ -1267,60 +1319,6 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
               subject={richCtx.subject}
               topics={richCtx.topics}
             />
-          </div>
-        )}
-
-        {/* ── RESOURCES TAB ── */}
-        {tab === 'resources' && (
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2" style={{ scrollbarWidth: 'none' }}>
-            {resources.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center gap-3">
-                <BookOpen size={32} style={{ color: 'rgba(255,255,255,0.1)' }} strokeWidth={1.5} />
-                <div>
-                  <p className="text-sm font-semibold text-white/40">No resources yet</p>
-                  <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.2)' }}>Add resources to {block.subjectName} in the Courses tab</p>
-                </div>
-              </div>
-            ) : resources.map(r => (
-              <div key={r.id} className="flex items-start gap-3 px-4 py-3 rounded-2xl"
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center mt-0.5"
-                  style={{ background: 'rgba(255,255,255,0.06)' }}>
-                  {r.type === 'pdf' ? <FileText size={14} className="text-orange-400" strokeWidth={2} />
-                    : r.type === 'video' ? <Layers size={14} className="text-orange-400" strokeWidth={2} />
-                      : <Link size={14} className="text-orange-400" strokeWidth={2} />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-semibold text-white/80">{r.title}</span>
-                    {r.priority && (
-                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md shrink-0"
-                        style={r.priority === 'required'
-                          ? { background: 'rgba(255,90,31,0.15)', color: '#FF7A3C' }
-                          : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}>{r.priority}</span>
-                    )}
-                  </div>
-                  {r.notes && <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>{r.notes}</p>}
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-[10px] px-2 py-0.5 rounded-md font-medium uppercase"
-                      style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}>{r.type}</span>
-                    {r.url && (
-                      <a href={r.url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-[11px] font-semibold hover:opacity-80"
-                        style={{ color: '#FF7A3C' }}>
-                        <ExternalLink size={11} strokeWidth={2.5} />Open
-                      </a>
-                    )}
-                    {r.fileData && (
-                      <button onClick={() => { const a = document.createElement('a'); a.href = r.fileData!; a.download = r.title; a.click(); }}
-                        className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: '#FF7A3C' }}>
-                        <Download size={11} strokeWidth={2.5} />Download
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         )}
 
