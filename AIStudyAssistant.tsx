@@ -6,11 +6,11 @@ import {
   MessageSquare, Layers, StickyNote, ChevronRight,
   TrendingUp, Clock, Target, Eye, Loader2,
   ArrowLeft, CheckCircle2, Circle, Globe, Trophy,
-  Zap, LayoutGrid, Square, RefreshCw,
+  Zap, LayoutGrid, Square, RefreshCw, ImagePlus,
 } from 'lucide-react';
 import { StudyBlock, Resource, Subject, StudyLog, StudyTopic, Assignment, SyllabusUnit, SubjectReadiness } from './types';
 import {
-  geminiStream, GeminiMessage,
+  geminiStream, geminiStreamMultimodal, GeminiMessage, ContentPart,
   fetchUrlText,
   extractPdfText,
   generateAnkiCards,
@@ -898,6 +898,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  image?: string;
 }
 
 type Tab = 'chat' | 'notes' | 'exam';
@@ -920,6 +921,9 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
   const abortRef = useRef<AbortController | null>(null);
   const streamRef = useRef('');
   const [chatLoaded, setChatLoaded] = useState(false);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const imgInputRef = useRef<HTMLInputElement>(null);
+  const genId = useRef(0);
 
   useEffect(() => {
     async function load() {
@@ -993,7 +997,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
 
   useEffect(() => {
     if (!chatLoaded) return;
-    try { localStorage.setItem('orbit-chat-' + block.subjectId, JSON.stringify(messages.slice(-50))); } catch { /* ignore */ }
+    try { localStorage.setItem('orbit-chat-' + block.subjectId, JSON.stringify(messages.slice(-50).map(m => ({ ...m, image: undefined })))); } catch { /* ignore */ }
   }, [messages, chatLoaded, block.subjectId]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, streamText]);
@@ -1008,6 +1012,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
     : buildSystemPrompt(block, subjectIntelligence);
 
   const runCompletion = useCallback((convo: Message[]) => {
+    genId.current++;
     setError(''); setStreaming(true); setStreamText(''); streamRef.current = '';
     const ctrl = new AbortController(); abortRef.current = ctrl;
     const history: GeminiMessage[] = convo.map(m => ({
@@ -1034,19 +1039,39 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
     );
   }, [mode, systemPrompt, sessionCount]);
 
+  const runVisionCompletion = useCallback((text: string, image: string) => {
+    const myId = ++genId.current;
+    setError(''); setStreaming(true); setStreamText(''); streamRef.current = '';
+    let full = '';
+    const parts: ContentPart[] = [
+      { type: 'text', text: text || 'Help me with this image — explain or solve what it shows.' },
+      { type: 'image_url', image_url: { url: image } },
+    ];
+    geminiStreamMultimodal(
+      parts, systemPrompt,
+      (chunk) => { if (genId.current !== myId) return; full += chunk; streamRef.current = stripThinking(full); setStreamText(streamRef.current); },
+      () => { if (genId.current !== myId) return; setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: stripThinking(full), timestamp: Date.now() }]); setStreamText(''); setStreaming(false); streamRef.current = ''; },
+      (err) => { if (genId.current !== myId) return; setError(err); setStreaming(false); setStreamText(''); streamRef.current = ''; },
+      1800,
+    );
+  }, [systemPrompt]);
+
   const sendMessage = useCallback((text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || streaming) return;
+    if ((!trimmed && !pendingImage) || streaming) return;
     setInput('');
     if (inputRef.current) inputRef.current.style.height = 'auto';
-    const userMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: trimmed, timestamp: Date.now() };
+    const img = pendingImage; setPendingImage(null);
+    const userMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: trimmed || (img ? 'Help me with this image.' : ''), timestamp: Date.now(), image: img || undefined };
     const next = [...messages, userMsg];
     setMessages(next);
-    runCompletion(next);
-  }, [messages, streaming, runCompletion]);
+    if (img) runVisionCompletion(trimmed, img);
+    else runCompletion(next);
+  }, [messages, streaming, pendingImage, runCompletion, runVisionCompletion]);
 
   const stopGen = useCallback(() => {
     abortRef.current?.abort();
+    genId.current++;
     const partial = streamRef.current; streamRef.current = '';
     setStreaming(false); setStreamText('');
     if (partial.trim()) setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: partial, timestamp: Date.now() }]);
@@ -1061,6 +1086,14 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
     setMessages(trimmed);
     runCompletion(trimmed);
   }, [messages, streaming, runCompletion]);
+
+  const attachImage = useCallback((file: File | null | undefined) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    if (file.size > 5 * 1024 * 1024) { setError('Image too large (max 5MB).'); return; }
+    const reader = new FileReader();
+    reader.onload = () => { if (typeof reader.result === 'string') setPendingImage(reader.result); };
+    reader.readAsDataURL(file);
+  }, []);
 
   const flashcardsFromText = useCallback(async (content: string) => {
     try {
@@ -1271,7 +1304,12 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                       style={msg.role === 'user'
                         ? { background: '#FF5A1F', color: '#0A0A0A', fontWeight: 500 }
                         : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.85)' }}>
-                      {msg.role === 'assistant' ? <MD text={msg.content} /> : <p className="text-sm leading-relaxed">{msg.content}</p>}
+                      {msg.role === 'assistant' ? <MD text={msg.content} /> : (
+                        <div className="flex flex-col gap-2">
+                          {msg.image && <img src={msg.image} alt="attachment" className="max-h-48 rounded-lg" />}
+                          {msg.content && <p className="text-sm leading-relaxed">{msg.content}</p>}
+                        </div>
+                      )}
                     </div>
                     <div className={`flex items-center gap-1 px-1 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                       <span className="text-[9px] font-mono" style={{ color: 'rgba(255,255,255,0.15)' }}>
@@ -1344,12 +1382,22 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                 ))}
               </div>
 
+              {pendingImage && (
+                <div className="mb-2 inline-flex items-center gap-2 px-2 py-1.5 rounded-xl bg-ink2 border border-white/10">
+                  <img src={pendingImage} alt="attachment" className="h-10 w-10 object-cover rounded-lg" />
+                  <span className="text-[10px] font-mono uppercase tracking-wide text-zinc-400">Image attached</span>
+                  <button onClick={() => setPendingImage(null)} className="text-mute hover:text-red-400 p-0.5"><X size={13} strokeWidth={2.5} /></button>
+                </div>
+              )}
               <div className="flex items-end gap-2 px-3.5 py-2 rounded-full"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <input type="file" accept="image/*" ref={imgInputRef} onChange={e => { attachImage(e.target.files?.[0]); if (e.target) e.target.value = ''; }} className="hidden" />
+                <button onClick={() => imgInputRef.current?.click()} disabled={streaming} title="Attach an image" className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-mute hover:text-orange-400 transition-colors disabled:opacity-30"><ImagePlus size={16} strokeWidth={2.5} /></button>
                 <textarea ref={inputRef} value={input} rows={1} disabled={streaming}
                   onChange={e => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px'; }}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-                  placeholder={streaming ? 'Thinking…' : mode === 'feynman' ? "Ask anything — I'll explain it simply…" : `Ask anything about ${block.subjectName}…`}
+                  onPaste={e => { const f = Array.from(e.clipboardData?.files || []).find(x => x.type.startsWith('image/')); if (f) { e.preventDefault(); attachImage(f); } }}
+                  placeholder={streaming ? 'Thinking…' : pendingImage ? 'Ask about the image…' : mode === 'feynman' ? "Ask anything — I'll explain it simply…" : `Ask anything about ${block.subjectName}…`}
                   className="flex-1 bg-transparent text-sm text-white placeholder:text-white/20 resize-none focus:outline-none leading-relaxed py-1.5"
                   style={{ maxHeight: 100 }} />
                 {streaming ? (
@@ -1358,7 +1406,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                     <Square size={12} strokeWidth={2.5} fill="currentColor" />
                   </button>
                 ) : (
-                  <button onClick={() => sendMessage(input)} disabled={!input.trim()}
+                  <button onClick={() => sendMessage(input)} disabled={!input.trim() && !pendingImage}
                     className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-30"
                     style={{ background: mode === 'feynman' ? 'linear-gradient(135deg,#FFD60A,#FFC400)' : 'linear-gradient(135deg,#FF5A1F,#FF7A3C)' }}>
                     <Send size={15} className={mode === 'feynman' ? 'text-ink' : 'text-white'} strokeWidth={2.5} />
