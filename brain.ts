@@ -763,12 +763,17 @@ function buildPlanExplanation(
   blocks: StudyBlock[],
   context: DailyContext,
   readinessMap: Record<number, SubjectReadiness>,
-  subjects: Subject[]
+  subjects: Subject[],
+  demand?: DeadlineDemand
 ): string[] {
   if (!getSmartPlanner()) return [];
   const out: string[] = [];
   const nameOf = (id: number) => subjects.find(s => Number(s.id) === id)?.name || 'subject';
   const studyBlocks = blocks.filter(b => b.type !== 'break');
+
+  if (demand?.infeasible) {
+    out.push(`⚠️ Overloaded — ${demand.count} deadline${demand.count > 1 ? 's need' : ' needs'} ~${demand.requiredPerDay} min/day`);
+  }
 
   if (context.dayType === 'esa' || context.dayType === 'isa') {
     const focus = context.focusSubjectId ? ` · ${nameOf(context.focusSubjectId)}` : '';
@@ -793,6 +798,72 @@ function buildPlanExplanation(
   if (core || stretch) out.push(`${core} must-do · ${stretch} stretch`);
 
   return out.slice(0, 4);
+}
+
+/* ======================================================
+  smartPlanner: deadline backward-scheduling (#5) + slack/knapsack selection (#4/#10)
+====================================================== */
+
+interface DeadlineDemand {
+  requiredPerDay: number;  // total min/day across open deadlines
+  capacity: number;
+  infeasible: boolean;
+  warning?: string;
+  count: number;
+}
+
+// Backward-schedule open assignments: required min/day = remainingEffort / daysLeft.
+// Flags infeasibility when the sum exceeds the day's capacity.
+async function computeDeadlineDemand(dbInstance: OrbitDB, capacityMin: number): Promise<DeadlineDemand> {
+  const today = getISTEffectiveDate();
+  const assignments = await dbInstance.assignments.toArray();
+  let requiredPerDay = 0, count = 0;
+  for (const a of assignments) {
+    if (a.completed || !a.dueDate) continue;
+    const remaining = Math.max(0, (a.estimatedEffort ?? DEFAULT_ASSIGNMENT_EFFORT_MIN) - (a.progressMinutes ?? 0));
+    if (remaining <= 0) continue;
+    const daysLeft = Math.max(1, daysBetweenDates(String(a.dueDate).slice(0, 10), today));
+    requiredPerDay += remaining / daysLeft;
+    count++;
+  }
+  requiredPerDay = Math.round(requiredPerDay);
+  const infeasible = requiredPerDay > capacityMin;
+  const warning = infeasible
+    ? `${count} deadline${count > 1 ? 's need' : ' needs'} ~${requiredPerDay} min/day — over your ~${capacityMin} min/day capacity. Drop or extend something.`
+    : undefined;
+  return { requiredPerDay, capacity: capacityMin, infeasible, warning, count };
+}
+
+// Keep all must-do (core) blocks; fill the remaining slack budget (~90% of the
+// day) with the highest readiness-gain stretch blocks (value-density knapsack).
+// Leaves breathing room and makes stretch selection value-optimal, not arbitrary.
+function finalizeSmartBlocks(
+  blocks: StudyBlock[],
+  readinessMap: Record<number, SubjectReadiness>,
+  constraints: DayConstraints
+): StudyBlock[] {
+  if (!getSmartPlanner()) return blocks;
+  applySmartPlanTier(blocks);
+  const stretch = blocks.filter(b => b.tier === 'stretch');
+  if (!stretch.length) return blocks;
+
+  const SLACK = 0.9;
+  const budget = constraints.maxMinutes * SLACK;
+  const core = blocks.filter(b => b.tier !== 'stretch');
+  const coreMin = core.reduce((a, b) => a + b.duration, 0);
+  let avail = Math.max(0, budget - coreMin);
+  let slots = constraints.maxBlocks - core.filter(b => b.type !== 'break').length;
+
+  const gain = (b: StudyBlock) => {
+    const r = readinessMap[b.subjectId]?.score ?? 50;
+    return (b.duration / 60) * 5 * ((100 - r) / 100);
+  };
+  const ranked = [...stretch].sort((a, b) => (gain(b) / b.duration) - (gain(a) / a.duration) || a.priority - b.priority);
+  const keep = new Set<string>();
+  for (const b of ranked) {
+    if (slots > 0 && b.duration <= avail) { keep.add(b.id); avail -= b.duration; slots--; }
+  }
+  return blocks.filter(b => b.tier !== 'stretch' || keep.has(b.id));
 }
 
 export const generateDailyPlan = async (
@@ -964,11 +1035,15 @@ export const generateDailyPlan = async (
         }
 
         // ISA is exclusive — skip everything else, return immediately
-        const ordered = await orderBlocksCircadian(blocks, subjects);
+        const refined = finalizeSmartBlocks(blocks, readinessMap, constraints);
+        const ordered = await orderBlocksCircadian(refined, subjects);
         const loadAnalysis = await analyzeLoad(ordered, context, constraints, readinessMap, dbInstance);
-        applySmartPlanTier(ordered);
-        const explanation = buildPlanExplanation(ordered, context, readinessMap, subjects);
-        if (explanation.length) loadAnalysis.planExplanation = explanation;
+        if (getSmartPlanner()) {
+          const demand = await computeDeadlineDemand(dbInstance, constraints.maxMinutes);
+          if (demand.infeasible && !loadAnalysis.warning) loadAnalysis.warning = demand.warning;
+          const explanation = buildPlanExplanation(ordered, context, readinessMap, subjects, demand);
+          if (explanation.length) loadAnalysis.planExplanation = explanation;
+        }
         return { blocks: ordered, loadAnalysis };
       }
     }
@@ -1420,11 +1495,15 @@ export const generateDailyPlan = async (
       );
     }
 
-    const ordered = await orderBlocksCircadian(blocks, subjects);
+    const refined = finalizeSmartBlocks(blocks, readinessMap, constraints);
+    const ordered = await orderBlocksCircadian(refined, subjects);
     const loadAnalysis = await analyzeLoad(ordered, context, constraints, readinessMap, dbInstance);
-    applySmartPlanTier(ordered);
-    const explanation = buildPlanExplanation(ordered, context, readinessMap, subjects);
-    if (explanation.length) loadAnalysis.planExplanation = explanation;
+    if (getSmartPlanner()) {
+      const demand = await computeDeadlineDemand(dbInstance, constraints.maxMinutes);
+      if (demand.infeasible && !loadAnalysis.warning) loadAnalysis.warning = demand.warning;
+      const explanation = buildPlanExplanation(ordered, context, readinessMap, subjects, demand);
+      if (explanation.length) loadAnalysis.planExplanation = explanation;
+    }
 
     return {
       blocks: ordered,
