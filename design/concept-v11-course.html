@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orbit — Course detail concept</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { ink:'#0A0A0A', ink2:'#131314', ink3:'#1C1C1E', orange:'#FF5A1F', orange2:'#FF7A3C', yellow:'#FFD60A', paper:'#F7F5EF', mute:'#9A9AA2', danger:'#F4453B' },
+      fontFamily: { display:['Archivo','sans-serif'], sans:['Inter','sans-serif'], mono:['JetBrains Mono','monospace'] },
+      borderRadius: { '4xl':'28px' },
+    }}}
+  </script>
+  <style>
+    body { background:#0A0A0A; color:#fff; -webkit-font-smoothing:antialiased; }
+    .display { font-family:'Archivo',sans-serif; font-weight:900; letter-spacing:-0.04em; line-height:0.92; }
+    .meta { font-family:'JetBrains Mono',monospace; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; }
+    .tnum{font-variant-numeric:tabular-nums}
+    ::-webkit-scrollbar{width:10px}::-webkit-scrollbar-thumb{background:#FF5A1F;border-radius:99px;border:3px solid #0A0A0A}
+  </style>
+</head>
+<body class="font-sans">
+<div class="max-w-[1180px] mx-auto px-5 md:px-8 py-8">
+
+  <!-- concept tag -->
+  <div class="flex items-center justify-between mb-8">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-orange flex items-center justify-center text-ink display text-xl">O</div>
+      <div class="meta text-[10px] text-mute">Concept v11 · course detail</div>
+    </div>
+    <span class="meta text-[10px] text-ink bg-yellow px-3 py-1.5 rounded-lg">Brain-led course view</span>
+  </div>
+
+  <!-- ── TOP BAR ── -->
+  <div class="flex items-center justify-between mb-6">
+    <button class="flex items-center gap-2 meta text-[10px] text-mute hover:text-white"><span class="text-lg leading-none">←</span> All courses</button>
+    <div class="flex items-center gap-2">
+      <span class="meta text-[9px] text-mute bg-ink2 border-2 border-white/12 px-3 py-2 rounded-xl">✎ Edit</span>
+      <span class="meta text-[9px] text-orange bg-orange/12 border-2 border-orange/30 px-4 py-2 rounded-xl flex items-center gap-1.5">▶ Start focus</span>
+    </div>
+  </div>
+
+  <!-- ── HERO ── -->
+  <div class="grid lg:grid-cols-[1.5fr_1fr] gap-4 mb-4">
+    <!-- identity -->
+    <div class="rounded-4xl bg-ink2 border-2 border-white/12 p-7 relative overflow-hidden">
+      <div class="absolute -right-10 -top-10 w-48 h-48 rounded-full" style="background:radial-gradient(circle,#FF5A1F22,transparent 70%)"></div>
+      <div class="relative">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-14 h-14 rounded-2xl bg-orange flex items-center justify-center text-ink display text-2xl">OS</div>
+          <div class="flex gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-orange ring-2 ring-orange ring-offset-2 ring-offset-ink2"></span>
+            <span class="w-5 h-5 rounded-full bg-orange2"></span>
+            <span class="w-5 h-5 rounded-full bg-yellow"></span>
+            <span class="w-5 h-5 rounded-full bg-paper"></span>
+          </div>
+        </div>
+        <h1 class="display text-4xl md:text-6xl mb-3">Operating<br>Systems</h1>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="meta text-[10px] text-mute bg-ink3 border border-white/10 px-3 py-1.5 rounded-lg">CS305</span>
+          <span class="meta text-[10px] text-mute bg-ink3 border border-white/10 px-3 py-1.5 rounded-lg">4 credits</span>
+          <span class="meta text-[10px] text-orange bg-orange/10 border border-orange/25 px-3 py-1.5 rounded-lg">●●●●○ hard</span>
+          <span class="meta text-[10px] text-yellow bg-yellow/10 border border-yellow/25 px-3 py-1.5 rounded-lg">📝 ESA in 4d</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- readiness hero -->
+    <div class="rounded-4xl bg-ink2 border-2 border-white/12 p-7 flex items-center gap-5">
+      <div class="relative w-32 h-32 shrink-0">
+        <svg viewBox="0 0 100 100" class="w-full h-full" style="transform:rotate(-90deg)">
+          <circle cx="50" cy="50" r="43" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="7"/>
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#FF5A1F" stroke-width="7" stroke-linecap="round" stroke-dasharray="270" stroke-dashoffset="194"/>
+        </svg>
+        <div class="absolute inset-0 flex flex-col items-center justify-center">
+          <div class="display text-4xl">28<span class="text-xl">%</span></div>
+        </div>
+      </div>
+      <div class="min-w-0">
+        <div class="meta text-[10px] text-mute mb-1">Readiness</div>
+        <div class="display text-2xl text-orange mb-2">CRITICAL</div>
+        <div class="text-xs text-mute leading-relaxed">Last studied <b class="text-white/80">2d ago</b>. Quality-weighted.</div>
+        <div class="meta text-[9px] text-yellow mt-3 bg-yellow/10 border border-yellow/25 px-2.5 py-1.5 rounded-lg inline-block">↗ +18% with 1h/day · 7d</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STAT STRIP ── -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+    <div class="rounded-4xl bg-ink2 border-2 border-white/12 p-5">
+      <div class="meta text-[9px] text-mute mb-2">Study time</div>
+      <div class="display text-3xl">12.5<span class="text-base text-mute">h</span></div>
+      <div class="meta text-[9px] text-mute mt-1">2.0h this week</div>
+    </div>
+    <div class="rounded-4xl bg-orange text-ink p-5">
+      <div class="meta text-[9px] opacity-70 mb-2">Reviews due</div>
+      <div class="display text-3xl">03</div>
+      <div class="meta text-[9px] opacity-70 mt-1">topics to revisit</div>
+    </div>
+    <div class="rounded-4xl bg-ink2 border-2 border-white/12 p-5">
+      <div class="meta text-[9px] text-mute mb-2">Next exam</div>
+      <div class="display text-3xl text-yellow">4<span class="text-base text-mute">d</span></div>
+      <div class="meta text-[9px] text-mute mt-1">ESA · Jun 8</div>
+    </div>
+    <div class="rounded-4xl bg-ink2 border-2 border-white/12 p-5">
+      <div class="meta text-[9px] text-mute mb-2">Grade avg</div>
+      <div class="display text-3xl">8.4</div>
+      <div class="meta text-[9px] text-mute mt-1">across 3 marks</div>
+    </div>
+  </div>
+
+  <!-- ── TOPICS · MASTERY (the star) ── -->
+  <div class="rounded-4xl bg-ink2 border-2 border-white/12 p-6 mb-4">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="display text-2xl">TOPICS · MASTERY</h3>
+      <span class="meta text-[9px] text-orange bg-orange/12 border-2 border-orange/30 px-4 py-2 rounded-xl">Review 3 due →</span>
+    </div>
+    <div class="space-y-2.5">
+      <!-- row: overdue -->
+      <div class="flex items-center gap-4 p-4 rounded-xl bg-ink3 border-2 border-orange/30">
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-white">Concurrency &amp; Locks</div>
+          <div class="meta text-[9px] text-mute mt-1">ease 1.6 · 2 reviews</div>
+        </div>
+        <div class="w-40 shrink-0">
+          <div class="h-2 bg-white/10 rounded-full overflow-hidden"><div class="h-full bg-orange rounded-full" style="width:22%"></div></div>
+          <div class="meta text-[8px] text-mute mt-1 text-right">22% mastery</div>
+        </div>
+        <span class="meta text-[9px] text-orange bg-orange/15 px-2.5 py-1.5 rounded-lg shrink-0 w-24 text-center">⚠ Overdue 2d</span>
+      </div>
+      <!-- row: due today -->
+      <div class="flex items-center gap-4 p-4 rounded-xl bg-ink3 border-2 border-yellow/25">
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-white">Deadlocks</div>
+          <div class="meta text-[9px] text-mute mt-1">ease 2.0 · 3 reviews</div>
+        </div>
+        <div class="w-40 shrink-0">
+          <div class="h-2 bg-white/10 rounded-full overflow-hidden"><div class="h-full bg-yellow rounded-full" style="width:48%"></div></div>
+          <div class="meta text-[8px] text-mute mt-1 text-right">48% mastery</div>
+        </div>
+        <span class="meta text-[9px] text-yellow bg-yellow/15 px-2.5 py-1.5 rounded-lg shrink-0 w-24 text-center">Due today</span>
+      </div>
+      <!-- row: scheduled -->
+      <div class="flex items-center gap-4 p-4 rounded-xl bg-ink3 border-2 border-white/10">
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-white">CPU Scheduling</div>
+          <div class="meta text-[9px] text-mute mt-1">ease 2.3 · 5 reviews</div>
+        </div>
+        <div class="w-40 shrink-0">
+          <div class="h-2 bg-white/10 rounded-full overflow-hidden"><div class="h-full bg-paper rounded-full" style="width:74%"></div></div>
+          <div class="meta text-[8px] text-mute mt-1 text-right">74% mastery</div>
+        </div>
+        <span class="meta text-[9px] text-mute bg-white/5 px-2.5 py-1.5 rounded-lg shrink-0 w-24 text-center">in 3d</span>
+      </div>
+      <!-- row: strong -->
+      <div class="flex items-center gap-4 p-4 rounded-xl bg-ink3 border-2 border-white/10">
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-white">Memory Management</div>
+          <div class="meta text-[9px] text-mute mt-1">ease 2.5 · 6 reviews</div>
+        </div>
+        <div class="w-40 shrink-0">
+          <div class="h-2 bg-white/10 rounded-full overflow-hidden"><div class="h-full bg-paper rounded-full" style="width:88%"></div></div>
+          <div class="meta text-[8px] text-mute mt-1 text-right">88% mastery</div>
+        </div>
+        <span class="meta text-[9px] text-mute bg-white/5 px-2.5 py-1.5 rounded-lg shrink-0 w-24 text-center">in 9d</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SYLLABUS + RESOURCES ── -->
+  <div class="grid lg:grid-cols-2 gap-4 mb-4">
+    <!-- syllabus -->
+    <div class="rounded-4xl bg-ink2 border-2 border-white/12 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="display text-xl">SYLLABUS</h3>
+        <span class="meta text-[9px] text-mute">5 / 8 · 62%</span>
+      </div>
+      <div class="h-2 bg-white/10 rounded-full overflow-hidden mb-5"><div class="h-full bg-orange rounded-full" style="width:62%"></div></div>
+      <div class="space-y-2">
+        <div class="flex items-center gap-3"><span class="w-5 h-5 rounded bg-orange flex items-center justify-center text-ink text-xs">✓</span><span class="text-sm text-white/80">Processes &amp; Threads</span></div>
+        <div class="flex items-center gap-3"><span class="w-5 h-5 rounded bg-orange flex items-center justify-center text-ink text-xs">✓</span><span class="text-sm text-white/80">CPU Scheduling</span></div>
+        <div class="flex items-center gap-3"><span class="w-5 h-5 rounded bg-orange flex items-center justify-center text-ink text-xs">✓</span><span class="text-sm text-white/80">Synchronization</span></div>
+        <div class="flex items-center gap-3"><span class="w-5 h-5 rounded border-2 border-white/20"></span><span class="text-sm text-mute">Deadlocks</span></div>
+        <div class="flex items-center gap-3"><span class="w-5 h-5 rounded border-2 border-white/20"></span><span class="text-sm text-mute">Memory Management</span></div>
+        <div class="flex items-center gap-3"><span class="w-5 h-5 rounded border-2 border-white/20"></span><span class="text-sm text-mute">File Systems</span></div>
+      </div>
+      <button class="meta text-[9px] text-mute hover:text-white mt-4">+ Add unit</button>
+    </div>
+
+    <!-- resources -->
+    <div class="rounded-4xl bg-ink2 border-2 border-white/12 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="display text-xl">RESOURCES</h3>
+        <span class="meta text-[9px] text-mute">4 items</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2.5">
+        <div class="p-4 rounded-xl bg-ink3 border-2 border-white/10 hover:border-orange/30 transition-colors">
+          <div class="w-9 h-9 rounded-lg bg-orange/15 border border-orange/25 flex items-center justify-center mb-2 text-orange">▦</div>
+          <div class="text-sm font-bold text-white leading-tight">OSTEP Ch. 32</div>
+          <div class="meta text-[8px] text-mute mt-1">PDF</div>
+        </div>
+        <div class="p-4 rounded-xl bg-ink3 border-2 border-white/10 hover:border-orange/30 transition-colors">
+          <div class="w-9 h-9 rounded-lg bg-orange/15 border border-orange/25 flex items-center justify-center mb-2 text-orange">↗</div>
+          <div class="text-sm font-bold text-white leading-tight">Lecture slides W6</div>
+          <div class="meta text-[8px] text-mute mt-1">Link</div>
+        </div>
+        <div class="p-4 rounded-xl bg-ink3 border-2 border-white/10 hover:border-orange/30 transition-colors">
+          <div class="w-9 h-9 rounded-lg bg-orange/15 border border-orange/25 flex items-center justify-center mb-2 text-orange">▶</div>
+          <div class="text-sm font-bold text-white leading-tight">Deadlock video</div>
+          <div class="meta text-[8px] text-mute mt-1">Link</div>
+        </div>
+        <div class="p-4 rounded-xl bg-ink border-2 border-dashed border-white/15 flex flex-col items-center justify-center text-mute hover:border-orange/30 hover:text-orange transition-colors">
+          <div class="text-2xl leading-none mb-1">+</div>
+          <div class="meta text-[8px]">Add</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── GRADES + NOTES ── -->
+  <div class="grid lg:grid-cols-2 gap-4 mb-4">
+    <!-- grades -->
+    <div class="rounded-4xl bg-ink2 border-2 border-white/12 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="display text-xl">GRADES</h3>
+        <div class="text-right"><div class="display text-2xl text-yellow">8.4</div><div class="meta text-[8px] text-mute">avg / 10</div></div>
+      </div>
+      <div class="space-y-2">
+        <div class="flex items-center justify-between p-3 rounded-xl bg-ink3 border border-white/10"><span class="text-sm font-bold text-white">ISA 1</span><span class="meta text-[10px] text-paper">18 / 20</span></div>
+        <div class="flex items-center justify-between p-3 rounded-xl bg-ink3 border border-white/10"><span class="text-sm font-bold text-white">Assignment</span><span class="meta text-[10px] text-paper">9 / 10</span></div>
+        <div class="flex items-center justify-between p-3 rounded-xl bg-ink3 border border-white/10"><span class="text-sm font-bold text-white">ISA 2</span><span class="meta text-[10px] text-yellow">14 / 20</span></div>
+      </div>
+      <button class="meta text-[9px] text-mute hover:text-white mt-4">+ Add grade</button>
+    </div>
+
+    <!-- notes -->
+    <div class="rounded-4xl bg-ink2 border-2 border-white/12 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="display text-xl">NOTES</h3>
+        <span class="meta text-[9px] text-mute">edited 2d ago</span>
+      </div>
+      <div class="rounded-xl bg-ink3 border border-white/10 p-4 text-sm text-mute leading-relaxed h-[160px]">
+        Banker's algorithm — remember safe-state check. Prof hinted deadlock detection will be on the ESA. Revisit reader-writer locks before exam…
+      </div>
+    </div>
+  </div>
+
+  <div class="text-center meta text-[10px] text-mute py-3">Orbit · concept v11 · not wired</div>
+</div>
+</body>
+</html>

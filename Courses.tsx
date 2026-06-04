@@ -161,6 +161,14 @@ export default function CoursesView_Enhanced() {
     ? subjects.find((s) => s.id === selectedSubjectId)
     : null;
 
+  // Spaced-repetition topics for the open subject (powers Topics·Mastery)
+  const subjectTopics = useLiveQuery(
+    () => selectedSubjectId != null
+      ? db.topics.where('subjectId').equals(selectedSubjectId).toArray()
+      : Promise.resolve([] as any[]),
+    [selectedSubjectId]
+  ) || [];
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -629,430 +637,244 @@ export default function CoursesView_Enhanced() {
     const colorClasses = SUBJECT_COLOR_CLASSES[subjectColor];
     const gpa = calculateGPA(selectedSubject.grades || []);
 
+    const readiness = readinessScores[selectedSubject.id!];
+    const rScore = readiness ? Math.round(readiness.score) : 0;
+    const rStatus = readiness ? readiness.status : 'maintaining';
+    const rColor = rStatus === 'critical' ? '#FF5A1F' : rStatus === 'mastered' ? '#F7F5EF' : '#FFD60A';
+    const ringCirc = 2 * Math.PI * 43;
+    const ringOffset = ringCirc * (1 - Math.max(0, Math.min(1, rScore / 100)));
+    const forecast = readiness ? predictReadiness(readiness, selectedSubject, 7, 1) : null;
+    const forecastGain = forecast ? Math.max(0, Math.round((forecast.projectedScore || 0) - rScore)) : 0;
+    const tdy = getISTEffectiveDate();
+    const dayDiff = (a: string, b: string) => { const pa = String(a).slice(0, 10).split('-').map(Number); const pb = String(b).slice(0, 10).split('-').map(Number); return Math.round((Date.UTC(pa[0], (pa[1] || 1) - 1, pa[2] || 1) - Date.UTC(pb[0], (pb[1] || 1) - 1, pb[2] || 1)) / 86400000); };
+    const subjExams = (exams || []).filter((e) => e.subjectId === selectedSubject.id).sort((a, b) => String(a.examDate).localeCompare(String(b.examDate)));
+    const nextExam = subjExams[0];
+    const nextExamDays = nextExam ? dayDiff(nextExam.examDate, tdy) : null;
+    const topicByName = new Map((subjectTopics || []).map((t) => [String(t.name).toLowerCase().trim(), t]));
+    const masteryOf = (t: any) => t ? Math.max(0, Math.min(100, Math.round(((t.easeFactor - 1.3) / 1.2) * 70 + Math.min(t.reviewCount || 0, 6) / 6 * 30))) : 0;
+    const rowFor = (name: string, t: any) => { let due = 'new'; let dueDays: number | null = null; if (t) { const d = dayDiff(t.nextReview, tdy); dueDays = d; due = d < 0 ? 'overdue' : d === 0 ? 'due' : 'scheduled'; } return { name, mastery: masteryOf(t), due, dueDays, reviews: t ? (t.reviewCount || 0) : 0 }; };
+    const unitTitles = (selectedSubject.syllabus || []).map((u: any) => u.title);
+    const topicRows: any[] = [];
+    unitTitles.forEach((title) => topicRows.push(rowFor(title, topicByName.get(String(title).toLowerCase().trim()))));
+    (subjectTopics || []).forEach((t) => { if (!unitTitles.some((u) => String(u).toLowerCase().trim() === String(t.name).toLowerCase().trim())) topicRows.push(rowFor(t.name, t)); });
+    const urg = (r: any) => r.due === 'overdue' ? 0 : r.due === 'due' ? 1 : r.due === 'scheduled' ? 2 : 3;
+    topicRows.sort((a, b) => urg(a) - urg(b) || a.mastery - b.mastery);
+    const reviewsDue = topicRows.filter((r) => r.due === 'overdue' || r.due === 'due').length;
+    const subjectLogs = logs.filter((l) => l.subjectId === selectedSubject.id && l.notes && l.notes.trim().length > 0).sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
+    const goReview = () => window.dispatchEvent(new CustomEvent('orbit:navigate', { detail: { tab: 'review' } }));
+    const goFocus = () => window.dispatchEvent(new CustomEvent('orbit:navigate', { detail: { tab: 'dashboard' } }));
+    const META = "text-[9px] font-mono uppercase tracking-[0.16em] text-mute";
+
     return (
-      <div className="pb-32 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="pb-32 pt-6 px-4 lg:px-8 w-full max-w-[1180px] mx-auto">
         {subjectFormModal}
         {deleteSubjectModal}
-        <button
-          onClick={() => setSelectedSubjectId(null)}
-          className="mb-6 flex items-center gap-2 text-sm font-bold text-zinc-400 hover:text-white transition-all hover:-translate-x-1 min-h-[44px]"
-        >
-          <ChevronLeft size={16} />
-          <span>Back to Courses</span>
-        </button>
 
-        <div className="flex items-center gap-4 md:gap-6 mb-8">
-          <div className="relative group/avatar shrink-0">
-            <div className={`w-16 h-16 md:w-20 md:h-20 ${colorClasses.bg} rounded-3xl flex items-center justify-center font-bold text-black text-xl md:text-2xl shadow-xl animate-in zoom-in duration-500`}>
-              {getInitials(selectedSubject.name)}
-            </div>
-            {/* Color picker swatches on hover */}
-            <div className="absolute left-0 top-full mt-2 hidden group-hover/avatar:flex gap-1.5 p-2 rounded-2xl bg-zinc-900/95 border border-white/10 backdrop-blur-xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
-              {SUBJECT_COLORS.map((c, idx) => (
-                <button
-                  key={c}
-                  onClick={async () => {
-                    await db.subjects.update(selectedSubject.id!, { colorIndex: idx });
-                    toast.success(`Color updated`);
-                  }}
-                  className={`w-7 h-7 rounded-lg border-2 transition-all hover:scale-110 ${SUBJECT_COLOR_CLASSES[c].bg}
-                    ${(selectedSubject.colorIndex !== undefined ? selectedSubject.colorIndex : selectedSubject.id!) % SUBJECT_COLORS.length === idx
-                      ? 'border-white shadow-lg' : 'border-transparent'}`}
-                  title={c}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="min-w-0 animate-in slide-in-from-left duration-500">
-            <h1 className="text-3xl md:text-5xl font-bold font-display mb-2 truncate">{selectedSubject.name || "Untitled"}</h1>
-            <div className="text-zinc-400 text-sm md:text-base flex items-center gap-2 md:gap-3 flex-wrap">
-              <span className="font-mono font-semibold">{selectedSubject.code || "NO CODE"}</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
-              <span>{selectedSubject.credits ?? 0} credits</span>
-              <span className="text-[10px] text-zinc-600 font-medium hidden sm:inline">(hover avatar to change color)</span>
-            </div>
-          </div>
-          <div className="ml-auto flex items-center gap-2 shrink-0">
-            <button onClick={() => openEditSubject(selectedSubject)} aria-label="Edit subject details" className="flex items-center gap-2 px-3 md:px-4 py-2.5 rounded-xl border border-zinc-700/50 text-zinc-300 hover:text-white hover:bg-white/5 font-semibold text-sm transition-all min-h-[44px]"><Edit2 size={16} /><span className="hidden sm:inline">Edit</span></button>
-            <button onClick={() => setDeletingSubjectId(selectedSubject.id!)} aria-label="Delete subject" className="flex items-center gap-2 px-3 md:px-4 py-2.5 rounded-xl border border-rose-500/30 text-rose-300 hover:bg-rose-500/10 font-semibold text-sm transition-all min-h-[44px]"><Trash2 size={16} /><span className="hidden sm:inline">Delete</span></button>
+        {/* top bar */}
+        <div className="flex items-center justify-between mb-6">
+          <button onClick={() => setSelectedSubjectId(null)} className="flex items-center gap-2 text-sm font-bold text-mute hover:text-white transition-colors min-h-[44px]"><ChevronLeft size={16} /> All courses</button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => openEditSubject(selectedSubject)} className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-ink2 border-2 border-white/12 text-zinc-300 hover:text-white text-sm font-bold transition-colors min-h-[44px]"><Edit2 size={15} /><span className="hidden sm:inline">Edit</span></button>
+            <button onClick={() => setDeletingSubjectId(selectedSubject.id!)} aria-label="Delete subject" className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-ink2 border-2 border-white/12 text-mute hover:text-red-400 text-sm font-bold transition-colors min-h-[44px]"><Trash2 size={15} /></button>
+            <button onClick={goFocus} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 text-ink text-sm font-bold hover:brightness-105 transition-all min-h-[44px]"><Sparkles size={15} /> Start focus</button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-10">
-          {[
-            { label: "Progress", value: `${computeProgress(selectedSubject)}%`, color: "indigo", icon: Target },
-            { label: "Study Time", value: `${getTotalHours(selectedSubject.id!)}h`, color: "yellow", icon: Clock },
-            { label: "Avg Score", value: gpa ? `${gpa}%` : '--', color: "amber", icon: TrendingUp },
-            { label: "Resources", value: (selectedSubject.resources || []).length, color: "orange", icon: FileText }
-          ].map((stat, i) => {
-            const Icon = stat.icon;
-            return (
-              <FrostedTile key={i} className="p-4 md:p-6 group hover:border-indigo-500/30 hover:-translate-y-1 animate-in fade-in duration-300" style={{ animationDelay: `${i * 50}ms` }}>
-                <div className={`absolute inset-0 bg-gradient-to-br from-${stat.color}-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-                <div className="relative z-10">
-                  <div className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-${stat.color}-500/20 flex items-center justify-center mb-3 md:mb-4 text-${stat.color}-400 group-hover:scale-110 transition-transform duration-500 border border-${stat.color}-500/30 shadow-lg shadow-${stat.color}-500/10`}>
-                    <Icon size={20} className="md:hidden" />
-                    <Icon size={24} className="hidden md:block" />
-                  </div>
-                  <div className="text-xs text-zinc-500 uppercase tracking-wider font-bold mb-2">{stat.label}</div>
-                  <div className={`text-3xl md:text-4xl font-bold font-mono tabular-nums text-${stat.color}-400`}>
-                    {stat.value}
-                  </div>
+        {/* hero */}
+        <div className="grid lg:grid-cols-[1.5fr_1fr] gap-4 mb-4">
+          <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-7 relative overflow-hidden">
+            <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle,#FF5A1F22,transparent 70%)' }} />
+            <div className="relative">
+              <div className="flex items-center gap-3 mb-5">
+                <div className={"w-14 h-14 rounded-2xl flex items-center justify-center text-ink font-display font-black text-2xl " + colorClasses.bg}>{getInitials(selectedSubject.name)}</div>
+                <div className="flex gap-1.5">
+                  {SUBJECT_COLORS.map((cc, idx) => (
+                    <button key={cc} onClick={async () => { await db.subjects.update(selectedSubject.id!, { colorIndex: idx }); toast.success('Color updated'); }} title={cc}
+                      className={"w-5 h-5 rounded-full transition-transform hover:scale-110 " + SUBJECT_COLOR_CLASSES[cc].bg + ((selectedSubject.colorIndex !== undefined ? selectedSubject.colorIndex : selectedSubject.id!) % SUBJECT_COLORS.length === idx ? " ring-2 ring-white ring-offset-2 ring-offset-ink2" : "")} />
+                  ))}
                 </div>
-              </FrostedTile>
-            );
-          })}
+              </div>
+              <h1 className="font-display font-black text-4xl md:text-6xl mb-3 leading-[0.92]">{selectedSubject.name || 'Untitled'}</h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={META + " bg-ink3 border border-white/10 px-3 py-1.5 rounded-lg"}>{selectedSubject.code || 'NO CODE'}</span>
+                <span className={META + " bg-ink3 border border-white/10 px-3 py-1.5 rounded-lg"}>{selectedSubject.credits ?? 0} credits</span>
+                <span className="flex items-center gap-1.5 bg-orange-500/10 border border-orange-500/25 px-3 py-1.5 rounded-lg">
+                  {[1, 2, 3, 4, 5].map((n) => <span key={n} className={"w-1.5 h-1.5 rounded-full " + (n <= (selectedSubject.difficulty || 0) ? "bg-orange-400" : "bg-white/15")} />)}
+                  <span className="text-[9px] font-mono uppercase tracking-[0.16em] text-orange-400 ml-1">difficulty</span>
+                </span>
+                {nextExam && <span className="text-[9px] font-mono uppercase tracking-[0.16em] text-yellow-400 bg-yellow-400/10 border border-yellow-400/25 px-3 py-1.5 rounded-lg">{nextExam.examType.toUpperCase()} in {Math.max(0, nextExamDays ?? 0)}d</span>}
+              </div>
+            </div>
+          </div>
+
+          {/* readiness */}
+          <button onClick={() => setShowPrediction(selectedSubject.id!)} className="rounded-3xl bg-ink2 border-2 border-white/12 p-6 flex items-center gap-5 text-left hover:border-white/20 transition-colors">
+            <div className="relative w-28 h-28 shrink-0">
+              <svg viewBox="0 0 100 100" className="w-full h-full" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="50" cy="50" r="43" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />
+                <circle cx="50" cy="50" r="43" fill="none" stroke={rColor} strokeWidth="7" strokeLinecap="round" strokeDasharray={ringCirc} strokeDashoffset={ringOffset} style={{ transition: 'stroke-dashoffset .6s ease' }} />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center"><div className="font-display font-black text-3xl tabular-nums">{rScore}<span className="text-base">%</span></div></div>
+            </div>
+            <div className="min-w-0">
+              <div className={META + " mb-1"}>Readiness</div>
+              <div className="font-display font-black text-xl mb-1" style={{ color: rColor }}>{rStatus.toUpperCase()}</div>
+              <div className="text-xs text-mute leading-relaxed">{readiness && readiness.lastStudiedDays != null ? (readiness.lastStudiedDays === 0 ? 'Studied today' : readiness.lastStudiedDays >= 365 ? 'Not started' : 'Last studied ' + readiness.lastStudiedDays + 'd ago') : 'No data yet'}</div>
+              {forecast && forecastGain > 0 && <div className="text-[9px] font-mono uppercase tracking-[0.16em] text-yellow-400 mt-2 bg-yellow-400/10 border border-yellow-400/25 px-2.5 py-1.5 rounded-lg inline-block">↗ +{forecastGain}% · 1h/day · 7d</div>}
+            </div>
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-          <FrostedTile className="p-6 md:p-8 hover:border-indigo-500/30 hover:-translate-y-1 animate-in fade-in slide-in-from-left duration-500">
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="relative z-10">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform duration-500 border border-indigo-500/30 shadow-lg shadow-indigo-500/10">
-                  <Target size={24} className="md:hidden" />
-                  <Target size={28} className="hidden md:block" />
-                </div>
-                <h3 className="text-lg md:text-xl font-bold text-white">Syllabus</h3>
-              </div>
+        {/* stat strip */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-5"><div className={META + " mb-2"}>Study time</div><div className="font-display font-black text-3xl tabular-nums">{getTotalHours(selectedSubject.id!)}<span className="text-base text-mute">h</span></div><div className={META + " mt-1"}>{computeProgress(selectedSubject)}% syllabus</div></div>
+          <button onClick={reviewsDue > 0 ? goReview : undefined} className={"rounded-3xl p-5 text-left " + (reviewsDue > 0 ? "bg-orange-500 text-ink" : "bg-ink2 border-2 border-white/12")}><div className={"text-[9px] font-mono uppercase tracking-[0.16em] mb-2 " + (reviewsDue > 0 ? "opacity-70" : "text-mute")}>Reviews due</div><div className="font-display font-black text-3xl tabular-nums">{String(reviewsDue).padStart(2, '0')}</div><div className={"text-[9px] font-mono uppercase tracking-[0.16em] mt-1 " + (reviewsDue > 0 ? "opacity-70" : "text-mute")}>{reviewsDue > 0 ? 'tap to review' : 'all caught up'}</div></button>
+          <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-5"><div className={META + " mb-2"}>Next exam</div>{nextExam ? (<><div className="font-display font-black text-3xl text-yellow-400 tabular-nums">{Math.max(0, nextExamDays ?? 0)}<span className="text-base text-mute">d</span></div><div className={META + " mt-1"}>{nextExam.examType.toUpperCase()} · {String(nextExam.examDate).slice(5)}</div></>) : (<><div className="font-display font-black text-3xl text-mute">—</div><div className={META + " mt-1"}>none set</div></>)}</div>
+          <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-5"><div className={META + " mb-2"}>Grade avg</div><div className="font-display font-black text-3xl tabular-nums">{gpa ? gpa + '%' : '—'}</div><div className={META + " mt-1"}>{(selectedSubject.grades || []).length} marks</div></div>
+        </div>
 
-              {(selectedSubject.syllabus || []).length === 0 ? (
-                <EmptySyllabus />
-              ) : (
-                <div className="space-y-2 mb-6 max-h-[400px] overflow-y-auto">
-                  {(selectedSubject.syllabus || []).map((u: any, i: number) => (
-                    <div
-                      key={u.id}
-                      className="animate-in fade-in slide-in-from-left duration-300"
-                      style={{ animationDelay: `${i * 30}ms` }}
-                    >
-                      <FrostedMini
-                        onClick={() => toggleSyllabus(u)}
-                        className="flex items-center gap-3 md:gap-4 cursor-pointer hover:bg-white/5 p-3 md:p-4 hover:scale-[1.02] active:scale-[0.98] duration-300 min-h-[56px] md:min-h-[64px] group hover:-translate-y-0.5"
-                      >
-                        {u.completed ?
-                          <CheckSquare className="text-yellow-400 shrink-0 group-hover:scale-110 transition-transform" size={20} /> :
-                          <Square size={20} className="text-zinc-600 shrink-0 group-hover:scale-110 transition-transform" />
-                        }
-                        <span className={`text-sm md:text-base font-medium ${u.completed ? "line-through text-zinc-500" : "text-zinc-300"}`}>
-                          {u.title}
-                        </span>
-                      </FrostedMini>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <input
-                  value={newUnit}
-                  onChange={(e) => setNewUnit(e.target.value)}
-                  placeholder="Add unit..."
-                  className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all min-h-[56px] md:min-h-[64px]"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newUnit.trim()) {
-                      addUnit();
-                    }
-                  }}
-                />
-                <button
-                  onClick={addUnit}
-                  className="px-4 md:px-6 py-3 md:py-4 bg-indigo-500/20 hover:bg-indigo-500/30 rounded-2xl transition-all font-bold text-sm md:text-base border border-indigo-500/30 hover:scale-105 active:scale-95 duration-300 min-h-[56px] md:min-h-[64px] min-w-[56px] md:min-w-[64px] flex items-center justify-center"
-                >
-                  <Plus size={20} />
-                </button>
-              </div>
-            </div>
-          </FrostedTile>
-
-          <FrostedTile className="p-6 md:p-8 hover:border-yellow-500/30 hover:-translate-y-1 animate-in fade-in slide-in-from-right duration-500">
-            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-yellow-500/20 flex items-center justify-center text-yellow-400 group-hover:scale-110 transition-transform duration-500 border border-yellow-500/30 shadow-lg shadow-yellow-500/10">
-                    <Calculator size={24} className="md:hidden" />
-                    <Calculator size={28} className="hidden md:block" />
-                  </div>
-                  <h3 className="text-lg md:text-xl font-bold text-white">Grades</h3>
-                </div>
-                <button
-                  onClick={() => setShowGradeForm(!showGradeForm)}
-                  className="p-2 md:p-3 hover:bg-white/10 rounded-2xl transition-all hover:scale-110 active:scale-95 duration-300 min-h-[44px] md:min-h-[56px] min-w-[44px] md:min-w-[56px] flex items-center justify-center"
-                >
-                  <Plus size={20} />
-                </button>
-              </div>
-
-              {showGradeForm && (
-                <div className="mb-6 p-4 md:p-6 space-y-3 md:space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <FrostedMini>
-                    <input
-                      placeholder="Type (e.g., ISA-1, Quiz 2)"
-                      value={newGrade.type}
-                      onChange={(e) => setNewGrade({ ...newGrade, type: e.target.value })}
-                      className="w-full bg-transparent px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none min-h-[56px] md:min-h-[64px]"
-                    />
-                  </FrostedMini>
-                  <div className="grid grid-cols-2 gap-3 md:gap-4">
-                    <FrostedMini>
-                      <input
-                        type="number"
-                        placeholder="Score"
-                        value={newGrade.score}
-                        onChange={(e) => setNewGrade({ ...newGrade, score: e.target.value })}
-                        className="w-full bg-transparent px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none min-h-[56px] md:min-h-[64px]"
-                      />
-                    </FrostedMini>
-                    <FrostedMini>
-                      <input
-                        type="number"
-                        placeholder="Max (100)"
-                        value={newGrade.maxScore}
-                        onChange={(e) => setNewGrade({ ...newGrade, maxScore: e.target.value })}
-                        className="w-full bg-transparent px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none min-h-[56px] md:min-h-[64px]"
-                      />
-                    </FrostedMini>
-                  </div>
-                  <FrostedMini>
-                    <input
-                      type="date"
-                      value={newGrade.date}
-                      onChange={(e) => setNewGrade({ ...newGrade, date: e.target.value })}
-                      className="w-full bg-transparent px-4 md:px-5 py-3 md:py-4 text-sm md:text-base font-mono outline-none min-h-[56px] md:min-h-[64px]"
-                    />
-                  </FrostedMini>
-                  <button
-                    onClick={addGrade}
-                    className="w-full py-3 md:py-4 bg-yellow-500/20 hover:bg-yellow-500/30 rounded-2xl font-bold text-sm md:text-base transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 border border-yellow-500/30 min-h-[56px] md:min-h-[64px]"
-                  >
-                    Add Grade
-                  </button>
-                </div>
-              )}
-
-              {(!selectedSubject.grades || selectedSubject.grades.length === 0) && !showGradeForm ? (
-                <EmptyGrades />
-              ) : (
-                <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                  {selectedSubject.grades && selectedSubject.grades.length > 0 && (
-                    <div className="flex items-center justify-between px-2 py-3 mb-2 border-b border-zinc-800">
-                      <span className="text-xs text-zinc-500 uppercase tracking-wider font-bold">Average</span>
-                      <span className="font-mono font-bold text-yellow-400 text-lg">
-                        {gpa}%
-                        <span className="ml-2 text-xs font-normal text-zinc-500">
-                          ({selectedSubject.grades.length} {selectedSubject.grades.length === 1 ? 'entry' : 'entries'})
-                        </span>
-                      </span>
-                    </div>
-                  )}
-                  {(selectedSubject.grades || []).map((g: any, i: number) => (
-                    <div
-                      key={g.id}
-                      className="animate-in fade-in slide-in-from-right duration-300"
-                      style={{ animationDelay: `${i * 30}ms` }}
-                    >
-                      <FrostedMini className="flex justify-between items-center hover:bg-zinc-800 hover:scale-[1.02] min-h-[72px] md:min-h-[80px] group">
-                        <div>
-                          <div className="font-bold text-sm md:text-base mb-1">{g.type}</div>
-                          <div className="text-xs text-zinc-500 uppercase tracking-wider font-mono">{g.date}</div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-xl md:text-2xl font-mono font-bold tabular-nums">
-                            {g.score}<span className="text-zinc-500 text-base md:text-lg">/{g.maxScore}</span>
-                            <span className={`text-xs md:text-sm ml-2 md:ml-3 px-2 md:px-3 py-1 md:py-1.5 rounded-xl ${
-                              (g.score / g.maxScore) >= 0.75
-                                ? 'text-yellow-400 bg-yellow-500/10'
-                                : (g.score / g.maxScore) >= 0.5
-                                  ? 'text-amber-400 bg-amber-500/10'
-                                  : 'text-red-400 bg-red-500/10'
-                            }`}>
-                              {((g.score / g.maxScore) * 100).toFixed(0)}%
-                            </span>
-                          </div>
-                          <button
-                            onClick={async () => {
-                              await db.subjects.update(selectedSubject.id!, {
-                                grades: (selectedSubject.grades || []).filter((x: any) => x.id !== g.id),
-                              });
-                              toast.success('Grade removed');
-                            }}
-                            aria-label="Remove grade"
-                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-2 hover:bg-red-500/10 rounded-xl transition-all min-h-[40px] min-w-[40px] flex items-center justify-center"
-                          >
-                            <Trash2 size={15} className="text-red-400" />
-                          </button>
-                        </div>
-                      </FrostedMini>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </FrostedTile>
-
-          <FrostedTile className="lg:col-span-2 p-6 md:p-8 hover:border-purple-500/30 hover:-translate-y-1 animate-in fade-in duration-500">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="relative z-10">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform duration-500 border border-purple-500/30 shadow-lg shadow-purple-500/10">
-                  <FileText size={24} className="md:hidden" />
-                  <FileText size={28} className="hidden md:block" />
-                </div>
-                <h3 className="text-lg md:text-xl font-bold text-white">Resources</h3>
-              </div>
-
-              {(selectedSubject.resources || []).length === 0 ? (
-                <EmptyResources />
-              ) : (
-                <div className="space-y-3 mb-6 md:mb-8 max-h-[400px] overflow-y-auto">
-                  {(selectedSubject.resources || []).map((r: any, i: number) => (
-                    <div
-                      key={r.id}
-                      className="animate-in fade-in slide-in-from-bottom duration-300"
-                      style={{ animationDelay: `${i * 30}ms` }}
-                    >
-                      <FrostedMini className="flex items-center justify-between p-4 md:p-5 hover:bg-zinc-800 transition-all group border-zinc-800/50 hover:scale-[1.01] duration-300 min-h-[64px] md:min-h-[72px] hover:-translate-y-0.5">
-                        <div
-                          className="flex items-center gap-3 md:gap-4 flex-1 cursor-pointer min-w-0"
-                          onClick={() => {
-                            // open links and files externally for full-page view
-                            openResourceInNewTab(r);
-                          }}
-                        >
-                          {r.type === 'link' ? (
-                            <Link size={20} className="text-orange-400 shrink-0" />
-                          ) : isPowerPoint(r.fileType) ? (
-                            <Presentation size={20} className="text-orange-400 shrink-0" />
-                          ) : (
-                            <FileText size={20} className="text-purple-400 shrink-0" />
-                          )}
-                          <span className="truncate text-sm md:text-base font-medium">{r.title}</span>
-                        </div>
-                        <div className="flex items-center gap-3 md:gap-4 shrink-0">
-                          {r.type === 'link' && (
-                            <ExternalLink size={16} className="text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          )}
-                          <button
-                            onClick={() => removeResource(r.id)}
-                            aria-label="Remove resource"
-                            className="p-2 hover:bg-red-500/10 rounded-xl transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                          >
-                            <Trash2 size={16} className="text-red-400" />
-                          </button>
-                        </div>
-                      </FrostedMini>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
-                <label className="flex-1">
-                  <FrostedTile className="px-4 md:px-6 py-4 md:py-5 text-sm md:text-base text-center cursor-pointer hover:border-indigo-500/40 transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 font-semibold min-h-[56px] md:min-h-[64px] flex items-center justify-center gap-2 md:gap-3 hover:-translate-y-1">
-                    <input type="file" multiple hidden onChange={async (e: any) => {
-                      const files = Array.from((e.target?.files || [])) as File[];
-                      for (const f of files) await processAndSaveFile(f);
-                    }} />
-                    <Upload size={20} />
-                    <span>Upload Files</span>
-                  </FrostedTile>
-                </label>
-
-                <button
-                  onClick={() => setShowLinkForm(!showLinkForm)}
-                  className="px-4 md:px-6 py-4 md:py-5 bg-orange-500/20 hover:bg-orange-500/30 rounded-2xl font-bold text-sm md:text-base transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 border border-orange-500/30 min-h-[56px] md:min-h-[64px] flex items-center justify-center gap-2 md:gap-3"
-                >
-                  <Link size={20} />
-                  <span>Add Link</span>
-                </button>
-              </div>
-
-              {showLinkForm && (
-                <div className="mt-6 p-4 md:p-6 space-y-3 md:space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <FrostedMini>
-                    <input
-                      placeholder="Link title"
-                      value={newLink.title}
-                      onChange={(e) => setNewLink({ ...newLink, title: e.target.value })}
-                      className="w-full bg-transparent px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none min-h-[56px] md:min-h-[64px]"
-                    />
-                  </FrostedMini>
-                  <FrostedMini>
-                    <input
-                      placeholder="URL"
-                      value={newLink.url}
-                      onChange={(e) => setNewLink({ ...newLink, url: e.target.value })}
-                      className="w-full bg-transparent px-4 md:px-5 py-3 md:py-4 text-sm md:text-base outline-none min-h-[56px] md:min-h-[64px]"
-                    />
-                  </FrostedMini>
-                  <button
-                    onClick={addWebLink}
-                    className="w-full py-3 md:py-4 bg-orange-500/20 hover:bg-orange-500/30 rounded-2xl font-bold text-sm md:text-base transition-all hover:scale-[1.02] active:scale-[0.98] duration-300 border border-orange-500/30 min-h-[56px] md:min-h-[64px]"
-                  >
-                    Add Link
-                  </button>
-                </div>
-              )}
-            </div>
-          </FrostedTile>
-
-          <FrostedTile className="lg:col-span-2 p-6 md:p-8 hover:border-amber-500/30 hover:-translate-y-1 animate-in fade-in duration-500">
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="relative z-10">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform duration-500 border border-amber-500/30 shadow-lg shadow-amber-500/10">
-                  <StickyNote size={24} className="md:hidden" />
-                  <StickyNote size={28} className="hidden md:block" />
-                </div>
-                <h3 className="text-lg md:text-xl font-bold text-white">Session Notes</h3>
-              </div>
-
-              {(() => {
-                const subjectLogs = logs
-                  .filter(l => l.subjectId === selectedSubject.id && l.notes && l.notes.trim().length > 0)
-                  .sort((a, b) => b.timestamp - a.timestamp)
-                  .slice(0, 10);
-
-                if (subjectLogs.length === 0) {
-                  return <EmptyNotes />;
-                }
-
+        {/* TOPICS · MASTERY */}
+        <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6 mb-4">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="font-display font-black text-2xl">TOPICS · MASTERY</h3>
+            {reviewsDue > 0 && <button onClick={goReview} className="text-[9px] font-mono uppercase tracking-[0.16em] text-orange-400 bg-orange-500/12 border-2 border-orange-500/30 px-4 py-2 rounded-xl hover:bg-orange-500/20 transition-colors">Review {reviewsDue} due →</button>}
+          </div>
+          {topicRows.length === 0 ? (
+            <div className="text-sm text-mute py-6 text-center">Add syllabus units below — they become trackable topics, and mastery builds as you review.</div>
+          ) : (
+            <div className="space-y-2.5">
+              {topicRows.map((r, i) => {
+                const barColor = r.mastery >= 70 ? '#F7F5EF' : r.mastery >= 40 ? '#FFD60A' : '#FF5A1F';
+                const badgeC = r.due === 'overdue' ? 'text-orange-400 bg-orange-500/15' : r.due === 'due' ? 'text-yellow-400 bg-yellow-400/15' : 'text-mute bg-white/5';
+                const borderC = r.due === 'overdue' ? 'border-orange-500/30' : r.due === 'due' ? 'border-yellow-400/25' : 'border-white/10';
+                const badgeT = r.due === 'overdue' ? 'Overdue ' + Math.abs(r.dueDays) + 'd' : r.due === 'due' ? 'Due today' : r.due === 'scheduled' ? 'in ' + r.dueDays + 'd' : 'New';
                 return (
-                  <div className="space-y-4 max-h-[500px] overflow-y-auto pr-3">
-                    {subjectLogs.map((log, i) => (
-                      <div
-                        key={log.id}
-                        className="animate-in fade-in slide-in-from-bottom duration-300"
-                        style={{ animationDelay: `${i * 30}ms` }}
-                      >
-                        <FrostedMini className="p-4 md:p-6 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300">
-                          <div className="flex items-center justify-between mb-3 md:mb-4">
-                            <div className="flex items-center gap-2 md:gap-3 text-xs font-bold uppercase tracking-wider text-zinc-500">
-                              <span className="font-mono">{log.date}</span>
-                              <span className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
-                              <span className="text-amber-500/80">{log.type}</span>
-                              <span className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
-                              <span>{log.duration}m</span>
-                            </div>
-                            <span className="text-xs font-mono text-zinc-600">
-                              {new Date(log.timestamp).toLocaleTimeString('en-US', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </span>
-                          </div>
-                          <p className="text-sm md:text-base text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                            {log.notes}
-                          </p>
-                        </FrostedMini>
-                      </div>
-                    ))}
+                  <div key={i} className={"flex items-center gap-3 md:gap-4 p-4 rounded-xl bg-ink3 border-2 " + borderC}>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-white truncate">{r.name}</div>
+                      <div className={META + " mt-1"}>{r.reviews} review{r.reviews === 1 ? '' : 's'}</div>
+                    </div>
+                    <div className="w-28 md:w-40 shrink-0">
+                      <div className="h-2 bg-white/10 rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: r.mastery + '%', background: barColor }} /></div>
+                      <div className="text-[8px] font-mono uppercase tracking-[0.16em] text-mute mt-1 text-right">{r.mastery}% mastery</div>
+                    </div>
+                    <span className={"text-[9px] font-mono uppercase tracking-[0.16em] px-2.5 py-1.5 rounded-lg shrink-0 w-20 md:w-24 text-center " + badgeC}>{badgeT}</span>
                   </div>
                 );
-              })()}
+              })}
             </div>
-          </FrostedTile>
+          )}
+        </div>
+
+        {/* SYLLABUS + RESOURCES */}
+        <div className="grid lg:grid-cols-2 gap-4 mb-4">
+          {/* syllabus */}
+          <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6">
+            <div className="flex items-center justify-between mb-4"><h3 className="font-display font-black text-xl">SYLLABUS</h3><span className={META}>{(selectedSubject.syllabus || []).filter((u) => u.completed).length} / {(selectedSubject.syllabus || []).length} · {computeProgress(selectedSubject)}%</span></div>
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-5"><div className="h-full bg-orange-500 rounded-full" style={{ width: computeProgress(selectedSubject) + '%' }} /></div>
+            {(selectedSubject.syllabus || []).length === 0 ? (<EmptySyllabus />) : (
+              <div className="space-y-1.5 mb-4 max-h-[280px] overflow-y-auto">
+                {(selectedSubject.syllabus || []).map((u) => (
+                  <button key={u.id} onClick={() => toggleSyllabus(u)} className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-white/5 transition-colors text-left min-h-[44px]">
+                    {u.completed ? <span className="w-5 h-5 rounded bg-orange-500 flex items-center justify-center text-ink shrink-0"><CheckSquare size={13} /></span> : <span className="w-5 h-5 rounded border-2 border-white/20 shrink-0" />}
+                    <span className={"text-sm " + (u.completed ? "line-through text-mute" : "text-white/85")}>{u.title}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input value={newUnit} onChange={(e) => setNewUnit(e.target.value)} placeholder="Add unit…" onKeyDown={(e) => { if (e.key === 'Enter' && newUnit.trim()) addUnit(); }} className="flex-1 bg-ink3 border-2 border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50 transition-colors" />
+              <button onClick={addUnit} className="px-4 py-3 bg-orange-500/15 border-2 border-orange-500/30 text-orange-400 rounded-xl hover:bg-orange-500/25 transition-colors"><Plus size={18} /></button>
+            </div>
+          </div>
+
+          {/* resources */}
+          <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6">
+            <div className="flex items-center justify-between mb-4"><h3 className="font-display font-black text-xl">RESOURCES</h3><span className={META}>{(selectedSubject.resources || []).length} items</span></div>
+            {(selectedSubject.resources || []).length > 0 && (
+              <div className="space-y-2 mb-4 max-h-[220px] overflow-y-auto">
+                {(selectedSubject.resources || []).map((r) => (
+                  <div key={r.id} className="flex items-center justify-between p-3 rounded-xl bg-ink3 border-2 border-white/10 hover:border-orange-500/30 transition-colors group">
+                    <button onClick={() => openResourceInNewTab(r)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                      <span className="w-9 h-9 rounded-lg bg-orange-500/15 border border-orange-500/25 flex items-center justify-center text-orange-400 shrink-0">{r.type === 'link' ? <Link size={16} /> : isPowerPoint(r.fileType || '') ? <Presentation size={16} /> : <FileText size={16} />}</span>
+                      <span className="truncate text-sm font-bold text-white">{r.title}</span>
+                    </button>
+                    <button onClick={() => removeResource(r.id)} aria-label="Remove" className="p-2 rounded-lg text-mute hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all shrink-0"><Trash2 size={15} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <label className="cursor-pointer">
+                <input type="file" multiple hidden onChange={async (e) => { const files = Array.from((e.target && e.target.files) || []); for (const f of files) await processAndSaveFile(f); }} />
+                <div className="p-3 rounded-xl bg-ink3 border-2 border-white/10 hover:border-orange-500/30 text-center text-sm font-bold text-white flex items-center justify-center gap-2 transition-colors"><Upload size={16} /> Upload</div>
+              </label>
+              <button onClick={() => setShowLinkForm(!showLinkForm)} className="p-3 rounded-xl bg-ink3 border-2 border-white/10 hover:border-orange-500/30 text-sm font-bold text-white flex items-center justify-center gap-2 transition-colors"><Link size={16} /> Add link</button>
+            </div>
+            {showLinkForm && (
+              <div className="mt-3 space-y-2">
+                <input placeholder="Link title" value={newLink.title} onChange={(e) => setNewLink({ ...newLink, title: e.target.value })} className="w-full bg-ink3 border-2 border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50" />
+                <input placeholder="https://…" value={newLink.url} onChange={(e) => setNewLink({ ...newLink, url: e.target.value })} className="w-full bg-ink3 border-2 border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50" />
+                <button onClick={addWebLink} className="w-full py-3 bg-orange-500 text-ink rounded-xl font-bold text-sm hover:brightness-105 transition-all">Save link</button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* GRADES + NOTES */}
+        <div className="grid lg:grid-cols-2 gap-4">
+          {/* grades */}
+          <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display font-black text-xl">GRADES</h3>
+              <div className="flex items-center gap-3">
+                <div className="text-right"><div className="font-display font-black text-2xl text-yellow-400">{gpa ? gpa + '%' : '—'}</div><div className="text-[8px] font-mono uppercase tracking-[0.16em] text-mute">avg</div></div>
+                <button onClick={() => setShowGradeForm(!showGradeForm)} className="w-9 h-9 rounded-lg bg-ink3 border-2 border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors"><Plus size={16} /></button>
+              </div>
+            </div>
+            {showGradeForm && (
+              <div className="mb-4 space-y-2">
+                <input placeholder="Type (ISA-1, Quiz 2…)" value={newGrade.type} onChange={(e) => setNewGrade({ ...newGrade, type: e.target.value })} className="w-full bg-ink3 border-2 border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50" />
+                <div className="grid grid-cols-2 gap-2">
+                  <input type="number" placeholder="Score" value={newGrade.score} onChange={(e) => setNewGrade({ ...newGrade, score: e.target.value })} className="bg-ink3 border-2 border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50" />
+                  <input type="number" placeholder="Max" value={newGrade.maxScore} onChange={(e) => setNewGrade({ ...newGrade, maxScore: e.target.value })} className="bg-ink3 border-2 border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50" />
+                </div>
+                <button onClick={addGrade} className="w-full py-3 bg-yellow-400 text-ink rounded-xl font-bold text-sm hover:brightness-105 transition-all">Add grade</button>
+              </div>
+            )}
+            {(!selectedSubject.grades || selectedSubject.grades.length === 0) && !showGradeForm ? (<EmptyGrades />) : (
+              <div className="space-y-2 max-h-[280px] overflow-y-auto">
+                {(selectedSubject.grades || []).map((g) => {
+                  const ratio = g.score / g.maxScore;
+                  const gc = ratio >= 0.75 ? 'text-paper' : ratio >= 0.5 ? 'text-yellow-400' : 'text-orange-400';
+                  return (
+                    <div key={g.id} className="flex items-center justify-between p-3 rounded-xl bg-ink3 border-2 border-white/10 group">
+                      <div><div className="font-bold text-sm text-white">{g.type}</div><div className="text-[8px] font-mono uppercase tracking-[0.16em] text-mute">{g.date}</div></div>
+                      <div className="flex items-center gap-3">
+                        <span className={"font-mono font-bold tabular-nums " + gc}>{g.score}<span className="text-mute">/{g.maxScore}</span></span>
+                        <button onClick={async () => { await db.subjects.update(selectedSubject.id!, { grades: (selectedSubject.grades || []).filter((x) => x.id !== g.id) }); toast.success('Grade removed'); }} aria-label="Remove grade" className="p-1.5 rounded-lg text-mute hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* notes */}
+          <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6">
+            <div className="flex items-center justify-between mb-4"><h3 className="font-display font-black text-xl">NOTES</h3><span className={META}>{subjectLogs.length} session{subjectLogs.length === 1 ? '' : 's'}</span></div>
+            {subjectLogs.length === 0 ? (<EmptyNotes />) : (
+              <div className="space-y-2.5 max-h-[320px] overflow-y-auto">
+                {subjectLogs.map((log) => (
+                  <div key={log.id} className="p-4 rounded-xl bg-ink3 border-2 border-white/10">
+                    <div className="flex items-center gap-2 mb-2 text-[9px] font-mono uppercase tracking-[0.16em] text-mute"><span>{log.date}</span><span className="w-1 h-1 rounded-full bg-white/20" /><span className="text-orange-400">{log.type}</span><span className="w-1 h-1 rounded-full bg-white/20" /><span>{log.duration}m</span></div>
+                    <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">{log.notes}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
