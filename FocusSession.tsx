@@ -563,7 +563,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       {isLoading && (
         <div className="absolute inset-0 z-[200] flex items-center justify-center bg-ink">
           <div className="flex flex-col items-center gap-4" style={{ animation: "fadeIn .3s ease" }}>
-            <div className="w-14 h-14 rounded-2xl bg-orange/15 border border-orange/30 flex items-center justify-center"><Crown size={28} className="text-orange" /></div>
+            <div className="w-14 h-14 rounded-xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center"><Crown size={28} className="text-orange-400" /></div>
             <p className="meta text-[10px] text-mute">Preparing session</p>
           </div>
         </div>
@@ -572,8 +572,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       {/* milestone flare (subtle line) */}
       {showMilestone && (
         <div className="absolute top-24 left-1/2 z-40" style={{ animation: "slideDown .3s ease-out" }}>
-          <span className="meta text-[10px] text-paper flex items-center gap-2 bg-orange/15 border border-orange/30 px-4 py-2 rounded-full backdrop-blur-sm">
-            <Sparkles size={12} className="text-orange" /> {milestoneText}
+          <span className="meta text-[10px] text-paper flex items-center gap-2 bg-orange-500/15 border border-orange-500/30 px-4 py-2 rounded-lg backdrop-blur-sm">
+            <Sparkles size={12} className="text-orange-400" /> {milestoneText}
           </span>
         </div>
       )}
@@ -591,22 +591,22 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
                 </div>
                 <div className="text-sm text-mute mt-1.5 truncate">
                   {isBreak ? "On a break" : `${block.type} session · ${block.duration} min`}
-                  {subjectIntelligence?.readiness !== undefined && <span className="text-yellow/80"> · {Math.round(subjectIntelligence.readiness)}% ready</span>}
+                  {subjectIntelligence?.readiness !== undefined && <span className="text-yellow-400/80"> · {Math.round(subjectIntelligence.readiness)}% ready</span>}
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <button onClick={() => setShowSound(v => !v)} className="meta text-[9px] bg-orange/15 border border-orange/30 text-orange px-3 py-2 rounded-full flex items-center gap-1.5 hover:bg-orange/25 transition-colors">
+                <button onClick={() => setShowSound(v => !v)} className="meta text-[9px] bg-orange-500/15 border border-orange-500/30 text-orange-400 px-3 py-2 rounded-lg flex items-center gap-1.5 hover:bg-orange-500/25 transition-colors">
                   {scape === "silence" ? <VolumeX size={11} /> : <Music2 size={11} />}
                   {scape === "silence" ? "Sound" : SOUNDSCAPES.find(s => s.id === scape)?.label}
                   <ChevronDown size={10} className="opacity-60" />
                 </button>
-                <button onClick={cycleSkin} title="Timer skin" className="w-9 h-9 rounded-full bg-ink2/80 border border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors"><CircleDashed size={14} /></button>
+                <button onClick={cycleSkin} title="Timer skin" className="w-9 h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><CircleDashed size={14} /></button>
                 <button onClick={() => { if (!isRunning) setStrictMode(s => !s); }} title={strictMode ? "Strict on" : "Strict off"} disabled={isRunning}
-                  className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors ${strictMode ? "bg-yellow/15 border-yellow/30 text-yellow" : "bg-ink2/80 border-white/10 text-mute hover:text-white"} ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}>
+                  className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-colors ${strictMode ? "bg-yellow-400/15 border-yellow-400/30 text-yellow-400" : "bg-ink2/80 border-white/10 text-mute hover:text-white"} ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}>
                   {strictMode ? <Lock size={14} /> : <Unlock size={14} />}
                 </button>
-                <button onClick={() => setZen(true)} title="Zen mode (F)" className="w-9 h-9 rounded-full bg-ink2/80 border border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors"><Maximize2 size={13} /></button>
-                <button onClick={requestExit} title="Exit" className="w-9 h-9 rounded-full bg-ink2/80 border border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors"><X size={15} /></button>
+                <button onClick={() => setZen(true)} title="Zen mode (F)" className="w-9 h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><Maximize2 size={13} /></button>
+                <button onClick={requestExit} title="Exit" className="w-9 h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><X size={15} /></button>
               </div>
             </div>
           )}
@@ -617,14 +617,14 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
               <div className="flex flex-col items-center" style={{ animation: "fadeIn .4s ease" }}>
                 <div className="meta text-[10px] text-mute mb-7">Break · {`${Math.floor(breakTime / 60)}:${(breakTime % 60).toString().padStart(2, "0")}`} left</div>
                 <div className="relative w-60 h-60 flex items-center justify-center">
-                  <div className="absolute rounded-full bg-yellow/10 border border-yellow/30" style={{ width: "100%", height: "100%", animation: "breathe 5s ease-in-out infinite" }} />
-                  <div className="absolute rounded-full bg-yellow/15 border border-yellow/40" style={{ width: "68%", height: "68%", animation: "breathe 5s ease-in-out infinite reverse" }} />
-                  <div className="relative text-center"><Wind size={22} className="text-yellow mx-auto mb-2" /><div className="display text-3xl text-yellow">Breathe</div><div className="meta text-[9px] text-yellow/70 mt-2">in · hold · out</div></div>
+                  <div className="absolute rounded-full bg-yellow-400/10 border border-yellow-400/30" style={{ width: "100%", height: "100%", animation: "breathe 5s ease-in-out infinite" }} />
+                  <div className="absolute rounded-full bg-yellow-400/15 border border-yellow-400/40" style={{ width: "68%", height: "68%", animation: "breathe 5s ease-in-out infinite reverse" }} />
+                  <div className="relative text-center"><Wind size={22} className="text-yellow-400 mx-auto mb-2" /><div className="display text-3xl text-yellow-400">Breathe</div><div className="meta text-[9px] text-yellow-400/70 mt-2">in · hold · out</div></div>
                 </div>
                 <p className="text-sm text-mute mt-8 text-center max-w-xs">Stand up · hydrate · look 20&nbsp;ft away. Your brain consolidates while you rest.</p>
                 <div className="flex items-center gap-3 mt-7">
-                  <button onClick={() => setBreakTime(t => t + 60)} className="bg-ink2/80 border border-white/10 text-white font-bold text-sm px-5 py-3 rounded-2xl flex items-center gap-2 hover:bg-ink3 transition-colors"><Plus size={15} />1 min</button>
-                  <button onClick={() => endBreak(true)} className="bg-yellow text-ink font-bold text-sm px-6 py-3 rounded-2xl hover:brightness-105 transition-all">Back to focus →</button>
+                  <button onClick={() => setBreakTime(t => t + 60)} className="bg-ink2/80 border-2 border-white/15 text-white font-bold text-sm px-5 py-3 rounded-xl flex items-center gap-2 hover:bg-ink3 transition-colors"><Plus size={15} />1 min</button>
+                  <button onClick={() => endBreak(true)} className="bg-yellow-400 text-ink font-bold text-sm px-6 py-3 rounded-xl hover:brightness-105 transition-all">Back to focus →</button>
                 </div>
               </div>
             ) : (
@@ -640,38 +640,38 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
               <div className="grid grid-cols-3 items-end gap-3">
                 {/* tools */}
                 <div className="flex items-center gap-2 justify-self-start">
-                  <button onClick={() => setShowNotes(true)} disabled={strictMode && isRunning} title="Notes" className={`w-10 h-10 rounded-xl bg-ink2/80 border border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors ${strictMode && isRunning ? "opacity-30 cursor-not-allowed" : ""}`}><BookOpen size={16} /></button>
-                  <button onClick={() => setShowAI(true)} title="AI coach" className="w-10 h-10 rounded-xl bg-ink2/80 border border-white/10 text-orange hover:bg-orange/10 flex items-center justify-center transition-colors"><Sparkles size={16} /></button>
-                  <button onClick={() => setShowResources(true)} title="Resources" className="w-10 h-10 rounded-xl bg-ink2/80 border border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors"><FileText size={16} /></button>
-                  <button onClick={() => setShowSettings(true)} title="Settings" className="w-10 h-10 rounded-xl bg-ink2/80 border border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors hidden sm:flex"><SettingsIcon size={16} /></button>
+                  <button onClick={() => setShowNotes(true)} disabled={strictMode && isRunning} title="Notes" className={`w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors ${strictMode && isRunning ? "opacity-30 cursor-not-allowed" : ""}`}><BookOpen size={16} /></button>
+                  <button onClick={() => setShowAI(true)} title="AI coach" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-orange-400 hover:bg-orange-500/10 flex items-center justify-center transition-colors"><Sparkles size={16} /></button>
+                  <button onClick={() => setShowResources(true)} title="Resources" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><FileText size={16} /></button>
+                  <button onClick={() => setShowSettings(true)} title="Settings" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors hidden sm:flex"><SettingsIcon size={16} /></button>
                 </div>
 
                 {/* dock */}
                 <div className="flex items-center gap-2.5 justify-self-center">
                   {!isOvertime && (
-                    <button onClick={startBreak} disabled={strictMode} className={`bg-ink2/80 border border-white/10 text-white font-bold text-sm px-4 md:px-5 py-3.5 rounded-2xl flex items-center gap-2 hover:bg-ink3 transition-colors ${strictMode ? "opacity-30 cursor-not-allowed" : ""}`}><Coffee size={15} /><span className="hidden md:inline">Break</span></button>
+                    <button onClick={startBreak} disabled={strictMode} className={`bg-ink2/80 border-2 border-white/15 text-white font-bold uppercase tracking-wide text-sm px-4 md:px-5 py-3.5 rounded-xl flex items-center gap-2 hover:bg-ink3 transition-colors ${strictMode ? "opacity-30 cursor-not-allowed" : ""}`}><Coffee size={15} /><span className="hidden md:inline">Break</span></button>
                   )}
                   {isOvertime ? (
-                    <button onClick={finishFromOvertime} className="bg-orange text-ink font-bold text-base px-7 py-3.5 rounded-2xl flex items-center gap-2 hover:brightness-105 transition-all"><CheckCircle size={18} />Complete</button>
+                    <button onClick={finishFromOvertime} className="bg-orange-500 text-ink font-bold uppercase tracking-wide text-base px-7 py-3.5 rounded-xl flex items-center gap-2 hover:brightness-105 transition-all"><CheckCircle size={18} />Complete</button>
                   ) : (
-                    <button onClick={toggleTimer} disabled={strictMode && isRunning} className={`bg-orange text-ink font-bold text-base px-8 md:px-9 py-3.5 rounded-2xl flex items-center gap-2 hover:brightness-105 transition-all ${strictMode && isRunning ? "opacity-60 cursor-not-allowed" : ""}`}>
+                    <button onClick={toggleTimer} disabled={strictMode && isRunning} className={`bg-orange-500 text-ink font-bold uppercase tracking-wide text-base px-8 md:px-9 py-3.5 rounded-xl flex items-center gap-2 hover:brightness-105 transition-all ${strictMode && isRunning ? "opacity-60 cursor-not-allowed" : ""}`}>
                       {isRunning ? <Pause size={18} /> : <Play size={18} />}
                       {isRunning ? (strictMode ? "Locked" : "Pause") : (hasStarted ? "Resume" : "Start")}
                     </button>
                   )}
-                  <button onClick={requestExit} className="bg-ink2/80 border border-white/10 text-mute hover:text-white font-bold text-sm px-4 md:px-5 py-3.5 rounded-2xl flex items-center gap-2 transition-colors"><Square size={14} /><span className="hidden md:inline">End</span></button>
+                  <button onClick={requestExit} className="bg-ink2/80 border-2 border-white/15 text-mute hover:text-white font-bold uppercase tracking-wide text-sm px-4 md:px-5 py-3.5 rounded-xl flex items-center gap-2 transition-colors"><Square size={14} /><span className="hidden md:inline">End</span></button>
                 </div>
 
                 {/* stats */}
                 <div className="justify-self-end text-right space-y-1.5 hidden sm:block">
                   <div className="meta text-[9px] text-mute flex items-center justify-end gap-1.5"><Clock size={10} /> {fmtMin(todayMin + sessionMinutes)} today</div>
-                  <div className="meta text-[9px] text-mute flex items-center justify-end gap-1.5"><Flame size={10} /> {streak} day{streak === 1 ? "" : "s"} · <span className="text-orange">+{sessionXp} XP</span></div>
+                  <div className="meta text-[9px] text-mute flex items-center justify-end gap-1.5"><Flame size={10} /> {streak} day{streak === 1 ? "" : "s"} · <span className="text-orange-400">+{sessionXp} XP</span></div>
                   <div className="meta text-[9px] flex items-center justify-end gap-1.5" style={{ color: "rgba(255,214,10,0.8)" }}><Zap size={10} /> {[milestones.m25, milestones.m50, milestones.m75].filter(Boolean).length}/3 flares</div>
                 </div>
               </div>
               {canFinishEarly && !isOvertime && !strictMode && (
                 <div className="text-center mt-3">
-                  <button onClick={() => { setIsRunning(false); setCompletedDuration(sessionMinutes); setShowQualityModal(true); }} className="meta text-[9px] text-mute hover:text-yellow transition-colors inline-flex items-center gap-1.5"><CheckCircle size={11} /> Finish early · log {sessionMinutes} min</button>
+                  <button onClick={() => { setIsRunning(false); setCompletedDuration(sessionMinutes); setShowQualityModal(true); }} className="meta text-[9px] text-mute hover:text-yellow-400 transition-colors inline-flex items-center gap-1.5"><CheckCircle size={11} /> Finish early · log {sessionMinutes} min</button>
                 </div>
               )}
               <div className="text-center meta text-[8px] text-mute/50 mt-3">space = {isRunning ? "pause" : "start"} · F = zen · tap timer = +5 min</div>
@@ -680,7 +680,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
 
           {/* zen exit affordance */}
           {zen && (
-            <button onClick={() => setZen(false)} className="absolute top-6 right-6 z-30 w-10 h-10 rounded-full bg-ink2/70 border border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors" title="Exit zen (Esc)"><Minimize2 size={15} /></button>
+            <button onClick={() => setZen(false)} className="absolute top-6 right-6 z-30 w-10 h-10 rounded-lg bg-ink2/70 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors" title="Exit zen (Esc)"><Minimize2 size={15} /></button>
           )}
           {zen && (<div className="absolute bottom-6 inset-x-0 text-center meta text-[8px] text-mute/50 z-20">Zen mode · F or Esc to exit</div>)}
         </div>
@@ -690,11 +690,11 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       {showSound && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setShowSound(false)} />
-          <div className="absolute top-[72px] right-5 md:right-8 z-40 w-60 rounded-2xl border border-white/12 bg-ink2/95 backdrop-blur-md p-3 shadow-2xl" style={{ animation: "scaleIn .15s ease" }}>
+          <div className="absolute top-[72px] right-5 md:right-8 z-40 w-60 rounded-xl border border-white/12 bg-ink2/95 backdrop-blur-md p-3 shadow-2xl" style={{ animation: "scaleIn .15s ease" }}>
             <div className="meta text-[9px] text-mute px-1 mb-2 flex items-center justify-between"><span>Soundscape</span><span className="text-mute/60">offline</span></div>
             <div className="space-y-1">
               {SOUNDSCAPES.map(s => (
-                <button key={s.id} onClick={() => selectScape(s.id)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${scape === s.id ? "bg-orange text-ink" : "text-mute hover:bg-white/5 hover:text-white"}`}>
+                <button key={s.id} onClick={() => selectScape(s.id)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${scape === s.id ? "bg-orange-500 text-ink" : "text-mute hover:bg-white/5 hover:text-white"}`}>
                   <span className="flex items-center gap-2">{s.id === "silence" ? <VolumeX size={14} /> : <Music2 size={14} />}{s.label}</span>
                   {scape === s.id && <span className="w-1.5 h-1.5 rounded-full bg-ink" />}
                 </button>
@@ -702,7 +702,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
             </div>
             <div className="flex items-center gap-2 mt-3 px-1">
               <VolumeX size={12} className="text-mute" />
-              <input type="range" min={0} max={100} value={Math.round(scapeVol * 100)} onChange={e => changeVol(Number(e.target.value) / 100)} className="flex-1 accent-orange" />
+              <input type="range" min={0} max={100} value={Math.round(scapeVol * 100)} onChange={e => changeVol(Number(e.target.value) / 100)} className="flex-1 accent-orange-500" />
               <Volume2 size={12} className="text-mute" />
             </div>
           </div>
@@ -715,20 +715,20 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
           <div className="nebula bright"><div className="blob b1" /><div className="blob b2" /><div className="blob b3" /></div>
           <div className="relative z-10 flex flex-col items-center text-center max-w-sm w-full" style={{ animation: "scaleIn .45s cubic-bezier(0.34,1.56,0.64,1)" }}>
             <div className="relative w-32 h-32 flex items-center justify-center mb-5">
-              <div className="absolute rounded-full border-2 border-orange/30" style={{ width: "100%", height: "100%" }} />
-              <div className="absolute rounded-full border-2 border-orange/50" style={{ width: "62%", height: "62%" }} />
-              <div className="w-16 h-16 rounded-full bg-orange flex items-center justify-center text-ink"><CheckCircle size={30} /></div>
+              <div className="absolute rounded-full border-2 border-orange-500/30" style={{ width: "100%", height: "100%" }} />
+              <div className="absolute rounded-full border-2 border-orange-500/50" style={{ width: "62%", height: "62%" }} />
+              <div className="w-16 h-16 rounded-full bg-orange-500 flex items-center justify-center text-ink"><CheckCircle size={30} /></div>
             </div>
             <div className="display text-4xl">Orbit complete.</div>
             <p className="text-sm text-mute mt-2">{summaryData.duration} min of deep work on <b className="text-white/80">{block.subjectName}</b>.</p>
             <div className="grid grid-cols-3 gap-2.5 w-full mt-6">
-              <div className="rounded-2xl bg-ink2/70 border border-white/10 p-3"><div className="display text-xl text-orange flex items-center justify-center gap-1"><TrendingUp size={16} />+{summaryData.readinessGain}%</div><div className="meta text-[8px] text-mute mt-1">Readiness</div></div>
-              <div className="rounded-2xl bg-ink2/70 border border-white/10 p-3"><div className="display text-xl text-yellow">+{Math.max(0, Math.round(summaryData.duration * 2))}</div><div className="meta text-[8px] text-mute mt-1">XP</div></div>
-              <div className="rounded-2xl bg-ink2/70 border border-white/10 p-3"><div className="display text-xl text-paper">{"⭐".repeat(summaryData.quality)}</div><div className="meta text-[8px] text-mute mt-1">Quality</div></div>
+              <div className="rounded-xl bg-ink2/70 border-2 border-white/15 p-3"><div className="display text-xl text-orange-400 flex items-center justify-center gap-1"><TrendingUp size={16} />+{summaryData.readinessGain}%</div><div className="meta text-[8px] text-mute mt-1">Readiness</div></div>
+              <div className="rounded-xl bg-ink2/70 border-2 border-white/15 p-3"><div className="display text-xl text-yellow-400">+{Math.max(0, Math.round(summaryData.duration * 2))}</div><div className="meta text-[8px] text-mute mt-1">XP</div></div>
+              <div className="rounded-xl bg-ink2/70 border-2 border-white/15 p-3"><div className="display text-xl text-paper">{"⭐".repeat(summaryData.quality)}</div><div className="meta text-[8px] text-mute mt-1">Quality</div></div>
             </div>
             {summaryData.aiTip && (
-              <div className="flex items-start gap-2.5 px-4 py-3 mt-4 rounded-2xl bg-orange/8 border border-orange/25 text-left">
-                <Sparkles size={13} className="text-orange flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2.5 px-4 py-3 mt-4 rounded-xl bg-orange-500/10border border-orange-500/25 text-left">
+                <Sparkles size={13} className="text-orange-400 flex-shrink-0 mt-0.5" />
                 <p className="text-xs leading-relaxed text-white/75">{summaryData.aiTip}</p>
               </div>
             )}
@@ -740,7 +740,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       {showAI && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowAI(false)} />
-          <div className="relative z-20 w-full max-w-3xl max-h-[88vh] rounded-3xl overflow-hidden">
+          <div className="relative z-20 w-full max-w-3xl max-h-[88vh] rounded-2xl overflow-hidden">
             <AIStudyAssistant block={block} subjectIntelligence={subjectIntelligence} onClose={() => setShowAI(false)} />
           </div>
         </div>
@@ -750,12 +750,12 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       {showNotes && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowNotes(false)} />
-          <div className="relative z-20 w-full max-w-2xl max-h-[85vh] rounded-3xl overflow-hidden bg-ink2 border border-white/12 flex flex-col">
+          <div className="relative z-20 w-full max-w-2xl max-h-[85vh] rounded-2xl overflow-hidden bg-ink2 border border-white/12 flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
               <div><h3 className="text-lg font-bold text-white">Session notes</h3><div className="meta text-[10px] text-mute mt-0.5">Capture insights</div></div>
               <div className="flex items-center gap-2.5">
                 <button onClick={() => setNotes("")} className="px-3 py-1.5 rounded-lg text-xs font-bold text-mute hover:text-white hover:bg-white/10">Clear</button>
-                <button onClick={() => setShowNotes(false)} className="px-4 py-1.5 rounded-lg bg-orange text-ink text-xs font-bold">Done</button>
+                <button onClick={() => setShowNotes(false)} className="px-4 py-1.5 rounded-lg bg-orange-500 text-ink text-xs font-bold">Done</button>
               </div>
             </div>
             <textarea autoFocus value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Write your thoughts, insights, or questions..." className="w-full h-[50vh] bg-transparent px-6 py-5 resize-none outline-none text-base font-mono leading-relaxed text-white placeholder:text-mute/50" />
@@ -768,7 +768,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       {showResources && (
         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-end md:justify-center p-0 md:p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowResources(false)} />
-          <div className="relative z-20 w-full md:max-w-md h-full md:h-auto md:max-h-[90vh] flex flex-col bg-ink2 border border-white/12 md:rounded-3xl rounded-t-3xl overflow-hidden">
+          <div className="relative z-20 w-full md:max-w-md h-full md:h-auto md:max-h-[90vh] flex flex-col bg-ink2 border border-white/12 md:rounded-2xl rounded-t-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
               <div><h3 className="text-lg font-bold text-white">Resources</h3><div className="meta text-[10px] text-mute mt-0.5">{block.subjectName.toUpperCase()}</div></div>
               <button onClick={() => setShowResources(false)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 text-mute"><X size={16} /></button>
@@ -776,7 +776,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
             <div className="flex-1 overflow-y-auto p-5 space-y-3">
               {subjectResources.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                  <div className="w-16 h-16 rounded-2xl bg-ink3 flex items-center justify-center mb-4 border border-white/10"><FileText size={26} className="text-mute" /></div>
+                  <div className="w-16 h-16 rounded-xl bg-ink3 flex items-center justify-center mb-4 border-2 border-white/15"><FileText size={26} className="text-mute" /></div>
                   <p className="text-white font-bold mb-1">No resources yet</p>
                   <p className="text-mute text-sm max-w-xs">Add study materials in course details.</p>
                 </div>
@@ -785,13 +785,13 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
                   const hasUrl = (resource.url && resource.url.trim() !== "") || (resource.fileData && resource.fileData.trim() !== "");
                   return (
                     <button key={resource.id} onClick={() => hasUrl && handleResourceClick(resource)} disabled={!hasUrl} className={`block w-full text-left ${!hasUrl ? "opacity-50 cursor-not-allowed" : ""}`}>
-                      <div className="p-4 rounded-2xl bg-ink3 border border-white/10 hover:border-orange/30 transition-colors">
+                      <div className="p-4 rounded-xl bg-ink3 border-2 border-white/15 hover:border-orange-500/30 transition-colors">
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-orange/15 flex items-center justify-center border border-orange/25"><FileText size={16} className="text-orange" /></div>
+                          <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center border border-orange-500/25"><FileText size={16} className="text-orange-400" /></div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2 mb-1">
                               <h4 className="font-bold text-white text-sm line-clamp-2">{resource.title}</h4>
-                              {hasUrl && <ExternalLink size={14} className="text-orange flex-shrink-0 mt-0.5" />}
+                              {hasUrl && <ExternalLink size={14} className="text-orange-400 flex-shrink-0 mt-0.5" />}
                             </div>
                             <div className="meta text-[9px] text-mute">{resource.type.toUpperCase()}</div>
                           </div>
@@ -810,29 +810,29 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       {showSettings && (
         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowSettings(false)} />
-          <div className="relative z-20 w-full md:max-w-md bg-ink2 border border-white/12 md:rounded-3xl rounded-t-3xl overflow-hidden">
+          <div className="relative z-20 w-full md:max-w-md bg-ink2 border border-white/12 md:rounded-2xl rounded-t-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
               <h3 className="text-lg font-bold text-white">Session settings</h3>
               <button onClick={() => setShowSettings(false)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 text-mute"><X size={16} /></button>
             </div>
             <div className="p-5 space-y-3">
-              <button onClick={() => { if (!isRunning) { setStrictMode(!strictMode); if (soundEnabled) SoundManager.playClick(); } }} disabled={isRunning} className={`w-full p-4 rounded-2xl border text-left transition-colors ${strictMode ? "bg-yellow/10 border-yellow/30" : "bg-ink3 border-white/10"} ${isRunning ? "opacity-40 cursor-not-allowed" : ""}`}>
+              <button onClick={() => { if (!isRunning) { setStrictMode(!strictMode); if (soundEnabled) SoundManager.playClick(); } }} disabled={isRunning} className={`w-full p-4 rounded-xl border text-left transition-colors ${strictMode ? "bg-yellow-400/10 border-yellow-400/30" : "bg-ink3 border-white/10"} ${isRunning ? "opacity-40 cursor-not-allowed" : ""}`}>
                 <div className="flex items-center justify-between">
                   <div><h4 className="font-bold text-white text-sm">Strict focus</h4><div className="meta text-[9px] text-mute mt-0.5">Prevents pausing</div></div>
-                  <div className={`w-11 h-6 rounded-full transition-colors ${strictMode ? "bg-yellow" : "bg-ink"}`}><div className={`w-5 h-5 rounded-full bg-white mt-0.5 transition-all ${strictMode ? "ml-5" : "ml-0.5"}`} /></div>
+                  <div className={`w-11 h-6 rounded-full transition-colors ${strictMode ? "bg-yellow-400" : "bg-ink"}`}><div className={`w-5 h-5 rounded-full bg-white mt-0.5 transition-all ${strictMode ? "ml-5" : "ml-0.5"}`} /></div>
                 </div>
               </button>
-              <button onClick={() => { setSoundEnabled(!soundEnabled); if (!soundEnabled) SoundManager.playClick(); }} className="w-full p-4 rounded-2xl border bg-ink3 border-white/10 text-left transition-colors">
+              <button onClick={() => { setSoundEnabled(!soundEnabled); if (!soundEnabled) SoundManager.playClick(); }} className="w-full p-4 rounded-xl border bg-ink3 border-white/10 text-left transition-colors">
                 <div className="flex items-center justify-between">
                   <div><h4 className="font-bold text-white text-sm">Sound effects</h4><div className="meta text-[9px] text-mute mt-0.5">Clicks &amp; chimes</div></div>
-                  <div className={`w-11 h-6 rounded-full transition-colors ${soundEnabled ? "bg-orange" : "bg-ink"}`}><div className={`w-5 h-5 rounded-full bg-white mt-0.5 transition-all ${soundEnabled ? "ml-5" : "ml-0.5"}`} /></div>
+                  <div className={`w-11 h-6 rounded-full transition-colors ${soundEnabled ? "bg-orange-500" : "bg-ink"}`}><div className={`w-5 h-5 rounded-full bg-white mt-0.5 transition-all ${soundEnabled ? "ml-5" : "ml-0.5"}`} /></div>
                 </div>
               </button>
-              <div className="p-4 rounded-2xl border bg-ink3 border-white/10">
+              <div className="p-4 rounded-xl border bg-ink3 border-white/10">
                 <h4 className="font-bold text-white text-sm mb-2.5">Timer skin</h4>
                 <div className="grid grid-cols-3 gap-2">
                   {(["orbit", "flip", "minimal"] as const).map(s => (
-                    <button key={s} onClick={() => setSkin(s)} className={`py-2.5 rounded-xl text-xs font-bold capitalize transition-colors ${skin === s ? "bg-orange text-ink" : "bg-ink border border-white/10 text-mute hover:text-white"}`}>{s}</button>
+                    <button key={s} onClick={() => setSkin(s)} className={`py-2.5 rounded-xl text-xs font-bold capitalize transition-colors ${skin === s ? "bg-orange-500 text-ink" : "bg-ink border-2 border-white/15 text-mute hover:text-white"}`}>{s}</button>
                   ))}
                 </div>
               </div>
@@ -852,15 +852,15 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
 
       {showExitConfirm && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md p-6" role="dialog" aria-modal="true" aria-label="End session?">
-          <div className="w-full max-w-sm bg-ink2 border border-white/12 rounded-3xl p-7 space-y-5 shadow-2xl" style={{ animation: "scaleIn .2s ease" }}>
+          <div className="w-full max-w-sm bg-ink2 border border-white/12 rounded-2xl p-7 space-y-5 shadow-2xl" style={{ animation: "scaleIn .2s ease" }}>
             <div>
               <h3 className="text-xl font-bold text-white mb-1">End this session?</h3>
               <p className="text-sm text-mute">You've studied <span className="font-bold text-white">{sessionMinutes} min</span>. Log it before leaving, or discard.</p>
             </div>
             <div className="space-y-2.5">
-              <button onClick={logAndExit} className="w-full py-3 rounded-2xl bg-orange text-ink font-bold text-sm transition-all active:scale-95">Log {sessionMinutes} min &amp; exit</button>
-              <button onClick={() => setShowExitConfirm(false)} className="w-full py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm transition-all">Keep studying</button>
-              <button onClick={() => { setShowExitConfirm(false); onExit(); }} className="w-full py-2.5 rounded-2xl text-mute hover:text-danger font-bold text-sm transition-all">Discard &amp; exit</button>
+              <button onClick={logAndExit} className="w-full py-3 rounded-xl bg-orange-500 text-ink font-bold text-sm transition-all active:scale-95">Log {sessionMinutes} min &amp; exit</button>
+              <button onClick={() => setShowExitConfirm(false)} className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border-2 border-white/15 text-white font-bold text-sm transition-all">Keep studying</button>
+              <button onClick={() => { setShowExitConfirm(false); onExit(); }} className="w-full py-2.5 rounded-xl text-mute hover:text-red-400 font-bold text-sm transition-all">Discard &amp; exit</button>
             </div>
           </div>
         </div>
