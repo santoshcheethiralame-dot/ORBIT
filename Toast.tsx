@@ -98,66 +98,34 @@ const ToastItem = ({
   toast: Toast; 
   onRemove: (id: string) => void;
 }) => {
-  const styles = {
-    success: {
-      bg: 'bg-emerald-900/90',
-      border: 'border-emerald-500/30',
-      icon: CheckCircle,
-      iconColor: 'text-emerald-400'
-    },
-    error: {
-      bg: 'bg-red-900/90',
-      border: 'border-red-500/30',
-      icon: AlertCircle,
-      iconColor: 'text-red-400'
-    },
-    warning: {
-      bg: 'bg-amber-900/90',
-      border: 'border-amber-500/30',
-      icon: AlertCircle,
-      iconColor: 'text-amber-400'
-    },
-    info: {
-      bg: 'bg-orange-900/90',
-      border: 'border-orange-500/30',
-      icon: Info,
-      iconColor: 'text-orange-400'
-    }
-  };
-
-  const style = styles[toast.type];
-  const Icon = style.icon;
-
+  const meta = {
+    success: { Icon: CheckCircle, accent: '#FF7A3C' },
+    error: { Icon: AlertCircle, accent: '#F4453B' },
+    warning: { Icon: AlertCircle, accent: '#FFD60A' },
+    info: { Icon: Info, accent: '#F7F5EF' },
+  }[toast.type];
+  const { Icon, accent } = meta;
   const isUrgent = toast.type === 'error' || toast.type === 'warning';
 
   return (
     <div
       role={isUrgent ? 'alert' : 'status'}
       aria-atomic="true"
-      className={`
-        ${style.bg} ${style.border}
-        border backdrop-blur-xl rounded-2xl
-        px-6 py-4 shadow-2xl
-        flex items-center gap-4 min-w-[320px] max-w-md
-        pointer-events-auto
-        animate-in slide-in-from-bottom-4 fade-in duration-300
-      `}
+      className="bg-ink2 border-2 rounded-xl px-5 py-3.5 shadow-2xl flex items-center gap-3 min-w-[300px] max-w-md pointer-events-auto animate-in slide-in-from-bottom-4 fade-in duration-300"
+      style={{ borderColor: `${accent}66` }}
     >
-      <Icon size={20} className={`${style.iconColor} shrink-0`} />
-      
-      <span className="text-white font-medium text-sm flex-1">
+      <Icon size={18} className="shrink-0" style={{ color: accent }} strokeWidth={2.5} />
+
+      <span className="text-white font-semibold text-sm flex-1">
         {toast.message}
       </span>
 
       {toast.action && (
         <button
-          onClick={() => {
-            toast.action!.onClick();
-            onRemove(toast.id);
-          }}
-          className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg font-bold text-sm transition-all active:scale-95 flex items-center gap-2"
+          onClick={() => { toast.action!.onClick(); onRemove(toast.id); }}
+          className="px-3 py-1.5 rounded-lg bg-white text-ink font-bold text-xs uppercase tracking-wide transition-all active:scale-95 flex items-center gap-1.5 shrink-0"
         >
-          <Undo size={14} />
+          <Undo size={13} strokeWidth={2.5} />
           {toast.action.label}
         </button>
       )}
@@ -165,72 +133,11 @@ const ToastItem = ({
       <button
         onClick={() => onRemove(toast.id)}
         aria-label="Dismiss notification"
-        className="p-1 hover:bg-white/10 rounded-lg transition-all"
+        className="p-1 rounded-lg hover:bg-white/10 transition-all shrink-0"
       >
-        <X size={18} className="text-white/60 hover:text-white" />
+        <X size={16} className="text-white/50 hover:text-white" strokeWidth={2.5} />
       </button>
     </div>
   );
 };
 
-export default function ToastDemo() {
-  return (
-    <ToastProvider>
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-8">
-        <DemoButtons />
-      </div>
-    </ToastProvider>
-  );
-}
-
-function DemoButtons() {
-  const toast = useToast();
-
-  return (
-    <div className="space-y-4 w-full max-w-md">
-      <h1 className="text-3xl font-bold text-white mb-8">Toast System Demo</h1>
-
-      <button
-        onClick={() => toast.success('Block completed successfully!', {
-          label: 'UNDO',
-          onClick: () => alert('Undo clicked!')
-        })}
-        className="w-full px-6 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all"
-      >
-        Success Toast (with Undo)
-      </button>
-
-      <button
-        onClick={() => toast.error('Failed to save plan. Please try again.')}
-        className="w-full px-6 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-all"
-      >
-        Error Toast
-      </button>
-
-      <button
-        onClick={() => toast.warning('You have 3 urgent assignments due tomorrow')}
-        className="w-full px-6 py-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-all"
-      >
-        Warning Toast
-      </button>
-
-      <button
-        onClick={() => toast.info('New version available. Refresh to update.')}
-        className="w-full px-6 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold transition-all"
-      >
-        Info Toast
-      </button>
-
-      <button
-        onClick={() => {
-          toast.success('Assignment added');
-          setTimeout(() => toast.info('Don\'t forget to estimate effort'), 1000);
-          setTimeout(() => toast.success('Readiness increased by 5%'), 2000);
-        }}
-        className="w-full px-6 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all"
-      >
-        Test Multiple Toasts
-      </button>
-    </div>
-  );
-}

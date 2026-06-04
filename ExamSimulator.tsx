@@ -49,10 +49,10 @@ function scoreColor(pct: number) {
 }
 
 function scoreLabel(pct: number) {
-    if (pct >= 85) return 'Excellent! 🎉';
-    if (pct >= 70) return 'Good Job 💪';
-    if (pct >= 55) return 'Getting There 📈';
-    return 'Needs Work 🔁';
+    if (pct >= 85) return 'Excellent';
+    if (pct >= 70) return 'Good Job';
+    if (pct >= 55) return 'Getting There';
+    return 'Needs Work';
 }
 
 async function generateQuestions(

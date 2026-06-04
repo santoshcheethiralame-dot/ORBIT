@@ -7,14 +7,13 @@ import { updateAssignmentProgress } from './brain';
 import { getAllReadinessScores, getWeekForecast } from './brain-ultimate';
 import { useToast } from './Toast';
 import { safeDB, withToast } from './utils/dbErrorHandler';
-import { QuickCapture } from './QuickCapture';
 import {
   Play,
   Check,
   Calendar,
   Target,
   Flame,
-  Inbox,
+  Inbox, Plus,
   PlusCircle,
   CheckCircle,
   Clock,
@@ -104,54 +103,23 @@ const BacklogItem = React.memo(({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl">
-      <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-emerald-500/15 to-transparent flex items-center justify-start pl-5 pointer-events-none">
-        <div className={`w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30 transition-transform duration-300 ${swipeOffset > 10 ? 'scale-110' : 'scale-100'}`}>
-          <ArrowRight className="text-emerald-400" size={18} strokeWidth={2.5} />
+    <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-ink3 border border-white/10 hover:border-white/25 transition-colors">
+      <div className="w-1 h-10 rounded-full bg-yellow-400/70 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-bold text-white truncate">{block.subjectName}</div>
+        <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 mt-0.5">
+          <span>{block.type}</span><span>·</span>
+          <span className="inline-flex items-center gap-1"><Clock size={11} strokeWidth={2.5} />{block.duration}m</span>
         </div>
       </div>
-
-      <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-red-500/15 to-transparent flex items-center justify-end pr-5 pointer-events-none">
-        <div className={`w-9 h-9 rounded-xl bg-red-500/20 flex items-center justify-center border border-red-500/30 transition-transform duration-300 ${swipeOffset < -10 ? 'scale-110 rotate-90' : 'scale-100'}`}>
-          <X className="text-red-400" size={18} strokeWidth={2.5} />
-        </div>
-      </div>
-
-      <div
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        style={{
-          transform: `translateX(${swipeOffset}px)`,
-          transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-        }}
-        className={`
-          relative group cursor-pointer
-          flex items-center gap-3 p-4
-          bg-zinc-900/60 hover:bg-zinc-800/60
-          border-2 ${colorClasses.borderLight}
-          rounded-2xl
-          transition-all duration-300
-        `}
-        onClick={() => !isDragging && onAdd(block)}
-      >
-        <div className={`w-1 h-12 rounded-full ${colorClasses.bg}`} />
-
-        <div className="flex-1 min-w-0">
-          <div className={`text-base font-semibold ${colorClasses.text} truncate mb-1`}>
-            {block.subjectName}
-          </div>
-
-          <div className="flex items-center gap-2 text-xs text-zinc-500">
-            <span className="uppercase tracking-wide font-medium">{block.type}</span>
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <Clock size={12} />
-              {block.duration}m
-            </span>
-          </div>
-        </div>
-      </div>
+      <button onClick={() => onAdd(block)} title="Add to today"
+        className="px-3 py-2 rounded-xl bg-orange-500/15 text-orange-400 hover:bg-orange-500/25 transition-all text-[11px] font-mono font-bold uppercase tracking-wide inline-flex items-center gap-1.5 min-h-[40px]">
+        <Plus size={14} strokeWidth={2.5} />Today
+      </button>
+      <button onClick={() => onDelete(block.id)} aria-label="Dismiss" title="Dismiss"
+        className="p-2 rounded-xl text-mute hover:text-red-400 hover:bg-white/5 transition-all min-h-[40px] min-w-[40px] flex items-center justify-center">
+        <X size={16} strokeWidth={2.5} />
+      </button>
     </div>
   );
 });
@@ -188,7 +156,6 @@ export const Dashboard = ({
   onRefresh: () => void;
 }) => {
   const [backlog, setBacklog] = useState<StudyBlock[]>([]);
-  const [showBacklog, setShowBacklog] = useState(false);
   const [animatedProgress, setAnimatedProgress] = useState(0);
   const [animatedStreak, setAnimatedStreak] = useState(0);
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
@@ -662,15 +629,6 @@ export const Dashboard = ({
           <h1 className="font-display font-black text-5xl md:text-7xl leading-[0.9] tracking-[-0.04em] text-white">
             {getGreeting()},<br /><span className="text-orange-500">Commander.</span>
           </h1>
-          <div className="flex items-center gap-2 pt-1 flex-wrap">
-            <QuickCapture defaultSubjectId={nextBlock?.subjectId} />
-            {backlog.length > 0 && (
-              <HeaderChip onClick={() => setShowBacklog(true)}>
-                <Inbox size={14} strokeWidth={2.5} />
-                <span>Backlog {backlog.length}</span>
-              </HeaderChip>
-            )}
-          </div>
         </div>
         <div className="flex gap-3 shrink-0">
           <div className="rounded-3xl bg-ink2 border border-white/10 px-6 py-4 text-center min-w-[104px]">
@@ -830,6 +788,21 @@ export const Dashboard = ({
               )}
             </div>
           )}
+
+          {backlog.length > 0 && (
+            <div className="pt-4 mt-2 border-t-2 border-white/10 space-y-2">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <Inbox size={14} className="text-yellow-400" strokeWidth={2.5} />
+                  <h4 className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-zinc-400">Backlog · carried over</h4>
+                </div>
+                <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">{backlog.length} unfinished</span>
+              </div>
+              {backlog.map((b) => (
+                <BacklogItem key={b.id} block={b} onAdd={addToToday} onDelete={deleteFromBacklog} />
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-1 flex flex-col gap-4">
@@ -894,91 +867,6 @@ export const Dashboard = ({
         </div>
       </div>
 
-      {showBacklog && (
-        <>
-          <style>{`
-            body {
-              overflow: hidden !important;
-              position: fixed !important;
-              width: 100% !important;
-            }
-          `}</style>
-
-          <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setShowBacklog(false);
-            }}
-          >
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
-
-            <div className="relative w-full max-w-2xl bg-zinc-950/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-zinc-800/50 overflow-hidden max-h-[85vh] flex flex-col animate-in zoom-in-95 fade-in duration-300">
-              <div className="flex items-center justify-between p-6 md:p-7 border-b border-zinc-800/70 bg-zinc-950/80 backdrop-blur-sm flex-shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
-                    <Inbox size={20} className="text-yellow-400" strokeWidth={2.5} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-white">Backlog</h3>
-                    <p className="text-xs text-zinc-500 mt-0.5">{backlog.length} {backlog.length === 1 ? 'item' : 'items'} pending</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowBacklog(false)}
-                  className="p-2.5 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-white active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                  aria-label="Close"
-                >
-                  <X size={20} strokeWidth={2.5} />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 md:p-7">
-                {backlog.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 px-4">
-                    <div className="w-20 h-20 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4 border border-emerald-500/20">
-                      <CheckCircle size={32} className="text-emerald-400" strokeWidth={2} />
-                    </div>
-                    <h4 className="text-xl font-bold text-white mb-2">All Clear!</h4>
-                    <p className="text-sm text-zinc-400 text-center max-w-xs">
-                      Your backlog is empty. Great job staying on top of everything!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {backlog.map((b) => (
-                      <BacklogItem
-                        key={b.id}
-                        block={b}
-                        onAdd={addToToday}
-                        onDelete={deleteFromBacklog}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {backlog.length > 0 && (
-                <div className="p-5 md:p-6 border-t border-zinc-800/70 bg-zinc-950/80 backdrop-blur-sm flex-shrink-0">
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
-                    <div className="flex items-center gap-2.5 text-xs text-zinc-400">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                        <ArrowRight size={16} strokeWidth={2.5} className="text-emerald-400" />
-                      </div>
-                      <span className="font-medium">Swipe right to add</span>
-                    </div>
-                    <div className="flex items-center gap-2.5 text-xs text-zinc-400">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20">
-                        <X size={16} strokeWidth={2.5} className="text-red-400" />
-                      </div>
-                      <span className="font-medium">Swipe left to remove</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
 
       <div className="rounded-4xl bg-ink2 border border-white/10 p-6 space-y-4">
         <div className="flex items-center justify-between">

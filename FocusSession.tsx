@@ -18,6 +18,7 @@ import { useSettings } from "./SettingsContext";
 import { SoundManager } from "./utils/sounds";
 import { soundscape, SOUNDSCAPES, SoundscapeType } from "./utils/soundscapes";
 import { onDataChange } from "./db";
+import { setStudyReminderPaused } from "./utils/studyReminder";
 
 const FLIP_DURATION_MS = 600;
 
@@ -50,7 +51,7 @@ const FlipDigit: React.FC<{ value: string }> = React.memo(({ value }) => {
     <div className="flip-card-container" style={{ ["--flip-duration" as any]: `${FLIP_DURATION_MS}ms` }}>
       <div className="flip-card">
         <div className="flip-card-top"><div className="flip-card-face">{displayValue}</div></div>
-        <div className="flip-card-bottom"><div className="flip-card-face">{displayValue}</div></div>
+        <div className="flip-card-bottom"><div className="flip-card-face">{isFlipping ? prevValue : displayValue}</div></div>
         {isFlipping && (<div className="flip-card-top-flip"><div className="flip-card-face">{prevValue}</div></div>)}
         {isFlipping && (<div className="flip-card-bottom-flip"><div className="flip-card-face">{displayValue}</div></div>)}
       </div>
@@ -126,6 +127,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   const [scapeVol, setScapeVol] = useState(0.5);
   const [todayMin, setTodayMin] = useState(0);
   const [streak, setStreak] = useState(0);
+
+  useEffect(() => { setStudyReminderPaused(true); return () => setStudyReminderPaused(false); }, []);
 
   const isMountedRef = useRef(true);
   const lastTickRef = useRef(Date.now());

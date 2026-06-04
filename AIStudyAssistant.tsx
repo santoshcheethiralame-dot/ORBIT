@@ -1157,7 +1157,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                         style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.58)' }}
                         onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(255,90,31,0.35)'; el.style.background = 'rgba(255,90,31,0.08)'; }}
                         onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(255,255,255,0.06)'; el.style.background = 'rgba(255,255,255,0.03)'; }}>
-                        <span className="mr-2">{s.icon}</span>{s.text}
+                        <span className="inline-flex items-start gap-2"><Sparkles size={13} strokeWidth={2.5} className="mt-0.5 shrink-0" style={{ color: 'rgba(255,122,60,0.7)' }} />{s.text}</span>
                       </button>
                     ))}
                   </div>
@@ -1220,14 +1220,14 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
             <div className="px-4 py-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
               <div className="flex gap-2 mb-2.5 overflow-x-auto">
                 {([
-                  ['⚡ Quiz me', `Quiz me on ${block.subjectName} — 5 questions, don't go easy.`],
-                  ['≡ Summarize', `Summarize the key ideas of ${block.subjectName} I should know.`],
-                  ['✦ Flashcards', `Make 5 flashcards for ${block.subjectName}.`],
-                  ['↗ Past paper Qs', `Give me exam-style questions for ${block.subjectName}.`],
-                ] as const).map(([label, prompt]) => (
+                  [Zap, 'Quiz me', `Quiz me on ${block.subjectName} — 5 questions, don't go easy.`],
+                  [BookOpen, 'Summarize', `Summarize the key ideas of ${block.subjectName} I should know.`],
+                  [Layers, 'Flashcards', `Make 5 flashcards for ${block.subjectName}.`],
+                  [FileText, 'Past paper Qs', `Give me exam-style questions for ${block.subjectName}.`],
+                ] as const).map(([Icon, label, prompt]) => (
                   <button key={label} onClick={() => sendMessage(prompt)} disabled={streaming}
-                    className="shrink-0 text-[10px] font-mono font-bold uppercase tracking-[0.12em] px-3 py-2 rounded-full bg-ink2 border border-white/10 text-zinc-400 hover:text-white transition-colors disabled:opacity-40">
-                    {label}
+                    className="shrink-0 inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-[0.12em] px-3 py-2 rounded-full bg-ink2 border border-white/10 text-zinc-400 hover:text-white transition-colors disabled:opacity-40">
+                    <Icon size={12} strokeWidth={2.5} />{label}
                   </button>
                 ))}
               </div>

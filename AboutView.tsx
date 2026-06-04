@@ -85,7 +85,7 @@ export const AboutView = () => {
             <a href="https://github.com/santoshcheethirala" target="_blank" rel="noreferrer" className="flex-1 bg-ink3 border border-white/10 rounded-2xl py-3 text-sm font-bold hover:border-white/25 transition-colors flex items-center justify-center gap-2"><Github size={16} /> GitHub</a>
             <a href="https://www.linkedin.com/in/santoshcheethirala/" target="_blank" rel="noreferrer" className="flex-1 bg-white text-ink rounded-2xl py-3 text-sm font-bold flex items-center justify-center gap-2"><Linkedin size={16} /> LinkedIn</a>
           </div>
-          <div className="mt-3 rounded-2xl bg-yellow-400/10 border border-yellow-400/20 px-4 py-3 text-center"><span className="text-[9px] font-mono font-bold uppercase tracking-[0.14em] text-yellow-300">🔒 100% local · no accounts · no tracking</span></div>
+          <div className="mt-3 rounded-2xl bg-yellow-400/10 border border-yellow-400/20 px-4 py-3 text-center"><span className="inline-flex items-center justify-center gap-1.5 text-[9px] font-mono font-bold uppercase tracking-[0.14em] text-yellow-300"><Lock size={10} strokeWidth={2.5} /> 100% local · no accounts · no tracking</span></div>
         </div>
       </div>
 

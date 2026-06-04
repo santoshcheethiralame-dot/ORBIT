@@ -46,6 +46,7 @@ const AboutView = lazy(() => import("./AboutView").then(m => ({ default: m.About
 const SettingsView = lazy(() => import("./SettingsView").then(m => ({ default: m.SettingsView })));
 import { SoundManager } from "./utils/sounds";
 import { NotificationManager } from "./utils/notifications";
+import { startStudyReminder } from "./utils/studyReminder";
 import { getSubjectIntelligence, SubjectIntelligence } from "./utils/subjectIntelligence";
 import { ToastProvider, useToast } from "./Toast";
 
@@ -122,6 +123,8 @@ const App = () => {
       SoundManager.setEnabled(enabled);
     } catch (e) { }
   }, []);
+
+  useEffect(() => startStudyReminder(), []);
 
   useEffect(() => {
     const autoMarkExams = async () => {

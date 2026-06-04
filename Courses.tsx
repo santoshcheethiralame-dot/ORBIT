@@ -3,7 +3,7 @@ import {
   BookOpen, Award, FileText, Upload, Trash2, X, Search, Target,
   Clock, Download, CheckSquare, Square, Calculator, TrendingUp,
   Link, ExternalLink, Plus, Edit2, StickyNote, Sparkles, Presentation,
-  Maximize2, Minimize2, ChevronLeft
+  Maximize2, Minimize2, ChevronLeft, AlertTriangle
 } from "lucide-react";
 import { db } from "./db";
 import { ResourceType, SubjectReadiness } from "./types";
@@ -641,7 +641,6 @@ export default function CoursesView_Enhanced() {
     const reviewsDue = topicRows.filter((r) => r.due === 'overdue' || r.due === 'due').length;
     const subjectLogs = logs.filter((l) => l.subjectId === selectedSubject.id && l.notes && l.notes.trim().length > 0).sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
     const goReview = () => window.dispatchEvent(new CustomEvent('orbit:navigate', { detail: { tab: 'review' } }));
-    const goFocus = () => window.dispatchEvent(new CustomEvent('orbit:navigate', { detail: { tab: 'dashboard' } }));
     const META = "text-[9px] font-mono uppercase tracking-[0.16em] text-mute";
 
     return (
@@ -654,7 +653,6 @@ export default function CoursesView_Enhanced() {
           <div className="flex items-center gap-2">
             <button onClick={() => openEditSubject(selectedSubject)} className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-ink2 border-2 border-white/12 text-zinc-300 hover:text-white text-sm font-bold transition-colors min-h-[44px]"><Edit2 size={15} /><span className="hidden sm:inline">Edit</span></button>
             <button onClick={() => setDeletingSubjectId(selectedSubject.id!)} aria-label="Delete subject" className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-ink2 border-2 border-white/12 text-mute hover:text-red-400 text-sm font-bold transition-colors min-h-[44px]"><Trash2 size={15} /></button>
-            <button onClick={goFocus} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 text-ink text-sm font-bold hover:brightness-105 transition-all min-h-[44px]"><Sparkles size={15} /> Start focus</button>
           </div>
         </div>
 
@@ -965,7 +963,7 @@ export default function CoursesView_Enhanced() {
               {priority ? (
                 <div onClick={() => setSelectedSubjectId(priority.s.id)} className={`lg:col-span-2 rounded-5xl ${priority.m.st.solid} text-ink p-7 md:p-8 cursor-pointer relative overflow-hidden group`}>
                   <div className="flex items-center gap-2 mb-5">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] bg-ink/90 text-white px-3 py-1.5 rounded-full">{priority.m.status === 'critical' ? '⚠ Needs you most' : '◎ Focus next'}</span>
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-[0.14em] bg-ink/90 text-white px-3 py-1.5 rounded-full">{priority.m.status === 'critical' ? <><AlertTriangle size={11} strokeWidth={2.5} /> Needs you most</> : <><Target size={11} strokeWidth={2.5} /> Focus next</>}</span>
                     <span className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] opacity-70">{priority.m.st.label}</span>
                   </div>
                   <div className="flex items-start justify-between gap-6">
