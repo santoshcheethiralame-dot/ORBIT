@@ -903,6 +903,13 @@ interface Message {
 
 type Tab = 'chat' | 'notes' | 'exam';
 type CoachMode = 'coach' | 'feynman' | 'quiz';
+type CoachLevel = 'eli5' | 'standard' | 'advanced' | 'exam';
+const LEVEL_SUFFIX: Record<CoachLevel, string> = {
+  eli5: '\n\n## LEVEL: BEGINNER\nAssume no background. Define every term, use plain words and simple analogies, keep it short.',
+  standard: '',
+  advanced: '\n\n## LEVEL: ADVANCED\nAssume a strong background. Use precise terminology; go into depth, nuance, and edge cases.',
+  exam: '\n\n## LEVEL: EXAM-GRADER\nAnswer the way a top exam answer is marked: precise, complete, well-structured, and flag what earns marks.',
+};
 
 export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subjectIntelligence, onClose }) => {
   const [tab, setTab] = useState<Tab>('chat');
@@ -916,6 +923,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
   const [richCtx, setRichCtx] = useState<RichContext>({});
   const [ctxLoaded, setCtxLoaded] = useState(false);
   const [mode, setMode] = useState<CoachMode>('coach');
+  const [level, setLevel] = useState<CoachLevel>('standard');
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -1028,7 +1036,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
       ? "\n\n## FEYNMAN MODE\nAnswer using the Feynman Technique: lead with a plain-English explanation (zero jargon), then a vivid real-world analogy, then ONE concrete worked example, then the key insight most people miss. Teach like you're talking to a sharp 16-year-old — but still answer exactly what the student asked."
       : '';
     geminiStream(
-      history, systemPrompt + modeSuffix,
+      history, systemPrompt + modeSuffix + LEVEL_SUFFIX[level],
       (chunk) => { full += chunk; streamRef.current = stripThinking(full); setStreamText(streamRef.current); },
       () => {
         setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: stripThinking(full), timestamp: Date.now() }]);
@@ -1039,7 +1047,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
       (err) => { setError(err); setStreaming(false); setStreamText(''); streamRef.current = ''; },
       2200, 'standard', ctrl.signal, { temperature: 0.55 },
     );
-  }, [mode, systemPrompt, sessionCount]);
+  }, [mode, level, systemPrompt, sessionCount]);
 
   const runVisionCompletion = useCallback((text: string, image: string) => {
     const myId = ++genId.current;
@@ -1050,13 +1058,13 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
       { type: 'image_url', image_url: { url: image } },
     ];
     geminiStreamMultimodal(
-      parts, systemPrompt,
+      parts, systemPrompt + LEVEL_SUFFIX[level],
       (chunk) => { if (genId.current !== myId) return; full += chunk; streamRef.current = stripThinking(full); setStreamText(streamRef.current); },
       () => { if (genId.current !== myId) return; setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: stripThinking(full), timestamp: Date.now() }]); setStreamText(''); setStreaming(false); streamRef.current = ''; },
       (err) => { if (genId.current !== myId) return; setError(err); setStreaming(false); setStreamText(''); streamRef.current = ''; },
       1800,
     );
-  }, [systemPrompt]);
+  }, [systemPrompt, level]);
 
   const sendMessage = useCallback((text: string) => {
     const trimmed = text.trim();
@@ -1201,9 +1209,9 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
         </div>
 
         {tab === 'chat' && (
-          <div className="flex items-center gap-2 px-5 pt-2.5 shrink-0">
+          <div className="flex items-center gap-2 px-5 pt-2.5 shrink-0 flex-wrap">
             <span className="text-[9px] font-mono font-bold uppercase tracking-[0.14em] shrink-0" style={{ color: 'rgba(255,255,255,0.28)' }}>Mode</span>
-            <div className="flex items-center gap-0.5 bg-ink2 border-2 border-white/10 rounded-lg p-0.5 flex-1 sm:flex-none">
+            <div className="flex items-center gap-0.5 bg-ink2 border-2 border-white/10 rounded-lg p-0.5 flex-1 sm:flex-none min-w-0">
               {(['coach', 'feynman', 'quiz'] as const).map(m => (
                 <button key={m} onClick={() => setMode(m)} title={m === 'feynman' ? "Explain it simply" : m === 'quiz' ? 'Quiz me relentlessly' : 'Socratic coaching'}
                   className={`flex-1 sm:flex-none text-[9px] font-mono font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 rounded-md transition-colors ${mode === m ? (m === 'feynman' ? 'bg-yellow-400 text-ink' : 'bg-orange-500 text-ink') : 'text-zinc-400 hover:text-white'}`}>
@@ -1211,6 +1219,13 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                 </button>
               ))}
             </div>
+            <select value={level} onChange={e => setLevel(e.target.value as CoachLevel)} title="Explanation level"
+              className="shrink-0 text-[9px] font-mono font-bold uppercase tracking-[0.1em] bg-ink2 border-2 border-white/10 rounded-lg px-2 py-1.5 text-zinc-300 focus:outline-none focus:border-orange-500/40 cursor-pointer">
+              <option value="eli5">ELI5</option>
+              <option value="standard">Standard</option>
+              <option value="advanced">Advanced</option>
+              <option value="exam">Exam-grader</option>
+            </select>
           </div>
         )}
 

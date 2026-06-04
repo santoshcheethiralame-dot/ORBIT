@@ -588,10 +588,10 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
                   {subjectIntelligence?.readiness !== undefined && <span className="text-yellow-400/80"> · {Math.round(subjectIntelligence.readiness)}% ready</span>}
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
                 <button onClick={() => setShowSound(v => !v)} className="meta text-[9px] bg-orange-500/15 border border-orange-500/30 text-orange-400 px-3 py-2 rounded-lg flex items-center gap-1.5 hover:bg-orange-500/25 transition-colors">
                   {scape === "silence" ? <VolumeX size={11} /> : <Music2 size={11} />}
-                  {scape === "silence" ? "Sound" : SOUNDSCAPES.find(s => s.id === scape)?.label}
+                  <span className="hidden sm:inline">{scape === "silence" ? "Sound" : SOUNDSCAPES.find(s => s.id === scape)?.label}</span>
                   <ChevronDown size={10} className="opacity-60" />
                 </button>
                 <button onClick={cycleSkin} title="Timer skin" className="w-9 h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><CircleDashed size={14} /></button>
@@ -643,7 +643,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
 
           {!zen && !isBreak && (
             <div className="px-5 md:px-8 pb-7 pt-2">
-              <div className="grid grid-cols-3 items-end gap-3">
+              <div className="flex flex-col-reverse items-center gap-3 sm:grid sm:grid-cols-3 sm:items-end">
                 <div className="flex items-center gap-2 justify-self-start">
                   <button onClick={() => setShowNotes(true)} disabled={strictMode && isRunning} title="Notes" className={`w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors ${strictMode && isRunning ? "opacity-30 cursor-not-allowed" : ""}`}><BookOpen size={16} /></button>
                   <button onClick={() => setShowAI(true)} title="AI coach" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-orange-400 hover:bg-orange-500/10 flex items-center justify-center transition-colors"><Sparkles size={16} /></button>
