@@ -3,17 +3,6 @@ import { useEffect, RefObject } from 'react';
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/**
- * Make a modal/dialog keyboard-accessible (WCAG 2.1.2 / 2.4.3):
- *  - moves focus into the dialog on open (first focusable, else the container),
- *  - traps Tab focus within the container,
- *  - closes on Escape when `onClose` is provided,
- *  - restores focus to the previously-focused element on close.
- *
- * Call from a modal component that mounts when opened and unmounts when closed.
- * The container element must carry the passed ref (and ideally
- * role="dialog" aria-modal="true").
- */
 export function useDialogA11y(
   ref: RefObject<HTMLElement | null>,
   onClose?: () => void
@@ -27,7 +16,6 @@ export function useDialogA11y(
       Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
         .filter(el => el.offsetParent !== null || el === document.activeElement);
 
-    // Move focus into the dialog.
     const first = focusables()[0];
     if (first) {
       first.focus();
@@ -65,7 +53,6 @@ export function useDialogA11y(
         previouslyFocused.focus();
       }
     };
-    // Runs once per open/close (the dialog mounts on open, unmounts on close).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }

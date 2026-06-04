@@ -1,5 +1,3 @@
-// ./types.ts
-
 export type ID = number | string;
 
 export interface Semester {
@@ -52,7 +50,7 @@ export interface Subject {
   resources?: Resource[];
   grades?: Grade[];
   color?: string;
-  colorIndex?: number;   // User-selected palette index (0–5). Overrides auto-assignment.
+  colorIndex?: number;
   notes?: string;
   createdAt?: string;
 }
@@ -60,9 +58,9 @@ export interface Subject {
 export interface ExamEntry {
   id?: number;
   subjectId: number;
-  examDate: string;     // YYYY-MM-DD
+  examDate: string;
   examType: 'isa' | 'esa';
-  completed: boolean;   // auto-set when date passes
+  completed: boolean;
 }
 
 export interface Project {
@@ -99,7 +97,7 @@ export interface StudyBlock {
 
   migrated?: boolean;
   priority: number;
-  tier?: 'core' | 'stretch';  // smartPlanner triage: must-do vs nice-to-have
+  tier?: 'core' | 'stretch';
 
   notes?: string;
   assignmentId?: string;
@@ -112,8 +110,8 @@ export interface StudyBlock {
   isBacklogChunk?: boolean;
   totalEffortRemaining?: number;
 
-  droppedBlockId?: string;   // original block ID if this was snoozed
-  droppedFrom?: string;      // date it was dropped from (YYYY-MM-DD)
+  droppedBlockId?: string;
+  droppedFrom?: string;
 
   reason?: string;
   displaced?: {
@@ -149,7 +147,7 @@ export interface DailyPlan {
   warning?: string;
   loadLevel?: 'light' | 'normal' | 'heavy' | 'extreme';
   loadScore?: number;
-  droppedBlocks?: string[];  // block IDs that were dropped/snoozed from this day
+  droppedBlocks?: string[];
   loadAnalysis?: {
     loadScore: number;
     loadLevel: 'light' | 'normal' | 'heavy' | 'extreme';
@@ -182,9 +180,8 @@ export interface StudyTopic {
   easeFactor: number;
   reviewCount: number;
   comprehensionHistory: number[];
-  // Flashcard fields (optional — topics created before this field are question-less)
-  question?: string;   // The prompt/front of the flashcard
-  answer?: string;     // The revealed answer/back of the flashcard
+  question?: string;
+  answer?: string;
 }
 
 export interface StudyLog {
@@ -203,10 +200,6 @@ export interface StudyLog {
   easeFactor?: number;
   reviewNumber?: number;
 }
-
-/* ======================================================
-   WEEK SIMULATION
-====================================================== */
 
 export interface DayPreview {
   date: string;
@@ -229,12 +222,6 @@ export interface WeekPreview {
   overloadDays: string[];
   peakDay: string;
 }
-
-/* ======================================================
-
-  🆕 ENHANCED BRAIN TYPES - Quick Wins Implementation
-
-====================================================== */
 
 export type BlockOutcome = {
   blockId: string;

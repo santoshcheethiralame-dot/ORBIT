@@ -1,7 +1,3 @@
-// QuickCapture.tsx — Floating quick-note widget
-// Lets you log a thought, idea, or note to any subject without starting a full
-// focus timer. Entries appear in the Session Notes tab of each course.
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
@@ -14,7 +10,6 @@ import {
 const MAX_NOTE_LENGTH = 500;
 
 interface Props {
-  /** Pre-select a subject (e.g. from the active block) */
   defaultSubjectId?: number;
 }
 
@@ -29,7 +24,6 @@ export const QuickCapture: React.FC<Props> = ({ defaultSubjectId }) => {
 
   const subjects = useLiveQuery(() => db.subjects.orderBy('name').toArray()) ?? [];
 
-  // Pre-select subject when prop changes or subjects load
   useEffect(() => {
     if (defaultSubjectId && subjects.some(s => s.id === defaultSubjectId)) {
       setSubjectId(defaultSubjectId);
@@ -38,12 +32,10 @@ export const QuickCapture: React.FC<Props> = ({ defaultSubjectId }) => {
     }
   }, [defaultSubjectId, subjects]);
 
-  // Focus textarea on open
   useEffect(() => {
     if (open) {
       setTimeout(() => textRef.current?.focus(), 80);
     } else {
-      // Reset on close (after saved animation)
       if (!saving) {
         setNote('');
         setSaved(false);
@@ -51,7 +43,6 @@ export const QuickCapture: React.FC<Props> = ({ defaultSubjectId }) => {
     }
   }, [open]);
 
-  // Keyboard shortcut: Alt+N
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.altKey && e.key === 'n') {
@@ -74,7 +65,7 @@ export const QuickCapture: React.FC<Props> = ({ defaultSubjectId }) => {
     try {
       await db.logs.add({
         subjectId: Number(subjectId),
-        duration: 0,           // zero-duration — this is a note, not a timed session
+        duration: 0,
         date: getISTEffectiveDate(),
         timestamp: Date.now(),
         type: 'review' as const,
@@ -85,7 +76,6 @@ export const QuickCapture: React.FC<Props> = ({ defaultSubjectId }) => {
       setNote('');
       toast.success('Note saved');
 
-      // Auto-close after brief "saved" flash
       setTimeout(() => {
         setSaved(false);
         setOpen(false);
@@ -110,7 +100,6 @@ export const QuickCapture: React.FC<Props> = ({ defaultSubjectId }) => {
 
   return (
     <>
-      {/* Trigger button */}
       <button
         onClick={() => setOpen(v => !v)}
         title="Quick Capture (Alt+N)"
@@ -125,10 +114,8 @@ export const QuickCapture: React.FC<Props> = ({ defaultSubjectId }) => {
         <kbd className="text-[9px] opacity-40 font-mono hidden sm:inline">Alt+N</kbd>
       </button>
 
-      {/* Capture panel */}
       {open && (
         <>
-          {/* Backdrop (mobile) */}
           <div
             className="fixed inset-0 z-[90] md:hidden"
             onClick={() => setOpen(false)}
@@ -142,7 +129,6 @@ export const QuickCapture: React.FC<Props> = ({ defaultSubjectId }) => {
               backdropFilter: 'blur(24px)',
             }}
           >
-            {/* Header */}
             <div className="flex items-center justify-between px-4 py-3"
               style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="flex items-center gap-2">
@@ -159,7 +145,6 @@ export const QuickCapture: React.FC<Props> = ({ defaultSubjectId }) => {
               </button>
             </div>
 
-            {/* Subject selector */}
             <div className="px-4 pt-3">
               <label className="text-[9px] font-black uppercase tracking-widest block mb-1.5"
                 style={{ color: 'rgba(255,255,255,0.25)' }}>
@@ -189,7 +174,6 @@ export const QuickCapture: React.FC<Props> = ({ defaultSubjectId }) => {
               </div>
             </div>
 
-            {/* Note textarea */}
             <div className="px-4 pt-3">
               <label className="text-[9px] font-black uppercase tracking-widest block mb-1.5"
                 style={{ color: 'rgba(255,255,255,0.25)' }}>
@@ -218,7 +202,6 @@ export const QuickCapture: React.FC<Props> = ({ defaultSubjectId }) => {
               </div>
             </div>
 
-            {/* Save button */}
             <div className="px-4 pb-4 pt-2">
               <button
                 onClick={handleSave}

@@ -1,4 +1,3 @@
-// FocusSession — immersive deep-work environment: living nebula + orbiting timer.
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import {
   Play, Pause, Coffee, X, Sparkles, Lock, Unlock, Music2, Volume2, VolumeX,
@@ -20,7 +19,6 @@ import { SoundManager } from "./utils/sounds";
 import { soundscape, SOUNDSCAPES, SoundscapeType } from "./utils/soundscapes";
 import { onDataChange } from "./db";
 
-// ── Mechanical flip-clock digit (used by the "Flip" timer skin) ──
 const FLIP_DURATION_MS = 600;
 
 const FlipDigit: React.FC<{ value: string }> = React.memo(({ value }) => {
@@ -121,7 +119,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   const [showSummary, setShowSummary] = useState(false);
   const [summaryData, setSummaryData] = useState<{ duration: number; quality: number; readinessGain: number; aiTip?: string; } | null>(null);
 
-  // ── New immersive-UI state ──
   const [skin, setSkin] = useState<"orbit" | "flip" | "minimal">("orbit");
   const [zen, setZen] = useState(false);
   const [showSound, setShowSound] = useState(false);
@@ -133,7 +130,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   const isMountedRef = useRef(true);
   const lastTickRef = useRef(Date.now());
 
-  // strict mode → warn before leaving the tab
   useEffect(() => {
     if (!strictMode || !isRunning) return;
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -155,7 +151,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
     loadResources();
   }, [block.subjectId]);
 
-  // load today's focus minutes + global day streak for the live HUD
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -180,7 +175,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
           }
         }
         setStreak(st);
-      } catch (e) { /* non-fatal HUD data */ }
+      } catch (e) { }
     })();
     return () => { alive = false; };
   }, []);
@@ -188,12 +183,11 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   useEffect(() => { const timer = setTimeout(() => setIsLoading(false), 700); return () => clearTimeout(timer); }, []);
   useEffect(() => { if (isRunning) setHasStarted(true); }, [isRunning]);
 
-  // persist notes + stop soundscape on unmount
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      try { soundscape.stop(); } catch { /* ignore */ }
+      try { soundscape.stop(); } catch { }
       if (notes) {
         try { localStorage.setItem(`orbit-session-notes-${block.id}`, notes); }
         catch (e) { console.warn("Failed to save notes on unmount:", e); }
@@ -201,7 +195,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
     };
   }, [notes, block.id]);
 
-  // catch-up on tab refocus
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) { lastTickRef.current = Date.now(); }
@@ -301,7 +294,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
           : progress <= 0.12 ? "Warm-up"
             : "Deep focus";
 
-  // ── Exit safety ──
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const requestExit = () => {
     if (!isBreak && elapsedSeconds >= 60) setShowExitConfirm(true);
@@ -430,7 +422,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
     window.open(resource.url, "_blank", "noopener,noreferrer");
   };
 
-  // keyboard: Esc, space=pause, F=zen
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const anyModal = showNotes || showAI || showSettings || showResources || showSound;
@@ -452,7 +443,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showNotes, showAI, showSettings, showResources, showSound, isRunning, strictMode, zen]);
 
-  // browser tab title
   useEffect(() => {
     if (!isRunning && !isBreak) { document.title = "Orbit"; return; }
     const timeVal = isOvertime ? overtime : (isBreak ? breakTime : timeLeft);
@@ -465,7 +455,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   const timeStr = `${time.min1}${time.min2}:${time.sec1}${time.sec2}`;
   const pct = Math.round(progress * 100);
 
-  // ── timer faces ──
   const OrbitFace = (
     <button onClick={addFive} className="relative block" style={{ width: 410, height: 410, maxWidth: "78vw", maxHeight: "78vw" }} title="Tap to add 5 minutes">
       <svg viewBox="0 0 100 100" className="w-full h-full" style={{ transform: "rotate(-90deg)" }}>
@@ -557,7 +546,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
         .flip-divider{position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(0,0,0,0.9);transform:translateY(-50%);z-index:10;pointer-events:none}
       `}</style>
 
-      {/* living nebula */}
       <div className={isBreak ? "nebula calm" : "nebula"}><div className="blob b1" /><div className="blob b2" /><div className="blob b3" /></div>
 
       {isLoading && (
@@ -569,7 +557,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
         </div>
       )}
 
-      {/* milestone flare (subtle line) */}
       {showMilestone && (
         <div className="absolute top-24 left-1/2 z-40" style={{ animation: "slideDown .3s ease-out" }}>
           <span className="meta text-[10px] text-paper flex items-center gap-2 bg-orange-500/15 border border-orange-500/30 px-4 py-2 rounded-lg backdrop-blur-sm">
@@ -581,7 +568,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       {!isLoading && (
         <div className="relative z-10 h-full flex flex-col">
 
-          {/* ── top bar ── */}
           {!zen && (
             <div className="flex items-start justify-between px-5 md:px-8 pt-6 pb-2">
               <div className="min-w-0">
@@ -611,7 +597,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
             </div>
           )}
 
-          {/* ── centre ── */}
           <div className="flex-1 flex items-center justify-center px-4 min-h-0">
             {isBreak ? (
               <div className="flex flex-col items-center" style={{ animation: "fadeIn .4s ease" }}>
@@ -634,11 +619,9 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
             )}
           </div>
 
-          {/* ── bottom band ── */}
           {!zen && !isBreak && (
             <div className="px-5 md:px-8 pb-7 pt-2">
               <div className="grid grid-cols-3 items-end gap-3">
-                {/* tools */}
                 <div className="flex items-center gap-2 justify-self-start">
                   <button onClick={() => setShowNotes(true)} disabled={strictMode && isRunning} title="Notes" className={`w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors ${strictMode && isRunning ? "opacity-30 cursor-not-allowed" : ""}`}><BookOpen size={16} /></button>
                   <button onClick={() => setShowAI(true)} title="AI coach" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-orange-400 hover:bg-orange-500/10 flex items-center justify-center transition-colors"><Sparkles size={16} /></button>
@@ -646,7 +629,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
                   <button onClick={() => setShowSettings(true)} title="Settings" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors hidden sm:flex"><SettingsIcon size={16} /></button>
                 </div>
 
-                {/* dock */}
                 <div className="flex items-center gap-2.5 justify-self-center">
                   {!isOvertime && (
                     <button onClick={startBreak} disabled={strictMode} className={`bg-ink2/80 border-2 border-white/15 text-white font-bold uppercase tracking-wide text-sm px-4 md:px-5 py-3.5 rounded-xl flex items-center gap-2 hover:bg-ink3 transition-colors ${strictMode ? "opacity-30 cursor-not-allowed" : ""}`}><Coffee size={15} /><span className="hidden md:inline">Break</span></button>
@@ -662,7 +644,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
                   <button onClick={requestExit} className="bg-ink2/80 border-2 border-white/15 text-mute hover:text-white font-bold uppercase tracking-wide text-sm px-4 md:px-5 py-3.5 rounded-xl flex items-center gap-2 transition-colors"><Square size={14} /><span className="hidden md:inline">End</span></button>
                 </div>
 
-                {/* stats */}
                 <div className="justify-self-end text-right space-y-1.5 hidden sm:block">
                   <div className="meta text-[9px] text-mute flex items-center justify-end gap-1.5"><Clock size={10} /> {fmtMin(todayMin + sessionMinutes)} today</div>
                   <div className="meta text-[9px] text-mute flex items-center justify-end gap-1.5"><Flame size={10} /> {streak} day{streak === 1 ? "" : "s"} · <span className="text-orange-400">+{sessionXp} XP</span></div>
@@ -678,7 +659,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
             </div>
           )}
 
-          {/* zen exit affordance */}
           {zen && (
             <button onClick={() => setZen(false)} className="absolute top-6 right-6 z-30 w-10 h-10 rounded-lg bg-ink2/70 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors" title="Exit zen (Esc)"><Minimize2 size={15} /></button>
           )}
@@ -686,7 +666,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
         </div>
       )}
 
-      {/* ── soundscape popover ── */}
       {showSound && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setShowSound(false)} />
@@ -709,7 +688,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
         </>
       )}
 
-      {/* ── completion ceremony ── */}
       {showSummary && summaryData && (
         <div className="fixed inset-0 z-[110] bg-ink flex items-center justify-center p-5">
           <div className="nebula bright"><div className="blob b1" /><div className="blob b2" /><div className="blob b3" /></div>
@@ -736,7 +714,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
         </div>
       )}
 
-      {/* ── AI coach ── */}
       {showAI && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowAI(false)} />
@@ -746,7 +723,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
         </div>
       )}
 
-      {/* ── notes ── */}
       {showNotes && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowNotes(false)} />
@@ -764,7 +740,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
         </div>
       )}
 
-      {/* ── resources ── */}
       {showResources && (
         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-end md:justify-center p-0 md:p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowResources(false)} />
@@ -806,7 +781,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
         </div>
       )}
 
-      {/* ── focus settings ── */}
       {showSettings && (
         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowSettings(false)} />

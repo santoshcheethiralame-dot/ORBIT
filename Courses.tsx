@@ -1,6 +1,3 @@
-// CoursesView: Academic hub for managing subjects, resources, grades, and syllabus tracking.
-// Supports file uploads, previews, grade calculations, and exam readiness predictions.
-
 import React, { useEffect, useState } from "react";
 import {
   BookOpen, Award, FileText, Upload, Trash2, X, Search, Target,
@@ -148,7 +145,6 @@ export default function CoursesView_Enhanced() {
   const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness>>({});
   const [showPrediction, setShowPrediction] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  // Subject CRUD — CoursesView is the authoritative source for subjects.
   const [showSubjectForm, setShowSubjectForm] = useState(false);
   const [editingSubjectId, setEditingSubjectId] = useState<number | null>(null);
   const [subjectForm, setSubjectForm] = useState({ name: "", code: "", credits: "3", difficulty: "3" });
@@ -166,7 +162,6 @@ export default function CoursesView_Enhanced() {
     ? subjects.find((s) => s.id === selectedSubjectId)
     : null;
 
-  // Spaced-repetition topics for the open subject (powers Topics·Mastery)
   const subjectTopics = useLiveQuery(
     () => selectedSubjectId != null
       ? db.topics.where('subjectId').equals(selectedSubjectId).toArray()
@@ -205,7 +200,6 @@ export default function CoursesView_Enhanced() {
     }
   }, [selectedResource]);
 
-  // Lazy-render uploaded .docx with mammoth (dynamic import → kept off the main bundle)
   useEffect(() => {
     let cancelled = false;
     setDocxHtml(null);
@@ -330,14 +324,9 @@ export default function CoursesView_Enhanced() {
     toast.success("Resource deleted");
   };
 
-  // New unified resource opener — mirrors FocusSession behavior:
-  // - supports link type -> open external URL in new tab
-  // - supports fileData (base64) -> creates Blob, opens in new tab using object URL
-  // - for Office docs, triggers download via anchor element
   const openResourceInNewTab = (r: any) => {
     if (!r) return;
 
-    // Links: open as-is
     if (r.type === 'link') {
       if (!r.url || r.url.trim() === '') {
         toast.error("No URL available");
@@ -347,7 +336,6 @@ export default function CoursesView_Enhanced() {
       return;
     }
 
-    // If there's base64 fileData, convert -> Blob -> open
     if (r.fileData && r.fileType) {
       const base64Data = r.fileData.includes('base64,')
         ? r.fileData.split('base64,')[1]
@@ -364,7 +352,6 @@ export default function CoursesView_Enhanced() {
         const blobUrl = URL.createObjectURL(blob);
 
         if (isOfficeDoc(r.fileType)) {
-          // trigger download for office docs
           const link = document.createElement("a");
           link.href = blobUrl;
           link.download = r.title || "file";
@@ -372,12 +359,9 @@ export default function CoursesView_Enhanced() {
           link.click();
           document.body.removeChild(link);
           toast.info("Office document downloaded");
-          // revoke after slight delay
           setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
         } else {
-          // open in new tab for previewable files
           window.open(blobUrl, "_blank", "noopener,noreferrer");
-          // revoke after small delay to ensure the new tab can fetch it
           setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
         }
         return;
@@ -388,7 +372,6 @@ export default function CoursesView_Enhanced() {
       }
     }
 
-    // fallback: if resource has a URL field
     if (r.url && r.url.trim() !== '') {
       window.open(r.url, '_blank', 'noopener,noreferrer');
       return;
@@ -433,8 +416,6 @@ export default function CoursesView_Enhanced() {
     }
   };
 
-  // In-app resource viewer: links + PDFs + Office (docx/pptx/xlsx via Office Online for URLs)
-  // + images/video render inside Orbit; offline-uploaded Office files fall back to open/download.
   if (selectedResource) {
     const r = selectedResource;
     const isLink = r.type === 'link';
@@ -539,8 +520,6 @@ export default function CoursesView_Enhanced() {
   };
   const cascadeDeleteSubject = async (id: number) => {
     try {
-      // Remove the subject AND every record that references it, so no orphans
-      // are left behind (logs/topics/outcomes/plans drive analytics & planning).
       await db.transaction('rw',
         [db.subjects, db.projects, db.assignments, db.logs, db.topics, db.blockOutcomes, db.schedule, db.exams, db.studyBlocks, db.plans],
         async () => {
@@ -670,7 +649,6 @@ export default function CoursesView_Enhanced() {
         {subjectFormModal}
         {deleteSubjectModal}
 
-        {/* top bar */}
         <div className="flex items-center justify-between mb-6">
           <button onClick={() => setSelectedSubjectId(null)} className="flex items-center gap-2 text-sm font-bold text-mute hover:text-white transition-colors min-h-[44px]"><ChevronLeft size={16} /> All courses</button>
           <div className="flex items-center gap-2">
@@ -680,7 +658,6 @@ export default function CoursesView_Enhanced() {
           </div>
         </div>
 
-        {/* hero */}
         <div className="grid lg:grid-cols-[1.5fr_1fr] gap-4 mb-4">
           <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-7 relative overflow-hidden">
             <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle,#FF5A1F22,transparent 70%)' }} />
@@ -707,7 +684,6 @@ export default function CoursesView_Enhanced() {
             </div>
           </div>
 
-          {/* readiness */}
           <button onClick={() => setShowPrediction(selectedSubject.id!)} className="rounded-3xl bg-ink2 border-2 border-white/12 p-6 flex items-center gap-5 text-left hover:border-white/20 transition-colors">
             <div className="relative w-28 h-28 shrink-0">
               <svg viewBox="0 0 100 100" className="w-full h-full" style={{ transform: 'rotate(-90deg)' }}>
@@ -725,7 +701,6 @@ export default function CoursesView_Enhanced() {
           </button>
         </div>
 
-        {/* stat strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-5"><div className={META + " mb-2"}>Study time</div><div className="font-display font-black text-3xl tabular-nums">{getTotalHours(selectedSubject.id!)}<span className="text-base text-mute">h</span></div><div className={META + " mt-1"}>{computeProgress(selectedSubject)}% syllabus</div></div>
           <button onClick={reviewsDue > 0 ? goReview : undefined} className={"rounded-3xl p-5 text-left " + (reviewsDue > 0 ? "bg-orange-500 text-ink" : "bg-ink2 border-2 border-white/12")}><div className={"text-[9px] font-mono uppercase tracking-[0.16em] mb-2 " + (reviewsDue > 0 ? "opacity-70" : "text-mute")}>Reviews due</div><div className="font-display font-black text-3xl tabular-nums">{String(reviewsDue).padStart(2, '0')}</div><div className={"text-[9px] font-mono uppercase tracking-[0.16em] mt-1 " + (reviewsDue > 0 ? "opacity-70" : "text-mute")}>{reviewsDue > 0 ? 'tap to review' : 'all caught up'}</div></button>
@@ -733,7 +708,6 @@ export default function CoursesView_Enhanced() {
           <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-5"><div className={META + " mb-2"}>Grade avg</div><div className="font-display font-black text-3xl tabular-nums">{gpa ? gpa + '%' : '—'}</div><div className={META + " mt-1"}>{(selectedSubject.grades || []).length} marks</div></div>
         </div>
 
-        {/* TOPICS · MASTERY */}
         <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6 mb-4">
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-display font-black text-2xl">TOPICS · MASTERY</h3>
@@ -766,9 +740,7 @@ export default function CoursesView_Enhanced() {
           )}
         </div>
 
-        {/* SYLLABUS + RESOURCES */}
         <div className="grid lg:grid-cols-2 gap-4 mb-4">
-          {/* syllabus */}
           <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6">
             <div className="flex items-center justify-between mb-4"><h3 className="font-display font-black text-xl">SYLLABUS</h3><span className={META}>{(selectedSubject.syllabus || []).filter((u) => u.completed).length} / {(selectedSubject.syllabus || []).length} · {computeProgress(selectedSubject)}%</span></div>
             <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-5"><div className="h-full bg-orange-500 rounded-full" style={{ width: computeProgress(selectedSubject) + '%' }} /></div>
@@ -788,7 +760,6 @@ export default function CoursesView_Enhanced() {
             </div>
           </div>
 
-          {/* resources */}
           <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6">
             <div className="flex items-center justify-between mb-4"><h3 className="font-display font-black text-xl">RESOURCES</h3><span className={META}>{(selectedSubject.resources || []).length} items</span></div>
             {(selectedSubject.resources || []).length > 0 && (
@@ -821,9 +792,7 @@ export default function CoursesView_Enhanced() {
           </div>
         </div>
 
-        {/* GRADES + NOTES */}
         <div className="grid lg:grid-cols-2 gap-4">
-          {/* grades */}
           <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display font-black text-xl">GRADES</h3>
@@ -861,7 +830,6 @@ export default function CoursesView_Enhanced() {
             )}
           </div>
 
-          {/* notes */}
           <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6">
             <div className="flex items-center justify-between mb-4"><h3 className="font-display font-black text-xl">NOTES</h3><span className={META}>{subjectLogs.length} session{subjectLogs.length === 1 ? '' : 's'}</span></div>
             {subjectLogs.length === 0 ? (<EmptyNotes />) : (
@@ -916,7 +884,6 @@ export default function CoursesView_Enhanced() {
 
       {subjectFormModal}
 
-      {/* control bar */}
       <div className="flex flex-col lg:flex-row gap-3 lg:items-center justify-between animate-in fade-in duration-300">
         <div className="relative flex-1 lg:max-w-md">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />

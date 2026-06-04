@@ -1,61 +1,33 @@
-// gemini.ts v2.1 — Centralized AI wrapper: model routing, retry, streaming, shared utilities
-// ALL AI calls in the app should go through this file.
-
-// SECURITY: the API key is NEVER embedded in the shipped client bundle. We do
-// not read any build-time VITE_ env var here — referencing one would inline the
-// secret into the JS that every visitor downloads. The user supplies their own
-// OpenRouter key at runtime (Settings → AI Assistant), stored only in this
-// browser's localStorage. getApiKey() is read at call time.
 const API_KEY_STORAGE = 'orbit-openrouter-key';
 const BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-/** Read the user-provided OpenRouter key from localStorage (this device only). */
 export function getApiKey(): string {
     try {
         const stored = localStorage.getItem(API_KEY_STORAGE);
         if (stored && stored.trim()) return stored.trim();
-    } catch { /* localStorage unavailable (private mode) */ }
+    } catch { }
     return '';
 }
 
-/** Save (or clear, when empty) the user's OpenRouter key. */
 export function setApiKey(key: string): void {
     try {
         if (key && key.trim()) localStorage.setItem(API_KEY_STORAGE, key.trim());
         else localStorage.removeItem(API_KEY_STORAGE);
-    } catch { /* ignore */ }
+    } catch { }
 }
 
-/** True when an AI key is available (user-provided or dev env). */
 export function hasApiKey(): boolean {
     return !!getApiKey();
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   MODEL ROUTING
-   Pick the right model for the job — match complexity to cost.
-───────────────────────────────────────────────────────────────────────────── */
-
 export type TaskComplexity = 'simple' | 'standard' | 'complex' | 'vision';
 
-// ALL FREE MODELS — user requirement: zero cost. These are OpenRouter ":free"
-// slugs, usable with a free OpenRouter key (subject to free-tier rate limits).
-// Verified live against https://openrouter.ai/api/v1/models (2026-06). Model IDs
-// rot over time: if AI starts 400'ing ("not a valid model"), re-fetch that catalog
-// and swap in the current best ":free" slugs here.
-// Reasoning tokens are ALSO free on these, so cheatsheets/notes use think-mode for
-// quality at no cost (see AIOptions.reasoningEffort). Kimi K2.6 = strongest free
-// all-rounder (262K ctx, vision + reasoning); Gemma 4 = fast/reliable for short JSON.
 export const MODELS: Record<TaskComplexity, string> = {
-    simple: 'google/gemma-4-26b-a4b-it:free',   // Insights, labels, short JSON — fast & reliable
-    standard: 'moonshotai/kimi-k2.6:free',      // Chat / coaching — best free conversational
-    complex: 'moonshotai/kimi-k2.6:free',       // Cheatsheets, deep notes, grading — strongest free
-    vision: 'google/gemma-4-31b-it:free',       // Diagram / image analysis (multimodal, free)
+    simple: 'google/gemma-4-26b-a4b-it:free',
+    standard: 'moonshotai/kimi-k2.6:free',
+    complex: 'moonshotai/kimi-k2.6:free',
+    vision: 'google/gemma-4-31b-it:free',
 };
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   TYPES
-───────────────────────────────────────────────────────────────────────────── */
 
 export interface GeminiMessage {
     role: 'user' | 'model';
@@ -70,10 +42,6 @@ interface ORMessage {
     role: string;
     content: string | ContentPart[];
 }
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   INTERNAL HELPERS
-───────────────────────────────────────────────────────────────────────────── */
 
 function toOR(messages: GeminiMessage[], systemPrompt?: string): ORMessage[] {
     const result: ORMessage[] = [];
@@ -92,8 +60,6 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
     for (let i = 0; i <= retries; i++) {
         try { return await fn(); } catch (e: any) {
             lastErr = e;
-            // FIX: Don't retry non-retriable HTTP errors (401, 403, 400).
-            // Only retry on rate limits (429) and server errors (5xx).
             const statusMatch = e?.message?.match(/OpenRouter (\d+)/);
             if (statusMatch) {
                 const status = parseInt(statusMatch[1], 10);
@@ -118,13 +84,6 @@ function buildHeaders(): Record<string, string> {
     };
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   SINGLE-SHOT (non-streaming) — use for JSON generation, short responses
-───────────────────────────────────────────────────────────────────────────── */
-
-/** Per-call tuning. temperature: lower = more precise/factual. reasoningEffort:
- *  enable the model's think-before-answer mode for higher-quality output (costs
- *  more tokens + a little latency — worth it for cheatsheets/notes/grading). */
 export interface AIOptions { temperature?: number; reasoningEffort?: 'low' | 'medium' | 'high'; }
 
 function tuning(options?: AIOptions): Record<string, unknown> {
@@ -161,10 +120,6 @@ export async function geminiChat(
     });
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   STREAMING — use for chat, notes, long-form generation
-───────────────────────────────────────────────────────────────────────────── */
-
 export async function geminiStream(
     messages: GeminiMessage[],
     systemPrompt: string,
@@ -177,7 +132,6 @@ export async function geminiStream(
     options?: AIOptions,
 ): Promise<void> {
     try {
-        // FIX: Pass AbortSignal so callers can cancel on component unmount.
         const res = await fetch(BASE_URL, {
             method: 'POST',
             headers: buildHeaders(),
@@ -217,20 +171,15 @@ export async function geminiStream(
                     const json = JSON.parse(raw);
                     const text = json?.choices?.[0]?.delta?.content ?? '';
                     if (text) onChunk(text);
-                } catch { /* partial JSON, skip */ }
+                } catch { }
             }
         }
         onDone();
     } catch (e: any) {
-        // AbortError is expected when component unmounts — not an error.
         if (e?.name === 'AbortError') return;
         onError(e?.message ?? 'Unknown error');
     }
 }
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   MULTIMODAL — vision tasks (diagram analysis, handwritten notes)
-───────────────────────────────────────────────────────────────────────────── */
 
 export async function geminiChatMultimodal(
     contentParts: ContentPart[],
@@ -300,7 +249,7 @@ export async function geminiStreamMultimodal(
                     const json = JSON.parse(raw);
                     const text = json?.choices?.[0]?.delta?.content ?? '';
                     if (text) onChunk(text);
-                } catch { /* skip */ }
+                } catch { }
             }
         }
         onDone();
@@ -309,11 +258,6 @@ export async function geminiStreamMultimodal(
     }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   SHARED URL FETCHER
-   Single source of truth — previously duplicated in AIStudyAssistant.tsx
-───────────────────────────────────────────────────────────────────────────── */
-
 export async function fetchUrlContent(url: string): Promise<{ text: string; images: string[] }> {
     try {
         const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
@@ -321,8 +265,6 @@ export async function fetchUrlContent(url: string): Promise<{ text: string; imag
         const data = await res.json();
         const html: string = data.contents ?? '';
 
-        // FIX: use DOMParser (sandboxed) instead of innerHTML to avoid XSS.
-        // DOMParser never executes scripts or event handlers.
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         doc.querySelectorAll('script,style,nav,header,footer,aside,.nav,.header,.footer,.sidebar').forEach(el => el.remove());
@@ -339,16 +281,10 @@ export async function fetchUrlContent(url: string): Promise<{ text: string; imag
     }
 }
 
-/** Convenience: fetch URL and return just the text string (for notes generator) */
 export async function fetchUrlText(url: string): Promise<string> {
     const { text } = await fetchUrlContent(url);
     return text;
 }
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   SHARED PDF UTILITIES
-   Two modes: text extraction (for text models) and image extraction (for vision)
-───────────────────────────────────────────────────────────────────────────── */
 
 async function ensurePdfJs(): Promise<any> {
     if (!(window as any).pdfjsLib) {
@@ -365,7 +301,6 @@ async function ensurePdfJs(): Promise<any> {
     return (window as any).pdfjsLib;
 }
 
-/** Extract plain text from PDF pages — for standard text models */
 export async function extractPdfText(dataUrl: string, maxPages = 20): Promise<string> {
     try {
         const pdfjsLib = await ensurePdfJs();
@@ -385,7 +320,6 @@ export async function extractPdfText(dataUrl: string, maxPages = 20): Promise<st
     }
 }
 
-/** Extract PDF pages as images — for vision models (diagrams, handwriting) */
 export async function extractPdfImages(dataUrl: string, maxPages = 8): Promise<string[]> {
     try {
         const pdfjsLib = await ensurePdfJs();
@@ -407,11 +341,6 @@ export async function extractPdfImages(dataUrl: string, maxPages = 8): Promise<s
         return [];
     }
 }
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   FEYNMAN EXPLAINER
-   Rewrites any explanation as if teaching a curious 16-year-old
-───────────────────────────────────────────────────────────────────────────── */
 
 export async function feynmanify(
     concept: string,
@@ -444,14 +373,10 @@ Write like you're talking to a smart 16-year-old. Define any jargon you must use
     );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   ANKI CARD GENERATOR
-───────────────────────────────────────────────────────────────────────────── */
-
 export interface AnkiCard {
-    front: string;   // Question / cloze prompt
-    back: string;    // Answer
-    tags: string[];  // Subtopic labels
+    front: string;
+    back: string;
+    tags: string[];
 }
 
 export async function generateAnkiCards(

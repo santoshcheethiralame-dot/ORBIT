@@ -1,16 +1,11 @@
-// utils/subjectIntelligence.ts
-// FIX: was importing getAllReadinessScores from ../brain (core) instead of
-// ../brain-ultimate. The ultimate module routes to research-grade or enhanced
-// readiness depending on data maturity — focus sessions now get the best scores.
-
 import { db } from '../db';
 import { getAllReadinessScores } from '../brain-ultimate';
 
 export interface SubjectIntelligence {
   nextExam?: string;
-  readiness?: number;      // 0-100
+  readiness?: number;
   lastStudied?: string;
-  recentQuality?: number;  // avg quality of last 3 sessions (1-5)
+  recentQuality?: number;
   weakTopics?: string[];
 }
 
@@ -25,7 +20,6 @@ export const getSubjectIntelligence = async (
     return intelligence;
   }
 
-  // 1. Next exam/assignment deadline
   try {
     const assignments = await db.assignments
       .where('subjectId')
@@ -51,7 +45,6 @@ export const getSubjectIntelligence = async (
     console.warn('Could not derive upcoming exams/assignments:', err);
   }
 
-  // 2. Readiness score — uses brain-ultimate for best available model
   try {
     const readinessMap = await getAllReadinessScores();
     const readiness = readinessMap[subjectKey];
@@ -62,7 +55,6 @@ export const getSubjectIntelligence = async (
     console.warn('Could not fetch readiness:', err);
   }
 
-  // 3. Last studied
   try {
     const logs = await db.logs
       .where('subjectId')
@@ -85,7 +77,6 @@ export const getSubjectIntelligence = async (
     console.warn('Could not fetch last studied:', err);
   }
 
-  // 4. Recent quality (average of last 3 completed sessions)
   try {
     const recentOutcomes = await db.blockOutcomes
       .where('subjectId')
@@ -103,7 +94,6 @@ export const getSubjectIntelligence = async (
     console.warn('Could not fetch recent quality:', err);
   }
 
-  // 5. Weak topics (low ease factor = harder to recall)
   try {
     const topics = await db.topics
       .where('subjectId')

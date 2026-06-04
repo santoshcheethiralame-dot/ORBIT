@@ -1,5 +1,3 @@
-// DashboardInsights.tsx — Real AI-powered weekly insights via Gemini
-
 import React, { useEffect, useState, useRef } from 'react';
 import { db } from './db';
 import { Subject } from './types';
@@ -15,7 +13,6 @@ interface InsightCard {
   metric?: string;
 }
 
-// ─── Static fallback calculation (no AI) ──────────────────────────────────────
 function calcStaticInsights(outcomes: any[], subjects: Subject[]): InsightCard[] {
   const cards: InsightCard[] = [];
   const cutoffStr = effectiveDatePlus(-7);
@@ -43,7 +40,6 @@ function calcStaticInsights(outcomes: any[], subjects: Subject[]): InsightCard[]
     });
   }
 
-  // Subject performance
   const cut14Str = effectiveDatePlus(-14);
   const recent14 = outcomes.filter(o => (o.date || '') >= cut14Str && !o.skipped);
   const subjectMap = new Map<number, { q: number; n: number; min: number }>();
@@ -72,13 +68,11 @@ function calcStaticInsights(outcomes: any[], subjects: Subject[]): InsightCard[]
   return cards;
 }
 
-// ─── Ask Gemini for insights ───────────────────────────────────────────────────
 async function fetchAIInsights(outcomes: any[], subjects: Subject[]): Promise<InsightCard[]> {
   const cutoffStr = effectiveDatePlus(-7);
   const recent = outcomes.filter(o => (o.date || '') >= cutoffStr);
   if (recent.length < 3) return calcStaticInsights(outcomes, subjects);
 
-  // Summarise for the prompt (don't send raw DB objects)
   const summary = {
     totalSessions: recent.length,
     skipped: recent.filter(o => o.skipped).length,
@@ -118,12 +112,10 @@ Rules:
     const parsed = JSON.parse(clean);
     if (Array.isArray(parsed) && parsed.length > 0) return parsed;
   } catch {
-    // fall through to static
   }
   return calcStaticInsights(outcomes, subjects);
 }
 
-// ─── Card renderer ─────────────────────────────────────────────────────────────
 const InsightCardView = ({ card }: { card: InsightCard }) => {
   const styles: Record<string, { border: string; bg: string; icon: React.ReactNode; title: string }> = {
     burnout: { border: 'rgba(239,68,68,0.25)', bg: 'rgba(239,68,68,0.06)', icon: <AlertTriangle size={15} className="text-red-400" strokeWidth={2.5} />, title: 'text-red-300' },
@@ -152,14 +144,11 @@ const InsightCardView = ({ card }: { card: InsightCard }) => {
   );
 };
 
-// ─── Main component ────────────────────────────────────────────────────────────
 export const DashboardInsights = () => {
   const [cards, setCards] = useState<InsightCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [aiPowered, setAiPowered] = useState(false);
   const fetchedRef = useRef(false);
-  // FIX: Track the outcomes count at the time of the last fetch. When new sessions
-  // are logged the count increases, fetchedRef is reset and fresh insights are fetched.
   const lastFetchedCount = useRef(0);
 
   const subjects = useLiveQuery(() => db.subjects.toArray()) || [];
@@ -167,7 +156,6 @@ export const DashboardInsights = () => {
 
   useEffect(() => {
     if (outcomes.length === 0) return;
-    // Re-fetch if never fetched OR if new outcomes have been logged since last fetch.
     if (fetchedRef.current && outcomes.length === lastFetchedCount.current) return;
 
     fetchedRef.current = true;
@@ -178,7 +166,6 @@ export const DashboardInsights = () => {
       try {
         const result = await fetchAIInsights(outcomes, subjects);
         const staticResult = calcStaticInsights(outcomes, subjects);
-        // Use structural equality on sorted keys to avoid false "AI powered" flags.
         setAiPowered(JSON.stringify(result) !== JSON.stringify(staticResult));
         setCards(result);
       } catch {
@@ -222,7 +209,6 @@ export const DashboardInsights = () => {
 
   return (
     <div className="space-y-2.5">
-      {/* Section header */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           {aiPowered

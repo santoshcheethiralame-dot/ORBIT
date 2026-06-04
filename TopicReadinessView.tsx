@@ -1,23 +1,11 @@
-/**
- * TopicReadinessView.tsx
- * Provides topic enrichment utilities: adds a computed readinessScore and
- * tier classification to each StudyTopic for use in the AI assistant context.
- */
-
 import { StudyTopic } from './types';
 import { getISTEffectiveDate } from './utils/time';
 
 export interface TopicWithReadiness extends StudyTopic {
-  /** 0–100 computed readiness score */
   readinessScore: number;
-  /** Classification bucket for UI and AI context */
   tier: 'critical' | 'due' | 'upcoming' | 'mastered';
 }
 
-/**
- * Enriches an array of StudyTopics with readinessScore and tier.
- * Uses SM-2 ease factor and review history as signals.
- */
 export function enrichTopics(topics: StudyTopic[]): TopicWithReadiness[] {
   const today = getISTEffectiveDate();
 
@@ -35,11 +23,9 @@ export function enrichTopics(topics: StudyTopic[]): TopicWithReadiness[] {
       ),
     );
 
-    // Decay: readiness drops faster for harder topics (low easeFactor)
-    const decayRate = Math.max(0.5, topic.easeFactor); // days until ~37% decay
+    const decayRate = Math.max(0.5, topic.easeFactor);
     const decayFactor = Math.exp(-daysSince / (decayRate * 7));
 
-    // Quality modifier from comprehension history (0–1)
     const qualityMod = Math.max(0, Math.min(1, (avgComprehension - 1) / 2));
 
     const readinessScore = Math.round(

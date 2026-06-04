@@ -1,10 +1,3 @@
-// AIInsightBanner.tsx v2.2
-// FIXES (v2.2):
-// - Cache stored raw RichInsight but read expected { date, insight } wrapper → cache ALWAYS missed
-// - TODAY was a stale module-level constant; replaced with getISTEffectiveDate() per call
-// - force-refresh wasn't updating the date in the cached object
-// - Removed stale sessionStorage keys from previous date-suffix strategy
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
@@ -16,30 +9,21 @@ import {
   Zap, ChevronDown, ChevronUp, Target, ArrowRight,
 } from 'lucide-react';
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   TYPES
-───────────────────────────────────────────────────────────────────────────── */
-
 interface RichInsight {
   type: 'warning' | 'tip' | 'motivation';
-  headline: string;       // ≤12 words — shown collapsed
-  detail: string;         // 1–2 sentences — shown expanded
-  action: string;         // Concrete next step ≤10 words
+  headline: string;
+  detail: string;
+  action: string;
   subject?: string;
-  urgencyScore: number;   // 0–100
+  urgencyScore: number;
 }
 
-/** Cache shape stored in sessionStorage */
 interface CachedInsight {
-  date: string;       // YYYY-MM-DD using IST effective date
+  date: string;
   insight: RichInsight;
 }
 
 const CACHE_KEY = 'orbit-ai-insight-v2';
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   STYLES
-───────────────────────────────────────────────────────────────────────────── */
 
 const TYPE_CFG = {
   warning: {
@@ -73,10 +57,6 @@ const TYPE_CFG = {
     glow: 'rgba(16,185,129,0.07)',
   },
 };
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   INSIGHT GENERATION
-───────────────────────────────────────────────────────────────────────────── */
 
 async function generateInsight(
   subjects: any[],
@@ -131,13 +111,9 @@ Classification:
   try {
     const parsed: RichInsight = JSON.parse(raw.replace(/```json|```/g, '').trim());
     if (parsed.headline && parsed.type) return parsed;
-  } catch { /* ignore */ }
+  } catch { }
   return null;
 }
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   TYPEWRITER
-───────────────────────────────────────────────────────────────────────────── */
 
 const Typewriter: React.FC<{ text: string }> = ({ text }) => {
   const [shown, setShown] = useState('');
@@ -166,10 +142,6 @@ const Typewriter: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   READINESS BAR
-───────────────────────────────────────────────────────────────────────────── */
-
 const ReadinessBar: React.FC<{ name: string; score: number; status: string }> = ({ name, score, status }) => {
   const color = status === 'critical' ? '#ef4444' : status === 'mastered' ? '#34d399' : '#FF7A3C';
   return (
@@ -184,17 +156,11 @@ const ReadinessBar: React.FC<{ name: string; score: number; status: string }> = 
   );
 };
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   CACHE HELPERS
-───────────────────────────────────────────────────────────────────────────── */
-
 function readCache(): RichInsight | null {
   try {
     const raw = sessionStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const cached: CachedInsight = JSON.parse(raw);
-    // Validate shape — old entries (v2.1 and earlier) stored the raw RichInsight
-    // without a date wrapper; they have no `.date` field so this check rejects them.
     if (cached?.date === getISTEffectiveDate() && cached?.insight?.headline) {
       return cached.insight;
     }
@@ -208,16 +174,12 @@ function writeCache(insight: RichInsight): void {
   try {
     const payload: CachedInsight = { date: getISTEffectiveDate(), insight };
     sessionStorage.setItem(CACHE_KEY, JSON.stringify(payload));
-  } catch { /* ignore — storage may be disabled */ }
+  } catch { }
 }
 
 function clearCache(): void {
-  try { sessionStorage.removeItem(CACHE_KEY); } catch { /* ignore */ }
+  try { sessionStorage.removeItem(CACHE_KEY); } catch { }
 }
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   MAIN BANNER
-───────────────────────────────────────────────────────────────────────────── */
 
 export const AIInsightBanner: React.FC = () => {
   const [insight, setInsight] = useState<RichInsight | null>(null);
@@ -282,7 +244,6 @@ export const AIInsightBanner: React.FC = () => {
 
   if (dismissed || subjects.length === 0) return null;
 
-  /* Loading skeleton */
   if (loading) {
     return (
       <div className="animate-pulse flex items-center gap-3 px-4 py-3 rounded-2xl"
@@ -306,7 +267,6 @@ export const AIInsightBanner: React.FC = () => {
     <div className="rounded-2xl overflow-hidden"
       style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, boxShadow: `0 0 20px ${cfg.glow}` }}>
 
-      {/* Main row */}
       <div className="flex items-start gap-3 px-4 py-3">
         <div className="shrink-0 w-7 h-7 rounded-xl flex items-center justify-center mt-0.5"
           style={{ background: `${cfg.iconColor}18`, border: `1px solid ${cfg.iconColor}28` }}>
@@ -346,7 +306,6 @@ export const AIInsightBanner: React.FC = () => {
         </div>
       </div>
 
-      {/* Expanded detail */}
       {expanded && (
         <div className="px-4 pb-4 space-y-3 pt-1"
           style={{ borderTop: `1px solid ${cfg.border}` }}>
@@ -354,7 +313,6 @@ export const AIInsightBanner: React.FC = () => {
             {insight.detail}
           </p>
 
-          {/* Action CTA */}
           <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl"
             style={{ background: `${cfg.iconColor}12`, border: `1px solid ${cfg.iconColor}25` }}>
             <Target size={12} style={{ color: cfg.iconColor }} strokeWidth={2.5} className="shrink-0" />
@@ -364,7 +322,6 @@ export const AIInsightBanner: React.FC = () => {
             <ArrowRight size={12} style={{ color: cfg.iconColor }} strokeWidth={2.5} />
           </div>
 
-          {/* Readiness bars */}
           {pills.length > 0 && (
             <div className="space-y-1.5 pt-1">
               <p className="text-[9px] font-black uppercase tracking-widest"

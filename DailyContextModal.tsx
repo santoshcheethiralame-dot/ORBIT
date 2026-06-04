@@ -1,7 +1,3 @@
-// DailyContextModal — brutalist daily check-in (concept v8).
-// Vibe presets → day type → exam focus → advanced → generate.
-// Black/orange/yellow/white, flat surfaces, Lucide icons, "Orbit Brain" build overlay.
-
 import React, { useState, useEffect, useRef } from "react";
 import { useDialogA11y } from "./utils/useDialogA11y";
 import {
@@ -14,13 +10,9 @@ import { Subject, DailyContext, ExamEntry, SubjectReadiness } from "./types";
 import { db } from "./db";
 import { getAllReadinessScores } from "./brain-ultimate";
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   PLAN GENERATING OVERLAY — "Orbit Brain"
-───────────────────────────────────────────────────────────────────────────── */
-
 const PLAN_STAGES = [
   { Icon: BarChart3, line: 'Reading your readiness scores…', detail: 'Ebbinghaus decay calculated' },
-  { Icon: Brain, line: 'Running the triple-brain algorithm…', detail: 'Core + Enhanced + Research layers' },
+  { Icon: Brain, line: 'Running the planning engine…', detail: 'Readiness, deadlines & energy' },
   { Icon: Scale, line: 'Balancing your subject load…', detail: 'Interleaving & burnout check' },
   { Icon: CalendarDays, line: 'Scheduling blocks by energy…', detail: 'Hard subjects → peak hours' },
   { Icon: Sparkles, line: 'Finalising your mission brief…', detail: 'Almost there' },
@@ -55,7 +47,6 @@ const PlanGeneratingOverlay: React.FC<{
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-7 px-6 bg-ink">
-      {/* spinning orbit + current stage icon */}
       <div className="meta text-[10px] text-zinc-500">Orbit Brain · building your day</div>
       <div className="relative w-28 h-28 flex items-center justify-center">
         <div className="absolute inset-0 rounded-full border-2 border-orange-500/20" />
@@ -71,25 +62,22 @@ const PlanGeneratingOverlay: React.FC<{
         <p className="text-sm text-zinc-500 mt-2">{cur.detail}</p>
       </div>
 
-      {/* config chips */}
       <div className="flex items-center gap-2 flex-wrap justify-center">
         <span className="meta text-[9px] bg-orange-500/14 text-orange-400 px-3 py-1.5 rounded-full">{moodLabel[mood] ?? mood}</span>
         <span className="meta text-[9px] bg-white/5 text-zinc-400 px-3 py-1.5 rounded-full">{dayTypeLabel[dayType] ?? dayType}</span>
         <span className="meta text-[9px] bg-white/5 text-zinc-400 px-3 py-1.5 rounded-full">{subjects.length} subject{subjects.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {/* progress */}
       <div className="w-full max-w-sm">
         <div className="h-2 rounded-full overflow-hidden bg-white/10">
           <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#FF5A1F,#FFD60A)', transition: 'width 0.06s linear' }} />
         </div>
         <div className="flex justify-between meta text-[9px] text-zinc-500 mt-2">
-          <span>Orbit Brain v3 · {pct}%</span>
+          <span>Orbit Brain · {pct}%</span>
           <span>{elapsed}s</span>
         </div>
       </div>
 
-      {/* 5-pass live checklist */}
       <div className="w-full max-w-sm space-y-1.5">
         {PLAN_STAGES.map((s, i) => {
           const Icon = s.Icon;
@@ -108,7 +96,6 @@ const PlanGeneratingOverlay: React.FC<{
   );
 };
 
-// ─── Preset definitions ───────────────────────────────────────────────────────
 type Tone = 'orange' | 'yellow' | 'paper';
 const PRESETS = {
   regular: { name: "Regular Day", Icon: BookOpen, desc: "steady & balanced", tone: "paper" as Tone, energy: 3, mood: "normal" as const, dayType: "normal" as const, isHoliday: false, isSick: false },
@@ -133,7 +120,6 @@ const EnergyMeter = ({ level, tone, selected }: { level: number; tone: Tone; sel
   </div>
 );
 
-// ─── Section wrapper ──────────────────────────────────────────────────────────
 const Section = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div className="space-y-3">
     <div className="meta text-[10px] text-zinc-500">{label}</div>
@@ -141,7 +127,6 @@ const Section = ({ label, children }: { label: string; children: React.ReactNode
   </div>
 );
 
-// ─── Day-type pill selector ───────────────────────────────────────────────────
 const DayTypeTabs = ({ value, onChange }: { value: string; onChange: (v: "normal" | "isa" | "esa" | "pd") => void }) => {
   const options: { key: "normal" | "isa" | "esa" | "pd"; label: string }[] = [
     { key: "normal", label: "Normal" },
@@ -161,7 +146,6 @@ const DayTypeTabs = ({ value, onChange }: { value: string; onChange: (v: "normal
   );
 };
 
-// ─── Main component ───────────────────────────────────────────────────────────
 interface DailyContextModalProps {
   subjects: Subject[];
   onGenerate: (ctx: DailyContext) => Promise<void> | void;
@@ -174,13 +158,11 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Core state
   const [mood, setMood] = useState<"low" | "normal" | "high">("normal");
   const [dayType, setDayType] = useState<"normal" | "isa" | "esa" | "pd">("normal");
   const [focusSubjectId, setFocusSubjectId] = useState<number>(subjects[0]?.id || 0);
   const [examDays, setExamDays] = useState<number | "">("");
 
-  // Advanced state
   const [isHoliday, setIsHoliday] = useState(false);
   const [isSick, setIsSick] = useState(false);
   const [bunked, setBunked] = useState(false);
@@ -193,13 +175,11 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
     estimatedEffort: 120,
   });
 
-  // Exam schedule (ESA)
   const [examSchedule, setExamSchedule] = useState<ExamEntry[]>([]);
   const [showExamForm, setShowExamForm] = useState(false);
   const [newExamSubjectId, setNewExamSubjectId] = useState<number>(subjects[0]?.id || 0);
   const [newExamDate, setNewExamDate] = useState("");
 
-  // Readiness
   const [readinessScores, setReadinessScores] = useState<Record<number, SubjectReadiness>>({});
 
   useEffect(() => {
@@ -307,21 +287,18 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
     <div ref={dialogRef} aria-label="Set today's context" className="fixed inset-0 z-[100]" role="dialog" aria-modal="true">
       <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
 
-        {/* ── PLAN GENERATING OVERLAY ── */}
         {isGenerating && <PlanGeneratingOverlay mood={mood} dayType={dayType} subjects={subjects} />}
 
         <div className={`relative w-full max-w-2xl my-6 transition-all duration-300 ${isGenerating ? 'opacity-0 pointer-events-none scale-95' : 'opacity-100'}`}>
           <div className="relative bg-ink2 border border-white/10 rounded-5xl overflow-hidden">
             <div className="relative z-10 p-7 md:p-9 space-y-7">
 
-              {/* ── Header ── */}
               <div>
                 <div className="meta text-[10px] text-orange-400 mb-3">{kicker}</div>
                 <h2 className="font-display font-black text-4xl md:text-5xl leading-[0.92]">How are we<br />playing today?</h2>
                 <p className="text-sm text-zinc-400 mt-3">Pick a vibe and Orbit builds the whole day around it.</p>
               </div>
 
-              {/* ── Critical subjects nudge ── */}
               {criticalList.length > 0 && (
                 <div className="rounded-3xl bg-orange-500/[0.08] border border-orange-500/25 p-4 animate-in fade-in duration-500">
                   <div className="flex items-center gap-2 mb-2.5">
@@ -342,7 +319,6 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
                 </div>
               )}
 
-              {/* ── Vibe presets ── */}
               <Section label="Pick your vibe">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
                   {Object.entries(PRESETS).map(([key, preset]) => {
@@ -363,12 +339,10 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
                 </div>
               </Section>
 
-              {/* ── Day type ── */}
               <Section label="Day type">
                 <DayTypeTabs value={dayType} onChange={handleDayTypeChange} />
               </Section>
 
-              {/* ── Exam focus subject ── */}
               {needsExamSubject && (
                 <div className="animate-in slide-in-from-top-2 fade-in duration-300">
                   <div className="rounded-3xl border-2 bg-orange-500/[0.07] border-orange-500/25 p-5">
@@ -392,7 +366,6 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
                 </div>
               )}
 
-              {/* ── ESA exam schedule ── */}
               {dayType === 'esa' && (
                 <div className="animate-in slide-in-from-top-2 fade-in duration-300">
                   <div className="rounded-3xl border bg-orange-500/5 border-orange-500/20 p-5">
@@ -445,7 +418,6 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
                 </div>
               )}
 
-              {/* ── Advanced (accordion) ── */}
               <div>
                 <button onClick={() => setShowAdvanced(v => !v)}
                   className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl bg-ink3 border border-white/10 hover:border-orange-500/30 text-zinc-400 hover:text-white transition-all group">
@@ -462,7 +434,6 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
                 {showAdvanced && (
                   <div className="mt-3 space-y-3 animate-in slide-in-from-top-2 fade-in duration-300">
 
-                    {/* Energy Override */}
                     <div className="rounded-3xl bg-ink3 border border-white/10 p-5 space-y-3">
                       <label className="meta text-[10px] text-zinc-500">Energy override</label>
                       <div className="grid grid-cols-3 gap-2">
@@ -480,7 +451,6 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
                       </div>
                     </div>
 
-                    {/* Life Events */}
                     <div className="rounded-3xl bg-ink3 border border-white/10 p-5 space-y-3">
                       <label className="meta text-[10px] text-zinc-500">Life happens</label>
                       <div className="grid grid-cols-3 gap-2">
@@ -508,7 +478,6 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
                       )}
                     </div>
 
-                    {/* Urgent Assignment */}
                     <div className="rounded-3xl bg-ink3 border border-white/10 p-5 space-y-3">
                       <div className="flex items-center justify-between">
                         <label className="meta text-[10px] text-zinc-500">Urgent assignment</label>
@@ -540,7 +509,6 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
                 )}
               </div>
 
-              {/* ── Actions ── */}
               <div className="flex items-center justify-between gap-4 pt-1">
                 <button
                   onClick={async () => {

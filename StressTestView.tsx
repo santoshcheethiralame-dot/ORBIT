@@ -1,8 +1,3 @@
-/**
- * StressTestView.tsx — Developer diagnostic panel.
- * Runs a suite of DB integrity, performance, and algorithm checks.
- */
-
 import React, { useState, useCallback } from 'react';
 import { db } from './db';
 import { getAllReadinessScores } from './brain-ultimate';

@@ -1,22 +1,5 @@
-// utils/time.ts — ENHANCED WITH SETTINGS INTEGRATION
-/**
- * IST Time Management Utilities
- * Handles configurable day start logic (0–6 AM)
- * ZERO UTC leakage. ZERO ambiguous Date parsing.
- *
- * All logical dates are computed from IST calendar fields only.
- */
-
-/* -------------------------------------------------------
-   INTERNAL HELPERS (DO NOT EXPORT)
--------------------------------------------------------- */
-
-/**
- * Read user-configured day start hour safely from settings
- */
 function getDayStartHour(): number {
   try {
-    // Try new settings location first
     const settingsSaved = localStorage.getItem("orbit-settings-v2");
     if (settingsSaved) {
       const settings = JSON.parse(settingsSaved);
@@ -26,7 +9,6 @@ function getDayStartHour(): number {
       }
     }
 
-    // Fallback to old location for backward compatibility
     const saved = localStorage.getItem("orbit-prefs");
     if (saved) {
       const parsed = JSON.parse(saved);
@@ -38,13 +20,9 @@ function getDayStartHour(): number {
   } catch (e) {
     console.warn("Failed to read dayStartHour, using default:", e);
   }
-  return 4; // Default: 4 AM
+  return 4;
 }
 
-/**
- * Format a Date object into YYYY-MM-DD using LOCAL calendar fields
- * (Never use toISOString for logical dates)
- */
 export function formatLocalDate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -52,34 +30,17 @@ export function formatLocalDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/**
- * Parse YYYY-MM-DD into a LOCAL Date at midnight
- */
 export function parseLocalDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number);
   return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
 
-/* -------------------------------------------------------
-   PUBLIC API
--------------------------------------------------------- */
-
-/**
- * Get current time in IST
- */
 export function getISTTime(): Date {
   return new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
   );
 }
 
-/**
- * Get the effective logical study date (IST-aware + configurable day start)
- *
- * Rule:
- * - Before configured hour → previous day
- * - After configured hour → today
- */
 export function getISTEffectiveDate(): string {
   const istNow = getISTTime();
   const dayStartHour = getDayStartHour();
@@ -91,43 +52,24 @@ export function getISTEffectiveDate(): string {
   return formatLocalDate(istNow);
 }
 
-/**
- * YYYY-MM-DD for the IST effective date shifted by `deltaDays`
- * (negative = past, positive = future). Use this for ALL relative day-keys
- * (streaks, heatmaps, ranges, review windows) so they match how logs, plans,
- * and outcomes are stored — never `new Date().toISOString()` (which is UTC and
- * drifts a day for IST users).
- */
 export function effectiveDatePlus(deltaDays: number): string {
   const d = parseLocalDate(getISTEffectiveDate());
   d.setDate(d.getDate() + deltaDays);
   return formatLocalDate(d);
 }
 
-/**
- * Validate if a stored plan date matches the current effective date
- */
 export function validateEffectiveDate(planDate: string): boolean {
   return planDate === getISTEffectiveDate();
 }
 
-/**
- * Alias for semantic clarity
- */
 export function isPlanCurrent(planDate: string): boolean {
   return validateEffectiveDate(planDate);
 }
 
-/**
- * Detect rollover across logical study cycles
- */
 export function hasNewCycleStarted(lastEffectiveDate: string): boolean {
   return lastEffectiveDate !== getISTEffectiveDate();
 }
 
-/**
- * Time remaining until next rollover (based on configured day start)
- */
 export function getTimeUntilRollover(): string {
   const istNow = getISTTime();
   const dayStartHour = getDayStartHour();
@@ -148,9 +90,6 @@ export function getTimeUntilRollover(): string {
   return `${hours}h ${minutes}m`;
 }
 
-/**
- * Get current study cycle metadata
- */
 export function getCurrentCycleInfo(): {
   effectiveDate: string;
   isEarlyCycle: boolean;
@@ -168,9 +107,6 @@ export function getCurrentCycleInfo(): {
   };
 }
 
-/**
- * Format an IST date for UI display
- */
 export function formatISTDate(
   dateStr: string,
   format: "short" | "long" = "short"
@@ -192,9 +128,6 @@ export function formatISTDate(
   });
 }
 
-/**
- * Get relative date label based on effective today
- */
 export function getRelativeDate(dateStr: string): string {
   const todayStr = getISTEffectiveDate();
   const today = parseLocalDate(todayStr);
@@ -213,14 +146,11 @@ export function getRelativeDate(dateStr: string): string {
   return dateStr;
 }
 
-/**
- * Check if a date lies in the current logical week (Mon–Sun)
- */
 export function isCurrentWeek(dateStr: string): boolean {
   const date = parseLocalDate(dateStr);
   const today = parseLocalDate(getISTEffectiveDate());
 
-  const day = today.getDay(); // 0 = Sun
+  const day = today.getDay();
   const diffToMonday = day === 0 ? -6 : 1 - day;
 
   const monday = new Date(today);
@@ -232,9 +162,6 @@ export function isCurrentWeek(dateStr: string): boolean {
   return date >= monday && date <= sunday;
 }
 
-/**
- * Development-only IST debug helper
- */
 export function debugISTInfo(): void {
   const info = getCurrentCycleInfo();
   console.log("🕒 IST Time Debug", {
@@ -248,7 +175,4 @@ export function debugISTInfo(): void {
   });
 }
 
-/**
- * Export getDayStartHour for backward compatibility with brain.ts
- */
 export { getDayStartHour };

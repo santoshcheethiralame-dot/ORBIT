@@ -1,9 +1,3 @@
-// ProjectsView.tsx — v3.1
-// Container: pb-32 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto  (identical to Dashboard)
-// FrostedTile / FrostedMini used throughout — no custom inline borders.
-// PageHeader + MetaText + HeaderChip pattern from Dashboard / About.
-// ALL arithmetic is NaN-safe via safeN() — old Project rows (no extended fields) work perfectly.
-
 import React, { useState, useMemo, useEffect } from "react";
 import { Project } from "./types";
 import {
@@ -22,15 +16,11 @@ import {
   getSubjectColor, SUBJECT_COLOR_CLASSES,
 } from "./components";
 
-// ─── TYPES ───────────────────────────────────────────────────────────────────
-// Project type imported from types.ts — includes milestones, sessionLog, etc.
-
 type Filter = "all" | "active" | "done";
 type Sort   = "deadline" | "priority" | "progress" | "neglected" | "name";
 type View   = "grid" | "kanban";
 type Panel  = "milestones" | "notes" | "github" | "log" | null;
 
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const PRI = {
   low:    { label: "Low",    text: "text-zinc-400",  dot: "bg-zinc-500"  },
   normal: { label: "Normal", text: "text-paper",  dot: "bg-paper"  },
@@ -49,18 +39,14 @@ const TEMPLATES = [
   { id: "pset",   icon: Target,   label: "Problem Set", effort: 90,  ms: ["Read all","Solve","Verify"] },
 ] as const;
 
-// ─── HELPERS (all NaN-safe) ───────────────────────────────────────────────────
 function safeN(v: unknown, fb = 0): number {
   const n = Number(v); return isFinite(n) ? n : fb;
 }
 function daysUntil(ds: string): number {
   if (!ds) return 999;
-  // FIX: `new Date('2026-05-01')` returns UTC midnight, but Date.now() is local
-  // epoch. For users in IST (+5:30) this meant a deadline of "today" would read
-  // as -1 (overdue) until 5:30 AM. Compare against LOCAL midnight instead.
   const [y, mo, d] = ds.split('-').map(Number);
   if (!y || !mo || !d) return 999;
-  const deadlineMidnight = new Date(y, mo - 1, d).getTime(); // local tz midnight
+  const deadlineMidnight = new Date(y, mo - 1, d).getTime();
   const nowMidnight = (() => {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
@@ -110,7 +96,6 @@ function weekActivity(p: Project): number[] {
   });
 }
 
-// ─── WEEK HEATMAP ─────────────────────────────────────────────────────────────
 function WeekHeat({ p }: { p: Project }) {
   const bars = weekActivity(p);
   const max  = Math.max(...bars, 30);
@@ -142,7 +127,6 @@ function WeekHeat({ p }: { p: Project }) {
   );
 }
 
-// ─── MILESTONE PANEL ──────────────────────────────────────────────────────────
 function Milestones({ p }: { p: Project }) {
   const [newTitle, setNewTitle] = useState("");
   const ms = p.milestones ?? [];
@@ -198,7 +182,6 @@ function Milestones({ p }: { p: Project }) {
   );
 }
 
-// ─── COMPLETION CEREMONY ──────────────────────────────────────────────────────
 function Ceremony({ p, onClose }: { p: Project; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 3500); return () => clearTimeout(t); }, [onClose]);
   const pieces = Array.from({ length: 30 }, (_, i) => ({
@@ -230,7 +213,6 @@ function Ceremony({ p, onClose }: { p: Project; onClose: () => void }) {
   );
 }
 
-// ─── GANTT TIMELINE ───────────────────────────────────────────────────────────
 function GanttStrip({ projects, subjects }: { projects: Project[]; subjects: any[] }) {
   const withDL = projects.filter(p => !p.completed && p.deadline && isFinite(new Date(p.deadline).getTime()));
   if (withDL.length < 2) return null;
@@ -274,7 +256,6 @@ function GanttStrip({ projects, subjects }: { projects: Project[]; subjects: any
   );
 }
 
-// ─── LOG MODAL ────────────────────────────────────────────────────────────────
 function LogModal({ p, onClose }: { p: Project; onClose: () => void }) {
   const toast = useToast();
   const [mins, setMins] = useState("30");
@@ -349,7 +330,6 @@ function LogModal({ p, onClose }: { p: Project; onClose: () => void }) {
   );
 }
 
-// ─── PROJECT FORM ─────────────────────────────────────────────────────────────
 function ProjectForm({ initial, subjects, onSave, onClose }: {
   initial?: Project; subjects: any[];
   onSave: (d: any) => void; onClose: () => void;
@@ -497,7 +477,6 @@ function ProjectForm({ initial, subjects, onSave, onClose }: {
   );
 }
 
-// ─── PROJECT CARD ─────────────────────────────────────────────────────────────
 function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
   p: Project; subject: any;
   onLog:()=>void; onEdit:()=>void; onDelete:()=>void; onToggle:()=>void;
@@ -544,7 +523,6 @@ function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
       )}
       <div className="pl-5 pr-3.5 pt-4 pb-4">
 
-        {/* Row 1: subject + title + actions */}
         <div className="flex items-start gap-2.5 mb-3">
           <div className="flex-1 min-w-0">
             <div className={`inline-flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg mb-1.5 ${cc.bgLight} ${cc.text} border ${cc.borderLight}`}>
@@ -587,7 +565,6 @@ function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
           </div>
         </div>
 
-        {/* Row 2: progress bar */}
         <div className="mb-3">
           <div className="flex items-center justify-between text-[10.5px] mb-1.5">
             <span className="font-mono tabular-nums text-zinc-600">{fmtMins(done)}</span>
@@ -605,7 +582,6 @@ function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
           </div>
         </div>
 
-        {/* Row 3: deadline · priority · heatmap */}
         <div className="flex items-center justify-between pt-2.5 border-t border-white/[0.04] text-[10.5px]">
           <div className="flex items-center gap-2.5">
             {days !== null && (
@@ -625,7 +601,6 @@ function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
           <WeekHeat p={p} />
         </div>
 
-        {/* Row 4: expand tabs (active only) */}
         {!p.completed && (
           <div className="flex items-center gap-1 mt-3 pt-2.5 border-t border-white/[0.04] flex-wrap gap-y-1">
             {tabs.map(tab => {
@@ -644,7 +619,6 @@ function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
           </div>
         )}
 
-        {/* Expanded panel */}
         {panel && !p.completed && (
           <div className="mt-3 pt-3 border-t border-white/[0.04] animate-in fade-in slide-in-from-top-1 duration-200">
             {panel === "milestones" && <Milestones p={p} />}
@@ -693,7 +667,6 @@ function ProjectCard({ p, subject, onLog, onEdit, onDelete, onToggle }: {
   );
 }
 
-// ─── KANBAN ───────────────────────────────────────────────────────────────────
 const COLS = [
   { id:"todo", label:"Not Started", minPct:0,   maxPct:1,   color:"text-zinc-400",  dot:"bg-zinc-600"    },
   { id:"wip",  label:"In Progress", minPct:1,   maxPct:75,  color:"text-orange-400",dot:"bg-orange-500"  },
@@ -771,7 +744,6 @@ function Kanban({ projects, subjects, onLog, onToggle }: {
   );
 }
 
-// ─── MAIN VIEW ────────────────────────────────────────────────────────────────
 export default function ProjectsView() {
   const toast    = useToast();
   const projects = useLiveQuery(() => db.projects.toArray()) || [];
@@ -785,7 +757,6 @@ export default function ProjectsView() {
   const [logTarget,   setLogTarget]   = useState<Project|null>(null);
   const [celebration, setCelebration] = useState<Project|null>(null);
 
-  // Coerce subjectId to Number on both sides to prevent type mismatch
   const getSubject = (id: number|string) => subjects.find(s => s.id === Number(id));
 
   const active   = projects.filter(p => !p.completed);
@@ -874,7 +845,6 @@ export default function ProjectsView() {
     }
   };
 
-  // ── Empty state ────────────────────────────────────────────────────────────
   if (projects.length === 0) return (
     <div className="pb-32 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto">
       <PageHeader
@@ -904,11 +874,9 @@ export default function ProjectsView() {
     </div>
   );
 
-  // ── Main view ──────────────────────────────────────────────────────────────
   return (
     <div className="pb-32 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-8 animate-in fade-in duration-500">
 
-      {/* Header — same pattern as Dashboard */}
       <PageHeader
         title="Projects"
         meta={
@@ -937,7 +905,6 @@ export default function ProjectsView() {
         }
       />
 
-      {/* Stats strip */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
           { icon:FolderKanban,  label:"Active",      value:active.length,
@@ -962,7 +929,6 @@ export default function ProjectsView() {
         ))}
       </div>
 
-      {/* Overall progress */}
       {active.length > 0 && (
         <FrostedTile className="px-5 py-4">
           <div className="flex items-center justify-between text-xs mb-2">
@@ -976,10 +942,8 @@ export default function ProjectsView() {
         </FrostedTile>
       )}
 
-      {/* Gantt (only renders if 2+ projects have deadlines) */}
       <GanttStrip projects={projects} subjects={subjects} />
 
-      {/* Filter + sort */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06]">
           {(["all","active","done"] as Filter[]).map(f => (
@@ -1000,7 +964,6 @@ export default function ProjectsView() {
         </select>
       </div>
 
-      {/* Grid or Kanban */}
       {visible.length === 0 ? (
         <div className="text-center py-16 text-zinc-600">
           <Archive size={28} className="mx-auto mb-3 opacity-40" />

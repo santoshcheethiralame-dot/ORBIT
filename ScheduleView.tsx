@@ -1,4 +1,3 @@
-// ScheduleView.tsx — Weekly class timetable CRUD (brutalist concept v5)
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
@@ -7,12 +6,8 @@ import { useToast } from './Toast';
 import { FrostedTile, PageHeader, MetaText, getSubjectColor, SUBJECT_COLOR_CLASSES } from './components';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-// Full-day slots from 6:00 to 23:00 (1-hour blocks = 17 slots).
-// SLOT CONTRACT: slot 0 = 06:00, slot N = (06 + N):00.
-// This must match ScheduleOptimizer.tsx (SLOT_START = 6) and
-// Onboarding.tsx (ONBOARDING_SLOT_START = 6). Never change independently.
 const SLOT_START_HOUR = 6;
-const SLOT_END_HOUR = 23; // last slot starts at 22:00
+const SLOT_END_HOUR = 23;
 const pad = (n: number) => String(n).padStart(2, '0');
 const SLOT_LABELS: string[] = Array.from(
   { length: SLOT_END_HOUR - SLOT_START_HOUR },
@@ -28,15 +23,13 @@ export default function ScheduleView() {
   const [formData, setFormData] = useState({ day: 0, slot: 0, subjectId: '' });
 
   const getSubject = (id: number) => subjects.find(s => s.id === id);
-  // Solid palette block class for a subject (bg-orange-500 / bg-amber-500 / bg-yellow-400 / bg-paper).
   const subjectSolid = (id: number) => {
     const sub = getSubject(id);
     return SUBJECT_COLOR_CLASSES[getSubjectColor(id, sub?.colorIndex)].bg;
   };
 
-  // ── Clock context: which column is "today", which slot is "now", and what's up next ──
   const now = new Date();
-  const todayIdx = (now.getDay() + 6) % 7;          // 0 = Monday
+  const todayIdx = (now.getDay() + 6) % 7;
   const nowMins = now.getHours() * 60 + now.getMinutes();
   const currentSlotIdx = (now.getHours() >= SLOT_START_HOUR && now.getHours() < SLOT_END_HOUR)
     ? now.getHours() - SLOT_START_HOUR : -1;
@@ -47,7 +40,7 @@ export default function ScheduleView() {
       .filter(x => x.sub)
       .map(x => {
         let dayOffset = (x.day - todayIdx + 7) % 7;
-        if (dayOffset === 0 && x.startMins + 60 <= nowMins) dayOffset = 7; // already finished today
+        if (dayOffset === 0 && x.startMins + 60 <= nowMins) dayOffset = 7;
         return { ...x, dayOffset };
       })
       .sort((a, b) => a.dayOffset - b.dayOffset || a.startMins - b.startMins);
@@ -66,10 +59,9 @@ export default function ScheduleView() {
     return DAYS[nextClass.day];
   })();
 
-  // Compact visible slot range — only render around the classes that actually exist.
   const usedSlots = slots.map(s => s.slot);
-  const minSlot = usedSlots.length ? Math.max(0, Math.min(...usedSlots)) : 2;                       // default 08:00
-  const maxSlot = usedSlots.length ? Math.min(SLOT_LABELS.length - 1, Math.max(...usedSlots)) : 8;  // default 14:00
+  const minSlot = usedSlots.length ? Math.max(0, Math.min(...usedSlots)) : 2;
+  const maxSlot = usedSlots.length ? Math.min(SLOT_LABELS.length - 1, Math.max(...usedSlots)) : 8;
   const visibleSlots = Array.from({ length: maxSlot - minSlot + 1 }, (_, i) => minSlot + i);
 
   const handleAdd = async () => {
@@ -91,7 +83,6 @@ export default function ScheduleView() {
     toast.success('Class removed');
   };
 
-  // Build a grid: day → slot → ScheduleSlot[]
   const grid: Record<number, Record<number, typeof slots[0][]>> = {};
   for (let d = 0; d < 7; d++) {
     grid[d] = {};
@@ -116,7 +107,6 @@ export default function ScheduleView() {
         }
       />
 
-      {/* Up-next hero */}
       {nextClass && (
         <div className="rounded-4xl bg-orange-500 text-ink p-5 mb-4 flex items-center gap-4 animate-in fade-in duration-500">
           <span className="font-mono text-[9px] font-bold uppercase tracking-widest bg-ink text-orange-400 px-2.5 py-1 rounded-full shrink-0">
@@ -135,7 +125,6 @@ export default function ScheduleView() {
         </div>
       )}
 
-      {/* Add Form */}
       {showForm && (
         <FrostedTile className="p-6 mb-6 animate-in slide-in-from-top-4 fade-in duration-300">
           <h3 className="font-display text-xl text-white mb-4">Add class to timetable</h3>
@@ -190,7 +179,6 @@ export default function ScheduleView() {
           </button>
         </FrostedTile>
       ) : (
-        /* Timetable Grid */
         <div className="rounded-4xl bg-ink2 border border-white/10 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] border-collapse">
@@ -242,7 +230,6 @@ export default function ScheduleView() {
             </table>
           </div>
 
-          {/* Legend */}
           <div className="px-4 py-3 border-t border-white/10 flex items-center gap-4 flex-wrap">
             {subjects.slice(0, 8).map(s => (
               <span key={s.id} className="flex items-center gap-1.5 text-[10px] text-zinc-400">

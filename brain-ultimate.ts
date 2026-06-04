@@ -1,14 +1,3 @@
-/**
- * ORBIT BRAIN — public barrel (single import path).
- * ===================================================
- * Consumers import planning / readiness / analytics ONLY from here.
- *
- * Unified architecture (one engine, no parallel "research" brain):
- *   brain.ts            → the engine: planner, load, spaced-repetition, readiness, assignments
- *   brain-analytics.ts  → outcomes, performance, burnout, interleaving, energy, quality
- *   brain-ultimate.ts   → this barrel: the public surface + the plan-enrichment pass
- */
-
 import { db, OrbitDB } from "./db";
 import { DailyContext, StudyBlock } from "./types";
 
@@ -36,10 +25,6 @@ import {
   getEnergyProfile,
 } from "./brain-analytics";
 
-/* ======================================================
-  PLAN RESULT
-====================================================== */
-
 export interface UltimatePlanResult {
   blocks: StudyBlock[];
   loadAnalysis: {
@@ -66,14 +51,6 @@ export interface UltimatePlanResult {
   confidence: number;
 }
 
-/* ======================================================
-  MAIN PLAN GENERATOR
-  The core engine (brain.ts) does all real planning — it honors the full Daily
-  Context (holiday / sick / ISA·ESA·PD / focus subject / bunk / exam exclusions)
-  and does displacement, circadian ordering, and spaced-repetition. We then adapt
-  block durations using REAL, PERSISTED block-outcome performance.
-====================================================== */
-
 export async function generateUltimatePlan(
   context: DailyContext,
   dbInstance: OrbitDB = db,
@@ -89,8 +66,6 @@ export async function generateUltimatePlan(
   const blocks = corePlan.blocks;
   const coreLoadAnalysis = corePlan.loadAnalysis;
 
-  // Adapt durations from persisted performance. getSubjectPerformance returns
-  // null when a subject lacks enough history, so new users are unaffected.
   const performanceAdjustments: Array<{
     subjectId: number; reason: string; oldDuration: number; newDuration: number;
   }> = [];
@@ -115,7 +90,6 @@ export async function generateUltimatePlan(
   const planningStrategy: 'core' | 'enhanced' = uniqueDays < 5 ? 'core' : 'enhanced';
   const confidence = uniqueDays >= 30 ? 0.9 : uniqueDays >= 5 ? 0.8 : 0.65;
 
-  /* ── Load analysis (prefer the core engine's numbers; enrich with analytics) ── */
   const totalMinutes = blocks.reduce((sum, b) => sum + b.duration, 0);
   const subjectIds = new Set(blocks.map(b => b.subjectId));
   const avgBlockDuration = blocks.length > 0 ? totalMinutes / blocks.length : 0;
@@ -152,24 +126,15 @@ export async function generateUltimatePlan(
   };
 }
 
-/** Backward-compatible alias — the single plan entry point used by index.tsx. */
 export async function generateEnhancedPlan(context: DailyContext): Promise<UltimatePlanResult> {
   return generateUltimatePlan(context);
 }
-
-/* ======================================================
-  READINESS — one model (core), one stable shape.
-====================================================== */
 
 export async function getAllReadinessScores(
   dbInstance: OrbitDB = db,
 ): Promise<Record<number, SubjectReadiness>> {
   return coreGetReadiness(dbInstance);
 }
-
-/* ======================================================
-  RE-EXPORTS — the public API surface
-====================================================== */
 
 export {
   type SubjectReadiness,

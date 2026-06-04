@@ -1,8 +1,3 @@
-// index.tsx - FUTURISTIC GLASSMORPHIC FLOATING NAVBAR (Hybrid Enhancement: Active Gradient Border)
-
-// ─── ORIGIN GUARD (dev-only) ─────────────────────────────────────────────────
-// Redirects LAN IPs → localhost only in local dev (port 3000/5173).
-// Production deployments (any domain) are never redirected.
 if (typeof window !== 'undefined') {
   const { hostname, protocol, port, pathname, search } = window.location;
   const isLanIp = /^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
@@ -36,11 +31,10 @@ import { db, saveDbSnapshot, restoreDbFromSnapshot } from "./db";
 import { Subject, DailyPlan, StudyBlock, StudyLog, DailyContext } from "./types";
 import { updateAssignmentProgress } from "./brain";
 import { generateEnhancedPlan } from "./brain-ultimate";
-import { Dashboard } from "./Dashboard";          // landing view — kept eager to avoid a load flash
+import { Dashboard } from "./Dashboard";
 import { SpaceBackground } from "./SpaceBackground";
 import { DailyContextModal } from "./DailyContextModal";
 
-// Heavy secondary views are code-split so they don't bloat the initial bundle.
 const Onboarding = lazy(() => import("./Onboarding").then(m => ({ default: m.Onboarding })));
 const FocusSession = lazy(() => import("./FocusSession").then(m => ({ default: m.FocusSession })));
 const CoursesView = lazy(() => import("./Courses"));
@@ -57,9 +51,6 @@ import { ToastProvider, useToast } from "./Toast";
 
 import { getISTEffectiveDate, isPlanCurrent, effectiveDatePlus } from "./utils/time";
 
-// --- Hybrid Enhancement: Define consistent tab structures for desktop/mobile ---
-
-// Primary destinations — desktop pills (all equal hierarchy).
 const NAV_TABS = [
   { id: "dashboard", icon: LayoutGrid,   label: "Dashboard" },
   { id: "courses",   icon: BookOpen,     label: "Courses"   },
@@ -68,12 +59,10 @@ const NAV_TABS = [
   { id: "review",    icon: ListTodo,     label: "Review"    },
   { id: "stats",     icon: BarChart2,    label: "Stats"     },
 ];
-// Mobile bottom-bar: 2 + [Focus FAB] + Review + More.
 const MOBILE_PRIMARY = [
   { id: "dashboard", icon: LayoutGrid, label: "Home"    },
   { id: "courses",   icon: BookOpen,   label: "Courses" },
 ];
-// Everything secondary lives one tap away in the "More" sheet.
 const MORE_TABS = [
   { id: "projects", icon: FolderKanban, label: "Projects" },
   { id: "schedule", icon: Calendar,     label: "Schedule" },
@@ -82,7 +71,6 @@ const MORE_TABS = [
   { id: "about",    icon: Info,         label: "About"    },
 ];
 
-// Lightweight fallback shown while a code-split view chunk loads.
 const ViewFallback = () => (
   <div className="flex items-center justify-center py-32" role="status" aria-label="Loading">
     <div className="w-8 h-8 rounded-full border-2 border-indigo-500/30 border-t-indigo-400 animate-spin" />
@@ -114,25 +102,18 @@ const App = () => {
   const [subjectIntelligence, setSubjectIntelligence] = useState<SubjectIntelligence | undefined>();
   const [showMore, setShowMore] = useState(false);
 
-  // Live count of topics due for review today — powers the nav badge.
   const reviewDueCount = useLiveQuery(async () => {
     try { return await db.topics.where('nextReview').belowOrEqual(getISTEffectiveDate()).count(); }
     catch { return 0; }
   }, []) ?? 0;
 
-  // ✅ Add refs for preventing race conditions
   const rolloverCheckInProgress = useRef(false);
   const planGenerationInProgress = useRef(false);
   const loadDataInProgress = useRef(false);
-  const pendingLoadRef      = useRef(false); // FIX: tracks queued load requests
+  const pendingLoadRef      = useRef(false);
 
-  // âœ¨ NEW: Access toast from context
   const toast = useToast();
   const { settings } = useSettings();
-
-  // NOTE: theme/compact-mode application to <html> is handled by SettingsContext.tsx.
-  // The duplicate useEffect that was here has been removed to prevent a race condition
-  // where both effects ran on every settings change and could overwrite each other.
 
   useEffect(() => {
     try {
@@ -142,7 +123,6 @@ const App = () => {
     } catch (e) { }
   }, []);
 
-  // Auto-mark past exams as completed on app start
   useEffect(() => {
     const autoMarkExams = async () => {
       try {
@@ -162,7 +142,6 @@ const App = () => {
     autoMarkExams();
   }, []);
 
-  // Auto-backup: download a full JSON backup on schedule if the setting is enabled
   useEffect(() => {
     const BACKUP_KEY = 'orbit-last-auto-backup';
     const runAutoBackup = async () => {
@@ -213,12 +192,11 @@ const App = () => {
     };
 
     runAutoBackup();
-    const interval = setInterval(runAutoBackup, 60 * 60 * 1000); // re-check hourly
+    const interval = setInterval(runAutoBackup, 60 * 60 * 1000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.advanced.autoBackup, settings.advanced.backupFrequency]);
 
-  // ðŸ” Load subject intelligence whenever a focus block starts
   useEffect(() => {
     let cancelled = false;
 
@@ -239,7 +217,6 @@ const App = () => {
     };
   }, [activeBlock]);
 
-  // âœ¨ NEW: PWA Install Logic
   useEffect(() => {
     const handler = (e: any) => {
       e.preventDefault();
@@ -250,8 +227,6 @@ const App = () => {
   }, []);
 
   const loadData = async () => {
-    // FIX: Queue calls that arrive while a load is already running, rather than
-    // silently dropping them. pendingLoadRef is a simple "one pending slot" queue.
     if (loadDataInProgress.current) {
       pendingLoadRef.current = true;
       return;
@@ -279,14 +254,12 @@ const App = () => {
         }
       }
 
-      // Auto-save snapshot after every successful load
       saveDbSnapshot();
     } catch (err) {
       console.error('âŒ LoadData failed:', err);
       toast.error('Failed to load data. Please refresh the page.');
     } finally {
       loadDataInProgress.current = false;
-      // Drain the one-slot queue if a call arrived while we were busy.
       if (pendingLoadRef.current) {
         pendingLoadRef.current = false;
         void loadData();
@@ -297,10 +270,8 @@ const App = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        // Database health check
         const dbVersion = db.verno;
 
-        // Try to access each table to ensure schema is valid
         await Promise.all([
           db.semesters.limit(1).toArray().catch(() => []),
           db.subjects.limit(1).toArray().catch(() => []),
@@ -315,9 +286,7 @@ const App = () => {
           db.subjects.count()
         ]);
 
-        // Only force onboarding if NO core data exists
         if (semesterCount === 0 && subjectCount === 0) {
-          // Attempt auto-recovery from localStorage snapshot
           const recovered = await restoreDbFromSnapshot();
           if (recovered) {
             await loadData();
@@ -330,19 +299,16 @@ const App = () => {
       } catch (err) {
         console.error('âŒ Database initialization failed:', err);
 
-        // More granular recovery: attempt to load data anyway if possible
         try {
           await loadData();
         } catch (innerErr) {
           if (confirm('Critical database error. Reset all data? (This cannot be undone)')) {
             await db.delete();
-            // Remove only Orbit's own keys (incl. the recovery snapshot) rather
-            // than nuking the whole origin's localStorage.
             try {
               Object.keys(localStorage)
                 .filter(k => k.startsWith('orbit'))
                 .forEach(k => localStorage.removeItem(k));
-            } catch { /* ignore */ }
+            } catch { }
             window.location.reload();
           }
         }
@@ -371,7 +337,6 @@ const App = () => {
         }
 
         if (lastCheckedDate && lastCheckedDate !== currentEffectiveDate) {
-          // Instead of immediate prompt, check if plan exists first
           const todayStr = getISTEffectiveDate();
           const existing = await db.plans.get(todayStr);
           if (!existing) {
@@ -384,7 +349,6 @@ const App = () => {
         localStorage.setItem(STORAGE_KEY, currentEffectiveDate);
       } catch (error) {
         console.error("Rollover check failed:", error);
-        // âœ¨ NEW: Show error toast
         toast.error("Failed to check day rollover. Please refresh.");
         setNeedsContext(true);
       } finally {
@@ -414,10 +378,6 @@ const App = () => {
       const result = await generateEnhancedPlan(ctx);
       const dateStr = getISTEffectiveDate();
 
-      // FIX (data-loss): if a plan already exists for today and has completed
-      // work, preserve those completed blocks rather than overwriting them with a
-      // fresh all-incomplete plan. Drop regenerated blocks that duplicate a
-      // completed one (same subject + type + topic) to avoid re-presenting done work.
       const existingPlan = await db.plans.get(dateStr);
       const completedPrior = existingPlan?.blocks.filter(b => b.completed) ?? [];
       const isDuplicateOfCompleted = (nb: StudyBlock) =>
@@ -443,7 +403,6 @@ const App = () => {
 
       await db.plans.put(plan);
 
-      // ðŸ†• Persist individual blocks for direct access/backlog
       await Promise.all(plan.blocks.map(b => db.studyBlocks.put({
         ...b,
         date: dateStr
@@ -453,7 +412,6 @@ const App = () => {
       setNeedsContext(false);
       saveDbSnapshot();
 
-      // âœ¨ NEW: Success toast
       toast.success(`Daily plan ready: ${plan.blocks.length} blocks scheduled`);
 
       if (settings.notifications.enabled && settings.notifications.dailyGoals) {
@@ -464,7 +422,6 @@ const App = () => {
       }
     } catch (err) {
       console.error("Plan generation failed:", err);
-      // âœ¨ NEW: Error toast
       toast.error("Failed to generate plan. Please try again.");
     } finally {
       planGenerationInProgress.current = false;
@@ -478,8 +435,6 @@ const App = () => {
     logs.forEach((l) => {
       if (l && l.date) daysSeen.add(String(l.date));
     });
-    // Key days by the IST effective date (matching how logs are stored),
-    // stepping back from today; stop at the first gap.
     for (let i = 0; i < 365; i++) {
       const key = effectiveDatePlus(-i);
       if (daysSeen.has(key)) count++;
@@ -499,9 +454,6 @@ const App = () => {
       const blockId = activeBlock.id;
 
       try {
-        // Single StudyLog for this completion. For reviews, recordTopicReview
-        // (called in FocusSession) returns the metadata to attach here — it no
-        // longer writes its own log, so reviews are logged exactly once.
         const newLogId = await db.logs.add({
           subjectId: activeBlock.subjectId,
           duration: durationToLog,
@@ -525,27 +477,15 @@ const App = () => {
           const newPlan = { ...todayPlan, blocks: newBlocks };
           await db.plans.put(newPlan);
 
-          // ðŸ†• Update individual block in db.studyBlocks
           await db.studyBlocks.update(activeBlock.id, { completed: true });
 
           setTodayPlan(newPlan);
         }
 
-        // Assignment progress + completion is owned by updateAssignmentProgress
-        // (called in FocusSession.handleFocusComplete), which derives `completed`
-        // from progressMinutes vs. estimatedEffort. We deliberately do NOT force
-        // completed:true here — that marked multi-session assignments done after
-        // a single block (the progress-vs-completed split-brain).
-
-        // Success toast with undo
         toast.success("Study block completed!", {
           label: "UNDO",
           onClick: async () => {
             try {
-              // Re-read the plan from the DB (never trust the stale closure) and
-              // revert: block completion, the StudyLog, and the studyBlocks row.
-              // (Assignment progress is owned by updateAssignmentProgress and is
-              // not reverted here.)
               const planNow = await db.plans.get(dateStr);
               if (planNow) {
                 const revertBlocks = planNow.blocks.map((b) =>
@@ -580,7 +520,6 @@ const App = () => {
         setView(activeTab as any);
       } catch (err) {
         console.error("Failed to complete block:", err);
-        // âœ¨ NEW: Error toast
         toast.error("Failed to save progress. Please try again.");
       }
     }
@@ -592,8 +531,6 @@ const App = () => {
     setView(tabId as any);
   };
 
-  // Focus entry from the nav (desktop CTA + mobile FAB). Starts the next
-  // unfinished block; if today's plan is clear, routes to the dashboard.
   const startFocusFromNav = () => {
     const next = todayPlan?.blocks?.find(b => !b.completed);
     if (next) {
@@ -605,16 +542,12 @@ const App = () => {
     }
   };
 
-  // ─── Safety: if we need context but have no subjects, go to onboarding ─────
-  // Prevents a blank screen when the DB has a semester but no subjects yet
   useEffect(() => {
     if (needsContext && subjects.length === 0) {
       setView("onboarding");
     }
   }, [needsContext, subjects.length]);
 
-  // ─── Cross-component navigation via CustomEvents ──────────────────────────
-  // Child views dispatch these events to trigger tab switches without prop drilling.
   useEffect(() => {
     const handleNavigate = (e: Event) => {
       const tab = (e as CustomEvent).detail?.tab as typeof activeTab | undefined;
@@ -703,17 +636,14 @@ const App = () => {
         />
       )}
 
-      {/* DESKTOP NAV - FLOATING GLASSMORPHIC PILL */}
       <header className="hidden lg:block fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-7xl px-4 lg:px-8">
         <div className="relative px-3 py-2.5 rounded-full bg-ink2 border border-white/10">
           <div className="relative z-10 flex items-center justify-between gap-4">
-            {/* LEFT: Brand (wordmark hides on tighter desktops to keep the pills on one line) */}
             <div className="flex items-center gap-2.5 shrink-0 pl-1">
               <div className="w-9 h-9 rounded-xl bg-orange-500 flex items-center justify-center font-display text-ink text-xl leading-none">O</div>
               <span className="hidden xl:inline text-lg font-display text-white tracking-tight">ORBIT</span>
             </div>
 
-            {/* CENTRE: Nav tabs — all destinations, equal hierarchy */}
             {showNavigation && (
               <nav className="flex items-center gap-1">
                 {NAV_TABS.map((tab) => {
@@ -740,7 +670,6 @@ const App = () => {
               </nav>
             )}
 
-            {/* RIGHT: utility icons + Focus CTA */}
             {showNavigation ? (
               <div className="flex items-center gap-2 shrink-0">
                 <div className="flex items-center gap-0.5 p-1 rounded-full bg-ink3 border border-white/10">
@@ -777,10 +706,8 @@ const App = () => {
         </div>
       </header>
 
-      {/* Spacer for fixed navbar */}
       <div className="hidden lg:block h-24" />
 
-      {/* MAIN CONTENT */}
       <main className="flex-1 min-h-screen pb-24 md:pb-0 overflow-x-clip">
         <div className="max-w-7xl mx-auto w-full animate-slide-up">
           <Suspense fallback={<ViewFallback />}>
@@ -818,12 +745,10 @@ const App = () => {
         </div>
       </main>
 
-      {/* MOBILE NAV — bottom bar + centre Focus FAB + More sheet */}
       {showNavigation && (
         <>
           <div className="lg:hidden fixed bottom-4 left-4 right-4 z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
             <div className="relative">
-              {/* Centre Focus FAB */}
               <button
                 onClick={startFocusFromNav}
                 aria-label="Start focus"
@@ -849,10 +774,8 @@ const App = () => {
                   );
                 })}
 
-                {/* spacer for the FAB */}
                 <div className="w-14 shrink-0" aria-hidden="true" />
 
-                {/* Review (with due badge) */}
                 <button
                   onClick={() => switchTab("review" as any)}
                   aria-current={activeTab === "review" ? 'page' : undefined}
@@ -866,7 +789,6 @@ const App = () => {
                   {activeTab === "review" && <span className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-orange-500" />}
                 </button>
 
-                {/* More */}
                 <button
                   onClick={() => setShowMore(true)}
                   aria-label="More"
@@ -879,7 +801,6 @@ const App = () => {
             </div>
           </div>
 
-          {/* More sheet */}
           {showMore && (
             <div className="lg:hidden fixed inset-0 z-[60]" onClick={() => setShowMore(false)}>
               <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" />
@@ -953,8 +874,6 @@ const App = () => {
   );
 };
 
-// PWA install prompt trigger — used by the Settings "Install app" button.
-// SW registration + auto-update is handled by vite-plugin-pwa (injectRegister: 'auto').
 (window as any).triggerPwaInstall = async () => {
   const p = (window as any).deferredPrompt;
   if (p) {

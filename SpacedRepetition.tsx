@@ -7,7 +7,6 @@ import { safeDB, withToast } from './utils/dbErrorHandler';
 import { geminiChat } from './gemini';
 import { getISTEffectiveDate } from './utils/time';
 
-// ─── AI: generate Q&A for a topic ────────────────────────────────────────────
 async function generateFlashcard(
   topicName: string,
   subjectName: string
@@ -27,11 +26,10 @@ No markdown, no code fences, no extra text.`;
     const clean = raw.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
     if (parsed.question && parsed.answer) return parsed;
-  } catch { /* fall through */ }
+  } catch { }
   return null;
 }
 
-// ─── AddFlashcardForm ─────────────────────────────────────────────────────────
 export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; onDone?: () => void }) => {
   const subjects = useLiveQuery(() => db.subjects.toArray()) || [];
   const [name, setName] = useState('');
@@ -45,7 +43,6 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
   const [saved, setSaved] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 
-  // Mark as manually edited after AI fills fields
   const handleQuestionChange = (v: string) => { setQuestion(v); if (aiGenerated) setAiGenerated(false); };
   const handleAnswerChange = (v: string) => { setAnswer(v); if (aiGenerated) setAiGenerated(false); };
 
@@ -99,7 +96,6 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
   return (
     <div className="space-y-3 p-5 rounded-2xl animate-in fade-in duration-300" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)' }}>
 
-      {/* Header */}
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">New Flashcard</span>
         {aiGenerated && (
@@ -119,7 +115,6 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
         {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
       </select>
 
-      {/* Topic name + AI generate inline */}
       <div className="relative">
         <input
           ref={nameRef}
@@ -151,7 +146,6 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
         </button>
       </div>
 
-      {/* Error state */}
       {genError && (
         <div className="flex items-center gap-2 text-xs text-red-400/80 animate-in fade-in duration-200">
           <XCircle size={12} />
@@ -159,7 +153,6 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
         </div>
       )}
 
-      {/* Q&A fields — highlighted when AI-generated */}
       <div className={`space-y-2 transition-all duration-300 ${aiGenerated ? 'rounded-xl p-2.5 -mx-2.5' : ''}`}
         style={aiGenerated ? { background: 'rgba(255,90,31,0.05)', border: '1px solid rgba(255,90,31,0.12)' } : {}}>
         <textarea
@@ -178,7 +171,6 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
         />
       </div>
 
-      {/* Save button */}
       <button
         onClick={handleSave}
         disabled={!canSave}
@@ -201,7 +193,6 @@ export const AddFlashcardForm = ({ subjectId, onDone }: { subjectId?: number; on
   );
 };
 
-// Comprehension Rating Modal
 export const ComprehensionRatingModal = ({
   isOpen,
   topicName,
@@ -215,7 +206,6 @@ export const ComprehensionRatingModal = ({
 }) => {
   const [selectedTopic, setSelectedTopic] = useState(topicName || '');
 
-  // Sync with prop when modal opens
   useEffect(() => {
     if (isOpen) {
       setSelectedTopic(topicName || '');
@@ -235,7 +225,6 @@ export const ComprehensionRatingModal = ({
           <p className="text-zinc-400 text-sm">This helps schedule your next review</p>
         </div>
 
-        {/* Topic Name Input */}
         <div>
           <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider block mb-2">
             What did you study?
@@ -252,7 +241,6 @@ export const ComprehensionRatingModal = ({
           </p>
         </div>
 
-        {/* Rating Buttons */}
         <div className="grid grid-cols-3 gap-3">
           <button
             onClick={() => selectedTopic.trim() && onRate(1, selectedTopic)}
@@ -296,11 +284,9 @@ export const ComprehensionRatingModal = ({
   );
 };
 
-// Upcoming Reviews Widget
 export const UpcomingReviewsWidget = () => {
   const today = getISTEffectiveDate();
 
-  // Fetch topics with subject names
   const topics = useLiveQuery(async () => {
     const allTopics = await db.topics.toArray();
     const withSubjects = await Promise.all(
@@ -418,7 +404,6 @@ export const UpcomingReviewsWidget = () => {
   );
 };
 
-// Topic Mastery Card (for Stats page)
 export const TopicMasteryCard = ({ topic }: { topic: StudyTopic & { subjectName?: string } }) => {
   const avgComprehension = topic.comprehensionHistory.length > 0
     ? topic.comprehensionHistory.reduce((a, b) => a + b, 0) / topic.comprehensionHistory.length
@@ -429,11 +414,10 @@ export const TopicMasteryCard = ({ topic }: { topic: StudyTopic & { subjectName?
       avgComprehension >= 1.5 ? 'Learning' :
         'Struggling';
 
-  // Palette-only mastery hue (no dynamic tailwind classes — those don't get generated).
-  const masteryColor = avgComprehension >= 2.5 ? '#F7F5EF' :   // Mastered  → white
-    avgComprehension >= 2.0 ? '#FFD60A' :                      // Proficient → yellow
-      avgComprehension >= 1.5 ? '#FF7A3C' :                    // Learning   → orange2
-        '#FF5A1F';                                             // Struggling → orange
+  const masteryColor = avgComprehension >= 2.5 ? '#F7F5EF' :
+    avgComprehension >= 2.0 ? '#FFD60A' :
+      avgComprehension >= 1.5 ? '#FF7A3C' :
+        '#FF5A1F';
 
   return (
     <div className="p-4 rounded-xl bg-ink2 border border-white/10 hover:border-white/20 transition-all">
@@ -467,7 +451,6 @@ export const TopicMasteryCard = ({ topic }: { topic: StudyTopic & { subjectName?
         </div>
       </div>
 
-      {/* Comprehension History */}
       <div className="mt-3 flex gap-1">
         {topic.comprehensionHistory.slice(-10).map((rating, i) => (
           <div
@@ -482,8 +465,6 @@ export const TopicMasteryCard = ({ topic }: { topic: StudyTopic & { subjectName?
   );
 };
 
-
-// Small inline form for the "all caught up" state
 const AddFlashcardFormInline = () => {
   const [show, setShow] = React.useState(false);
   if (!show) return (
@@ -494,18 +475,13 @@ const AddFlashcardFormInline = () => {
   return <AddFlashcardForm onDone={() => setShow(false)} />;
 };
 
-// ============================================================
-// ReviewQueueView — Standalone SR review screen
-// Shows all topics due today in a card-flip queue
-// ============================================================
 export const ReviewQueueView = () => {
   const today = getISTEffectiveDate();
   const [currentIdx, setCurrentIdx] = useState(0);
   const [showRating, setShowRating] = useState(false);
   const [doneCount, setDoneCount] = useState(0);
   const [sessionComplete, setSessionComplete] = useState(false);
-  const [isFlipped, setIsFlipped] = useState(false); // flashcard answer revealed
-  // FIX: Track when each topic card is shown so we can log actual review duration.
+  const [isFlipped, setIsFlipped] = useState(false);
   const cardShownAt = React.useRef<number>(Date.now());
 
   const topics = useLiveQuery(async () => {
@@ -513,7 +489,7 @@ export const ReviewQueueView = () => {
     const due = all.filter(t => t.nextReview <= today);
     const withSubjects = await Promise.all(
       due.sort((a, b) => a.nextReview.localeCompare(b.nextReview))
-         .sort((a, b) => a.easeFactor - b.easeFactor) // harder first
+         .sort((a, b) => a.easeFactor - b.easeFactor)
          .map(async t => {
            const sub = await db.subjects.get(t.subjectId);
            return { ...t, subjectName: sub?.name || 'Unknown' };
@@ -525,7 +501,6 @@ export const ReviewQueueView = () => {
   const current = topics[currentIdx];
   const totalDue = topics.length;
 
-  // Deck-wide stats for the header strip (whole deck, not just what's due today).
   const deckStats = useLiveQuery(async () => {
     const all = await db.topics.toArray();
     const ratings = all.flatMap(t => t.comprehensionHistory || []);
@@ -533,19 +508,15 @@ export const ReviewQueueView = () => {
     return { deckSize: all.length, retention };
   }) || { deckSize: 0, retention: 0 };
 
-  // Reset the per-card timer whenever the current topic changes.
   React.useEffect(() => { cardShownAt.current = Date.now(); }, [currentIdx]);
 
   const handleRate = async (rating: 1 | 2 | 3) => {
     if (!current) return;
 
-    // FIX: Use actual elapsed time instead of hardcoded 5 minutes.
     const elapsedMin = Math.max(1, Math.round((Date.now() - cardShownAt.current) / 60_000));
 
     const { recordTopicReview } = await import('./tracking');
     const sr = await recordTopicReview(current.subjectId, current.name, rating, elapsedMin, today);
-    // recordTopicReview no longer writes a StudyLog — the caller owns logging, so
-    // write the single review log here (this is the only logger for the queue path).
     try {
       await db.logs.add({
         subjectId: current.subjectId,
@@ -619,7 +590,6 @@ export const ReviewQueueView = () => {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      {/* Deck strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div className="rounded-3xl bg-orange-500 text-ink p-4">
           <div className="font-display text-3xl">{totalDue}</div>
@@ -639,7 +609,6 @@ export const ReviewQueueView = () => {
         </div>
       </div>
 
-      {/* Progress bar */}
       <div className="mb-6">
         <div className="flex justify-between text-[11px] text-zinc-500 mb-2 font-mono uppercase tracking-widest">
           <span>{currentIdx + 1} / {totalDue}</span>
@@ -653,7 +622,6 @@ export const ReviewQueueView = () => {
         </div>
       </div>
 
-      {/* Flashcard */}
       <div className="rounded-4xl border border-white/10 bg-ink2 p-7 md:p-9 mb-5 text-center min-h-[280px] flex flex-col justify-between">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-500/15 border border-orange-500/25 text-orange-300 text-xs font-bold uppercase tracking-wider mb-5">
@@ -661,13 +629,11 @@ export const ReviewQueueView = () => {
             {current.subjectName}
           </div>
 
-          {/* Show question if it exists, otherwise just the topic name */}
           {current.question ? (
             <>
               <div className="text-xs text-zinc-500 uppercase tracking-wider font-bold mb-3">Question</div>
               <h2 className="text-2xl font-bold text-white leading-tight mb-5">{current.question}</h2>
 
-              {/* Flip to reveal answer */}
               {!isFlipped ? (
                 <button
                   onClick={() => setIsFlipped(true)}
@@ -731,7 +697,6 @@ export const ReviewQueueView = () => {
         )}
       </div>
 
-      {/* Comprehension history micro-chart */}
       {current.comprehensionHistory?.length > 0 && (
         <div className="flex items-center gap-2 justify-center">
           <span className="text-[10px] text-zinc-600 font-mono uppercase tracking-widest">History</span>

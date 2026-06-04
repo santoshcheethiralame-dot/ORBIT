@@ -1,9 +1,3 @@
-// utils/settingsHelper.ts - Access settings from non-React contexts
-/**
- * Helper functions to access settings from localStorage
- * Use these in utility files that can't use React hooks
- */
-
 const STORAGE_KEY = 'orbit-settings-v2';
 
 export interface AppSettings {
@@ -94,15 +88,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   },
 };
 
-/**
- * Get all settings from localStorage
- */
 export function getSettings(): AppSettings {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Merge with defaults to handle missing properties
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
@@ -120,9 +110,6 @@ export function getSettings(): AppSettings {
   return DEFAULT_SETTINGS;
 }
 
-/**
- * Get a specific setting value by path (e.g., 'audio.volume')
- */
 export function getSetting<T = any>(path: string): T {
   const settings = getSettings();
   const keys = path.split('.');
@@ -134,10 +121,6 @@ export function getSetting<T = any>(path: string): T {
   
   return value as T;
 }
-
-/**
- * Specific helper functions for commonly accessed settings
- */
 
 export function getDayStartHour(): number {
   return getSetting<number>('study.dayStartHour') ?? 4;
@@ -159,7 +142,6 @@ export function isStrictModeDefault(): boolean {
   return getSetting<boolean>('study.strictModeDefault') ?? false;
 }
 
-/** Plan-Generation v2 master switch (quality/topic-aware readiness, triage, explanations). */
 export function getSmartPlanner(): boolean {
   return getSetting<boolean>('study.smartPlanner') ?? true;
 }
@@ -220,10 +202,6 @@ export function getTheme(): 'dark' | 'space' | 'midnight' {
   return getSetting<'dark' | 'space' | 'midnight'>('display.theme') ?? 'dark';
 }
 
-/**
- * Listen for settings changes (for React components that can't use the context)
- * Returns cleanup function
- */
 export function onSettingsChange(callback: (settings: AppSettings) => void): () => void {
   const handler = (e: StorageEvent) => {
     if (e.key === STORAGE_KEY && e.newValue) {

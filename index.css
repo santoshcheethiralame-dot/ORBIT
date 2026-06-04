@@ -1,16 +1,11 @@
-/* Compiled Tailwind v3.4 (replaces cdn.tailwindcss.com Play CDN). Preflight + the
-   used utilities are injected here at build time; the custom design-system CSS below
-   intentionally follows so its overrides win by source order. */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ============================================
-   ORBIT LIGHT MODE ENHANCEMENT v2.0
-   Comprehensive light mode styling improvements
-============================================ */
 
-/* Base Theme Variables */
+
+
 :root {
     --bg-primary: #09090b;
     --bg-secondary: #18181b;
@@ -29,9 +24,7 @@
     --glass-bg: rgba(0, 0, 0, 0.02);
 }
 
-/* ============================================
-   GLOBAL LIGHT MODE BASE
-============================================ */
+
 
 .light-mode {
     background-color: #f9fafb;
@@ -43,9 +36,7 @@
     color: #18181b;
 }
 
-/* ============================================
-   TEXT COLORS - IMPROVED CONTRAST
-============================================ */
+
 
 .light-mode .text-white {
     color: #18181b !important;
@@ -75,9 +66,7 @@
     color: #d4d4d8 !important;
 }
 
-/* ============================================
-   BACKGROUND COLORS
-============================================ */
+
 
 .light-mode .bg-black {
     background-color: #ffffff !important;
@@ -99,7 +88,7 @@
     background-color: #fafafa !important;
 }
 
-/* Semi-transparent backgrounds */
+
 .light-mode .bg-zinc-900\/60 {
     background-color: rgba(244, 244, 245, 0.95) !important;
 }
@@ -116,9 +105,7 @@
     background-color: rgba(244, 244, 245, 0.9) !important;
 }
 
-/* ============================================
-   BORDERS - SOFTER IN LIGHT MODE
-============================================ */
+
 
 .light-mode .border-white\/10,
 .light-mode .border-white\/5,
@@ -138,9 +125,7 @@
     border-color: #e4e4e7 !important;
 }
 
-/* ============================================
-   GLASS PANELS & CARDS
-============================================ */
+
 
 .light-mode .glass-panel,
 .light-mode .backdrop-blur-2xl,
@@ -149,7 +134,7 @@
     border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
-/* Card backgrounds */
+
 .light-mode [class*="bg-white/[0.02]"] {
     background-color: rgba(0, 0, 0, 0.02) !important;
 }
@@ -158,11 +143,9 @@
     background-color: rgba(0, 0, 0, 0.03) !important;
 }
 
-/* ============================================
-   ACCENT COLORS - PRESERVED & ENHANCED
-============================================ */
 
-/* Indigo/Purple (Primary) */
+
+
 .light-mode .text-indigo-400,
 .light-mode .text-indigo-300 {
     color: #6366f1 !important;
@@ -184,7 +167,7 @@
     border-color: #6366f1 !important;
 }
 
-/* Emerald/Green */
+
 .light-mode .text-emerald-400,
 .light-mode .text-emerald-300,
 .light-mode .text-emerald-500 {
@@ -199,7 +182,7 @@
     background-color: rgba(16, 185, 129, 0.1) !important;
 }
 
-/* Amber/Yellow */
+
 .light-mode .text-amber-400,
 .light-mode .text-amber-300,
 .light-mode .text-amber-500 {
@@ -214,7 +197,7 @@
     background-color: rgba(245, 158, 11, 0.1) !important;
 }
 
-/* Red/Rose */
+
 .light-mode .text-red-400,
 .light-mode .text-red-300,
 .light-mode .text-red-500 {
@@ -233,7 +216,7 @@
     background-color: #f43f5e !important;
 }
 
-/* Cyan */
+
 .light-mode .text-cyan-400,
 .light-mode .text-cyan-300,
 .light-mode .text-cyan-500 {
@@ -248,7 +231,7 @@
     background-color: rgba(6, 182, 212, 0.1) !important;
 }
 
-/* Purple */
+
 .light-mode .text-purple-400,
 .light-mode .text-purple-300,
 .light-mode .text-purple-500 {
@@ -263,7 +246,7 @@
     background-color: rgba(168, 85, 247, 0.1) !important;
 }
 
-/* Orange */
+
 .light-mode .text-orange-400,
 .light-mode .text-orange-300,
 .light-mode .text-orange-500 {
@@ -274,9 +257,7 @@
     background-color: rgba(249, 115, 22, 0.1) !important;
 }
 
-/* ============================================
-   FORM INPUTS - CLEAN LIGHT MODE
-============================================ */
+
 
 .light-mode input,
 .light-mode textarea,
@@ -298,9 +279,7 @@
     color: #a1a1aa !important;
 }
 
-/* ============================================
-   BUTTONS - IMPROVED CONTRAST
-============================================ */
+
 
 .light-mode button {
     color: inherit;
@@ -315,9 +294,7 @@
     opacity: 0.5 !important;
 }
 
-/* ============================================
-   HOVER STATES
-============================================ */
+
 
 .light-mode .hover\:bg-zinc-800:hover {
     background-color: #e4e4e7 !important;
@@ -335,9 +312,7 @@
     background-color: rgba(99, 102, 241, 0.2) !important;
 }
 
-/* ============================================
-   SHADOWS - SOFTER IN LIGHT MODE
-============================================ */
+
 
 .light-mode .shadow-2xl {
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.12) !important;
@@ -359,22 +334,18 @@
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04) !important;
 }
 
-/* ============================================
-   BACKGROUND GRADIENT - LIGHT MODE
-============================================ */
+
 
 .light-mode .fixed.inset-0.z-\[-1\] {
     background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #fef3c7 100%) !important;
 }
 
-/* Hide stars/space elements in light mode */
+
 .light-mode .fixed.inset-0.z-\[-1\]>div:not(:first-child) {
     display: none !important;
 }
 
-/* ============================================
-   SCROLLBAR - CLEAN IN LIGHT MODE
-============================================ */
+
 
 .light-mode ::-webkit-scrollbar {
     width: 8px;
@@ -394,9 +365,7 @@
     background: #a1a1aa !important;
 }
 
-/* ============================================
-   MODAL OVERLAYS
-============================================ */
+
 
 .light-mode .bg-black\/95,
 .light-mode .bg-black\/90,
@@ -407,54 +376,48 @@
     backdrop-filter: blur(20px);
 }
 
-/* ============================================
-   SPECIFIC COMPONENT FIXES
-============================================ */
 
-/* Settings cards */
+
+
 .light-mode .glass-panel {
     background: rgba(255, 255, 255, 0.95) !important;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
 }
 
-/* Focus session timer */
+
 .light-mode .text-8xl,
 .light-mode .text-7xl,
 .light-mode .text-6xl {
     color: #18181b !important;
 }
 
-/* Progress bars */
+
 .light-mode .bg-zinc-200 {
     background-color: #e4e4e7 !important;
 }
 
-/* Badges & Tags */
+
 .light-mode .badge,
 .light-mode .tag {
     border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
-/* ============================================
-   ANALYTICS & CHARTS
-============================================ */
 
-/* Chart backgrounds */
+
+
 .light-mode .recharts-surface {
     background: transparent !important;
 }
 
-/* Keep chart colors vibrant */
+
 .light-mode .recharts-line-curve,
 .light-mode .recharts-bar-rectangle {
     opacity: 1 !important;
 }
 
-/* ============================================
-   NOTIFICATION BANNERS
-============================================ */
 
-/* Info banner (blue) */
+
+
 .light-mode .bg-blue-50 {
     background-color: #eff6ff !important;
 }
@@ -463,7 +426,7 @@
     color: #1e40af !important;
 }
 
-/* Warning banner (amber) */
+
 .light-mode .bg-amber-50 {
     background-color: #fffbeb !important;
 }
@@ -472,7 +435,7 @@
     color: #92400e !important;
 }
 
-/* Error banner (red) */
+
 .light-mode .bg-red-50 {
     background-color: #fef2f2 !important;
 }
@@ -481,7 +444,7 @@
     color: #991b1b !important;
 }
 
-/* Success banner (green) */
+
 .light-mode .bg-green-50 {
     background-color: #f0fdf4 !important;
 }
@@ -490,9 +453,7 @@
     color: #166534 !important;
 }
 
-/* ============================================
-   GRADIENT TEXT PRESERVATION
-============================================ */
+
 
 .light-mode .text-transparent {
     -webkit-background-clip: text !important;
@@ -501,9 +462,7 @@
 
 
 
-/* ============================================
-   TRANSITIONS - SMOOTH THEME SWITCHING
-============================================ */
+
 
 .light-mode {
     transition: background-color 0.3s ease, color 0.3s ease;
@@ -513,9 +472,7 @@
     transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-/* ============================================
-   ANIMATIONS
-============================================ */
+
 
 @keyframes fade-in {
     from {
@@ -569,9 +526,7 @@
     }
 }
 
-/* ============================================
-   FLIP CLOCK ANIMATIONS
-============================================ */
+
 
 .flip-card {
     position: relative;
@@ -648,9 +603,7 @@
     }
 }
 
-/* ============================================
-   SAFE AREA PADDING (Mobile)
-============================================ */
+
 
 .safe-area-pb {
     padding-bottom: env(safe-area-inset-bottom);
@@ -665,50 +618,46 @@
     padding-right: env(safe-area-inset-right);
 }
 
-/* ============================================
-   SPECIFIC PAGE IMPROVEMENTS
-============================================ */
 
-/* Dashboard/Morning Command */
+
+
 .light-mode .morning-command-card {
     background: #ffffff !important;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06) !important;
 }
 
-/* Focus Mode */
+
 .light-mode .focus-timer {
     background: #ffffff !important;
 }
 
-/* Analytics Charts */
+
 .light-mode .analytics-card {
     background: #ffffff !important;
 }
 
-/* About Page Cards */
+
 .light-mode .about-card {
     background: #ffffff !important;
     border: 1px solid #e4e4e7 !important;
 }
 
-/* Settings Page */
+
 .light-mode .settings-section {
     background: #ffffff !important;
     border: 1px solid #e4e4e7 !important;
 }
 
-/* ============================================
-   MISC IMPROVEMENTS
-============================================ */
 
-/* Code blocks */
+
+
 .light-mode code,
 .light-mode pre {
     background-color: #f4f4f5 !important;
     color: #18181b !important;
 }
 
-/* Links */
+
 .light-mode a {
     color: #6366f1 !important;
 }
@@ -717,26 +666,24 @@
     color: #4f46e5 !important;
 }
 
-/* Dividers */
+
 .light-mode hr {
     border-color: #e4e4e7 !important;
 }
 
-/* Selection */
+
 .light-mode ::selection {
     background-color: rgba(168, 85, 247, 0.2) !important;
     color: #18181b !important;
 }
 
-/* Focus rings */
+
 .light-mode *:focus-visible {
     outline: 2px solid #a855f7 !important;
     outline-offset: 2px !important;
 }
 
-/* ============================================
-   PRINT STYLES
-============================================ */
+
 
 @media print {
     .light-mode {
@@ -745,11 +692,9 @@
     }
 }
 
-/* ============================================
-   DARK MODE UTILITIES (Failsafe)
-============================================ */
 
-/* Ensure dark mode classes still work when light mode is off */
+
+
 html:not(.light-mode) .dark\:bg-zinc-900 {
     background-color: #18181b !important;
 }
@@ -758,13 +703,9 @@ html:not(.light-mode) .dark\:text-zinc-200 {
     color: #e4e4e7 !important;
 }
 
-/* ============================================
-   END OF LIGHT MODE ENHANCEMENTS
-============================================ */
 
-/* ============================================
-   GLOBAL FLUIDITY ENHANCEMENTS v3.1
-============================================ */
+
+
 
 html {
     scroll-behavior: smooth;
@@ -772,7 +713,7 @@ html {
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* Optimize common animated properties */
+
 .transition-all,
 .transition-transform,
 .transition-opacity,
@@ -780,18 +721,15 @@ html {
     will-change: transform, opacity;
 }
 
-/* Visible keyboard focus ring — applies in the default dark theme too.
-   !important defeats the many `outline-none` utilities on inputs/buttons so
-   keyboard users always get a clear focus indicator (WCAG 2.4.7/2.4.11).
-   The `.light-mode *:focus-visible` rule above overrides the color in light mode. */
+
 *:focus-visible {
-    outline: 2px solid #FF5A1F !important; /* orange */
+    outline: 2px solid #FF5A1F !important; 
     outline-offset: 2px !important;
     border-radius: 4px;
     transition: outline-color 0.2s ease, outline-offset 0.2s ease;
 }
 
-/* Respect users who prefer reduced motion: neutralize CSS animations/transitions. */
+
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation-duration: 0.001ms !important;
@@ -801,24 +739,24 @@ html {
     }
 }
 
-/* Animations toggle (Settings → Appearance → Animations off) */
+
 [data-no-anim] *, [data-no-anim] *::before, [data-no-anim] *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
 }
 
-/* Brutalist range slider (Settings sliders) — white knob on a track filled via inline gradient */
+
 input.os-range { -webkit-appearance: none; appearance: none; height: 8px; border-radius: 999px; outline: none; }
 input.os-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 999px; background: #fff; cursor: pointer; border: none; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); }
 input.os-range::-moz-range-thumb { width: 20px; height: 20px; border-radius: 999px; background: #fff; cursor: pointer; border: none; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); }
 
-/* Better button press feel */
+
 button:active {
     transform: scale(0.98);
 }
 
-/* Hardware accelerated animations */
+
 .animate-in,
 .animate-out,
 .fade-in,
@@ -827,12 +765,9 @@ button:active {
     will-change: transform, opacity;
     backface-visibility: hidden;
 }
-/* ============================================
-   THEME SYSTEM: space + midnight
-   Applied via data-theme="space" / data-theme="midnight" on <html>
-============================================ */
 
-/* Space theme: deep blue/indigo nebula palette */
+
+
 [data-theme="space"] {
     --bg-primary: #030712;
     --bg-secondary: #0c1120;
@@ -867,7 +802,7 @@ button:active {
     background-color: rgba(99, 102, 241, 0.06) !important;
 }
 
-/* Midnight theme: true black OLED with warm amber accents */
+
 [data-theme="midnight"] {
     --bg-primary: #000000;
     --bg-secondary: #0a0a0a;
@@ -902,10 +837,7 @@ button:active {
     background-color: rgba(245, 158, 11, 0.05) !important;
 }
 
-/* ============================================
-   COMPACT MODE
-   Applied via data-compact="true" on <html>
-============================================ */
+
 
 [data-compact="true"] .p-4 { padding: 0.5rem !important; }
 [data-compact="true"] .p-5 { padding: 0.625rem !important; }
@@ -922,27 +854,22 @@ button:active {
 [data-compact="true"] .rounded-2xl { border-radius: 0.75rem !important; }
 [data-compact="true"] .rounded-3xl { border-radius: 1rem !important; }
 
-/* ============================================================
-   ORBIT DESIGN SYSTEM v2 — premium "refined cosmic"
-   Tokens (CSS variables) + app-wide base refinements + component
-   classes. The base refinements apply immediately; the .os-*
-   classes are adopted screen-by-screen during the re-skin.
-============================================================ */
+
 :root {
-  /* Accent — brutalist orange (primary) + yellow (secondary) */
-  --os-accent: #FF5A1F;             /* orange */
-  --os-accent-strong: #FF5A1F;      /* orange */
+  
+  --os-accent: #FF5A1F;             
+  --os-accent-strong: #FF5A1F;      
   --os-accent-soft: rgba(255, 90, 31, 0.16);
   --os-accent-ring: rgba(255, 90, 31, 0.55);
   --os-yellow: #FFD60A;
   --os-paper: #F7F5EF;
 
-  /* Foreground — white-on-black */
+  
   --os-fg: #ffffff;
-  --os-fg-muted: #a1a1aa;           /* zinc-400 */
-  --os-fg-subtle: #71717a;          /* zinc-500 */
+  --os-fg-muted: #a1a1aa;           
+  --os-fg-subtle: #71717a;          
 
-  /* Surfaces & borders — flat, solid (no glass) */
+  
   --os-bg: #0A0A0A;
   --os-surface-1: #131314;
   --os-surface-2: #1C1C1E;
@@ -951,37 +878,36 @@ button:active {
   --os-border-strong: rgba(255, 255, 255, 0.18);
   --os-glass-blur: 0px;
 
-  /* Radius scale — chunkier, brutalist */
+  
   --os-r-sm: 12px;
   --os-r-md: 16px;
   --os-r-lg: 22px;
   --os-r-card: 28px;
   --os-r-pill: 999px;
 
-  /* Elevation — minimal; brutalism leans on contrast, not shadow */
+  
   --os-shadow-1: none;
   --os-shadow-2: 0 12px 40px rgba(0, 0, 0, 0.5);
   --os-glow: 0 0 0 1px var(--os-accent-soft), 0 8px 32px rgba(255, 90, 31, 0.22);
 
-  /* Motion */
+  
   --os-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --os-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --os-dur: 240ms;
   --os-dur-fast: 150ms;
 }
 
-/* ---- Base refinements (apply app-wide) ---- */
+
 body {
   background-color: var(--os-bg);
   letter-spacing: -0.006em;
   text-rendering: optimizeLegibility;
 }
-/* Brutalist display type: Archivo black-weight wins over Tailwind's font-bold
-   (this custom rule is sourced after @tailwind utilities, so it overrides). */
+
 .font-display { font-family: 'Archivo', sans-serif; font-weight: 900; letter-spacing: -0.03em; }
 h1, h2, h3 { letter-spacing: -0.03em; }
 
-/* Premium scrollbar */
+
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
@@ -995,11 +921,10 @@ h1, h2, h3 { letter-spacing: -0.03em; }
 
 ::selection { background: var(--os-accent-soft); color: #fff; }
 
-/* Contrast fix: muted-text utility that failed WCAG AA on the dark surface
-   (text-zinc-600 #52525b ~3.4:1 -> ~4.7:1). */
+
 html:not(.light-mode) .text-zinc-600 { color: var(--os-fg-subtle); }
 
-/* ---- Component classes (adopted during the re-skin) ---- */
+
 .os-card {
   background: var(--os-surface-1);
   border: 1px solid var(--os-border);

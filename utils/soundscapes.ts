@@ -1,7 +1,3 @@
-// utils/soundscapes.ts — offline, file-free focus soundscapes via the Web Audio API.
-// Brown / white noise + a slow "deep-space" hum. No assets, works fully offline (PWA-safe).
-// One AudioContext, created lazily on the first user gesture (play()).
-
 export type SoundscapeType = "silence" | "brown" | "white" | "hum";
 
 export const SOUNDSCAPES: { id: SoundscapeType; label: string }[] = [
@@ -11,7 +7,6 @@ export const SOUNDSCAPES: { id: SoundscapeType; label: string }[] = [
   { id: "hum", label: "Deep space" },
 ];
 
-// per-type loudness trim so all options sit at a comfortable level
 const TRIM: Record<Exclude<SoundscapeType, "silence">, number> = {
   brown: 0.55,
   white: 0.22,
@@ -23,7 +18,7 @@ class SoundscapeEngine {
   private master: GainNode | null = null;
   private nodes: AudioNode[] = [];
   private current: SoundscapeType = "silence";
-  private volume = 0.5; // 0..1
+  private volume = 0.5;
 
   private ensureCtx(): AudioContext | null {
     if (this.ctx) return this.ctx;
@@ -36,13 +31,12 @@ class SoundscapeEngine {
   }
 
   private makeNoiseBuffer(ctx: AudioContext, kind: "brown" | "white"): AudioBuffer {
-    const len = Math.floor(ctx.sampleRate * 4); // 4s seamless loop
+    const len = Math.floor(ctx.sampleRate * 4);
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
     const data = buf.getChannelData(0);
     if (kind === "white") {
       for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
     } else {
-      // brown noise: integrate white noise, then normalise a touch
       let last = 0;
       for (let i = 0; i < len; i++) {
         const w = Math.random() * 2 - 1;
@@ -58,12 +52,10 @@ class SoundscapeEngine {
       try {
         (n as any).stop?.();
       } catch {
-        /* osc/source already stopped */
       }
       try {
         n.disconnect();
       } catch {
-        /* ignore */
       }
     }
     this.nodes = [];
@@ -71,7 +63,6 @@ class SoundscapeEngine {
       try {
         this.master.disconnect();
       } catch {
-        /* ignore */
       }
       this.master = null;
     }
@@ -88,7 +79,6 @@ class SoundscapeEngine {
       try {
         await ctx.resume();
       } catch {
-        /* ignore */
       }
     }
 
@@ -109,7 +99,6 @@ class SoundscapeEngine {
       src.start();
       this.nodes = [src, lp];
     } else {
-      // deep-space hum: two low sines + a slow LFO breathing the volume
       const o1 = ctx.createOscillator();
       o1.type = "sine";
       o1.frequency.value = 58;

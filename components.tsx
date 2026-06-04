@@ -5,7 +5,6 @@ import {
   TrendingUp, Brain, Star, BookOpen, Flame, Clock, Download, X
 } from "lucide-react";
 
-// When an onClick is provided, expose the div as a real keyboard-operable button.
 const keyActivate = (onClick?: (e: any) => void): any =>
   onClick
     ? {
@@ -23,16 +22,9 @@ export const GlassCard = ({ children, className = "", onClick }: { children: Rea
   </div>
 );
 
-// ============================================
-// Subject Color Coding System
-// Stable identity colors based on subject ID (NOT difficulty)
-// ============================================
-// Palette is strictly orange / yellow / white shades (brutalist redesign — no green/cyan/rose).
 export const SUBJECT_COLORS = ['orange', 'amber', 'yellow', 'white'] as const;
 export type SubjectColor = typeof SUBJECT_COLORS[number];
 
-/** Returns the palette color for a subject.
- *  Prefers subject.colorIndex if set; falls back to id % length auto-assignment. */
 export const getSubjectColor = (id: number, colorIndex?: number): SubjectColor =>
   SUBJECT_COLORS[(colorIndex !== undefined ? colorIndex : id) % SUBJECT_COLORS.length];
 
@@ -60,7 +52,6 @@ export const Button = ({ children, onClick, disabled, variant = 'primary', class
   );
 };
 
-// Extracted from AboutView.tsx for global use
 export interface FrostedProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
   hoverClassName?: string;
@@ -110,9 +101,7 @@ export const FrostedTile: React.FC<React.PropsWithChildren<FrostedProps>> = ({
       className={
         [
           "group relative overflow-hidden rounded-4xl border",
-          // Use variant border if available, otherwise default hairline border
           variantStyles ? variantStyles.border : "border-white/10",
-          // Brutalist: one flat solid surface, no glass / no blur / no soft shadow.
           "bg-ink2",
           "transition-all duration-300",
           onClick ? "cursor-pointer active:scale-[0.99]" : "",
@@ -123,12 +112,10 @@ export const FrostedTile: React.FC<React.PropsWithChildren<FrostedProps>> = ({
       }
       {...props}
     >
-      {/* Background gradient overlay - always visible if variant present, intensifies on hover */}
       {variantStyles && (
         <div className={`absolute inset-0 bg-gradient-to-br ${variantStyles.bg} to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-500`} />
       )}
 
-      {/* Content */}
       <div className={variantStyles ? "relative z-10" : ""}>
         {children}
       </div>
@@ -136,7 +123,6 @@ export const FrostedTile: React.FC<React.PropsWithChildren<FrostedProps>> = ({
   );
 };
 
-// Mini frosted style for secondary "cards" inside main tiles
 export const FrostedMini: React.FC<React.PropsWithChildren<FrostedProps>> = ({
   children,
   className = '',
@@ -163,7 +149,6 @@ export const FrostedMini: React.FC<React.PropsWithChildren<FrostedProps>> = ({
   );
 };
 
-
 export const Slider = ({ value, min, max, onChange, label }: any) => (
   <div className="w-full">
     {label && <div className="text-xs font-bold text-zinc-500 mb-2 uppercase">{label}</div>}
@@ -185,11 +170,6 @@ export const Input = (props: any) => (
   />
 );
 
-// ============================================
-// 👇 BlockReason Component
-// ============================================
-
-
 type BlockReasonProps = {
   block: StudyBlock;
 };
@@ -197,48 +177,37 @@ type BlockReasonProps = {
 export const BlockReason = ({ block }: BlockReasonProps) => {
   if (!block.reason && !block.displaced) return null;
 
-  // 🆕 Detect reason type and assign appropriate styling
   const getReasonStyle = (reason?: string) => {
     if (!reason) return { icon: Info, color: 'indigo', label: 'Context' };
 
-    // Critical/Urgent
     if (reason.includes('🚨') || reason.includes('OVERDUE')) {
       return { icon: AlertTriangle, color: 'red', label: 'Critical' };
     }
-    // Warning
     if (reason.includes('⚠️') || reason.includes('Critical') || reason.includes('Stalled')) {
       return { icon: AlertTriangle, color: 'orange', label: 'Warning' };
     }
-    // Deadline/Urgent
     if (reason.includes('🔥') || reason.includes('Deadline')) {
       return { icon: Flame, color: 'amber', label: 'Urgent' };
     }
-    // New/Start
     if (reason.includes('🚀') || reason.includes('New')) {
       return { icon: Rocket, color: 'cyan', label: 'New' };
     }
-    // Final push/completion
     if (reason.includes('🎯') || reason.includes('Final')) {
       return { icon: Target, color: 'emerald', label: 'Final Push' };
     }
-    // High value/importance
     if (reason.includes('⭐') || reason.includes('High-value')) {
       return { icon: Star, color: 'yellow', label: 'High Value' };
     }
-    // Cognitive/difficulty
     if (reason.includes('🧠') || reason.includes('difficulty')) {
       return { icon: Brain, color: 'purple', label: 'Focus Required' };
     }
-    // Class/scheduled
     if (reason.includes('📚') || reason.includes('Class')) {
       return { icon: BookOpen, color: 'blue', label: 'Scheduled' };
     }
-    // Time/decay
     if (reason.includes('⏰') || reason.includes('decay')) {
       return { icon: Clock, color: 'zinc', label: 'Maintenance' };
     }
 
-    // Default
     return { icon: TrendingUp, color: 'indigo', label: 'Strategy' };
   };
 
@@ -323,7 +292,6 @@ export const BlockReason = ({ block }: BlockReasonProps) => {
   return (
     <div className={`p-4 rounded-xl border ${colors.bg} ${colors.border} space-y-3 animate-in slide-in-from-top-2 duration-300`}>
 
-      {/* Header with category badge */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ReasonIcon size={16} className={colors.icon} />
@@ -336,15 +304,12 @@ export const BlockReason = ({ block }: BlockReasonProps) => {
         </span>
       </div>
 
-      {/* Main reason text */}
       {block.reason && (
         <div className={`text-sm ${colors.text} leading-relaxed`}>
-          {/* Remove emoji from display text if present */}
           {block.reason.replace(/[🚨⚠️🔥🚀🎯⭐🧠📚⏰📖]/g, '').trim()}
         </div>
       )}
 
-      {/* Displacement info */}
       {block.displaced && (
         <div className="flex items-start gap-2 text-sm text-zinc-400 pt-2 border-t border-white/5">
           <RefreshCw size={14} className="mt-0.5 text-zinc-500 shrink-0" />
@@ -365,20 +330,16 @@ export const InstallPrompt = () => {
   const [showPrompt, setShowPrompt] = useState(false);
 
   useEffect(() => {
-    // Check if already installed
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     if (isStandalone) return;
 
-    // Check if user previously dismissed
     const dismissed = localStorage.getItem('orbit-install-dismissed');
     if (dismissed) return;
 
-    // Listen for the install prompt event
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
 
-      // Show prompt after 30 seconds of usage
       setTimeout(() => {
         setShowPrompt(true);
       }, 30000);
@@ -465,21 +426,17 @@ export const BottomSheet = ({
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className="md:hidden fixed inset-0 bg-black/60 z-[80] animate-in fade-in duration-200"
         onClick={onClose}
       />
 
-      {/* Sheet */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-zinc-900 rounded-t-3xl z-[90] max-h-[80vh] animate-in slide-in-from-bottom duration-300">
         <div className="p-6 space-y-4">
-          {/* Handle */}
           <div className="flex justify-center mb-2">
             <div className="w-12 h-1 bg-zinc-700 rounded-full" />
           </div>
 
-          {/* Header */}
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold">{title}</h3>
             <button
@@ -490,7 +447,6 @@ export const BottomSheet = ({
             </button>
           </div>
 
-          {/* Content */}
           <div className="overflow-y-auto max-h-[60vh]">
             {children}
           </div>
@@ -499,10 +455,6 @@ export const BottomSheet = ({
     </>
   );
 };
-
-// ============================================
-// 👇 PageHeader & Meta Components
-// ============================================
 
 export const MetaText = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
   <div className={`text-[0.7rem] font-mono text-orange-500/80 uppercase tracking-[0.18em] font-bold ${className}`}>

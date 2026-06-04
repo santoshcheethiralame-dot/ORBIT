@@ -1,7 +1,3 @@
-// Dashboard: Main mission control showing today's study blocks, progress stats, and smart insights.
-// Handles block completion, snoozing, backlog management, and displays AI-generated study recommendations.
-// v3.3 — QuickCapture widget added to PageHeader actions
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { SubjectReadiness, StudyBlock, Subject, StudyLog, DailyPlan, DailyContext } from './types';
 import { BlockReason, PageHeader, MetaText, HeaderChip } from "./components";
@@ -98,7 +94,6 @@ const BacklogItem = React.memo(({
     const swipeDistance = touchStart - touchEnd;
 
     if (swipeDistance > SWIPE_THRESHOLD) {
-      // Recoverable via the toast UNDO in deleteFromBacklog (no native confirm).
       onDelete(block.id);
     } else if (swipeDistance < -SWIPE_THRESHOLD) {
       onAdd(block);
@@ -217,8 +212,6 @@ export const Dashboard = ({
     return d;
   }, []);
 
-  // IST effective dates so "due today" / "next 7 days" match how topic
-  // nextReview is keyed (avoids the UTC off-by-one for IST users).
   const todayStr = getISTEffectiveDate();
   const sevenDaysLaterStr = effectiveDatePlus(7);
 
@@ -241,8 +234,6 @@ export const Dashboard = ({
     [upcomingReviews, todayStr]
   );
 
-  // Dropped/snoozed blocks stay in plan.blocks (so the planner can recover them
-  // tomorrow) but are hidden from today's view via the droppedBlocks id-list.
   const activeBlocks = useMemo(() => {
     const dropped = new Set(plan.droppedBlocks || []);
     return plan.blocks.filter((b) => !dropped.has(b.id));
@@ -272,7 +263,6 @@ export const Dashboard = ({
     logs.forEach((l) => {
       if (l && l.date) daysSeen.add(String(l.date));
     });
-    // Key days by the IST effective date (matching how logs are stored).
     for (let i = 0; i < MAX_STREAK_DAYS; i++) {
       const key = effectiveDatePlus(-i);
       if (daysSeen.has(key)) count++;
@@ -392,8 +382,6 @@ export const Dashboard = ({
         await db.plans.put({ ...originalPlan, blocks: updatedBlocks });
       }
       setBacklog(prev => prev.filter(b => b.id !== blockId));
-      // Toast-based undo so the swipe-delete is recoverable (replaces the old
-      // native confirm() guard).
       toast.success('Backlog item removed', {
         label: 'UNDO',
         onClick: async () => {
@@ -416,8 +404,6 @@ export const Dashboard = ({
     }
   }, [backlog, toast]);
 
-  // FIX: removed updateAssignmentProgress call here — FocusSession completion
-  // path already handles it. Calling it here caused double-counting.
   const markComplete = useCallback(async (blockId: string) => {
     try {
       const todayStr = getISTEffectiveDate();
@@ -433,9 +419,6 @@ export const Dashboard = ({
       await db.plans.put({ ...currentPlan, blocks: updatedBlocks });
       await db.studyBlocks.update(blockId, { completed: true });
 
-      // FIX (analytics integrity): marking complete must log study time so it
-      // counts toward streaks/stats/readiness — identical to the focus path.
-      // 'break' blocks are not study and are not logged.
       let logId: number | undefined;
       if (block.type !== 'break') {
         logId = await db.logs.add({
@@ -449,9 +432,6 @@ export const Dashboard = ({
           topicId: block.topicId,
         } as StudyLog);
       }
-      // Assignment blocks bump progress; completion is derived from progress vs.
-      // estimate (updateAssignmentProgress) — consistent with the focus path, so
-      // a multi-session assignment isn't marked done after a single block.
       let priorAssignment: { progressMinutes: number; completed: boolean } | null = null;
       if (block.type === 'assignment' && block.assignmentId) {
         const a = await db.assignments.get(block.assignmentId);
@@ -498,9 +478,6 @@ export const Dashboard = ({
       const block = currentPlan.blocks.find((b) => b.id === blockId);
       if (!block || block.completed) return;
 
-      // FIX (data-loss): KEEP the block in plan.blocks (the recovery engine reads
-      // the dropped block's body from pastPlan.blocks by id). Only record its id in
-      // droppedBlocks; the dashboard hides dropped blocks via the activeBlocks filter.
       const already = (currentPlan.droppedBlocks || []).includes(blockId);
       const droppedBlocks = already
         ? (currentPlan.droppedBlocks || [])
@@ -618,7 +595,6 @@ export const Dashboard = ({
   const nextColor = (nextSubject ? getSubjectColor(nextSubject.id!) : 'orange') as any;
   const nextClasses = SUBJECT_COLOR_CLASSES[nextColor as SubjectColor] || SUBJECT_COLOR_CLASSES['orange'];
 
-  // ── Concept-dashboard derivations (stat cards / courses / week) ──
   const fmtDur = (m: number) => {
     const h = Math.floor(m / 60), r = Math.round(m % 60);
     return h ? (r ? `${h}h ${r}m` : `${h}h`) : `${r}m`;
@@ -673,7 +649,6 @@ export const Dashboard = ({
         </div>
       )}
 
-      {/* ── HERO ── */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-4 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -709,9 +684,7 @@ export const Dashboard = ({
         </div>
       </header>
 
-      {/* ── STAT ROW ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* readiness ring */}
         <div className="rounded-4xl bg-ink2 border border-white/10 p-6 flex items-center gap-4">
           <div className="relative w-[72px] h-[72px] shrink-0">
             <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
@@ -727,7 +700,6 @@ export const Dashboard = ({
             <div className="text-xs text-orange-400 font-semibold mt-0.5">{completedCount}/{totalCount} done today</div>
           </div>
         </div>
-        {/* blocks left */}
         <div className="rounded-4xl bg-orange-500 text-ink p-6 flex flex-col justify-between min-h-[140px]">
           <span className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-70">Blocks left</span>
           <div>
@@ -735,7 +707,6 @@ export const Dashboard = ({
             <div className="text-xs font-bold mt-1 opacity-80">{blocksLeft > 0 ? `≈ ${fmtDur(remainingMin)} of deep work` : 'All clear today'}</div>
           </div>
         </div>
-        {/* critical / focus next */}
         {worst && worst.critical ? (
           <div className="rounded-4xl bg-yellow-400 text-ink p-6 flex flex-col justify-between min-h-[140px]">
             <span className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-70">Critical subject</span>
@@ -753,7 +724,6 @@ export const Dashboard = ({
             </div>
           </div>
         )}
-        {/* reviews due */}
         <div className="rounded-4xl bg-paper text-ink p-6 flex flex-col justify-between min-h-[140px]">
           <span className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-60">Reviews due</span>
           <div>
@@ -763,7 +733,6 @@ export const Dashboard = ({
         </div>
       </div>
 
-      {/* ── WEEK AHEAD (forecast) ── */}
       {weekForecast.length > 0 && (
         <div className="rounded-4xl bg-ink2 border border-white/10 p-5">
           <div className="flex items-center justify-between mb-3">
@@ -789,7 +758,6 @@ export const Dashboard = ({
         </div>
       )}
 
-      {/* ── THE PLAN + AI COACH ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 rounded-4xl bg-ink2 border border-white/10 p-6 space-y-4">
           <div className="flex items-center justify-between">
@@ -864,7 +832,6 @@ export const Dashboard = ({
           )}
         </div>
 
-        {/* Coach */}
         <div className="lg:col-span-1 flex flex-col gap-4">
           <div className="rounded-4xl bg-ink2 border border-white/10 p-6 flex flex-col justify-between min-h-[200px]">
           {(() => {
@@ -1013,7 +980,6 @@ export const Dashboard = ({
         </>
       )}
 
-      {/* ── COURSES ── */}
       <div className="rounded-4xl bg-ink2 border border-white/10 p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-display font-black text-2xl">COURSES</h3>

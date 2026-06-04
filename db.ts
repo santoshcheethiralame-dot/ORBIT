@@ -1,4 +1,3 @@
-// Central Dexie database schema and migrations for Orbit.
 import Dexie, { Table } from "dexie";
 import {
   Semester, Subject, ScheduleSlot, DailyPlan,
@@ -7,14 +6,11 @@ import {
 } from "./types";
 import { effectiveDatePlus } from "./utils/time";
 
-// ─── User Preferences stored in IndexedDB ────────────────────────────────────
-// Single-row key-value store (key = "user"). Keeps user prefs durable and
-// exportable alongside the rest of the academic data.
 export interface UserSettings {
-  key: string;                              // always "user"
-  weeklyTargetHours: number;               // default 7
-  activeSemesterId?: number;               // currently selected semester
-  subjectColors?: Record<number, string>;  // user-chosen hex colors per subject id
+  key: string;
+  weeklyTargetHours: number;
+  activeSemesterId?: number;
+  subjectColors?: Record<number, string>;
 }
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
@@ -34,7 +30,7 @@ export class OrbitDB extends Dexie {
   blockOutcomes!: Table<BlockOutcome, string>;
   studyBlocks!: Table<StudyBlock, string>;
   exams!: Table<ExamEntry, number>;
-  settings!: Table<UserSettings, string>;  // keyed by "user"
+  settings!: Table<UserSettings, string>;
 
   constructor(name: string = "OrbitDB") {
     super(name);
@@ -81,7 +77,6 @@ export class OrbitDB extends Dexie {
       }
     });
 
-    // v10: Add exams table for ISA/ESA exam schedule tracking
     this.version(10).stores({
       semesters: "++id",
       subjects: "++id, name, code",
@@ -96,7 +91,6 @@ export class OrbitDB extends Dexie {
       exams: "++id, subjectId, examDate, examType, completed",
     });
 
-    // v11: Add settings table for user preferences (weeklyTargetHours, subjectColors, etc.)
     this.version(11).stores({
       semesters: "++id",
       subjects: "++id, name, code",
@@ -109,12 +103,9 @@ export class OrbitDB extends Dexie {
       blockOutcomes: "++id, blockId, subjectId, timestamp, date, completed, skipped, timeOfDay",
       studyBlocks: "id, date, completed, subjectId, type",
       exams: "++id, subjectId, examDate, examType, completed",
-      settings: "key",  // single-row, key="user"
+      settings: "key",
     });
 
-    // v12: Formalize extended Project fields (milestones, sessionLog, notes, githubUrl, createdAt)
-    // These were already being stored via ProjectsView but were not in the schema/type.
-    // No index changes needed — just a version bump to mark the schema evolution.
     this.version(12).stores({
       semesters: "++id",
       subjects: "++id, name, code",
@@ -134,7 +125,6 @@ export class OrbitDB extends Dexie {
 
 export const db = new OrbitDB();
 
-// BroadcastChannel for multi-tab sync
 const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('orbit-sync') : null;
 
 export function notifyDataChange(type: string, data?: any) {
@@ -152,23 +142,14 @@ export function onDataChange(callback: () => void) {
   return () => syncChannel.removeEventListener('message', handler);
 }
 
-// ─── Auto-Snapshot: localStorage safety net for cross-origin recovery ────────
 const SNAPSHOT_KEY = 'orbit-db-snapshot';
-const SNAPSHOT_MAX_BYTES = 3_500_000; // 3.5 MB safety ceiling (localStorage limit ≈ 5 MB)
+const SNAPSHOT_MAX_BYTES = 3_500_000;
 let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
 
-/**
- * Serialize database tables to localStorage — with size guard.
- * Debounced — safe to call frequently; only writes after 2s of quiet.
- * FIX: Limits plans to last 30 days, logs to last 500, blockOutcomes to last 200
- * so the snapshot never exceeds localStorage quota.
- */
 export function saveDbSnapshot() {
   if (snapshotTimer) clearTimeout(snapshotTimer);
   snapshotTimer = setTimeout(async () => {
     try {
-      // IST-anchored cutoff so it matches how plan.date is keyed (avoids pruning
-      // the current logical day's plan early at UTC midnight).
       const cutoffDate = effectiveDatePlus(-30);
 
       const [
@@ -190,7 +171,6 @@ export function saveDbSnapshot() {
         db.settings.toArray(),
       ]);
 
-      // Trim large tables to stay under the size ceiling.
       const plans        = allPlans.filter(p => p.date >= cutoffDate);
       const logs         = allLogs.slice(-500);
       const blockOutcomes = allOutcomes.slice(-200);
@@ -216,17 +196,12 @@ export function saveDbSnapshot() {
   }, 2000);
 }
 
-/**
- * Restore all database tables from a localStorage snapshot.
- * Returns true if data was restored, false if no snapshot exists.
- */
 export async function restoreDbFromSnapshot(): Promise<boolean> {
   try {
     const raw = localStorage.getItem(SNAPSHOT_KEY);
     if (!raw) return false;
 
     const data = JSON.parse(raw);
-    // Basic validity check — must have subjects
     if (!data.subjects?.length) return false;
 
     await db.transaction('rw', [
@@ -263,9 +238,7 @@ export async function restoreDbFromSnapshot(): Promise<boolean> {
     return false;
   }
 }
-// ─── User Settings helpers ────────────────────────────────────────────────────
 
-/** Read the single user-preferences row, falling back to defaults if not yet created. */
 export async function getUserSettings(): Promise<UserSettings> {
   try {
     const row = await db.settings.get("user");
@@ -275,7 +248,6 @@ export async function getUserSettings(): Promise<UserSettings> {
   }
 }
 
-/** Partially update user preferences (deep-safe: merges with existing values). */
 export async function updateUserSettings(partial: Partial<Omit<UserSettings, 'key'>>): Promise<void> {
   try {
     const existing = await getUserSettings();

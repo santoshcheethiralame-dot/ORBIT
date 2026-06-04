@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { CheckCircle, AlertCircle, Info, X, Undo } from 'lucide-react';
 
-// Types
 type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface Toast {
@@ -23,17 +22,14 @@ interface ToastContextType {
   warning: (message: string) => void;
 }
 
-// Context
 const ToastContext = createContext<ToastContextType | null>(null);
 
-// Hook
 export const useToast = () => {
   const context = useContext(ToastContext);
   if (!context) throw new Error('useToast must be used within ToastProvider');
   return context;
 };
 
-// Provider Component
 export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -43,8 +39,6 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
 
   const showToast = useCallback((toast: Omit<Toast, 'id'>) => {
     const id = `${Date.now()}-${Math.random()}`;
-    // Toasts that carry an action (e.g. UNDO) get a longer window so the action
-    // is actually reachable; a 5s default is too short for destructive undos.
     const defaultDuration = toast.action ? 9000 : 5000;
     const newToast: Toast = { id, duration: defaultDuration, ...toast };
     setToasts(prev => [...prev, newToast]);
@@ -77,7 +71,6 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-// Toast Container
 const ToastContainer = ({ 
   toasts, 
   onRemove 
@@ -98,7 +91,6 @@ const ToastContainer = ({
   );
 };
 
-// Individual Toast
 const ToastItem = ({ 
   toast, 
   onRemove 
@@ -181,7 +173,6 @@ const ToastItem = ({
   );
 };
 
-// Demo Component
 export default function ToastDemo() {
   return (
     <ToastProvider>

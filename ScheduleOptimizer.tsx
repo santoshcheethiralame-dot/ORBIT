@@ -1,5 +1,3 @@
-// ScheduleOptimizer.tsx — AI analyses timetable + readiness to suggest optimal study slots
-
 import React, { useState, useRef, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
@@ -19,9 +17,6 @@ interface SlotSuggestion {
 }
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-// SLOT CONTRACT: slot 0 = 06:00, slot N = (06 + N):00.
-// This must match ScheduleView.tsx (SLOT_START_HOUR = 6) and
-// Onboarding.tsx (ONBOARDING_SLOT_START = 6). Never change independently.
 const SLOT_START = 6;
 const LOADING_STEPS = [
   'Fetching readiness scores…',
@@ -100,7 +95,7 @@ Return ONLY the JSON array, no markdown, no extra text.`;
     const clean = raw.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
     if (Array.isArray(parsed) && parsed.length > 0) return parsed.slice(0, 3);
-  } catch { /* fall through */ }
+  } catch { }
   return [];
 }
 
@@ -110,7 +105,6 @@ const priorityConfig = {
   low:    { dot: 'bg-emerald-400', badge: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' },
 };
 
-// ─── Slot card with copy action ───────────────────────────────────────────────
 const SuggestionCard: React.FC<{ s: SlotSuggestion; idx: number }> = ({ s, idx }) => {
   const [copied, setCopied] = useState(false);
   const pc = priorityConfig[s.priority] || priorityConfig.low;
@@ -160,7 +154,6 @@ const SuggestionCard: React.FC<{ s: SlotSuggestion; idx: number }> = ({ s, idx }
   );
 };
 
-// ─── Main component ───────────────────────────────────────────────────────────
 export const ScheduleOptimizer: React.FC = () => {
   const [suggestions, setSuggestions] = useState<SlotSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -228,7 +221,6 @@ export const ScheduleOptimizer: React.FC = () => {
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.15)' }}>
 
-      {/* Header */}
       <div
         role="button"
         tabIndex={0}
@@ -284,11 +276,9 @@ export const ScheduleOptimizer: React.FC = () => {
         </div>
       </div>
 
-      {/* Body */}
       {expanded && (
         <div className="px-4 pb-4 space-y-2 animate-in slide-in-from-top-2 fade-in duration-250">
 
-          {/* Loading */}
           {loading && (
             <div className="flex items-center gap-2 py-2">
               <div className="w-3.5 h-3.5 rounded-full border-2 border-violet-500/40 border-t-violet-400 animate-spin flex-shrink-0" />
@@ -298,7 +288,6 @@ export const ScheduleOptimizer: React.FC = () => {
             </div>
           )}
 
-          {/* Error */}
           {!loading && error && (
             <div className="flex items-start gap-2.5 p-3 rounded-xl" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
               <AlertCircle size={14} className="text-red-400 flex-shrink-0 mt-0.5" />
@@ -315,7 +304,6 @@ export const ScheduleOptimizer: React.FC = () => {
             </div>
           )}
 
-          {/* Suggestions */}
           {!loading && !error && suggestions.map((s, i) => (
             <SuggestionCard key={i} s={s} idx={i} />
           ))}

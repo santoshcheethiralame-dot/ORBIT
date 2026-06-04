@@ -1,13 +1,5 @@
 import React from 'react';
 
-/**
- * Brutalist flat backdrop.
- *
- * Replaces the former animated cosmic starfield + hanging-alien mascot. The
- * redesign is dark-first / flat / no-glass, so the background is a dead-flat
- * near-black canvas with a barely-there technical grid for subtle dashboard
- * texture. No stars, no glow, no motion. Export name kept stable for index.tsx.
- */
 export const SpaceBackground = () => (
   <div className="fixed inset-0 z-[-1] bg-ink pointer-events-none" aria-hidden="true">
     <div

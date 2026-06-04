@@ -1,7 +1,3 @@
-// ExamSimulator.tsx — AI-powered exam simulator
-// Drop-in as the 4th tab in AIStudyAssistant (tab id: 'exam')
-// Uses gemini.ts for all AI calls (no raw fetch, correct model routing)
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     Brain, Send, CheckCircle2, XCircle, Loader2,
@@ -9,12 +5,8 @@ import {
     ArrowRight, ChevronRight,
 } from 'lucide-react';
 import { StudyBlock, Subject, StudyTopic } from './types';
-import { geminiChat, geminiStream } from './gemini';  // ← uses shared wrapper, not raw fetch
+import { geminiChat, geminiStream } from './gemini';
 import { db } from './db';
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   TYPES
-───────────────────────────────────────────────────────────────────────────── */
 
 export type QuestionType = 'mcq' | 'short' | 'true_false';
 export type Difficulty = 'easy' | 'medium' | 'hard';
@@ -50,10 +42,6 @@ export interface ExamSimulatorProps {
     topics?: StudyTopic[];
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   HELPERS
-───────────────────────────────────────────────────────────────────────────── */
-
 function scoreColor(pct: number) {
     if (pct >= 80) return '#FFD60A';
     if (pct >= 60) return '#FF7A3C';
@@ -66,11 +54,6 @@ function scoreLabel(pct: number) {
     if (pct >= 55) return 'Getting There 📈';
     return 'Needs Work 🔁';
 }
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   QUESTION GENERATION
-   Uses 'complex' complexity → better model for exam-quality questions
-───────────────────────────────────────────────────────────────────────────── */
 
 async function generateQuestions(
     block: StudyBlock,
@@ -129,22 +112,14 @@ Rules:
     return [];
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   ANSWER GRADING
-───────────────────────────────────────────────────────────────────────────── */
-
 async function gradeAnswer(
     question: ExamQuestion,
     userAnswer: string,
 ): Promise<{ isCorrect: boolean; feedback: string }> {
-    /* MCQ / true-false: deterministic check — no AI needed */
     if (question.type === 'mcq' || question.type === 'true_false') {
         const norm = (s: string) => s.trim().toLowerCase().replace(/^[a-d]\)\s*/, '');
         const correct = norm(question.correctAnswer);
         const given = norm(userAnswer);
-        // FIX: Removed `given.startsWith(correct[0])` which caused systematic false
-        // positives — any answer starting with the same letter as the correct answer
-        // (e.g. "True" vs "Tomorrow") was graded as correct.
         const isCorrect = correct === given
             || question.correctAnswer.toLowerCase().startsWith(given);
         return {
@@ -155,7 +130,6 @@ async function gradeAnswer(
         };
     }
 
-    /* Short answer: AI grading */
     try {
         const raw = await geminiChat(
             [{
@@ -175,9 +149,8 @@ isCorrect=true if student captured the key concept (partial credit = true).` }],
         );
         const result = JSON.parse(raw.replace(/```json|```/g, '').trim());
         if (typeof result.isCorrect === 'boolean' && result.feedback) return result;
-    } catch { /* fallback below */ }
+    } catch { }
 
-    /* Keyword fallback */
     const keys = question.correctAnswer.toLowerCase().split(/\s+/).filter(w => w.length > 4);
     const hits = keys.filter(w => userAnswer.toLowerCase().includes(w)).length;
     const isCorrect = hits >= Math.ceil(keys.length * 0.4);
@@ -188,10 +161,6 @@ isCorrect=true if student captured the key concept (partial credit = true).` }],
             : `Not quite. Expected: ${question.correctAnswer}. ${question.explanation}`,
     };
 }
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   QUESTION CARD
-───────────────────────────────────────────────────────────────────────────── */
 
 const DIFF_COLOR: Record<Difficulty, string> = {
     easy: '#FFD60A', medium: '#FF7A3C', hard: '#F4453B',
@@ -212,7 +181,6 @@ const QuestionCard: React.FC<{
 
     return (
         <div className="space-y-4">
-            {/* Header */}
             <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.25)' }}>
                     Q{num}/{total}
@@ -228,12 +196,10 @@ const QuestionCard: React.FC<{
                 <span className="text-[10px] ml-auto" style={{ color: 'rgba(255,255,255,0.2)' }}>{question.topic}</span>
             </div>
 
-            {/* Question */}
             <div className="px-4 py-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
                 <p className="text-sm text-white/85 leading-relaxed">{question.question}</p>
             </div>
 
-            {/* Answer area */}
             {!attempt ? (
                 <div className="space-y-3">
                     {(question.type === 'mcq' || question.type === 'true_false') && question.options?.map((opt, i) => (
@@ -290,10 +256,6 @@ const QuestionCard: React.FC<{
     );
 };
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   RESULTS
-───────────────────────────────────────────────────────────────────────────── */
-
 const Results: React.FC<{
     session: ExamSession;
     onRetry: () => void;
@@ -322,10 +284,10 @@ const Results: React.FC<{
         await db.topics.bulkAdd(newWeak.map(name => ({
             subjectId, name,
             lastStudied: today,
-            nextReview: today,          // due now → surfaces in Review & Today immediately
-            easeFactor: 1.4,            // weak area → harder → higher SR priority
+            nextReview: today,
+            easeFactor: 1.4,
             reviewCount: 0,
-            comprehensionHistory: [1],  // record the poor exam showing
+            comprehensionHistory: [1],
         })));
         setAdded(newWeak.length);
     };
@@ -412,10 +374,6 @@ const Results: React.FC<{
     );
 };
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   EXAM GENERATING LOADER — cinematic, subject-aware progress animation
-───────────────────────────────────────────────────────────────────────────── */
-
 const EXAM_STAGES = [
     { icon: '🔍', text: 'Scanning your syllabus…', sub: 'Mapping topic coverage' },
     { icon: '⚡', text: 'Finding your weak spots…', sub: 'Cross-referencing review history' },
@@ -435,18 +393,14 @@ const ExamGeneratingLoader: React.FC<{
     const [barWidth, setBarWidth] = useState(0);
 
     useEffect(() => {
-        // Cycle through stages
         const stageTimer = setInterval(() => {
             setStage(s => Math.min(s + 1, EXAM_STAGES.length - 1));
         }, 1800);
-        // Animated dots
         const dotTimer = setInterval(() => setDotCount(d => (d + 1) % 4), 420);
-        // Elapsed seconds
         const elapsedTimer = setInterval(() => setElapsed(e => e + 1), 1000);
-        // Progress bar — smooth but non-linear (slows near end)
         const barTimer = setInterval(() => {
             setBarWidth(w => {
-                if (w >= 92) return w + 0.05;  // crawl near completion
+                if (w >= 92) return w + 0.05;
                 if (w >= 70) return w + 0.15;
                 return w + 0.6;
             });
@@ -466,7 +420,6 @@ const ExamGeneratingLoader: React.FC<{
 
     return (
         <div className="flex flex-col items-center justify-center py-10 gap-6 select-none">
-            {/* Animated icon */}
             <div className="relative">
                 <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
                     style={{
@@ -477,14 +430,12 @@ const ExamGeneratingLoader: React.FC<{
                     }}>
                     {current.icon}
                 </div>
-                {/* Orbiting dot */}
                 <div className="absolute inset-0" style={{ animation: 'spin 2s linear infinite' }}>
                     <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full"
                         style={{ background: 'rgba(255,122,60,0.7)', boxShadow: '0 0 6px rgba(255,122,60,0.5)' }} />
                 </div>
             </div>
 
-            {/* Stage text */}
             <div className="text-center space-y-1.5">
                 <p className="text-sm font-bold text-white/80">
                     {current.text}{dots}
@@ -494,7 +445,6 @@ const ExamGeneratingLoader: React.FC<{
                 </p>
             </div>
 
-            {/* Progress bar */}
             <div className="w-full max-w-[220px] space-y-1.5">
                 <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
                     <div className="h-full rounded-full transition-none"
@@ -515,7 +465,6 @@ const ExamGeneratingLoader: React.FC<{
                 </div>
             </div>
 
-            {/* Meta chips */}
             <div className="flex items-center gap-2">
                 <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold"
                     style={{ background: 'rgba(255,90,31,0.12)', border: '1px solid rgba(255,90,31,0.22)', color: '#FF7A3C' }}>
@@ -531,7 +480,6 @@ const ExamGeneratingLoader: React.FC<{
                 </span>
             </div>
 
-            {/* Stage indicators */}
             <div className="flex gap-1.5">
                 {EXAM_STAGES.map((_, i) => (
                     <div key={i} className="rounded-full transition-all duration-500"
@@ -552,10 +500,6 @@ const ExamGeneratingLoader: React.FC<{
         </div>
     );
 };
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   MAIN EXAM SIMULATOR
-───────────────────────────────────────────────────────────────────────────── */
 
 type State = 'setup' | 'loading' | 'running' | 'results';
 
@@ -600,7 +544,6 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({ block, subject, to
         if (isLast) setState('results');
     }, [session, currentQ]);
 
-    /* ── SETUP ── */
     if (state === 'setup') {
         const syllabus = subject?.syllabus ?? [];
         const done = syllabus.filter(u => u.completed).length;
@@ -678,12 +621,10 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({ block, subject, to
         );
     }
 
-    /* ── LOADING ── */
     if (state === 'loading') {
         return <ExamGeneratingLoader count={count} subject={subject?.name ?? block.subjectName} difficulty={difficulty} />;
     }
 
-    /* ── RESULTS ── */
     if (state === 'results' && session) {
         return (
             <Results
@@ -700,7 +641,6 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({ block, subject, to
         );
     }
 
-    /* ── RUNNING ── */
     if (state === 'running' && session) {
         const q = session.questions[currentQ];
         const attempt = session.attempts.find(a => a.questionId === q.id);
@@ -708,7 +648,6 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({ block, subject, to
 
         return (
             <div className="space-y-4">
-                {/* Progress */}
                 <div className="space-y-1">
                     <div className="flex justify-between text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
                         <span>{currentQ + 1} of {session.questions.length}</span>

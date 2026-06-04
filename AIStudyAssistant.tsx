@@ -1,11 +1,3 @@
-// AIStudyAssistant.tsx v2.1
-// FIXES:
-// - Removed duplicate fetchUrlContent (now uses gemini.ts export)
-// - Removed duplicate extractPdfText (now uses gemini.ts export)
-// - Notes generator now uses geminiStream (not raw fetch with hardcoded model)
-// - All PDF/URL handling unified through gemini.ts
-// NEW: Exam tab, Feynman mode toggle, Anki card export
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   X, Copy, Check, Sparkles, Brain, Send, Wand2,
@@ -19,22 +11,17 @@ import {
 import { StudyBlock, Resource, Subject, StudyLog, StudyTopic, Assignment, SyllabusUnit, SubjectReadiness } from './types';
 import {
   geminiStream, GeminiMessage,
-  fetchUrlText,        // FIX: from gemini.ts, not local duplicate
-  extractPdfText,      // FIX: from gemini.ts, not local duplicate
-  generateAnkiCards,   // NEW: Anki card generator
+  fetchUrlText,
+  extractPdfText,
+  generateAnkiCards,
   AnkiCard,
-  hasApiKey,           // gate the coach when no OpenRouter key is set
+  hasApiKey,
 } from './gemini';
 import { db } from './db';
 import { getAllReadinessScores } from './brain-ultimate';
 import { enrichTopics, TopicWithReadiness } from './TopicReadinessView';
-import { ExamSimulator } from './ExamSimulator';  // NEW: Exam tab
+import { ExamSimulator } from './ExamSimulator';
 import { getISTEffectiveDate } from './utils/time';
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   NOTES GENERATOR
-   FIX: Uses geminiStream via gemini.ts, not raw fetch with hardcoded model
-───────────────────────────────────────────────────────────────────────────── */
 
 interface NotesGeneratorProps {
   block: StudyBlock;
@@ -56,11 +43,6 @@ const NoteResourceIcon = ({ type }: { type: string }) => {
   return <Globe size={14} className="text-orange-400" strokeWidth={2} />;
 };
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   XSS SANITIZER — escapes captured groups before injecting into DOM.
-   FIX: The regex replace captures (.*?) which can contain raw HTML from
-   AI-generated content. Every captured group must be escaped first.
-───────────────────────────────────────────────────────────────────────────── */
 function escHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -70,9 +52,6 @@ function escHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/* Some free "reasoning" models leak their chain-of-thought as <think>…</think>
-   into the content stream. Strip complete blocks, and while streaming hide
-   everything from an as-yet-unclosed opening tag so the user only sees the answer. */
 function stripThinking(s: string): string {
   let out = s.replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, '');
   const open = out.search(/<think(?:ing)?>/i);
@@ -139,7 +118,6 @@ const NotesGenerator: React.FC<NotesGeneratorProps> = ({ block, subject, topics,
 
   const syllabus = subject?.syllabus ?? [];
 
-  // Builders supply CONTEXT only; outputSpec() picks the structure per format.
   function buildUnitPrompt(title: string, extra?: string): string {
     return `Subject: ${subject?.name ?? block.subjectName}${subject?.code ? ` (${subject.code})` : ''}${subject?.credits ? `, ${subject.credits} credits` : ''}${subject?.difficulty ? `, difficulty ${subject.difficulty}/5` : ''}
 Topic to cover: **${title}**${syllabus.length ? `\nWhere it sits in the syllabus: ${syllabus.map(u => u.title).join(' → ')}` : ''}${extra ? `\n${extra}` : ''}`;
@@ -152,8 +130,6 @@ ${content ? `\n---RESOURCE CONTENT (base the output on this)---\n${content}\n---
 Base the material on what THIS resource actually covers.`;
   }
 
-  // Format-aware output structure. A cheat-sheet is NOT terse prose-notes — it's a
-  // distinct dense reference layout, so each format gets its own skeleton.
   function outputSpec(title: string): string {
     if (format === 'cheatsheet') return `
 Produce an ULTRA-DENSE, exam-day CHEAT-SHEET for the above. Maximum signal per line, ZERO filler — no full prose sentences. Use exactly this skeleton (drop a heading only if nothing genuinely fits it):
@@ -177,7 +153,6 @@ Prefer bullets/tables over paragraphs. **Bold** every key term. Keep it to one s
     if (format === 'concise') return `
 Produce a tight ONE-PAGE REVISION SHEET for the above — only the highest-yield points as short bullets under 3–5 clear ## headings. Minimal prose. Include must-know formulas/definitions, skip background padding. **Bold** key terms.`;
 
-    // detailed
     return `
 Produce COMPREHENSIVE, exam-ready notes for the above using this structure:
 
@@ -200,7 +175,6 @@ Be thorough — full explanations and at least one worked example where relevant
 
     const docTitle = title ?? label;
     const finalPrompt = contextPrompt + '\n' + outputSpec(docTitle);
-    // Per-format budgets (kept within free-model comfort zones).
     const maxTokens = format === 'detailed' ? 3200 : format === 'cheatsheet' ? 2400 : 1600;
     const temperature = format === 'cheatsheet' ? 0.25 : format === 'concise' ? 0.3 : 0.4;
 
@@ -214,8 +188,8 @@ Be thorough — full explanations and at least one worked example where relevant
         (err) => { setError(err); setMode('idle'); resolve(); },
         maxTokens,
         'complex',
-        undefined,                                   // signal
-        { temperature, reasoningEffort: 'medium' },  // think-mode — free quality boost
+        undefined,
+        { temperature, reasoningEffort: 'medium' },
       );
     });
   }
@@ -231,12 +205,10 @@ Be thorough — full explanations and at least one worked example where relevant
     for (const res of related.slice(0, 2)) {
       if (res.fileData && res.type === 'pdf') {
         setStatus({ stage: 'Reading PDF', detail: res.title });
-        // FIX: uses extractPdfText from gemini.ts
         const text = await extractPdfText(res.fileData);
         if (text) extraContext += `\n\n--- From PDF: "${res.title}" ---\n${text.slice(0, 4000)}`;
       } else if (res.url) {
         setStatus({ stage: 'Reading resource', detail: res.title });
-        // FIX: uses fetchUrlText from gemini.ts
         const text = await fetchUrlText(res.url);
         if (text) extraContext += `\n\n--- From "${res.title}" ---\n${text.slice(0, 3000)}`;
       }
@@ -257,12 +229,10 @@ Be thorough — full explanations and at least one worked example where relevant
     let content = '';
     if (resource.type === 'pdf' && resource.fileData) {
       setStatus({ stage: 'Extracting PDF text', detail: resource.title });
-      // FIX: uses extractPdfText from gemini.ts
       content = await extractPdfText(resource.fileData);
       setStatus({ stage: content ? `Read ${content.split('[Page').length - 1} pages` : 'Using title', detail: 'building notes…' });
     } else if (resource.url) {
       setStatus({ stage: 'Fetching content', detail: resource.url.slice(0, 50) });
-      // FIX: uses fetchUrlText from gemini.ts
       content = await fetchUrlText(resource.url);
     }
     setStatus({ stage: 'Writing notes', detail: 'streaming…' });
@@ -291,7 +261,6 @@ Capture every useful concept, definition, formula and takeaway that came up.`;
       const cards = await generateAnkiCards(block.subjectName, notes.slice(0, 3000), 8);
       setAnkiCards(cards);
       if (cards.length > 0) {
-        // Export as CSV
         const csv = ['Front,Back,Tags', ...cards.map(c =>
           `"${c.front.replace(/"/g, '""')}","${c.back.replace(/"/g, '""')}","${c.tags.join(' ')}"`,
         )].join('\n');
@@ -316,7 +285,7 @@ Capture every useful concept, definition, formula and takeaway that came up.`;
       const appended = (fresh?.notes ? fresh.notes + '\n\n' : '') + `--- ${sourceLabel} · ${stamp} ---\n` + notes;
       await db.subjects.update(subject.id, { notes: appended });
       setSaved(true); setTimeout(() => setSaved(false), 1500);
-    } catch { /* non-critical */ }
+    } catch { }
   }, [subject, notes, sourceLabel]);
 
   const reset = () => { setMode('idle'); setNotes(''); setStreaming(''); setError(''); setSourceLabel(''); setAnkiCards([]); };
@@ -368,14 +337,12 @@ Capture every useful concept, definition, formula and takeaway that came up.`;
             </span>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            {/* Save to subject notes */}
             <button onClick={saveToSubject} disabled={!subject?.id} title="Save to subject notes"
               className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold hover:bg-white/8 disabled:opacity-40"
               style={{ color: saved ? '#F7F5EF' : '#FF7A3C' }}>
               {saved ? <Check size={10} strokeWidth={2.5} /> : <StickyNote size={10} strokeWidth={2.5} />}
               {saved ? 'Saved' : 'Save'}
             </button>
-            {/* Anki export */}
             <button
               onClick={exportAnki}
               disabled={generatingAnki}
@@ -385,7 +352,6 @@ Capture every useful concept, definition, formula and takeaway that came up.`;
               {generatingAnki ? <Loader2 size={10} className="animate-spin" /> : <Download size={10} strokeWidth={2.5} />}
               Anki
             </button>
-            {/* Copy */}
             <button onClick={async () => { await navigator.clipboard.writeText(notes); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
               className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold hover:bg-white/8"
               style={{ color: copied ? '#F7F5EF' : '#FF7A3C' }}>
@@ -406,7 +372,6 @@ Capture every useful concept, definition, formula and takeaway that came up.`;
     );
   }
 
-  // Idle picker
   const pendingUnits = syllabus.filter(u => !u.completed);
   const doneUnits = syllabus.filter(u => u.completed);
   const todayStr = getISTEffectiveDate();
@@ -430,7 +395,6 @@ Capture every useful concept, definition, formula and takeaway that came up.`;
         </p>
       </div>
 
-      {/* Format toggle — steers depth of generated notes */}
       <div>
         <p className="text-[10px] font-black uppercase tracking-widest mb-2 px-0.5" style={{ color: 'rgba(255,255,255,0.18)' }}>Format</p>
         <div className="grid grid-cols-3 gap-1.5">
@@ -557,10 +521,6 @@ Capture every useful concept, definition, formula and takeaway that came up.`;
   );
 };
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   CONTEXT & SYSTEM PROMPT
-───────────────────────────────────────────────────────────────────────────── */
-
 interface SubjectIntelligence {
   nextExam?: string;
   readiness?: number;
@@ -576,11 +536,10 @@ interface RichContext {
   enrichedTopics?: TopicWithReadiness[];
   assignments?: Assignment[];
   topicsDueReview?: StudyTopic[];
-  // All-subjects context (for cross-subject coaching)
   allSubjects?: Subject[];
   allReadiness?: Record<number, SubjectReadiness>;
-  globalStreak?: number;           // consecutive days with any study session
-  totalStudiedToday?: number;      // minutes studied today across all subjects
+  globalStreak?: number;
+  totalStudiedToday?: number;
   weakestSubject?: { name: string; score: number } | null;
   strongestSubject?: { name: string; score: number } | null;
 }
@@ -598,7 +557,6 @@ function buildSystemPrompt(block: StudyBlock, intel?: SubjectIntelligence, ctx?:
   if (block.notes) lines.push(`Topic: ${block.notes}`);
   lines.push('');
 
-  // ── Subject Intelligence (current subject) ──
   if (intel || ctx?.subject) {
     lines.push(`## ${block.subjectName} — Subject Intelligence`);
     if (intel?.readiness !== undefined) {
@@ -612,7 +570,6 @@ function buildSystemPrompt(block: StudyBlock, intel?: SubjectIntelligence, ctx?:
     lines.push('');
   }
 
-  // ── Syllabus ──
   if (ctx?.subject?.syllabus?.length) {
     const total = ctx.subject.syllabus.length;
     const done = ctx.subject.syllabus.filter(u => u.completed).length;
@@ -622,7 +579,6 @@ function buildSystemPrompt(block: StudyBlock, intel?: SubjectIntelligence, ctx?:
     lines.push('');
   }
 
-  // ── Grades ──
   if (ctx?.subject?.grades?.length) {
     const grades = ctx.subject.grades;
     const avg = grades.reduce((s, g) => s + (g.score / g.maxScore) * 100, 0) / grades.length;
@@ -631,7 +587,6 @@ function buildSystemPrompt(block: StudyBlock, intel?: SubjectIntelligence, ctx?:
     lines.push('');
   }
 
-  // ── Topic-level readiness (SM-2 based) ──
   if (ctx?.enrichedTopics?.length) {
     const critical = ctx.enrichedTopics.filter(t => t.tier === 'critical');
     const due = ctx.enrichedTopics.filter(t => t.tier === 'due');
@@ -645,14 +600,12 @@ function buildSystemPrompt(block: StudyBlock, intel?: SubjectIntelligence, ctx?:
     lines.push(`## Weak Topics: ${intel.weakTopics.join(', ')}\n`);
   }
 
-  // ── Spaced Review Due ──
   if (ctx?.topicsDueReview?.length) {
     lines.push(`## Spaced Review Due`);
     ctx.topicsDueReview.slice(0, 4).forEach(t => lines.push(`  - ${t.name}`));
     lines.push('');
   }
 
-  // ── Recent Sessions ──
   if (ctx?.recentLogs?.length) {
     lines.push(`## Recent Sessions (${block.subjectName})`);
     ctx.recentLogs.slice(0, 5).forEach(log => {
@@ -662,7 +615,6 @@ function buildSystemPrompt(block: StudyBlock, intel?: SubjectIntelligence, ctx?:
     lines.push('');
   }
 
-  // ── Assignments ──
   if (ctx?.assignments?.length) {
     const pending = ctx.assignments.filter(a => !a.completed);
     if (pending.length) {
@@ -675,10 +627,8 @@ function buildSystemPrompt(block: StudyBlock, intel?: SubjectIntelligence, ctx?:
     }
   }
 
-  // ── CROSS-SUBJECT ACADEMIC PORTRAIT (the new power feature) ──
   if (ctx?.allSubjects?.length && ctx?.allReadiness) {
     lines.push(`## Full Academic Portrait`);
-    // Sort by readiness score (worst first — most important)
     const subjectsWithReadiness = ctx.allSubjects
       .map(s => ({ s, r: ctx.allReadiness![s.id!] }))
       .filter(x => x.r)
@@ -703,7 +653,6 @@ function buildSystemPrompt(block: StudyBlock, intel?: SubjectIntelligence, ctx?:
     lines.push('');
   }
 
-  // ── Coaching Rules ──
   const typeGuidance: Record<string, string> = {
     review: 'Active recall. Quiz the student, expose gaps, build connections between topics.',
     assignment: 'Step by step. Ask what they tried first. Guide — never solve for them.',
@@ -727,7 +676,6 @@ function buildSystemPrompt(block: StudyBlock, intel?: SubjectIntelligence, ctx?:
 function getStarters(block: StudyBlock, intel?: SubjectIntelligence, ctx?: RichContext) {
   const s: { text: string; icon: string }[] = [];
 
-  // Topic-level weak spots (highest priority — most specific)
   const criticalTopics = ctx?.enrichedTopics?.filter(t => t.tier === 'critical') ?? [];
   if (criticalTopics.length > 0) {
     s.push({ text: `My readiness for "${criticalTopics[0].name}" is at ${criticalTopics[0].readinessScore}% — rebuild my understanding from scratch`, icon: '🔴' });
@@ -735,7 +683,6 @@ function getStarters(block: StudyBlock, intel?: SubjectIntelligence, ctx?: RichC
     s.push({ text: `I'm weak on ${intel.weakTopics[0]} — help me understand it properly`, icon: '🎯' });
   }
 
-  // Session-type specific prompts
   if (block.type === 'review') {
     s.push({ text: `Quiz me on the hardest concepts — don't go easy`, icon: '🧠' });
     s.push({ text: `Build me a mental map connecting the key ideas in ${block.subjectName}`, icon: '🗺️' });
@@ -749,27 +696,22 @@ function getStarters(block: StudyBlock, intel?: SubjectIntelligence, ctx?: RichC
     s.push({ text: `Help me plan the next ${block.duration} minutes on this project — what's the most valuable thing to finish?`, icon: '⚡' });
   }
 
-  // Cross-subject alert (the new power feature)
   if (ctx?.weakestSubject && ctx.weakestSubject.name !== block.subjectName && ctx.weakestSubject.score < 40) {
     s.push({ text: `${ctx.weakestSubject.name} is my weakest subject at ${ctx.weakestSubject.score}% — how does it connect to what I'm studying now?`, icon: '⚠️' });
   }
 
-  // Readiness-based
   if (intel?.readiness !== undefined && intel.readiness < 40)
     s.push({ text: `Readiness is at ${intel.readiness}% — what should I prioritise in this session to move the needle most?`, icon: '🚨' });
 
-  // Spaced review
   if (ctx?.topicsDueReview?.length)
     s.push({ text: `Test me on "${ctx.topicsDueReview[0].name}" using spaced recall`, icon: '🔁' });
 
-  // Grade-based
   if (ctx?.subject?.grades?.length) {
     const grades = ctx.subject.grades;
     const avg = grades.reduce((s, g) => s + (g.score / g.maxScore) * 100, 0) / grades.length;
     if (avg < 60) s.push({ text: `My average is ${avg.toFixed(0)}% — what are the gaps I keep missing?`, icon: '📊' });
   }
 
-  // Fallbacks
   if (s.length < 3) {
     s.push({ text: `What should I focus on in these ${block.duration} minutes to maximise readiness?`, icon: '⏱️' });
     s.push({ text: `Explain the core framework of ${block.subjectName} in a way that actually sticks`, icon: '💡' });
@@ -777,10 +719,6 @@ function getStarters(block: StudyBlock, intel?: SubjectIntelligence, ctx?: RichC
 
   return s.slice(0, 4);
 }
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   SHARED SUB-COMPONENTS
-───────────────────────────────────────────────────────────────────────────── */
 
 const CopyBtn = ({ text }: { text: string }) => {
   const [copied, setCopied] = React.useState(false);
@@ -799,7 +737,6 @@ const MD = ({ text }: { text: string }) => {
     <div className="space-y-1">
       {lines.map((line, i) => {
         if (!line.trim()) return <div key={i} className="h-1" />;
-        // FIX: Escape the raw line before applying markdown transforms to prevent XSS.
         let html = escHtml(line)
           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
           .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -889,10 +826,6 @@ const ContextBadge = ({ icon, label, value, color }: { icon: React.ReactNode; la
   </div>
 );
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   MAIN COMPONENT
-───────────────────────────────────────────────────────────────────────────── */
-
 interface AIStudyAssistantProps {
   block: StudyBlock;
   subjectIntelligence?: SubjectIntelligence;
@@ -920,7 +853,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
   const [sessionCount, setSessionCount] = useState(0);
   const [richCtx, setRichCtx] = useState<RichContext>({});
   const [ctxLoaded, setCtxLoaded] = useState(false);
-  const [mode, setMode] = useState<CoachMode>('coach');  // Coach / Feynman / Quiz
+  const [mode, setMode] = useState<CoachMode>('coach');
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -937,12 +870,10 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           getAllReadinessScores(),
         ]);
 
-        // Global logs for streak + today's total
         const globalLogs = await db.logs.reverse().sortBy('timestamp');
         const logsToday = globalLogs.filter(l => l.date === today);
         const totalStudiedToday = logsToday.reduce((s, l) => s + (l.duration ?? 0), 0);
 
-        // Streak: count consecutive days with any log
         let streak = 0;
         const logDates = new Set(globalLogs.map(l => l.date));
         const d = new Date();
@@ -953,7 +884,6 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           if (streak > 365) break;
         }
 
-        // Weakest / strongest subjects
         const allReadiness = rawReadiness as Record<number, SubjectReadiness>;
         let weakest: { name: string; score: number } | null = null;
         let strongest: { name: string; score: number } | null = null;
@@ -964,7 +894,6 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           if (!strongest || r.score > strongest.score) strongest = { name: sub.name, score: r.score };
         }
 
-        // Topic readiness (SM-2 enriched)
         const enrichedTopics = enrichTopics(topics);
 
         setRichCtx({
@@ -1016,9 +945,6 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
     }));
 
     let full = '';
-    // Mode steers coaching STYLE via a system-prompt suffix so the AI still
-    // answers the student's actual message. (The old Feynman path ignored the
-    // user's input and re-explained the previous answer — that's why it felt broken.)
     const modeSuffix = mode === 'quiz'
       ? '\n\n## QUIZ MODE\nRelentlessly quiz the student one question at a time. After each answer: mark it right/wrong, explain briefly, then ask the next — progressively harder. Never dump all questions at once.'
       : mode === 'feynman'
@@ -1035,14 +961,13 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
         localStorage.setItem('orbit-ai-sessions', n.toString());
       },
       (err) => { setError(err); setStreaming(false); setStreamText(''); },
-      2200,                       // fuller answers
+      2200,
       'standard',
-      undefined,                  // signal
-      { temperature: 0.55 },      // focused but natural; no reasoning = stays snappy
+      undefined,
+      { temperature: 0.55 },
     );
   }, [messages, streaming, systemPrompt, sessionCount, mode, block]);
 
-  // Turn an AI answer into Anki flashcards (CSV) — quick capture for SR
   const flashcardsFromText = useCallback(async (content: string) => {
     try {
       const cards = await generateAnkiCards(block.subjectName, content.slice(0, 3000), 6);
@@ -1052,10 +977,9 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `${block.subjectName}-flashcards.csv`; a.click();
       URL.revokeObjectURL(url);
-    } catch { /* non-critical */ }
+    } catch { }
   }, [block.subjectName]);
 
-  // Save an AI answer into the subject's notes
   const saveTextToNotes = useCallback(async (content: string) => {
     try {
       const subj = await db.subjects.get(block.subjectId);
@@ -1063,7 +987,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
       const stamp = new Date().toLocaleDateString();
       const appended = (subj.notes ? subj.notes + '\n\n' : '') + `--- Orbit Coach · ${stamp} ---\n` + content;
       await db.subjects.update(block.subjectId, { notes: appended });
-    } catch { /* non-critical */ }
+    } catch { }
   }, [block.subjectId]);
 
   const readiness = subjectIntelligence?.readiness;
@@ -1096,7 +1020,6 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
         <div className="absolute top-0 left-12 right-12 h-px rounded-full"
           style={{ background: 'linear-gradient(90deg,transparent,rgba(255,90,31,0.6),rgba(255,90,31,0.4),transparent)' }} />
 
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 shrink-0"
           style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="flex items-center gap-3 min-w-0">
@@ -1127,7 +1050,6 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex items-center px-5 pt-3 shrink-0">
           <div className="flex gap-1 overflow-x-auto w-full" style={{ scrollbarWidth: 'none' }}>
             {TABS.map(t => (
@@ -1139,7 +1061,6 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           </div>
         </div>
 
-        {/* Mode selector — applies to Chat only; its own row so it never crowds the tabs on mobile */}
         {tab === 'chat' && (
           <div className="flex items-center gap-2 px-5 pt-2.5 shrink-0">
             <span className="text-[9px] font-mono font-bold uppercase tracking-[0.14em] shrink-0" style={{ color: 'rgba(255,255,255,0.28)' }}>Mode</span>
@@ -1154,7 +1075,6 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           </div>
         )}
 
-        {/* No API key — the #1 reason the coach "doesn't work" */}
         {apiKeyMissing && (
           <div className="mx-5 mt-3 shrink-0 flex items-start gap-2 px-3.5 py-2.5 rounded-xl"
             style={{ background: 'rgba(255,214,10,0.07)', border: '1px solid rgba(255,214,10,0.22)' }}>
@@ -1165,7 +1085,6 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           </div>
         )}
 
-        {/* ── CHAT TAB ── */}
         {tab === 'chat' && (
           <>
             {(subjectIntelligence?.weakTopics?.length || topicsDue > 0 || pendingAssignments > 0) && messages.length === 0 && (
@@ -1214,7 +1133,6 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                     </p>
                   </div>
 
-                  {/* Context badges row */}
                   {ctxLoaded && (readiness !== undefined || richCtx.subject?.grades?.length) && (
                     <div className="flex flex-wrap gap-2 justify-center">
                       {readiness !== undefined && (
@@ -1232,7 +1150,6 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                     </div>
                   )}
 
-                  {/* Starters */}
                   <div className="w-full space-y-2">
                     {starters.map((s, i) => (
                       <button key={i} onClick={() => sendMessage(s.text)}
@@ -1300,9 +1217,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
               <div ref={bottomRef} />
             </div>
 
-            {/* Input area */}
             <div className="px-4 py-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-              {/* Suggested prompts */}
               <div className="flex gap-2 mb-2.5 overflow-x-auto">
                 {([
                   ['⚡ Quiz me', `Quiz me on ${block.subjectName} — 5 questions, don't go easy.`],
@@ -1335,7 +1250,6 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           </>
         )}
 
-        {/* ── EXAM TAB ── NEW */}
         {tab === 'exam' && (
           <div className="flex-1 overflow-y-auto px-5 py-4" style={{ scrollbarWidth: 'none' }}>
             <ExamSimulator
@@ -1346,7 +1260,6 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           </div>
         )}
 
-        {/* ── NOTES TAB ── */}
         {tab === 'notes' && (
           <NotesGenerator
             block={block}

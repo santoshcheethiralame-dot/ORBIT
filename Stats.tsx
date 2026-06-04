@@ -1,4 +1,3 @@
-// StatsView: Presents detailed study analytics, readiness trends, and advanced performance breakdowns.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StudyLog, Subject } from "./types";
 import {
@@ -24,8 +23,6 @@ import {
 import { calculateReadiness } from "./brain";
 import { getAllReadinessScores } from "./brain-ultimate";
 import { SubjectReadiness } from "./types";
-// These are initialized with safe fallbacks so they never throw before the
-// brain-analytics module finishes its dynamic import.
 let getSubjectPerformance: (subjectId: number, days: number, db: any) => Promise<any> = async (subjectId, _days, db) => {
   const logs = await db.logs.where('subjectId').equals(subjectId).toArray();
   const total = logs.length || 1;
@@ -498,7 +495,6 @@ const analyzeProductivityPattern = (
   return { peakHours, bestDays, optimalDuration, consistency };
 };
 
-// Helper function to get dynamic title and target based on time range
 const getTimeRangeInfo = (range: TimeRange, weeklyTargetHours: number, daysInRange: number) => {
   switch (range) {
     case "week":
@@ -556,13 +552,11 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   const [subjectPerformances, setSubjectPerformances] = useState<Record<number, SubjectPerformance>>({});
   const [burnoutSignals, setBurnoutSignals] = useState<BurnoutSignals | null>(null);
 
-  // Read weeklyTargetHours from the real settings table (db.settings, key="user")
   const userSettings = useLiveQuery(() => getUserSettings()) ?? null;
   const weeklyTargetHours = userSettings?.weeklyTargetHours ?? 7;
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetDraft, setTargetDraft] = useState<string>('');
 
-  // IST effective dates so the review window matches how nextReview is keyed.
   const todayStr = getISTEffectiveDate();
   const sevenDaysLaterStr = effectiveDatePlus(7);
 
@@ -607,7 +601,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
           fetchData();
         })
         .catch(() => {
-          // Module unavailable — fallback implementations already initialized at module level.
           setBrainEnhancedLoaded(true);
           fetchData();
         });
@@ -658,9 +651,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   const prevRangeStartStr = formatLocalDate(prevRangeStart);
   const prevLogs = logs.filter((l) => l.date >= prevRangeStartStr && l.date < rangeStartStr);
 
-  // NOTE: the empty-state early return previously lived here, but it sat BEFORE
-  // ~14 hooks below (Rules of Hooks violation -> crash when filteredLogs flips
-  // empty/non-empty). The empty state is now rendered after all hooks run.
   const isEmptyRange = filteredLogs.length === 0;
 
   const totalMinutes = filteredLogs.reduce((acc, l) => acc + l.duration, 0);
@@ -829,7 +819,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
 
   const handleScheduleReview = async (subjectId: number, subjectName: string) => {
     try {
-      // Find all topics for this subject that are overdue or due today and reset nextReview to today
       const today = getISTEffectiveDate();
       const overdue = await db.topics
         .where('subjectId').equals(subjectId)
@@ -839,7 +828,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         await Promise.all(overdue.map(t => db.topics.update(t.id!, { nextReview: today })));
         toast.success(`${overdue.length} review(s) moved to today for ${subjectName}`);
       } else {
-        // No overdue topics — create a generic review topic
         await db.topics.add({
           subjectId,
           name: `${subjectName} — General Review`,
@@ -858,7 +846,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   };
 
   const handleAdjustBlockDuration = (subjectId: number) => {
-    // Navigate to Settings by dispatching a navigation event that index.tsx listens for
     window.dispatchEvent(new CustomEvent('orbit:navigate', { detail: { tab: 'settings' } }));
     toast.success('Tip: Adjust block sizes in Settings → Study');
   };
@@ -979,7 +966,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     }
   };
 
-
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections);
     if (newExpanded.has(section)) {
@@ -1099,7 +1085,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     return list.slice(0, 4);
   }, [burnoutSignals, streakInfo, subjectStats, productivityPattern, completionRate, avgQuality]);
 
-  // Empty state — rendered only after every hook above has executed.
   if (isEmptyRange) {
     return (
       <div className="pb-32 pt-8 px-4 lg:px-10 w-full max-w-[1400px] mx-auto">
@@ -1112,7 +1097,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
     );
   }
 
-  // ── cockpit derivations ──
   const readinessVals = Object.values(readinessScores);
   const avgReadiness = readinessVals.length ? Math.round(readinessVals.reduce((a, r) => a + r.score, 0) / readinessVals.length) : 0;
   const RC42 = 2 * Math.PI * 42;
@@ -1152,7 +1136,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         }
       />
 
-      {/* KPI band */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-4xl bg-orange-500 text-ink p-6 flex flex-col justify-between min-h-[150px]">
           <span className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-70">Total focus</span>
@@ -1175,7 +1158,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         </div>
       </div>
 
-      {/* trend + subjects */}
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 rounded-4xl bg-ink2 border border-white/10 p-6">
           <div className="flex items-center justify-between mb-1">
@@ -1201,7 +1183,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         </div>
       </div>
 
-      {/* consistency + peak */}
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 rounded-4xl bg-ink2 border border-white/10 p-6">
           <div className="flex items-center justify-between mb-1"><h3 className="font-display font-black text-2xl">CONSISTENCY</h3><span className="text-[10px] font-mono uppercase tracking-[0.18em] text-mute">12 weeks · {Math.round(activeDays / 84 * 100)}% active</span></div>
@@ -1224,7 +1205,6 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
         </div>
       </div>
 
-      {/* records + insight */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-4xl bg-ink2 border border-white/10 p-5"><div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Longest session</div><div className="font-display font-black text-3xl mt-2">{fmtMins(longestSession)}</div></div>
         <div className="rounded-4xl bg-ink2 border border-white/10 p-5"><div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Best day</div><div className="font-display font-black text-3xl mt-2">{(bestDay.minutes / 60).toFixed(1)}<span className="text-lg">h</span></div></div>

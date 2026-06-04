@@ -1,4 +1,3 @@
-// AboutView.tsx - v3.2 STABLE
 import React, { useEffect, useState } from "react";
 import {
   Rocket, Shield, Database, Github, Mail, Globe,
@@ -42,14 +41,12 @@ export const AboutView = () => {
     <div className="pb-24 md:pb-32 pt-4 md:pt-6 px-4 lg:px-8 max-w-[1400px] mx-auto space-y-6">
       <PageHeader title="About Orbit" meta={<MetaText>What Orbit is</MetaText>} />
 
-      {/* hero */}
       <div className="rounded-5xl bg-orange-500 text-ink p-8 md:p-12 relative overflow-hidden">
-        <span className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] bg-ink text-orange-400 px-3 py-1.5 rounded-full">v3.4 · local-first</span>
+        <span className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] bg-ink text-orange-400 px-3 py-1.5 rounded-full">v4.0 · local-first</span>
         <h1 className="font-display font-black text-5xl md:text-7xl mt-5 leading-[0.9]">A focus engine,<br />not a to-do list.</h1>
         <p className="text-sm md:text-base font-semibold opacity-80 mt-5 max-w-2xl">Orbit reads your energy, exams and decay — then builds the day that actually moves your readiness. Short blocks when you're struggling, heavy hits when you're sharp.</p>
       </div>
 
-      {/* live stats strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-4xl bg-ink2 border border-white/10 p-6"><div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Subjects</div><div className="font-display font-black text-4xl mt-2">{subjects.length}</div></div>
         <div className="rounded-4xl bg-ink2 border border-white/10 p-6"><div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Hours logged</div><div className="font-display font-black text-4xl mt-2 text-orange-400">{totalStudyHours}<span className="text-xl text-mute">h</span></div></div>
@@ -57,14 +54,12 @@ export const AboutView = () => {
         <div className="rounded-4xl bg-ink2 border border-white/10 p-6"><div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Avg readiness</div><div className="font-display font-black text-4xl mt-2">{avgReadiness}<span className="text-xl text-mute">%</span></div></div>
       </div>
 
-      {/* how it works */}
       <div className="grid md:grid-cols-3 gap-4">
         <div className="rounded-4xl bg-ink2 border border-white/10 p-6"><div className="font-display font-black text-4xl text-orange-400">01</div><div className="font-display font-black text-xl mt-3">Readiness engine</div><p className="text-sm text-mute mt-2 leading-relaxed">Ebbinghaus decay × study volume = a live readiness score per subject. Critical subjects auto-surface.</p></div>
         <div className="rounded-4xl bg-ink2 border border-white/10 p-6"><div className="font-display font-black text-4xl text-yellow-400">02</div><div className="font-display font-black text-xl mt-3">Adaptive blocks</div><p className="text-sm text-mute mt-2 leading-relaxed">Block sizes flex to your energy and recent quality. Burnout signals trigger recovery before you crash.</p></div>
         <div className="rounded-4xl bg-paper text-ink p-6"><div className="font-display font-black text-4xl">03</div><div className="font-display font-black text-xl mt-3">AI coaching</div><p className="text-sm font-medium opacity-70 mt-2 leading-relaxed">A coach that knows your whole semester — one sharp nudge a day, plus on-demand explain / quiz / flashcards.</p></div>
       </div>
 
-      {/* trajectory + author */}
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 rounded-4xl bg-ink2 border border-white/10 p-7">
           <h3 className="font-display font-black text-2xl mb-5">TRAJECTORY</h3>
@@ -94,14 +89,13 @@ export const AboutView = () => {
         </div>
       </div>
 
-      {/* tech footer */}
       <div className="rounded-4xl bg-ink2 border border-white/10 p-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           {['React 19', 'TypeScript', 'Vite', 'Dexie / IndexedDB', 'Tailwind', 'OpenRouter AI'].map((t) => (
             <span key={t} className="text-[9px] font-mono font-bold uppercase tracking-[0.14em] bg-ink3 border border-white/10 text-mute px-3 py-1.5 rounded-full">{t}</span>
           ))}
         </div>
-        <span className="text-[10px] font-mono text-zinc-600">ORBIT v3.4 · MIT © 2026</span>
+        <span className="text-[10px] font-mono text-zinc-600">ORBIT v4.0 · MIT © 2026</span>
       </div>
     </div>
   );

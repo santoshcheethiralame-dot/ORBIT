@@ -1,15 +1,12 @@
-// PageHeader.tsx - Unified Space-Themed Page Header System
 import React from "react";
 import { LucideIcon } from "lucide-react";
 
 interface PageHeaderProps {
-  // Core content
   title: string;
   subtitle?: string;
-  designation: string; // Space theme designation (e.g., "Mission Control", "Data Intelligence")
+  designation: string;
   icon: LucideIcon;
 
-  // Optional features
   showDate?: boolean;
   badge?: {
     text: string;
@@ -17,7 +14,6 @@ interface PageHeaderProps {
   };
   actions?: React.ReactNode;
   
-  // Customization
   className?: string;
 }
 
@@ -49,7 +45,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
   return (
     <div className={`space-y-6 animate-in fade-in slide-in-from-top-2 duration-500 ${className}`}>
-      {/* Designation Bar */}
       <div className="flex items-center gap-2">
         <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse shadow-lg shadow-indigo-500/50" />
         <span className="text-xs font-mono text-indigo-400/60 uppercase tracking-[0.2em]">
@@ -65,15 +60,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         )}
       </div>
 
-      {/* Main Header */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
         <div className="flex items-center gap-6">
-          {/* Icon */}
           <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-indigo-600/20 to-indigo-600/5 border border-indigo-500/30 flex items-center justify-center shadow-xl shadow-indigo-500/10 group-hover:scale-110 transition-transform duration-500">
             <Icon size={28} className="text-indigo-400" strokeWidth={2} />
           </div>
 
-          {/* Title & Subtitle */}
           <div className="space-y-2">
             <h1 className="text-4xl md:text-5xl font-display font-bold text-white tracking-tight leading-none">
               {title}
@@ -86,7 +78,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           </div>
         </div>
 
-        {/* Right side: Badge & Actions */}
         <div className="flex items-center gap-3 flex-wrap">
           {badge && (
             <div className={`

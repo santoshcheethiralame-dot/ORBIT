@@ -7,7 +7,6 @@ import { getSubjectColor, SUBJECT_COLOR_CLASSES } from "./components";
 
 export const exportBackup = async () => {
   try {
-    // Collect ALL localStorage keys relevant to Orbit
     const localStorageData: Record<string, string> = {};
     const lsKeys = ['orbit-settings-v2', 'orbit-prefs', 'orbit_last_check_date'];
     for (const key of lsKeys) {
@@ -18,7 +17,6 @@ export const exportBackup = async () => {
     const data = {
       version: "2.0",
       timestamp: Date.now(),
-      // ALL 11 database tables — nothing omitted
       semesters: await db.semesters.toArray(),
       subjects: await db.subjects.toArray(),
       projects: await db.projects.toArray(),
@@ -30,7 +28,6 @@ export const exportBackup = async () => {
       blockOutcomes: await db.blockOutcomes.toArray(),
       studyBlocks: await db.studyBlocks.toArray(),
       exams: await db.exams.toArray(),
-      // localStorage settings
       localStorage: localStorageData,
     };
 
@@ -54,7 +51,6 @@ export const importBackup = async (file: File): Promise<{ success: boolean; mess
     const text = await file.text();
     const data = JSON.parse(text);
 
-    // Helper: restore localStorage keys from backup
     const restoreLocalStorage = (lsData: Record<string, string> | undefined) => {
       if (!lsData) return;
       try {
@@ -66,25 +62,20 @@ export const importBackup = async (file: File): Promise<{ success: boolean; mess
       }
     };
 
-    // Check if this is the v4.0.1 format with settings and nested data
     if (data.version && data.exportDate && data.data) {
-      // New format with nested structure (v4.0.1)
       const backupData = data.data;
 
-      // Map the new format to database tables
       await db.transaction('rw', [
         db.subjects, db.plans, db.logs, db.assignments,
         db.blockOutcomes, db.studyBlocks, db.semesters,
         db.projects, db.schedule, db.topics
       ], async () => {
-        // Clear existing data
         await Promise.all([
           db.subjects.clear(), db.plans.clear(), db.logs.clear(),
           db.assignments.clear(), db.blockOutcomes.clear(), db.studyBlocks.clear(),
           db.semesters.clear(), db.projects.clear(), db.schedule.clear(), db.topics.clear()
         ]);
 
-        // Import everything available
         if (backupData.subjects?.length) await db.subjects.bulkAdd(backupData.subjects);
         if (backupData.logs?.length) await db.logs.bulkAdd(backupData.logs);
         if (backupData.assignments?.length) await db.assignments.bulkAdd(backupData.assignments);
@@ -97,7 +88,6 @@ export const importBackup = async (file: File): Promise<{ success: boolean; mess
         if (backupData.studyBlocks?.length) await db.studyBlocks.bulkAdd(backupData.studyBlocks);
       });
 
-      // Restore settings
       if (data.settings) {
         try { localStorage.setItem('orbit-prefs', JSON.stringify(data.settings)); } catch { }
       }
@@ -105,14 +95,12 @@ export const importBackup = async (file: File): Promise<{ success: boolean; mess
 
       return { success: true, message: `Restored ${backupData.subjects?.length || 0} subjects and ${backupData.plans?.length || 0} plans!` };
     }
-    // v2.0 or v1.0 format with tables at root level
     else if (data.version || data.timestamp) {
       await db.transaction('rw', [
         db.semesters, db.subjects, db.projects, db.schedule,
         db.plans, db.logs, db.assignments, db.topics,
         db.blockOutcomes, db.studyBlocks, db.exams
       ], async () => {
-        // Clear ALL tables
         await Promise.all([
           db.semesters.clear(), db.subjects.clear(), db.projects.clear(),
           db.schedule.clear(), db.plans.clear(), db.logs.clear(),
@@ -120,7 +108,6 @@ export const importBackup = async (file: File): Promise<{ success: boolean; mess
           db.blockOutcomes.clear(), db.studyBlocks.clear(), db.exams.clear()
         ]);
 
-        // Restore ALL tables
         if (data.semesters?.length) await db.semesters.bulkAdd(data.semesters);
         if (data.subjects?.length) await db.subjects.bulkAdd(data.subjects);
         if (data.projects?.length) await db.projects.bulkAdd(data.projects);
@@ -134,7 +121,6 @@ export const importBackup = async (file: File): Promise<{ success: boolean; mess
         if (data.exams?.length) await db.exams.bulkAdd(data.exams);
       });
 
-      // Restore localStorage if present (v2.0+)
       if (data.localStorage) restoreLocalStorage(data.localStorage);
 
       return { success: true, message: 'Backup restored successfully!' };
@@ -148,14 +134,12 @@ export const importBackup = async (file: File): Promise<{ success: boolean; mess
   }
 };
 
-// ─── Constants (slot 0 = 06:00, matches ScheduleView.SLOT_START_HOUR) ──────────
 const ONB_SLOT_START = 6;
 const ONB_SLOT_END = 23;
 const pad = (n: number) => String(n).padStart(2, "0");
 const TIME_LABELS = Array.from({ length: ONB_SLOT_END - ONB_SLOT_START }, (_, i) => `${pad(ONB_SLOT_START + i)}:00`);
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-// ─── MAIN COMPONENT — immersive split onboarding (concept v7, full-bleed) ──────
 export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   const toast = useToast();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -239,7 +223,6 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
     }
   };
 
-  // ── shared bits ──
   const Progress = ({ n }: { n: number }) => (
     <div className="flex items-center gap-2 mb-7">
       {[1, 2, 3].map(i => (
@@ -252,7 +235,6 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   const backBtn = "px-6 bg-ink3 border border-white/10 text-white font-bold py-4 rounded-2xl text-sm hover:border-white/25 flex items-center gap-1.5 shrink-0";
   const primaryBtn = "bg-orange-500 text-ink font-bold rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-transform";
 
-  // ── per-step visual ──
   const visualBg = step === 3 ? "bg-yellow-400" : step === 4 ? "bg-orange-400" : "bg-orange-500";
   const totalCredits = subjects.reduce((s, x) => s + (x.credits || 3), 0);
   const maxLoad = Math.max(1, ...subjects.map(x => (x.credits || 3) * (x.difficulty || 3)));
@@ -335,18 +317,15 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
     <div className="w-full min-h-screen bg-ink text-white flex flex-col-reverse lg:grid lg:grid-cols-2">
       <input ref={fileRef} type="file" accept=".json" onChange={onFile} className="hidden" />
 
-      {/* ── CONTENT PANEL (left) — vertically centered, generous width ── */}
       <div className="bg-ink2 lg:border-r border-white/10 lg:h-screen flex flex-col justify-center relative px-6 sm:px-12 lg:px-16 xl:px-24 py-12">
-        {/* brand anchor */}
         <div className="lg:absolute lg:top-9 lg:left-16 xl:left-24 flex items-center gap-2.5 mb-10 lg:mb-0">
           <div className="w-9 h-9 rounded-xl bg-orange-500 text-ink font-display flex items-center justify-center text-lg">O</div>
           <span className="font-display text-lg">ORBIT</span>
-          {step === 1 && <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-zinc-500 ml-1">v3.4 · local-first</span>}
+          {step === 1 && <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-zinc-500 ml-1">v4.0 · local-first</span>}
         </div>
 
         <div className="w-full max-w-xl mx-auto lg:mx-0">
 
-          {/* STEP 1 — WELCOME */}
           {step === 1 && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
               <div className="font-mono text-[11px] font-bold uppercase tracking-widest text-orange-400 mb-5">Welcome</div>
@@ -365,7 +344,6 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
             </div>
           )}
 
-          {/* STEP 2 — SUBJECTS */}
           {step === 2 && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Progress n={1} />
@@ -410,7 +388,6 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
             </div>
           )}
 
-          {/* STEP 3 — CALIBRATE */}
           {step === 3 && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Progress n={2} />
@@ -460,7 +437,6 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
             </div>
           )}
 
-          {/* STEP 4 — CLASS TIMES (optional) */}
           {step === 4 && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Progress n={3} />
@@ -512,9 +488,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
         </div>
       </div>
 
-      {/* ── VISUAL PANEL (right on desktop / top banner on mobile) ── */}
       <div className={`relative overflow-hidden flex items-center justify-center ${visualBg} h-44 sm:h-52 lg:h-screen`}>
-        {/* ambient brutalist shapes (desktop) */}
         <div className="hidden lg:block pointer-events-none">
           <div className="absolute -top-20 -right-16 w-72 h-72 rounded-[3.5rem] bg-ink/10 rotate-12" />
           <div className="absolute bottom-16 left-12 w-12 h-12 rounded-2xl bg-ink/15 -rotate-12" />
@@ -523,9 +497,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
           <div className="absolute left-8 top-8 font-mono text-[11px] font-bold uppercase tracking-widest text-ink/50">{visualCaption}</div>
           <div className="absolute right-8 bottom-8 font-mono text-[11px] font-bold uppercase tracking-widest text-ink/40">Orbit · {step}/4</div>
         </div>
-        {/* desktop rich art */}
         <div className="hidden lg:flex items-center justify-center w-full px-12">{renderVisual()}</div>
-        {/* mobile compact banner */}
         <div className="flex lg:hidden items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-ink text-orange-500 font-display flex items-center justify-center text-xl">O</div>
           <span className="font-display text-ink text-2xl">ORBIT</span>

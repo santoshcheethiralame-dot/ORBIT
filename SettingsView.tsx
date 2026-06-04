@@ -1,6 +1,3 @@
-// SettingsView.tsx - PERFECTED UI/UX EDITION
-// Premium design with smooth interactions, better hierarchy, and delightful details
-
 import React, { useEffect, useState } from "react";
 import {
   Bell, BellOff, Clock, Database, Download, Upload, Trash2,
@@ -29,11 +26,9 @@ export const SettingsView = () => {
   const [expandedSection, setExpandedSection] = useState<string | null>('focus');
   const toast = useToast();
 
-  // AI Assistant — user-supplied OpenRouter key, stored locally only (never bundled).
   const [apiKeyInput, setApiKeyInput] = useState<string>(() => getApiKey());
   const [showApiKey, setShowApiKey] = useState(false);
 
-  // Bug Report state
   const [showBugReport, setShowBugReport] = useState(false);
   const [bugReportData, setBugReportData] = useState({
     title: '',
@@ -45,7 +40,6 @@ export const SettingsView = () => {
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Load stats
   useEffect(() => {
     const loadStats = async () => {
       try {
@@ -61,7 +55,6 @@ export const SettingsView = () => {
     loadStats();
   }, []);
 
-  // Apply audio settings to SoundManager in real-time
   useEffect(() => {
     SoundManager.setEnabled(settings.audio.enabled);
     SoundManager.setVolume(settings.audio.volume);
@@ -76,7 +69,6 @@ export const SettingsView = () => {
     settings.audio.milestoneSound
   ]);
 
-  // Bug Report handlers
   const handleBugReportChange = (field: string, value: string) => {
     setBugReportData((prev) => ({ ...prev, [field]: value }));
   };
@@ -116,7 +108,6 @@ export const SettingsView = () => {
     }
   };
 
-  // Export data
   const exportData = async () => {
     try {
       const subjects = await db.subjects.toArray();
@@ -161,7 +152,6 @@ export const SettingsView = () => {
     }
   };
 
-  // Import data
   const importData = async (file: File) => {
     try {
       const text = await file.text();
@@ -170,9 +160,6 @@ export const SettingsView = () => {
       if (!imported.version || !imported.data || typeof imported.data !== 'object') {
         throw new Error('not an Orbit backup');
       }
-      // Validate shape BEFORE clearing anything, so a malformed file can never
-      // wipe existing data: every present table must be an array, and subjects
-      // (if present) must actually look like subjects.
       const TABLES = ['subjects', 'logs', 'assignments', 'plans', 'topics', 'projects', 'schedule', 'blockOutcomes', 'studyBlocks', 'semesters', 'exams', 'settings'];
       for (const t of TABLES) {
         if (imported.data[t] !== undefined && !Array.isArray(imported.data[t])) {
@@ -217,7 +204,6 @@ export const SettingsView = () => {
         }
       );
 
-      // Restore app UI settings (theme, notifications, etc.) if present
       const appSettingsSrc = imported.appSettings ?? imported.settings;
       if (appSettingsSrc && typeof appSettingsSrc === 'object' && !Array.isArray(appSettingsSrc)) {
         Object.entries(appSettingsSrc).forEach(([category, values]: [string, any]) => {
@@ -240,10 +226,8 @@ export const SettingsView = () => {
     }
   };
 
-  // Clear all data
   const clearAllData = async () => {
     try {
-      // ÃƒÂ¢Ã…â€œÃ¢€Â¦ Use transaction for atomicity - Clear ALL tables
       await db.transaction(
         'rw',
         [db.semesters, db.subjects, db.projects, db.schedule, db.logs, db.assignments, db.plans, db.topics, db.blockOutcomes, db.studyBlocks, db.exams, db.settings],
@@ -265,15 +249,11 @@ export const SettingsView = () => {
         }
       );
 
-      // Remove only Orbit's own localStorage keys — including the recovery
-      // snapshot (orbit-db-snapshot), since leaving it would silently restore
-      // this just-deleted data on next load. Other origins' keys are untouched
-      // (no blanket localStorage.clear()).
       try {
         Object.keys(localStorage)
           .filter(k => k.startsWith('orbit'))
           .forEach(k => localStorage.removeItem(k));
-      } catch { /* ignore */ }
+      } catch { }
 
       toast.success('All data cleared successfully');
       setShowDeleteModal(false);
@@ -288,7 +268,6 @@ export const SettingsView = () => {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
-  // Improved Setting Section with better animations
   const SettingSection = ({
     id,
     title,
@@ -304,7 +283,7 @@ export const SettingsView = () => {
     variant: 'indigo' | 'yellow' | 'purple' | 'orange' | 'amber' | 'rose';
     children: React.ReactNode;
   }) => {
-    const isExpanded = true; // sections always open (brutalist control panel)
+    const isExpanded = true;
 
     const colors = {
       indigo: { bg: 'bg-indigo-500', border: 'border-indigo-500', text: 'text-indigo-400' },
@@ -331,7 +310,6 @@ export const SettingsView = () => {
                 <Icon size={22} className={`${colors[variant].text} transition-all duration-500 ${isExpanded ? 'scale-110' : ''} hidden md:block lg:hidden`} />
                 <Icon size={24} className={`${colors[variant].text} transition-all duration-500 ${isExpanded ? 'scale-110' : ''} hidden lg:block`} />
 
-                {/* Pulse ring on expanded */}
                 {isExpanded && (
                   <div className={`absolute inset-0 rounded-xl md:rounded-2xl ${colors[variant].bg}/20 animate-ping`} />
                 )}
@@ -381,7 +359,6 @@ export const SettingsView = () => {
     );
   };
 
-  // Premium Toggle Switch Component
   const ToggleSwitch = ({
     checked,
     onChange,
@@ -437,7 +414,6 @@ export const SettingsView = () => {
         meta={<MetaText>CONFIGURE YOUR ORBIT</MetaText>}
       />
 
-      {/* Quick actions */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {([
           { icon: Download, label: 'Export', desc: 'Backup JSON', onClick: () => setShowExportModal(true), danger: false },
@@ -454,9 +430,7 @@ export const SettingsView = () => {
         ))}
       </div>
 
-      {/* Master-detail: rail selects a section, panel shows its controls */}
       <div className="grid lg:grid-cols-[200px_1fr] gap-4 items-start">
-        {/* sticky jump-rail — stays in view, no dead space */}
         <div className="rounded-4xl bg-ink2 border border-white/10 p-2 flex lg:flex-col gap-1 overflow-x-auto lg:sticky lg:top-[88px] lg:self-start">
           {([
             ['focus', 'Focus'], ['notifications', 'Notifications'],
@@ -475,7 +449,6 @@ export const SettingsView = () => {
           })}
         </div>
 
-        {/* all sections — stacked & scrollable */}
         <div className="space-y-4">
           <div id="sec-focus" className="rounded-4xl bg-ink2 border border-white/10 p-6 md:p-8 scroll-mt-[100px] space-y-7">
             <div className="flex items-center gap-3 mb-1"><div className="w-9 h-9 rounded-xl bg-orange-500/15 flex items-center justify-center text-orange-400"><Clock size={18} strokeWidth={2.5} /></div><h3 className="font-display font-black text-2xl">FOCUS</h3></div>
@@ -651,7 +624,6 @@ export const SettingsView = () => {
         </div>
       )}
 
-      {/* Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300 p-4">
           <div className="w-full max-w-md animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
@@ -712,7 +684,6 @@ export const SettingsView = () => {
         </div>
       )}
 
-      {/* Delete Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-300 p-4">
           <div className="w-full max-w-md animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
@@ -765,7 +736,6 @@ export const SettingsView = () => {
         </div>
       )}
 
-      {/* Bug Report Modal */}
     </div>
   );
 };

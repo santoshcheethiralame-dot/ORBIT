@@ -1,4 +1,3 @@
-// Enhanced brain integration: tracks block outcomes, energy, and richer load analysis for planning.
 import { db, OrbitDB } from "./db";
 import {
   StudyBlock,
@@ -16,10 +15,6 @@ import {
 } from "./types";
 import { getISTEffectiveDate, getISTTime, effectiveDatePlus } from "./utils/time";
 
-/* ======================================================
-  QUALITY RATING OPTIONS & HELPERS
-====================================================== */
-
 export interface QualityRatingOption {
   value: 1 | 2 | 3 | 4 | 5;
   label: string;
@@ -28,9 +23,6 @@ export interface QualityRatingOption {
   color: string;
 }
 
-/**
- * Get available quality rating options for session feedback
- */
 export function getQualityRatingOptions(): QualityRatingOption[] {
   return [
     {
@@ -38,58 +30,48 @@ export function getQualityRatingOptions(): QualityRatingOption[] {
       label: "Poor",
       emoji: "😕",
       description: "Struggled significantly, didn't understand much",
-      color: "#ef4444", // red-500
+      color: "#ef4444",
     },
     {
       value: 2,
       label: "Below Average",
       emoji: "😐",
       description: "Had difficulty, understood some parts",
-      color: "#f97316", // orange-500
+      color: "#f97316",
     },
     {
       value: 3,
       label: "Good",
       emoji: "🙂",
       description: "Made progress, understood most concepts",
-      color: "#eab308", // yellow-500
+      color: "#eab308",
     },
     {
       value: 4,
       label: "Very Good",
       emoji: "😊",
       description: "Strong session, clear understanding",
-      color: "#22c55e", // green-500
+      color: "#22c55e",
     },
     {
       value: 5,
       label: "Excellent",
       emoji: "🤩",
       description: "Exceptional focus and comprehension",
-      color: "#3b82f6", // blue-500
+      color: "#3b82f6",
     },
   ];
 }
 
-/**
- * Get quality rating details by value
- */
 export function getQualityRatingByValue(value: number): QualityRatingOption | null {
   const options = getQualityRatingOptions();
   return options.find(opt => opt.value === value) || null;
 }
 
-/**
- * Get quality rating emoji by value
- */
 export function getQualityEmoji(quality: number): string {
   const rating = getQualityRatingByValue(quality);
   return rating?.emoji || "⭐";
 }
-
-/* ======================================================
-  ENERGY PROFILE MANAGEMENT
-====================================================== */
 
 const DEFAULT_ENERGY_PROFILE: EnergyProfile = {
   morning: 100,
@@ -98,9 +80,6 @@ const DEFAULT_ENERGY_PROFILE: EnergyProfile = {
   night: 40,
 };
 
-/**
- * Get user's energy profile from localStorage
- */
 export function getEnergyProfile(): EnergyProfile {
   try {
     const saved = localStorage.getItem('orbit-energy-profile');
@@ -113,9 +92,6 @@ export function getEnergyProfile(): EnergyProfile {
   return DEFAULT_ENERGY_PROFILE;
 }
 
-/**
- * Save user's energy profile to localStorage
- */
 export function saveEnergyProfile(profile: EnergyProfile): void {
   try {
     localStorage.setItem('orbit-energy-profile', JSON.stringify(profile));
@@ -124,9 +100,6 @@ export function saveEnergyProfile(profile: EnergyProfile): void {
   }
 }
 
-/**
- * Validate if blocks fit within energy budget
- */
 export function validateEnergyBudget(
   blocks: StudyBlock[],
   subjects: Subject[]
@@ -139,17 +112,14 @@ export function validateEnergyBudget(
   const profile = getEnergyProfile();
   const subjectMap = new Map(subjects.map(s => [s.id!, s]));
 
-  // Calculate total available energy (simplified: average across day)
   const avgEnergy = (profile.morning + profile.afternoon + profile.evening + profile.night) / 4;
-  const budget = avgEnergy * 3; // Budget in "energy points"
+  const budget = avgEnergy * 3;
 
-  // Calculate allocated energy
   let allocated = 0;
   blocks.forEach(block => {
     const subject = subjectMap.get(block.subjectId);
     if (!subject) return;
 
-    // Energy cost = duration × difficulty factor
     const difficultyCost = 1 + ((subject.difficulty - 1) * 0.25);
     allocated += block.duration * difficultyCost;
   });
@@ -162,14 +132,6 @@ export function validateEnergyBudget(
   };
 }
 
-/* ======================================================
-  RECORD STUDY SESSION OUTCOME
-====================================================== */
-
-/**
- * Record the outcome of a completed study block
- * This feeds into the performance analytics and adaptive planning
- */
 export async function recordBlockOutcome(
   block: StudyBlock,
   outcome: {
@@ -183,8 +145,6 @@ export async function recordBlockOutcome(
 ): Promise<void> {
   try {
     const now = Date.now();
-    // Use the IST effective date + IST hour so outcomes group on the same day as
-    // StudyLogs (which use getISTEffectiveDate) and the user's real time-of-day.
     const date = getISTEffectiveDate();
     const timeOfDay = getISTTime().getHours();
 
@@ -213,13 +173,6 @@ export async function recordBlockOutcome(
   }
 }
 
-/* ======================================================
-  PERFORMANCE ANALYTICS
-====================================================== */
-
-/**
- * Get performance analytics for a subject
- */
 export async function getSubjectPerformance(
   subjectId: number,
   days: number = 30,
@@ -276,16 +229,12 @@ export async function getSubjectPerformance(
         completedOutcomes.length
         : 45;
 
-    // Calculate recent trend (last 7 days vs previous 7 days)
     const recentTrend = calculateQualityTrend(outcomes);
 
-    // Recommend duration based on actual performance and quality
     let recommendedDuration = Math.round(avgActualDuration);
     if (avgQuality >= 4) {
-      // High quality - can handle longer sessions
       recommendedDuration = Math.min(60, recommendedDuration + 5);
     } else if (avgQuality <= 2) {
-      // Low quality - suggest shorter sessions
       recommendedDuration = Math.max(20, recommendedDuration - 10);
     }
 
@@ -314,18 +263,13 @@ export async function getSubjectPerformance(
   }
 }
 
-/**
- * Calculate quality trend from outcomes
- */
 function calculateQualityTrend(
   outcomes: BlockOutcome[]
 ): "improving" | "stable" | "declining" {
   if (outcomes.length < 4) return "stable";
 
-  // Sort by timestamp
   const sorted = outcomes.sort((a, b) => a.timestamp - b.timestamp);
 
-  // Split into two halves
   const midpoint = Math.floor(sorted.length / 2);
   const firstHalf = sorted.slice(0, midpoint);
   const secondHalf = sorted.slice(midpoint);
@@ -342,13 +286,6 @@ function calculateQualityTrend(
   return "stable";
 }
 
-/* ======================================================
-  BURNOUT DETECTION
-====================================================== */
-
-/**
- * Detect burnout risk based on recent session patterns
- */
 export async function detectBurnout(
   days: number = 7,
   dbInstance: OrbitDB = db
@@ -385,12 +322,10 @@ export async function detectBurnout(
       ? lowQuality / outcomes.filter(o => o.completed).length
       : 0;
 
-    // Calculate burnout score (0-100)
     let score = 0;
-    score += skipRate * 50; // Skipping is a major indicator
-    score += lowQualityRate * 30; // Low quality work
+    score += skipRate * 50;
+    score += lowQualityRate * 30;
 
-    // Check for consecutive skipped days
     const dateMap = new Map<string, BlockOutcome[]>();
     outcomes.forEach(o => {
       if (!dateMap.has(o.date)) {
@@ -450,13 +385,6 @@ export async function detectBurnout(
   }
 }
 
-/* ======================================================
-  INTERLEAVING ANALYSIS
-====================================================== */
-
-/**
- * Analyze variety and interleaving in a block schedule
- */
 export function analyzeInterleaving(blocks: StudyBlock[]): {
   varietyScore: number;
   consecutiveSameSubject: number;
@@ -483,7 +411,6 @@ export function analyzeInterleaving(blocks: StudyBlock[]): {
   const uniqueTypes = new Set(blocks.map(b => b.type));
 
   for (let i = 1; i < blocks.length; i++) {
-    // Check subject variety
     if (blocks[i].subjectId === blocks[i - 1].subjectId) {
       currentConsecutiveSubject++;
       maxConsecutiveSameSubject = Math.max(maxConsecutiveSameSubject, currentConsecutiveSubject);
@@ -491,7 +418,6 @@ export function analyzeInterleaving(blocks: StudyBlock[]): {
       currentConsecutiveSubject = 1;
     }
 
-    // Check type variety
     if (blocks[i].type === blocks[i - 1].type) {
       currentConsecutiveType++;
       maxConsecutiveSameType = Math.max(maxConsecutiveSameType, currentConsecutiveType);
@@ -500,7 +426,6 @@ export function analyzeInterleaving(blocks: StudyBlock[]): {
     }
   }
 
-  // Calculate variety score
   const subjectVariety = (uniqueSubjects.size / blocks.length) * 100;
   const typeVariety = (uniqueTypes.size / blocks.length) * 100;
   const varietyScore = Math.round((subjectVariety + typeVariety) / 2);
@@ -527,13 +452,6 @@ export function analyzeInterleaving(blocks: StudyBlock[]): {
   };
 }
 
-/* ======================================================
-  DASHBOARD INSIGHTS
-====================================================== */
-
-/**
- * Get comprehensive dashboard insights
- */
 export async function getDashboardInsights(
   dbInstance: OrbitDB = db
 ): Promise<{
@@ -555,7 +473,6 @@ export async function getDashboardInsights(
     const subjects = await dbInstance.subjects.toArray();
     const burnout = await detectBurnout(7, dbInstance);
 
-    // Get performance for all subjects
     const performances = await Promise.all(
       subjects.map(async s => ({
         subjectId: s.id!,
@@ -564,10 +481,8 @@ export async function getDashboardInsights(
       }))
     );
 
-    // Filter subjects with enough data
     const withData = performances.filter(p => p.performance.totalSessions >= 3);
 
-    // Top performers (high quality, low skip rate)
     const topPerformers = withData
       .filter(p => p.performance.avgQuality >= 4 && p.performance.skipRate < 0.3)
       .sort((a, b) => b.performance.avgQuality - a.performance.avgQuality)
@@ -578,7 +493,6 @@ export async function getDashboardInsights(
         avgQuality: p.performance.avgQuality,
       }));
 
-    // Struggling subjects (low quality or high skip rate)
     const strugglingSubjects = withData
       .filter(p => p.performance.avgQuality <= 2.5 || p.performance.skipRate > 0.4)
       .sort((a, b) => a.performance.avgQuality - b.performance.avgQuality)
@@ -589,7 +503,6 @@ export async function getDashboardInsights(
         avgQuality: p.performance.avgQuality,
       }));
 
-    // Weekly trend
     const thisWeekCutoff = new Date();
     thisWeekCutoff.setDate(thisWeekCutoff.getDate() - 7);
     const lastWeekCutoff = new Date();
@@ -636,22 +549,13 @@ export async function getDashboardInsights(
   }
 }
 
-/* ======================================================
-  EXPORTS
-====================================================== */
-
-/* ======================================================
-  PRODUCTIVITY PROFILE — learned time-of-day performance (Plan-Gen v2 / B)
-====================================================== */
-
 export interface ProductivityProfile {
-  hourWeight: number[];   // 24 entries, normalised ~0..1 relative performance
+  hourWeight: number[];
   peakHour: number;
-  confidence: number;     // 0..1 by data sufficiency
+  confidence: number;
   sampleSize: number;
 }
 
-// performance signal for one outcome: skipped is worst, completed+high-quality best
 function outcomePerf(o: BlockOutcome): number {
   const q = typeof o.completionQuality === 'number' ? (o.completionQuality - 1) / 4 : 0.5;
   if (o.skipped) return 0.1;
@@ -670,7 +574,7 @@ export async function getProductivityProfile(dbInstance: OrbitDB = db): Promise<
   }
   const totalN = outcomes.length;
   const globalMean = totalN ? outcomes.reduce((a, o) => a + outcomePerf(o), 0) / totalN : 0.6;
-  const PRIOR = 3; // pseudo-count → Laplace smoothing toward the global mean
+  const PRIOR = 3;
   const smoothed = sum.map((s, h) => (s + PRIOR * globalMean) / (cnt[h] + PRIOR));
   const max = Math.max(...smoothed, 0.001);
   const hourWeight = smoothed.map(w => w / max);
@@ -679,13 +583,9 @@ export async function getProductivityProfile(dbInstance: OrbitDB = db): Promise<
   return { hourWeight, peakHour, confidence: Math.min(1, totalN / 20), sampleSize: totalN };
 }
 
-/* ======================================================
-  SKIP-RISK / ADHERENCE (Plan-Gen v2 / B)
-====================================================== */
-
 export interface SkipRisk {
-  bySubject: Record<number, number>; // 0..1 smoothed skip rate
-  byHour: number[];                  // 24
+  bySubject: Record<number, number>;
+  byHour: number[];
   overall: number;
   confidence: number;
 }
@@ -709,28 +609,21 @@ export async function getSkipRisk(dbInstance: OrbitDB = db): Promise<SkipRisk> {
 }
 
 export default {
-  // Quality Rating
   getQualityRatingOptions,
   getQualityRatingByValue,
   getQualityEmoji,
 
-  // Energy Management
   getEnergyProfile,
   saveEnergyProfile,
   validateEnergyBudget,
 
-  // Recording Outcomes
   recordBlockOutcome,
 
-  // Performance Analytics
   getSubjectPerformance,
 
-  // Burnout & Wellness
   detectBurnout,
 
-  // Interleaving
   analyzeInterleaving,
 
-  // Dashboard
   getDashboardInsights,
 };

@@ -12,16 +12,11 @@ import {
   SubjectReadiness,
 } from "./types";
 
-// Re-export for consumers
 export type { SubjectReadiness };
 import { getISTEffectiveDate, formatLocalDate, getISTTime, effectiveDatePlus } from "./utils/time";
 import { notifyDataChange } from "./db";
 import { getDefaultFocusDuration, getSmartPlanner } from "./utils/settingsHelper";
 import { getProductivityProfile, getSkipRisk } from "./brain-analytics";
-
-/* ======================================================
-  TYPES
-====================================================== */
 
 type DayConstraints = {
   maxMinutes: number;
@@ -29,26 +24,22 @@ type DayConstraints = {
   maxBlockDuration: number;
   allowProjects: boolean;
   forceFocusSubject: boolean;
-  excludedSubjectIds: number[]; // subjects to skip (e.g. completed exams)
+  excludedSubjectIds: number[];
 };
 
 type LoadAnalysis = {
   warning?: string;
   loadLevel: 'light' | 'normal' | 'heavy' | 'extreme';
-  loadScore: number; // 0-100
-  readinessImpact: number; // How much readiness will improve
-  subjectImpacts?: Record<number, number>; // Per-subject readiness impact
-  planExplanation?: string[]; // smartPlanner: human-readable "why this plan" drivers
+  loadScore: number;
+  readinessImpact: number;
+  subjectImpacts?: Record<number, number>;
+  planExplanation?: string[];
 };
 
 export type PlanResult = {
   blocks: StudyBlock[];
   loadAnalysis: LoadAnalysis;
 };
-
-/* ======================================================
-  CONSTANTS
-====================================================== */
 
 const DEFAULT_REVIEW_MIN = 30;
 const DEFAULT_RECOVERY_MIN = 45;
@@ -57,17 +48,13 @@ const DEFAULT_PROJECT_MIN = 60;
 const ESA_BASE_MIN = 360;
 const ISA_PREP_MIN = 45;
 
-const MIN_BLOCKS_FALLBACK = 3; // 💡 Increased from 2
+const MIN_BLOCKS_FALLBACK = 3;
 
 const READINESS_GOAL_HOURS_PER_CREDIT = 10;
 const READINESS_CRITICAL_THRESHOLD = 35;
 const READINESS_MAINTAINING_THRESHOLD = 70;
 
 const DEFAULT_ASSIGNMENT_EFFORT_MIN = 120;
-
-/* ======================================================
-  DOMINANCE
-====================================================== */
 
 const DOMINANCE = {
   ESA: 0,
@@ -82,10 +69,6 @@ const DOMINANCE = {
   REVIEW: 6,
   FALLBACK: 90,
 };
-
-/* ======================================================
-  HELPERS
-====================================================== */
 
 function makeId(): string {
   return `${Date.now().toString(36)}-${Math.random()
@@ -104,7 +87,6 @@ function daysBetweenDates(a: string, b: string) {
   const db = new Date(by, bm - 1, bd).getTime();
   return Math.floor((da - db) / 86400000);
 }
-
 
 export async function updateAssignmentProgress(
   assignmentId: string,
@@ -180,10 +162,6 @@ function getSubjectType(subject: Subject): 'analytical' | 'memory' | 'creative' 
   return 'mixed';
 }
 
-/* ======================================================
-  💡 READINESS ENGINE (Exam Confidence Score)
-====================================================== */
-
 export function calculateReadiness(
   subject: Subject,
   logs: StudyLog[],
@@ -192,13 +170,11 @@ export function calculateReadiness(
   const totalStudiedMinutes = logs.filter(l => l.subjectId === subject.id)
     .reduce((sum, l) => sum + (l.duration ?? 0), 0);
   const totalStudiedHours = totalStudiedMinutes / 60;
-  const credits = subject.credits || 3; // ✓ Good default
+  const credits = subject.credits || 3;
 
-  // ✓ ADD: Guard against zero credits
   const goal = READINESS_GOAL_HOURS_PER_CREDIT * Math.max(credits, 1);
   let volume = Math.min(totalStudiedHours / goal, 1);
 
-  // Factor 2: Recency (decay based on Ebbinghaus forgetting curve)
   const lastStudy = logs
     .filter(l => l.subjectId === subject.id)
     .sort((a, b) => b.timestamp - a.timestamp)[0];
@@ -211,22 +187,16 @@ export function calculateReadiness(
     lastStudiedDays = daysBetweenDates(effectiveDate, lastDate);
   }
 
-  // Modified Ebbinghaus curve: decay = 1 / (1 + (days / retentionScale))
-  // The more volume (totalStudiedHours) you have, the slower it decays
-  // Max retention scale cap to prevent indefinite memory
   const retentionScale = Math.max(1, Math.min(totalStudiedHours * 2, 20));
   const baseDecay = 1 / (1 + (lastStudiedDays / retentionScale));
 
-  // Harder subjects decay slightly faster
   const difficultyMultiplier = subject.difficulty >= 4 ? 0.85 : 1.0;
   let decay = Math.max(0.1, baseDecay * difficultyMultiplier);
 
-  if (lastStudiedDays === 999) decay = 0; // Never studied
+  if (lastStudiedDays === 999) decay = 0;
 
-  // Final Score: Volume × Decay
   let score = Math.round(volume * 100 * decay);
 
-  // Status Classification
   let status: SubjectReadiness['status'] = "maintaining";
   if (score < READINESS_CRITICAL_THRESHOLD) {
     status = "critical";
@@ -242,12 +212,6 @@ export function calculateReadiness(
   };
 }
 
-/* ======================================================
-  📈 PREDICT READINESS CALCULATOR
-====================================================== */
-/**
- * Predict readiness score after N days of studying X hours/day
- */
 export function predictReadiness(
   currentReadiness: SubjectReadiness,
   subject: Subject,
@@ -257,14 +221,11 @@ export function predictReadiness(
   const credits = Math.max(subject.credits || 3, 1);
   const goalHours = credits * READINESS_GOAL_HOURS_PER_CREDIT;
 
-  // Current state
   const score = currentReadiness.score || 0;
   const decay = currentReadiness.decay || 1.0;
   let currentVolume = score / 100 / decay;
   let currentHours = currentVolume * goalHours;
 
-  // Simulate day-by-day with properly accumulated decay
-  // FIX: cumulativeDecay compounds across all days instead of resetting each iteration
   let cumulativeDecay = currentReadiness.decay || 1.0;
 
   for (let day = 1; day <= daysFromNow; day++) {
@@ -272,10 +233,8 @@ export function predictReadiness(
     currentVolume = Math.min(currentHours / goalHours, 1);
 
     if (hoursPerDay === 0) {
-      // Ebbinghaus compound decay per day
       cumulativeDecay *= subject.difficulty >= 4 ? 0.90 : 0.95;
     } else {
-      // Studying slows/reverses decay
       cumulativeDecay = Math.min(cumulativeDecay * 1.04, 1.0);
     }
     cumulativeDecay = Math.max(cumulativeDecay, 0.05);
@@ -294,13 +253,6 @@ Study ${hoursPerDay}h/day for ${daysFromNow} days:
   return { projectedScore, breakdown };
 }
 
-/* ======================================================
-  📊 SPACED REPETITION ENGINE (SM-2 Algorithm)
-====================================================== */
-
-/**
- * Calculate next review date based on comprehension
- */
 function calculateNextReview(
   lastReviewDate: string,
   easeFactor: number,
@@ -308,40 +260,31 @@ function calculateNextReview(
   comprehensionRating: 1 | 2 | 3
 ): { nextReviewDate: string; newEaseFactor: number } {
 
-  // Update ease factor based on performance
   let newEaseFactor = easeFactor;
 
-  if (comprehensionRating === 3) {      // Easy
+  if (comprehensionRating === 3) {
     newEaseFactor = Math.min(2.5, easeFactor + 0.15);
-  } else if (comprehensionRating === 1) { // Hard
+  } else if (comprehensionRating === 1) {
     newEaseFactor = Math.max(1.3, easeFactor - 0.15);
   }
-  // Good (2) keeps same ease factor
 
-  // Calculate interval in days
   let intervalDays: number;
 
   if (reviewNumber === 0) {
-    // First review after initial study
     intervalDays = comprehensionRating === 1 ? 1 :
       comprehensionRating === 2 ? 3 : 7;
   } else if (reviewNumber === 1) {
-    // Second review: classic SM-2 anchors
     intervalDays = comprehensionRating === 1 ? 1 :
       comprehensionRating === 2 ? 6 : 8;
   } else {
-    // FIX: cap the exponent and base to prevent astronomical values.
-    // Real SM-2 uses stored interval; we approximate with a capped power function.
     const cappedEF   = Math.min(newEaseFactor, 2.3);
-    const cappedExp  = Math.min(reviewNumber - 1, 5); // hard ceiling on exponent
+    const cappedExp  = Math.min(reviewNumber - 1, 5);
     const prevEstimate = 6 * Math.pow(cappedEF, cappedExp);
     intervalDays = Math.round(Math.min(prevEstimate, 30 / newEaseFactor) * newEaseFactor);
   }
 
-  // Max 30 days between reviews (prevent forgetting)
   intervalDays = Math.min(intervalDays, 30);
 
-  // Calculate next review date
   const lastDate = new Date(lastReviewDate);
   lastDate.setDate(lastDate.getDate() + intervalDays);
   const nextReviewDate = lastDate.toISOString().split('T')[0];
@@ -349,9 +292,6 @@ function calculateNextReview(
   return { nextReviewDate, newEaseFactor };
 }
 
-/**
- * Get topics that are due for review today
- */
 export async function getTopicsDueForReview(dateStr: string, dbInstance: OrbitDB = db): Promise<StudyTopic[]> {
   const topics = await dbInstance.topics
     .where('nextReview')
@@ -359,17 +299,13 @@ export async function getTopicsDueForReview(dateStr: string, dbInstance: OrbitDB
     .toArray();
 
   return topics.sort((a, b) => {
-    // Prioritize: older reviews first, harder topics first
     const dateCompare = a.nextReview.localeCompare(b.nextReview);
     if (dateCompare !== 0) return dateCompare;
 
-    return a.easeFactor - b.easeFactor; // Lower ease = harder = higher priority
+    return a.easeFactor - b.easeFactor;
   });
 }
 
-/**
- * Create review blocks for due topics
- */
 async function addSpacedRepetitionReviews(
   blocks: StudyBlock[],
   subjects: Subject[],
@@ -384,17 +320,15 @@ async function addSpacedRepetitionReviews(
     const subject = subjects.find(s => s.id === topic.subjectId);
     if (!subject) continue;
 
-    // 🔥 FIX: Respect excluded subjects (e.g. completed exams in ESA mode)
     if (constraints.excludedSubjectIds.includes(subject.id!)) continue;
 
-    // Calculate duration based on comprehension history
     const avgComprehension = topic.comprehensionHistory.length > 0
       ? topic.comprehensionHistory.reduce((a, b) => a + b, 0) / topic.comprehensionHistory.length
       : 2;
 
-    const duration = avgComprehension < 1.5 ? 45 :  // Hard topic = longer
-      avgComprehension < 2.5 ? 30 :  // Medium topic
-        20;                             // Easy topic = quick refresh
+    const duration = avgComprehension < 1.5 ? 45 :
+      avgComprehension < 2.5 ? 30 :
+        20;
 
     const block: StudyBlock = {
       id: makeId(),
@@ -413,9 +347,6 @@ async function addSpacedRepetitionReviews(
   }
 }
 
-/**
- * After completing a review block, record comprehension and update schedule
- */
 export interface TopicReviewResult {
   topicId: string;
   comprehensionRating: 1 | 2 | 3;
@@ -423,15 +354,6 @@ export interface TopicReviewResult {
   nextReview: string;
 }
 
-/**
- * Update a topic's spaced-repetition state for one review.
- *
- * NOTE: this NO LONGER writes a StudyLog. The caller owns logging so that a
- * single completion produces exactly one StudyLog (previously the focus-session
- * path double-logged: once here and once in index.tsx). It returns the review
- * metadata the caller should attach to its log. `duration` is kept for
- * signature compatibility but is unused here.
- */
 export async function recordTopicReview(
   subjectId: number,
   topicName: string,
@@ -445,13 +367,11 @@ export async function recordTopicReview(
   let reviewNumber = 1;
   let nextReview = dateStr;
   try {
-    // Find or create topic
     let topic = await dbInstance.topics
       .where({ subjectId, name: topicName })
       .first();
 
     if (!topic) {
-      // New topic - create it
       const { nextReviewDate, newEaseFactor } = calculateNextReview(
         dateStr, 1.8, 0, comprehensionRating
       );
@@ -467,7 +387,6 @@ export async function recordTopicReview(
         comprehensionHistory: [comprehensionRating]
       });
     } else {
-      // Update existing topic
       const { nextReviewDate, newEaseFactor } = calculateNextReview(
         topic.lastStudied, topic.easeFactor, topic.reviewCount, comprehensionRating
       );
@@ -487,14 +406,8 @@ export async function recordTopicReview(
   return { topicId, comprehensionRating, reviewNumber, nextReview };
 }
 
-/**
- * 💡 Get readiness for all subjects (for dashboard display)
- */
-// smartPlanner: nudge the base volume×decay score by how WELL recent sessions
-// went (quality) and how well the subject's topics are retained (SR state).
-// Both factors stay within ~±15%, so readiness never swings wildly.
 function topicRetrievability(t: StudyTopic, effectiveDate: string): number {
-  const daysUntilDue = daysBetweenDates(t.nextReview, effectiveDate); // >0 not yet due, <0 overdue
+  const daysUntilDue = daysBetweenDates(t.nextReview, effectiveDate);
   const dueR = daysUntilDue >= 0
     ? Math.min(1, 0.6 + daysUntilDue / 20)
     : Math.max(0, 0.6 + daysUntilDue / 10);
@@ -509,9 +422,8 @@ function enhanceReadiness(
   topics: StudyTopic[],
   effectiveDate: string
 ): SubjectReadiness {
-  if (base.lastStudiedDays === 999) return base; // never studied — keep 0
+  if (base.lastStudiedDays === 999) return base;
 
-  // Quality factor: avg of last 10 completed outcomes (1–5), neutral at 3 → ±15%
   const subjOutcomes = outcomes
     .filter(o => o.subjectId === subjectId && o.completed && typeof o.completionQuality === 'number')
     .sort((a, b) => b.timestamp - a.timestamp)
@@ -522,7 +434,6 @@ function enhanceReadiness(
     qualityFactor = Math.max(0.85, Math.min(1.15, 1 + ((avgQ - 3) / 2) * 0.15));
   }
 
-  // Topic factor: avg retrievability across the subject's tracked topics → ±15%
   const subjTopics = topics.filter(t => t.subjectId === subjectId);
   let topicFactor = 1;
   if (subjTopics.length) {
@@ -554,12 +465,6 @@ export async function getAllReadinessScores(dbInstance: OrbitDB = db): Promise<R
   }
   return readinessMap;
 }
-
-/* ======================================================
-  WEEK FORECAST (Plan-Gen v2 / A) — read-only look-ahead.
-  Distributes open-assignment demand + due reviews + exams across the next N
-  days so the user sees crunch coming. Not persisted (no speculative plans).
-====================================================== */
 
 export interface DayForecast {
   date: string;
@@ -617,14 +522,6 @@ export async function getWeekForecast(dbInstance: OrbitDB = db, days = 7): Promi
   return out;
 }
 
-/* ======================================================
-  CONSTRAINT RESOLUTION
-====================================================== */
-
-/* ======================================================
-  EXAM CONTEXT HELPER
-====================================================== */
-
 interface ExamContext {
   upcomingExams: (ExamEntry & { daysUntil: number; subjectName: string })[];
   completedExamSubjectIds: number[];
@@ -636,9 +533,6 @@ async function getExamContext(effectiveDate: string, dbInstance: OrbitDB = db): 
   const subjects = await dbInstance.subjects.toArray();
   const subjectMap = new Map(subjects.map(s => [s.id!, s.name]));
 
-  // FIX: Performing DB writes inside a query function violates CQS (Command-Query
-  // Separation) and can trigger re-render loops when callers observe DB changes.
-  // Batch all auto-complete writes into a single transaction before reading state.
   const pastExams = exams.filter(e => !e.completed && e.examDate < effectiveDate);
   if (pastExams.length > 0) {
     await dbInstance.transaction('rw', dbInstance.exams, async () => {
@@ -648,7 +542,6 @@ async function getExamContext(effectiveDate: string, dbInstance: OrbitDB = db): 
           .map(e => dbInstance.exams.update(e.id!, { completed: true }))
       );
     });
-    // Update the in-memory array to reflect the writes before we filter it below.
     pastExams.forEach(e => { e.completed = true; });
   }
 
@@ -720,11 +613,11 @@ export function resolveConstraints(ctx: DailyContext): DayConstraints {
 
   if (ctx.dayType === "pd") {
     return {
-      maxMinutes: 300, // Large budget for projects
+      maxMinutes: 300,
       maxBlocks: 5,
-      maxBlockDuration: 90, // Longer continuous blocks for deep work
+      maxBlockDuration: 90,
       allowProjects: true,
-      forceFocusSubject: ctx.focusSubjectId !== undefined, // Optional focal project
+      forceFocusSubject: ctx.focusSubjectId !== undefined,
       excludedSubjectIds: [],
     };
   }
@@ -738,10 +631,6 @@ export function resolveConstraints(ctx: DailyContext): DayConstraints {
     excludedSubjectIds: [],
   };
 }
-
-/* ======================================================
-  DISPLACEMENT ENGINE
-====================================================== */
 
 function tryInsertWithDisplacement(
   blocks: StudyBlock[],
@@ -764,13 +653,10 @@ function tryInsertWithDisplacement(
   for (let i = 0; i < blocks.length; i++) {
     const victim = blocks[i];
 
-    // Only displace blocks with lower priority numerically (higher value)
     if ((victim.priority ?? 99) > (candidate.priority ?? 99)) {
       const newMinutes = usedMinutes.value - victim.duration + candidate.duration;
 
       if (newMinutes <= constraints.maxMinutes) {
-        // Score: we want to minimize priority lost, and minimize wasted time
-        // High priority number = low importance. So big difference is good.
         const priorityDiff = (victim.priority ?? 99) - (candidate.priority ?? 99);
         const durationDiff = Math.abs(candidate.duration - victim.duration);
 
@@ -801,17 +687,6 @@ function tryInsertWithDisplacement(
   return false;
 }
 
-/* ======================================================
-  🚀 PLAN GENERATOR v4 - ULTIMATE INTELLIGENCE
-====================================================== */
-
-/* ======================================================
-  smartPlanner: triage (#10) + plan explanation (#9)
-====================================================== */
-
-// Tag each block must-do ('core') vs nice-to-have ('stretch') by planning
-// priority: deadline/exam/critical work (≤ CRITICAL_REVIEW) is core; maintenance,
-// projects and fallback fill are stretch. No-op unless smartPlanner is on.
 function applySmartPlanTier(blocks: StudyBlock[]): void {
   if (!getSmartPlanner()) return;
   for (const b of blocks) {
@@ -820,7 +695,6 @@ function applySmartPlanTier(blocks: StudyBlock[]): void {
   }
 }
 
-// Short, human-readable "why this plan" drivers from the finished plan.
 function buildPlanExplanation(
   blocks: StudyBlock[],
   context: DailyContext,
@@ -862,20 +736,14 @@ function buildPlanExplanation(
   return out.slice(0, 4);
 }
 
-/* ======================================================
-  smartPlanner: deadline backward-scheduling (#5) + slack/knapsack selection (#4/#10)
-====================================================== */
-
 interface DeadlineDemand {
-  requiredPerDay: number;  // total min/day across open deadlines
+  requiredPerDay: number;
   capacity: number;
   infeasible: boolean;
   warning?: string;
   count: number;
 }
 
-// Backward-schedule open assignments: required min/day = remainingEffort / daysLeft.
-// Flags infeasibility when the sum exceeds the day's capacity.
 async function computeDeadlineDemand(dbInstance: OrbitDB, capacityMin: number): Promise<DeadlineDemand> {
   const today = getISTEffectiveDate();
   const assignments = await dbInstance.assignments.toArray();
@@ -896,9 +764,6 @@ async function computeDeadlineDemand(dbInstance: OrbitDB, capacityMin: number): 
   return { requiredPerDay, capacity: capacityMin, infeasible, warning, count };
 }
 
-// Keep all must-do (core) blocks; fill the remaining slack budget (~90% of the
-// day) with the highest readiness-gain stretch blocks (value-density knapsack).
-// Leaves breathing room and makes stretch selection value-optimal, not arbitrary.
 function finalizeSmartBlocks(
   blocks: StudyBlock[],
   readinessMap: Record<number, SubjectReadiness>,
@@ -960,7 +825,6 @@ export const generateDailyPlan = async (
       readinessMap[Number(subject.id)] = calculateReadiness(subject, logs, effectiveDate);
     }
 
-    // 💡 Performance Analytics (Learn from User Behavior)
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const recentOutcomes = outcomes.filter(o => o.timestamp >= thirtyDaysAgo);
 
@@ -993,25 +857,21 @@ export const generateDailyPlan = async (
         ? 6
         : new Date(y, m - 1, d).getDay() - 1;
 
-    // Inside generateDailyPlan in brain.ts
     const createBlock = (
       sub: Subject,
       type: StudyBlock["type"],
       baseDuration: number,
       priority: number,
-      meta?: Partial<StudyBlock> // This meta now allows topicId
+      meta?: Partial<StudyBlock>
     ): StudyBlock => {
 
       let finalDuration = baseDuration;
 
-      // Auto-adjust duration based on past performance
       const perf = performanceMap[Number(sub.id)];
       if (perf && perf.totalSessions >= 3 && type !== 'break' && type !== 'recovery') {
         if (perf.avgQuality >= 4 && perf.skipRate < 0.2) {
-          // High performer -> push harder
           finalDuration = Math.min(baseDuration + 10, constraints.maxBlockDuration);
         } else if (perf.avgQuality <= 2.5 || perf.skipRate > 0.3) {
-          // Struggling -> reduce friction, shorter blocks
           finalDuration = Math.max(baseDuration - 15, 20);
         }
       }
@@ -1024,56 +884,38 @@ export const generateDailyPlan = async (
         duration: finalDuration,
         completed: false,
         priority,
-        ...meta, // topicId, reviewNumber, etc., are passed here
+        ...meta,
       };
     };
-    /* ============================
-      0. DROPPED BLOCK RECOVERY
-    ============================ */
 
-    // Check the last 3 days' plans for dropped blocks
     const droppedBlocks: StudyBlock[] = [];
 
     for (let backDays = 1; backDays <= 3; backDays++) {
       const pastDate = new Date(y, m - 1, d);
       pastDate.setDate(pastDate.getDate() - backDays);
-      // Use local calendar fields (not UTC) so this matches IST-keyed plan dates.
       const pastStr = formatLocalDate(pastDate);
       const pastPlan = await dbInstance.plans.get(pastStr);
 
       if (pastPlan?.droppedBlocks && pastPlan.droppedBlocks.length > 0) {
         for (const droppedId of pastPlan.droppedBlocks) {
-          // Prevent duplicates if a block was dropped multiple times
           if (droppedBlocks.some(b => b.id === droppedId)) continue;
 
           const droppedBlock = pastPlan.blocks.find(b => b.id === droppedId);
           if (droppedBlock && !droppedBlock.completed) {
             droppedBlocks.push({
               ...droppedBlock,
-              // Keep original priority, but degrade priority boost for older drops
               priority: Math.min((droppedBlock.priority ?? 9) + (backDays - 1), 99)
             });
           }
         }
-        // FIX: Clear droppedBlocks from the source plan so recovered blocks
-        // are not re-injected on every subsequent plan generation (ghost block bug).
         await dbInstance.plans.update(pastStr, { droppedBlocks: [] });
       }
     }
 
-    /* ============================
-      0.5 EXAM CONTEXT
-    ============================ */
-
     const examContext = await getExamContext(effectiveDate, dbInstance);
-    // During ESA period, exclude completed-exam subjects
     if (context.dayType === 'esa' && !examContext.allExamsDone) {
       constraints.excludedSubjectIds = examContext.completedExamSubjectIds;
     }
-
-    /* ============================
-      1. ISA EXCLUSIVE MODE
-    ============================ */
 
     if (context.dayType === "isa" && context.focusSubjectId) {
       const sub = subjects.find(
@@ -1081,7 +923,6 @@ export const generateDailyPlan = async (
       );
 
       if (sub) {
-        // ISA = 100% exclusive. Fill the entire plan with focus subject only.
         let remaining = constraints.maxMinutes;
 
         while (remaining >= ISA_PREP_MIN && blocks.length < constraints.maxBlocks) {
@@ -1096,7 +937,6 @@ export const generateDailyPlan = async (
           remaining -= blockDuration;
         }
 
-        // ISA is exclusive — skip everything else, return immediately
         const refined = finalizeSmartBlocks(blocks, readinessMap, constraints);
         const ordered = await orderBlocksCircadian(refined, subjects);
         const loadAnalysis = await analyzeLoad(ordered, context, constraints, readinessMap, dbInstance);
@@ -1110,10 +950,6 @@ export const generateDailyPlan = async (
       }
     }
 
-    /* ============================
-      1.5 ESA MULTI-DAY INTELLIGENCE
-    ============================ */
-
     if (constraints.forceFocusSubject && context.focusSubjectId && context.dayType === "esa") {
       const sub = subjects.find(
         (s) => Number(s.id) === Number(context.focusSubjectId)
@@ -1122,10 +958,6 @@ export const generateDailyPlan = async (
       if (sub) {
         const daysToExam = context.daysToExam ?? 1;
 
-        // Proximity-based focus allocation:
-        // <= 1 day: 100% focus (70% of max time)
-        // 2 days:   80% focus
-        // 3+ days:  60% focus
         let focusRatio: number;
         if (daysToExam <= 1) {
           focusRatio = 0.70;
@@ -1151,7 +983,6 @@ export const generateDailyPlan = async (
           esaRemaining -= blockDuration;
         }
 
-        // If days >= 3, fill remaining time with other non-excluded subjects
         if (daysToExam >= 3) {
           const otherSubjects = subjects.filter(
             s => Number(s.id) !== Number(context.focusSubjectId) &&
@@ -1179,12 +1010,7 @@ export const generateDailyPlan = async (
       }
     }
 
-    /* ============================
-      2. 💡 CRITICAL READINESS RECOVERY
-    ============================ */
-
     if (!context.isHoliday && !context.isSick) {
-      // Get today's scheduled subjects
       const todaySubs = Array.from(
         new Set(
           schedule
@@ -1193,7 +1019,6 @@ export const generateDailyPlan = async (
         )
       ).filter(sid => !constraints.excludedSubjectIds.includes(sid));
 
-      // Add critical review blocks FIRST
       for (const sid of todaySubs) {
         const sub = subjects.find((s) => Number(s.id) === sid);
         if (!sub) continue;
@@ -1219,9 +1044,6 @@ export const generateDailyPlan = async (
       }
     }
 
-    /* ============================
-      2.5 📊 SPACED REPETITION REVIEWS (NEW)
-    ============================ */
     await addSpacedRepetitionReviews(
       blocks,
       subjects,
@@ -1230,10 +1052,6 @@ export const generateDailyPlan = async (
       effectiveDate,
       dbInstance
     );
-
-    /* ============================
-      3. 💡 SMART ASSIGNMENT PLANNING (Backward Planning)
-    ============================ */
 
     for (const asm of assignments) {
       if (!asm.dueDate) continue;
@@ -1244,7 +1062,6 @@ export const generateDailyPlan = async (
       );
       if (!sub) continue;
 
-      // 🔥 PANIC MODE: ≤1 day left
       if (daysLeft <= 1) {
         tryInsertWithDisplacement(
           blocks,
@@ -1263,13 +1080,12 @@ export const generateDailyPlan = async (
         continue;
       }
 
-      // 📋 BACKWARD PLANNING: 2-14 days left
       if (daysLeft > 1 && daysLeft <= 14) {
         const totalEffort = asm.estimatedEffort ?? DEFAULT_ASSIGNMENT_EFFORT_MIN;
         const progressSoFar = asm.progressMinutes ?? 0;
         const remainingEffort = Math.max(0, totalEffort - progressSoFar);
 
-        if (remainingEffort <= 0) continue; // Already done
+        if (remainingEffort <= 0) continue;
 
         const workDays = Math.max(1, daysLeft - 1);
         const dailyTarget = Math.ceil(remainingEffort / workDays);
@@ -1297,10 +1113,6 @@ export const generateDailyPlan = async (
       }
     }
 
-    /* ============================
-      4. PROJECT INTELLIGENCE
-    ============================ */
-
     if (constraints.allowProjects && projects.length > 0) {
       for (const p of projects) {
         if (p.completed) continue;
@@ -1309,7 +1121,6 @@ export const generateDailyPlan = async (
         const sub = subjects.find((s) => Number(s.id) === Number(p.subjectId));
         if (!sub) continue;
 
-        // PD Mode Logic: Is this project the user's specific focal target?
         const isFocalProject = context.dayType === 'pd' && context.focusSubjectId === p.subjectId;
 
         let priority = isFocalProject ? DOMINANCE.PROJECT_DECAY + 5 : DOMINANCE.PROJECT;
@@ -1317,19 +1128,18 @@ export const generateDailyPlan = async (
         let reason = "";
         let notes = "";
 
-        // 1. DEADLINE-DRIVEN BACKWARD PLANNING
         if (p.deadline) {
           const daysLeft = daysBetweenDates(effectiveDate, p.deadline);
 
           if (daysLeft < 0) {
-            priority = DOMINANCE.PROJECT_DECAY + 10; // OVERDUE
+            priority = DOMINANCE.PROJECT_DECAY + 10;
             reason = "⚠️ OVERDUE PROJECT";
             notes = "LATE";
           } else if (daysLeft <= 3) {
-            priority = DOMINANCE.PROJECT_DECAY + 5; // CRITICAL
+            priority = DOMINANCE.PROJECT_DECAY + 5;
             reason = `⚠️ CRITICAL: Project due in ${daysLeft} days`;
             notes = `Due in ${daysLeft}d`;
-            projectDuration = Math.max(projectDuration, 90); // Force longer blocks near deadline
+            projectDuration = Math.max(projectDuration, 90);
           } else if (daysLeft <= 7) {
             priority = DOMINANCE.PROJECT_DECAY;
             reason = `Project due in ${daysLeft} days`;
@@ -1337,14 +1147,10 @@ export const generateDailyPlan = async (
             projectDuration = Math.max(projectDuration, 60);
           }
 
-          // If we have a deadline, we don't care about "idle" time as much, 
-          // we just schedule it if it's due soon, or if it's a PD day.
           if (daysLeft > 7 && !isFocalProject) {
-            // Not urgent yet, skip unless PD mode
             continue;
           }
         }
-        // 2. IDLE-BASED HEURISTIC (For open-ended projects without deadlines)
         else {
           const lastLog = logs
             .filter((l) => l.projectId === p.id)
@@ -1372,7 +1178,6 @@ export const generateDailyPlan = async (
           }
         }
 
-        // On a Project Day, massively increase project durations
         if (context.dayType === 'pd') {
           projectDuration = Math.min(projectDuration * 2, constraints.maxBlockDuration);
           if (!reason) reason = "Project Focus Day";
@@ -1391,10 +1196,6 @@ export const generateDailyPlan = async (
       }
     }
 
-    /* ============================
-      5. REGULAR REVIEW CADENCE
-    ============================ */
-
     if (!context.isHoliday && !context.isSick) {
       const todaySubs = Array.from(
         new Set(
@@ -1408,7 +1209,6 @@ export const generateDailyPlan = async (
         const sub = subjects.find((s) => Number(s.id) === sid);
         if (!sub) continue;
 
-        // Skip if already added as critical review
         const alreadyCritical = blocks.some(
           b => b.subjectId === sid && b.notes?.includes("Critical Review")
         );
@@ -1445,10 +1245,6 @@ export const generateDailyPlan = async (
       }
     }
 
-    /* ============================
-      6. 💡 SMART FALLBACK (Readiness-Based)
-    ============================ */
-
     const currentBlockCount = blocks.length;
     const targetMinBlocks = Math.min(MIN_BLOCKS_FALLBACK, constraints.maxBlocks);
 
@@ -1456,7 +1252,6 @@ export const generateDailyPlan = async (
 
       const scheduledSubjectIds = new Set<number>(blocks.map(b => b.subjectId));
 
-      // Sort subjects by readiness (weakest first), excluding completed-exam subjects
       let unscheduledSubjects = subjects.filter(
         (s) => !scheduledSubjectIds.has(Number(s.id)) &&
           !constraints.excludedSubjectIds.includes(Number(s.id))
@@ -1468,7 +1263,6 @@ export const generateDailyPlan = async (
           (readinessMap[Number(b.id)]?.score ?? 100)
       );
 
-      // If all subjects already scheduled, re-sort all subjects by readiness
       if (unscheduledSubjects.length === 0) {
         unscheduledSubjects = [...subjects].sort(
           (a, b) =>
@@ -1508,7 +1302,6 @@ export const generateDailyPlan = async (
 
     }
 
-    // 🔧 Emergency fallback: If STILL no blocks
     if (blocks.length === 0 && subjects.length > 0) {
       console.warn('⚠️ Emergency fallback');
 
@@ -1529,19 +1322,13 @@ export const generateDailyPlan = async (
       );
     }
 
-    /* ============================
-      7. DROPPED BLOCK RECOVERY
-    ============================ */
-
     for (const dropped of droppedBlocks) {
-      // Skip if this subject is excluded
       if (constraints.excludedSubjectIds.includes(dropped.subjectId)) continue;
 
       const sub = subjects.find(s => Number(s.id) === dropped.subjectId);
       if (!sub) continue;
 
-      // Boost priority for dropped blocks
-      let priority = (dropped.priority ?? DOMINANCE.REVIEW) - 1; // Slightly higher priority
+      let priority = (dropped.priority ?? DOMINANCE.REVIEW) - 1;
       if (dropped.type === 'assignment') priority = DOMINANCE.ASSIGNMENT_URGENT;
 
       tryInsertWithDisplacement(
@@ -1580,10 +1367,6 @@ export const generateDailyPlan = async (
   }
 };
 
-/* ======================================================
-  💡 CIRCADIAN ORDERING (Time-of-Day Optimization)
-====================================================== */
-
 async function orderBlocksCircadian(
   blocks: StudyBlock[],
   subjects: Subject[]
@@ -1592,7 +1375,6 @@ async function orderBlocksCircadian(
 
   const subjectMap = new Map(subjects.map(s => [s.id!, s]));
 
-  // Categorize by cognitive type
   const warmup: StudyBlock[] = [];
   const analytical: StudyBlock[] = [];
   const memory: StudyBlock[] = [];
@@ -1601,7 +1383,6 @@ async function orderBlocksCircadian(
   for (const b of blocks) {
     const sub = subjectMap.get(b.subjectId);
 
-    // Warmup: short, easy blocks
     if (
       b.type === "recovery" ||
       (b.type === "review" && b.duration <= 20)
@@ -1610,7 +1391,6 @@ async function orderBlocksCircadian(
       continue;
     }
 
-    // Analytical: Math, Physics (best in morning)
     if (
       sub && (
         getSubjectType(sub) === "analytical" ||
@@ -1621,13 +1401,11 @@ async function orderBlocksCircadian(
       continue;
     }
 
-    // Memory: History, Biology (good in afternoon/evening)
     if (sub && getSubjectType(sub) === "memory") {
       memory.push(b);
       continue;
     }
 
-    // Creative: Projects, design (good in afternoon)
     if (
       b.type === "project" ||
       (sub && getSubjectType(sub) === "creative")
@@ -1636,17 +1414,14 @@ async function orderBlocksCircadian(
       continue;
     }
 
-    // Mixed subjects → treat as memory
     if (sub && getSubjectType(sub) === "mixed") {
       memory.push(b);
       continue;
     }
 
-    // Default: analytical
     analytical.push(b);
   }
 
-  // Sort each category by priority
   const byPriority = (a: StudyBlock, b: StudyBlock) =>
     (a.priority ?? 99) - (b.priority ?? 99) || (b.duration - a.duration);
 
@@ -1655,14 +1430,11 @@ async function orderBlocksCircadian(
   memory.sort(byPriority);
   creative.sort(byPriority);
 
-  // ── Ordering: learned productivity curve (smartPlanner) or time-of-day buckets ──
   const startHour = getISTTime().getHours();
   let initialOrder: StudyBlock[] = [];
   const profile = getSmartPlanner() ? await getProductivityProfile(db) : null;
 
   if (profile && profile.confidence >= 0.3 && (analytical.length + memory.length + creative.length) > 1) {
-    // Place the highest-demand work in the user's best-performing upcoming windows,
-    // and nudge high-skip-risk subjects earlier (while motivation is highest).
     const rest = [...analytical, ...memory, ...creative];
     const skip = await getSkipRisk(db);
     const avgDur = rest.reduce((a, b) => a + b.duration, 0) / rest.length;
@@ -1682,17 +1454,13 @@ async function orderBlocksCircadian(
     for (let k = 0; k < blocksByDemand.length; k++) slotted[posByWeight[k].i] = blocksByDemand[k];
     initialOrder = [...warmup, ...slotted];
   } else if (startHour >= 18) {
-    // Evening: memory → creative → analytical (delay heavy mental load)
     initialOrder = [...warmup, ...memory, ...creative, ...analytical];
   } else if (startHour >= 13) {
-    // Afternoon: creative → analytical → memory (post-lunch dip)
     initialOrder = [...warmup, ...creative, ...analytical, ...memory];
   } else {
-    // Morning: analytical (hard) → memory → creative (front-load cognition)
     initialOrder = [...warmup, ...analytical, ...memory, ...creative];
   }
 
-  // 🧘 BREAK INJECTION ENGINE
   const finalOrder: StudyBlock[] = [];
   let continuousMinutes = 0;
   let heavyBlocksCount = 0;
@@ -1706,7 +1474,6 @@ async function orderBlocksCircadian(
     const sub = subjects.find(s => s.id === block.subjectId);
     if (sub && sub.difficulty >= 3) heavyBlocksCount++;
 
-    // Don't add a break if this is the last block
     if (i < initialOrder.length - 1) {
       if (continuousMinutes >= 90 || heavyBlocksCount >= 2) {
         finalOrder.push({
@@ -1716,12 +1483,11 @@ async function orderBlocksCircadian(
           type: "break",
           duration: 10,
           completed: false,
-          priority: Math.max(0, block.priority - 1), // Keeps it attached to the previous block logically
+          priority: Math.max(0, block.priority - 1),
           notes: continuousMinutes >= 90 ? "Cognitive cooling" : "Heavy load recovery",
           reason: "Scheduled break to prevent burnout"
         } as StudyBlock);
 
-        // Reset counters after a break
         continuousMinutes = 0;
         heavyBlocksCount = 0;
       }
@@ -1730,10 +1496,6 @@ async function orderBlocksCircadian(
 
   return finalOrder;
 }
-
-/* ======================================================
-  💡 ENHANCED LOAD ANALYSIS (with Readiness Impact)
-====================================================== */
 
 export async function analyzeLoad(
   blocks: StudyBlock[],
@@ -1745,7 +1507,6 @@ export async function analyzeLoad(
   const subjects = await dbInstance.subjects.toArray();
   const subjectMap = new Map(subjects.map(s => [s.id!, s]));
 
-  // Get readiness map if not provided
   let readinessMap: Record<number, SubjectReadiness> = precomputedReadinessMap || {};
   if (Object.keys(readinessMap).length === 0) {
     const logs = await db.logs.toArray();
@@ -1767,7 +1528,6 @@ export async function analyzeLoad(
     (b) => b.priority !== undefined && b.priority <= DOMINANCE.ASSIGNMENT
   ).length;
 
-  // Cognitive load calculation
   let cognitiveLoad = 0;
   blocks.forEach(block => {
     const subject = subjectMap.get(block.subjectId);
@@ -1786,25 +1546,19 @@ export async function analyzeLoad(
 
   const cognitiveScore = Math.min(100, (cognitiveLoad / constraints.maxMinutes) * 60);
 
-  // Base load score (0-100)
   let loadScore = 0;
 
-  // Factor 1: Cognitive load (0-35 points)
   loadScore += cognitiveScore * 0.35;
 
-  // Factor 2: Raw time (0-25 points)
   const minuteRatio = totalMinutes / constraints.maxMinutes;
   loadScore += Math.min(25, minuteRatio * 25);
 
-  // Factor 3: Deep work concentration (0-25 points)
   const deepWorkRatio = blocks.length > 0 ? deepWorkBlocks / blocks.length : 0;
   loadScore += deepWorkRatio * 25;
 
-  // Factor 4: Priority density (0-15 points)
   const priorityRatio = blocks.length > 0 ? highPriorityBlocks / blocks.length : 0;
   loadScore += priorityRatio * 15;
 
-  // Context adjustments
   if (context.mood === "low") loadScore *= 1.25;
   if (context.mood === "high") loadScore *= 0.8;
   if (context.isSick) loadScore *= 1.5;
@@ -1812,13 +1566,11 @@ export async function analyzeLoad(
 
   loadScore = Math.min(100, Math.round(loadScore));
 
-  // Determine load level
   let loadLevel: LoadAnalysis['loadLevel'] = 'normal';
   if (loadScore >= 80) loadLevel = 'extreme';
   else if (loadScore >= 60) loadLevel = 'heavy';
   else if (loadScore <= 30) loadLevel = 'light';
 
-  // Generate warnings
   let warning: string | undefined;
 
   if (loadLevel === 'extreme' && !['esa', 'isa'].includes(context.dayType)) {
@@ -1837,7 +1589,6 @@ export async function analyzeLoad(
     }
   }
 
-  // 💡 Calculate readiness impact
   let readinessImpact = 0;
   const subjectImpacts: Record<number, number> = {};
 
@@ -1853,11 +1604,9 @@ export async function analyzeLoad(
       block.type === "project" ||
       block.type === "recovery"
     ) {
-      // Gain formula: hours × 5 points, scaled by how far from 100%
       const gainRaw = (block.duration / 60) * 5;
       const scaledGain = gainRaw * ((100 - currentScore) / 100);
 
-      // Add to subject-specific impact
       subjectImpacts[subjectId] = (subjectImpacts[subjectId] || 0) + scaledGain;
 
       readinessImpact += scaledGain;
@@ -1867,4 +1616,3 @@ export async function analyzeLoad(
 
   return { loadScore, loadLevel, warning, readinessImpact, subjectImpacts };
 }
-

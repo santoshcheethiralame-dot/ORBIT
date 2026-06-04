@@ -112,7 +112,6 @@ export const QualityRatingModal = ({
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-200 p-4" onClick={onClose}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Rate your session" onClick={e => e.stopPropagation()} className="bg-zinc-900/80 backdrop-blur-2xl rounded-3xl p-7 max-w-md w-full border border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_24px_60px_-20px_rgba(0,0,0,0.7)] animate-in zoom-in-95 duration-200">
 
-        {/* Header */}
         <div className="flex justify-between items-center mb-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
@@ -128,7 +127,6 @@ export const QualityRatingModal = ({
           </button>
         </div>
 
-        {/* Topic input for review sessions */}
         {isReview && !selectedRating && (
           <div className="mb-6 animate-in slide-in-from-top-2 fade-in duration-300">
             <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-2">Topic Reviewed</label>
@@ -142,7 +140,6 @@ export const QualityRatingModal = ({
           </div>
         )}
 
-        {/* Rating grid */}
         {!selectedRating && (
           <div className="animate-in fade-in duration-200">
             <div className="text-center mb-5">
@@ -166,11 +163,9 @@ export const QualityRatingModal = ({
           </div>
         )}
 
-        {/* Confirmation + AI tip */}
         {selectedRating && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
 
-            {/* Selected rating pill */}
             <div className="flex items-center gap-3 px-4 py-3 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
               <span className="text-3xl">{selectedOption?.emoji}</span>
               <div>
@@ -185,7 +180,6 @@ export const QualityRatingModal = ({
               </button>
             </div>
 
-            {/* AI tip panel */}
             <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,90,31,0.2)', background: 'rgba(255,90,31,0.04)' }}>
               <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,90,31,0.1)' }}>
                 <Sparkles size={11} className="text-indigo-400 flex-shrink-0" />
@@ -216,7 +210,6 @@ export const QualityRatingModal = ({
               </div>
             </div>
 
-            {/* CTA */}
             <button
               onClick={handleContinue}
               className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-all active:scale-[0.98]"

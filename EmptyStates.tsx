@@ -1,4 +1,3 @@
-// EmptyStates.tsx - Reusable empty state components
 import React from 'react';
 import {
     CheckCircle, Activity, Calendar, BookOpen, Target,
@@ -77,10 +76,6 @@ export const EmptyState = ({
         </div>
     );
 };
-
-// ========================================
-// Pre-configured Empty States
-// ========================================
 
 export const EmptyBacklog = () => (
     <EmptyState
