@@ -17,6 +17,7 @@ export type { SubjectReadiness };
 import { getISTEffectiveDate, formatLocalDate, getISTTime } from "./utils/time";
 import { notifyDataChange } from "./db";
 import { getDefaultFocusDuration, getSmartPlanner } from "./utils/settingsHelper";
+import { getProductivityProfile, getSkipRisk } from "./brain-analytics";
 
 /* ======================================================
   TYPES
@@ -1513,21 +1514,40 @@ async function orderBlocksCircadian(
   memory.sort(byPriority);
   creative.sort(byPriority);
 
-  // Time-Aware Circadian Ordering
-  const hour = getISTTime().getHours();
+  // ── Ordering: learned productivity curve (smartPlanner) or time-of-day buckets ──
+  const startHour = getISTTime().getHours();
   let initialOrder: StudyBlock[] = [];
+  const profile = getSmartPlanner() ? await getProductivityProfile(db) : null;
 
-  if (hour >= 18) {
-    // Evening (6 PM+): Memory -> Creative -> Analytical
-    // Delay heavy mental load, focus on retention and lighter work
+  if (profile && profile.confidence >= 0.3 && (analytical.length + memory.length + creative.length) > 1) {
+    // Place the highest-demand work in the user's best-performing upcoming windows,
+    // and nudge high-skip-risk subjects earlier (while motivation is highest).
+    const rest = [...analytical, ...memory, ...creative];
+    const skip = await getSkipRisk(db);
+    const avgDur = rest.reduce((a, b) => a + b.duration, 0) / rest.length;
+    const demand = (b: StudyBlock) => {
+      const sub = subjectMap.get(b.subjectId);
+      const diff = sub ? sub.difficulty : 3;
+      const sk = skip.bySubject[b.subjectId] ?? skip.overall;
+      return diff + sk * 2 + (b.priority <= DOMINANCE.CRITICAL_REVIEW ? 1 : 0);
+    };
+    const positions = rest.map((_, i) => {
+      const h = Math.floor((startHour + (i * avgDur) / 60)) % 24;
+      return { i, weight: profile.hourWeight[h] ?? 0.5 };
+    });
+    const blocksByDemand = [...rest].sort((a, b) => demand(b) - demand(a) || (a.priority - b.priority));
+    const posByWeight = [...positions].sort((a, b) => b.weight - a.weight || a.i - b.i);
+    const slotted: StudyBlock[] = new Array(rest.length);
+    for (let k = 0; k < blocksByDemand.length; k++) slotted[posByWeight[k].i] = blocksByDemand[k];
+    initialOrder = [...warmup, ...slotted];
+  } else if (startHour >= 18) {
+    // Evening: memory → creative → analytical (delay heavy mental load)
     initialOrder = [...warmup, ...memory, ...creative, ...analytical];
-  } else if (hour >= 13) {
-    // Afternoon (1 PM - 6 PM): Creative -> Analytical -> Memory
-    // Post-lunch dip is better for creative work before returning to analytical
+  } else if (startHour >= 13) {
+    // Afternoon: creative → analytical → memory (post-lunch dip)
     initialOrder = [...warmup, ...creative, ...analytical, ...memory];
   } else {
-    // Morning (Optimal): Analytical (hard) -> Memory -> Creative
-    // Front-load the heaviest cognitive work
+    // Morning: analytical (hard) → memory → creative (front-load cognition)
     initialOrder = [...warmup, ...analytical, ...memory, ...creative];
   }
 

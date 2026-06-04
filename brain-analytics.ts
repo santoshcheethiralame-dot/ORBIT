@@ -640,6 +640,74 @@ export async function getDashboardInsights(
   EXPORTS
 ====================================================== */
 
+/* ======================================================
+  PRODUCTIVITY PROFILE — learned time-of-day performance (Plan-Gen v2 / B)
+====================================================== */
+
+export interface ProductivityProfile {
+  hourWeight: number[];   // 24 entries, normalised ~0..1 relative performance
+  peakHour: number;
+  confidence: number;     // 0..1 by data sufficiency
+  sampleSize: number;
+}
+
+// performance signal for one outcome: skipped is worst, completed+high-quality best
+function outcomePerf(o: BlockOutcome): number {
+  const q = typeof o.completionQuality === 'number' ? (o.completionQuality - 1) / 4 : 0.5;
+  if (o.skipped) return 0.1;
+  if (o.completed) return 0.5 + 0.5 * q;
+  return 0.2 + 0.3 * q;
+}
+
+export async function getProductivityProfile(dbInstance: OrbitDB = db): Promise<ProductivityProfile> {
+  const outcomes = (await dbInstance.blockOutcomes.toArray()).filter(o => typeof o.timeOfDay === 'number');
+  const sum = new Array(24).fill(0);
+  const cnt = new Array(24).fill(0);
+  for (const o of outcomes) {
+    const h = ((o.timeOfDay % 24) + 24) % 24;
+    sum[h] += outcomePerf(o);
+    cnt[h] += 1;
+  }
+  const totalN = outcomes.length;
+  const globalMean = totalN ? outcomes.reduce((a, o) => a + outcomePerf(o), 0) / totalN : 0.6;
+  const PRIOR = 3; // pseudo-count → Laplace smoothing toward the global mean
+  const smoothed = sum.map((s, h) => (s + PRIOR * globalMean) / (cnt[h] + PRIOR));
+  const max = Math.max(...smoothed, 0.001);
+  const hourWeight = smoothed.map(w => w / max);
+  let peakHour = 9, best = -1;
+  for (let h = 0; h < 24; h++) if (cnt[h] > 0 && hourWeight[h] > best) { best = hourWeight[h]; peakHour = h; }
+  return { hourWeight, peakHour, confidence: Math.min(1, totalN / 20), sampleSize: totalN };
+}
+
+/* ======================================================
+  SKIP-RISK / ADHERENCE (Plan-Gen v2 / B)
+====================================================== */
+
+export interface SkipRisk {
+  bySubject: Record<number, number>; // 0..1 smoothed skip rate
+  byHour: number[];                  // 24
+  overall: number;
+  confidence: number;
+}
+
+export async function getSkipRisk(dbInstance: OrbitDB = db): Promise<SkipRisk> {
+  const outcomes = await dbInstance.blockOutcomes.toArray();
+  const n = outcomes.length;
+  const overall = n ? outcomes.filter(o => o.skipped).length / n : 0;
+  const subj: Record<number, { s: number; n: number }> = {};
+  const hourS = new Array(24).fill(0), hourN = new Array(24).fill(0);
+  for (const o of outcomes) {
+    const g = subj[o.subjectId] || (subj[o.subjectId] = { s: 0, n: 0 });
+    g.n++; if (o.skipped) g.s++;
+    if (typeof o.timeOfDay === 'number') { const h = ((o.timeOfDay % 24) + 24) % 24; hourN[h]++; if (o.skipped) hourS[h]++; }
+  }
+  const PRIOR = 2;
+  const bySubject: Record<number, number> = {};
+  for (const id in subj) { const g = subj[id]; bySubject[Number(id)] = (g.s + PRIOR * overall) / (g.n + PRIOR); }
+  const byHour = hourS.map((s, h) => (s + PRIOR * overall) / (hourN[h] + PRIOR));
+  return { bySubject, byHour, overall, confidence: Math.min(1, n / 20) };
+}
+
 export default {
   // Quality Rating
   getQualityRatingOptions,
