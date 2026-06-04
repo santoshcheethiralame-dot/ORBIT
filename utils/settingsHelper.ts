@@ -22,6 +22,7 @@ export interface AppSettings {
     longBreakInterval: number;
     autoStartBreaks: boolean;
     strictModeDefault: boolean;
+    smartPlanner: boolean;
   };
   audio: {
     enabled: boolean;
@@ -65,6 +66,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     longBreakInterval: 4,
     autoStartBreaks: false,
     strictModeDefault: false,
+    smartPlanner: true,
   },
   audio: {
     enabled: true,
@@ -155,6 +157,11 @@ export function isAutoStartBreaksEnabled(): boolean {
 
 export function isStrictModeDefault(): boolean {
   return getSetting<boolean>('study.strictModeDefault') ?? false;
+}
+
+/** Plan-Generation v2 master switch (quality/topic-aware readiness, triage, explanations). */
+export function getSmartPlanner(): boolean {
+  return getSetting<boolean>('study.smartPlanner') ?? true;
 }
 
 export function isAudioEnabled(): boolean {

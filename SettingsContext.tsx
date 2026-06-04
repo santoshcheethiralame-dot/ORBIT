@@ -18,6 +18,7 @@ export interface AppSettings {
     longBreakInterval: number;
     autoStartBreaks: boolean;
     strictModeDefault: boolean;
+    smartPlanner: boolean;
   };
   audio: {
     enabled: boolean;
@@ -61,6 +62,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     longBreakInterval: 4,
     autoStartBreaks: false,
     strictModeDefault: false,
+    smartPlanner: true,
   },
   audio: {
     enabled: true,

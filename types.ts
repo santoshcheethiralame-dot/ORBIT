@@ -99,6 +99,7 @@ export interface StudyBlock {
 
   migrated?: boolean;
   priority: number;
+  tier?: 'core' | 'stretch';  // smartPlanner triage: must-do vs nice-to-have
 
   notes?: string;
   assignmentId?: string;
@@ -155,6 +156,7 @@ export interface DailyPlan {
     warning?: string;
     readinessImpact: number;
     subjectImpacts?: Record<number, number>;
+    planExplanation?: string[];
   };
   performanceAdjustments?: {
     subjectId: number;

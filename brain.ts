@@ -8,6 +8,7 @@ import {
   StudyLog,
   StudyTopic,
   ExamEntry,
+  BlockOutcome,
   SubjectReadiness,
 } from "./types";
 
@@ -15,7 +16,7 @@ import {
 export type { SubjectReadiness };
 import { getISTEffectiveDate, formatLocalDate, getISTTime } from "./utils/time";
 import { notifyDataChange } from "./db";
-import { getDefaultFocusDuration } from "./utils/settingsHelper";
+import { getDefaultFocusDuration, getSmartPlanner } from "./utils/settingsHelper";
 
 /* ======================================================
   TYPES
@@ -36,6 +37,7 @@ type LoadAnalysis = {
   loadScore: number; // 0-100
   readinessImpact: number; // How much readiness will improve
   subjectImpacts?: Record<number, number>; // Per-subject readiness impact
+  planExplanation?: string[]; // smartPlanner: human-readable "why this plan" drivers
 };
 
 export type PlanResult = {
@@ -487,16 +489,68 @@ export async function recordTopicReview(
 /**
  * 💡 Get readiness for all subjects (for dashboard display)
  */
+// smartPlanner: nudge the base volume×decay score by how WELL recent sessions
+// went (quality) and how well the subject's topics are retained (SR state).
+// Both factors stay within ~±15%, so readiness never swings wildly.
+function topicRetrievability(t: StudyTopic, effectiveDate: string): number {
+  const daysUntilDue = daysBetweenDates(t.nextReview, effectiveDate); // >0 not yet due, <0 overdue
+  const dueR = daysUntilDue >= 0
+    ? Math.min(1, 0.6 + daysUntilDue / 20)
+    : Math.max(0, 0.6 + daysUntilDue / 10);
+  const efR = Math.max(0, Math.min(1, (t.easeFactor - 1.3) / (2.5 - 1.3)));
+  return Math.max(0, Math.min(1, dueR * 0.7 + efR * 0.3));
+}
+
+function enhanceReadiness(
+  base: SubjectReadiness,
+  subjectId: number,
+  outcomes: BlockOutcome[],
+  topics: StudyTopic[],
+  effectiveDate: string
+): SubjectReadiness {
+  if (base.lastStudiedDays === 999) return base; // never studied — keep 0
+
+  // Quality factor: avg of last 10 completed outcomes (1–5), neutral at 3 → ±15%
+  const subjOutcomes = outcomes
+    .filter(o => o.subjectId === subjectId && o.completed && typeof o.completionQuality === 'number')
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 10);
+  let qualityFactor = 1;
+  if (subjOutcomes.length >= 2) {
+    const avgQ = subjOutcomes.reduce((s, o) => s + o.completionQuality, 0) / subjOutcomes.length;
+    qualityFactor = Math.max(0.85, Math.min(1.15, 1 + ((avgQ - 3) / 2) * 0.15));
+  }
+
+  // Topic factor: avg retrievability across the subject's tracked topics → ±15%
+  const subjTopics = topics.filter(t => t.subjectId === subjectId);
+  let topicFactor = 1;
+  if (subjTopics.length) {
+    const avgR = subjTopics.reduce((s, t) => s + topicRetrievability(t, effectiveDate), 0) / subjTopics.length;
+    topicFactor = 0.85 + avgR * 0.3;
+  }
+
+  const score = Math.max(0, Math.min(100, Math.round(base.score * qualityFactor * topicFactor)));
+  let status: SubjectReadiness['status'] = 'maintaining';
+  if (score < READINESS_CRITICAL_THRESHOLD) status = 'critical';
+  else if (score > READINESS_MAINTAINING_THRESHOLD) status = 'mastered';
+  return { ...base, score, status };
+}
+
 export async function getAllReadinessScores(dbInstance: OrbitDB = db): Promise<Record<number, SubjectReadiness>> {
   const subjects = await dbInstance.subjects.toArray();
   const logs = await dbInstance.logs.toArray();
   const effectiveDate = getISTEffectiveDate();
+  const smart = getSmartPlanner();
+  const outcomes = smart ? await dbInstance.blockOutcomes.toArray() : [];
+  const topics = smart ? await dbInstance.topics.toArray() : [];
 
   const readinessMap: Record<number, SubjectReadiness> = {};
   for (const subject of subjects) {
-    readinessMap[Number(subject.id)] = calculateReadiness(subject, logs, effectiveDate);
+    const base = calculateReadiness(subject, logs, effectiveDate);
+    readinessMap[Number(subject.id)] = smart
+      ? enhanceReadiness(base, Number(subject.id), outcomes, topics, effectiveDate)
+      : base;
   }
-
   return readinessMap;
 }
 
@@ -688,6 +742,58 @@ function tryInsertWithDisplacement(
   🚀 PLAN GENERATOR v4 - ULTIMATE INTELLIGENCE
 ====================================================== */
 
+/* ======================================================
+  smartPlanner: triage (#10) + plan explanation (#9)
+====================================================== */
+
+// Tag each block must-do ('core') vs nice-to-have ('stretch') by planning
+// priority: deadline/exam/critical work (≤ CRITICAL_REVIEW) is core; maintenance,
+// projects and fallback fill are stretch. No-op unless smartPlanner is on.
+function applySmartPlanTier(blocks: StudyBlock[]): void {
+  if (!getSmartPlanner()) return;
+  for (const b of blocks) {
+    if (b.type === 'break') continue;
+    b.tier = b.priority <= DOMINANCE.CRITICAL_REVIEW ? 'core' : 'stretch';
+  }
+}
+
+// Short, human-readable "why this plan" drivers from the finished plan.
+function buildPlanExplanation(
+  blocks: StudyBlock[],
+  context: DailyContext,
+  readinessMap: Record<number, SubjectReadiness>,
+  subjects: Subject[]
+): string[] {
+  if (!getSmartPlanner()) return [];
+  const out: string[] = [];
+  const nameOf = (id: number) => subjects.find(s => Number(s.id) === id)?.name || 'subject';
+  const studyBlocks = blocks.filter(b => b.type !== 'break');
+
+  if (context.dayType === 'esa' || context.dayType === 'isa') {
+    const focus = context.focusSubjectId ? ` · ${nameOf(context.focusSubjectId)}` : '';
+    const near = typeof context.daysToExam === 'number' ? ` (exam in ${context.daysToExam}d)` : '';
+    out.push(`Exam mode — ${context.dayType.toUpperCase()}${focus}${near}`);
+  }
+
+  const urgent = studyBlocks.filter(b => b.type === 'assignment' && b.priority <= DOMINANCE.ASSIGNMENT_URGENT).length;
+  if (urgent > 0) out.push(`${urgent} urgent assignment${urgent > 1 ? 's' : ''} due — prioritised`);
+
+  const critIds = [...new Set(studyBlocks.map(b => b.subjectId))].filter(id => readinessMap[id]?.status === 'critical');
+  if (critIds.length) {
+    const names = critIds.slice(0, 2).map(id => nameOf(id)).join(', ');
+    out.push(`Recovering weak subjects: ${names}`);
+  }
+
+  const reviews = studyBlocks.filter(b => b.type === 'review').length;
+  if (reviews > 0) out.push(`${reviews} review block${reviews > 1 ? 's' : ''} for spaced retention`);
+
+  const core = studyBlocks.filter(b => b.tier === 'core').length;
+  const stretch = studyBlocks.filter(b => b.tier === 'stretch').length;
+  if (core || stretch) out.push(`${core} must-do · ${stretch} stretch`);
+
+  return out.slice(0, 4);
+}
+
 export const generateDailyPlan = async (
   context: DailyContext,
   dbInstance: OrbitDB = db
@@ -859,6 +965,9 @@ export const generateDailyPlan = async (
         // ISA is exclusive — skip everything else, return immediately
         const ordered = await orderBlocksCircadian(blocks, subjects);
         const loadAnalysis = await analyzeLoad(ordered, context, constraints, readinessMap, dbInstance);
+        applySmartPlanTier(ordered);
+        const explanation = buildPlanExplanation(ordered, context, readinessMap, subjects);
+        if (explanation.length) loadAnalysis.planExplanation = explanation;
         return { blocks: ordered, loadAnalysis };
       }
     }
@@ -1312,7 +1421,9 @@ export const generateDailyPlan = async (
 
     const ordered = await orderBlocksCircadian(blocks, subjects);
     const loadAnalysis = await analyzeLoad(ordered, context, constraints, readinessMap, dbInstance);
-
+    applySmartPlanTier(ordered);
+    const explanation = buildPlanExplanation(ordered, context, readinessMap, subjects);
+    if (explanation.length) loadAnalysis.planExplanation = explanation;
 
     return {
       blocks: ordered,

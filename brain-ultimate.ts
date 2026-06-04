@@ -52,6 +52,7 @@ export interface UltimatePlanResult {
     burnoutRisk: Awaited<ReturnType<typeof detectBurnout>>;
     interleaving: ReturnType<typeof analyzeInterleaving>;
     energyBudget: ReturnType<typeof validateEnergyBudget>;
+    planExplanation?: string[];
   };
   performanceAdjustments?: Array<{
     subjectId: number;
@@ -141,6 +142,7 @@ export async function generateUltimatePlan(
       burnoutRisk,
       interleaving,
       energyBudget,
+      planExplanation: coreLoadAnalysis?.planExplanation,
     },
     performanceAdjustments: performanceAdjustments.length > 0 ? performanceAdjustments : undefined,
     planningStrategy,

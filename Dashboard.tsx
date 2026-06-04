@@ -771,6 +771,14 @@ export const Dashboard = ({
             </span>
           </div>
 
+          {plan.loadAnalysis?.planExplanation && plan.loadAnalysis.planExplanation.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {plan.loadAnalysis.planExplanation.map((line, i) => (
+                <span key={i} className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-400 bg-ink3 border border-white/10 rounded-lg px-2.5 py-1">{line}</span>
+              ))}
+            </div>
+          )}
+
           {activeBlocks.length === 0 ? (
             <EmptyTodayPlan />
           ) : (
@@ -807,7 +815,7 @@ export const Dashboard = ({
                   <div key={b.id} className="rounded-3xl bg-ink3 border border-white/10 p-5 flex items-center gap-4 hover:border-white/25 transition-colors">
                     <div className="font-display font-black text-2xl w-16 shrink-0 text-zinc-500 tabular-nums">{b.duration}<span className="text-xs">m</span></div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-zinc-500">Up next · {b.type}</div>
+                      <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-zinc-500 flex items-center gap-2">Up next · {b.type}{b.tier === 'stretch' && <span className="text-yellow-400/70">· stretch</span>}</div>
                       <div className="font-bold text-lg leading-tight truncate text-white">{b.subjectName}</div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
