@@ -123,6 +123,9 @@ const isOfficeDoc = (type: string) =>
 const isPowerPoint = (type: string) =>
   type.includes("presentation") || type.includes("powerpoint") || type.includes(".ppt");
 
+const isDocx = (type: string) =>
+  type.includes("wordprocessingml") || type.includes("msword");
+
 export default function CoursesView_Enhanced() {
   const subjects = useLiveQuery(() => db.subjects.toArray()) || [];
   const logs = useLiveQuery(() => db.logs.toArray()) || [];
@@ -135,6 +138,8 @@ export default function CoursesView_Enhanced() {
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
   const [selectedResource, setSelectedResource] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [docxHtml, setDocxHtml] = useState<string | null>(null);
+  const [docxLoading, setDocxLoading] = useState(false);
   const [newUnit, setNewUnit] = useState("");
   const [showGradeForm, setShowGradeForm] = useState(false);
   const [newGrade, setNewGrade] = useState({ type: "", score: "", maxScore: "100", date: "" });
@@ -198,6 +203,29 @@ export default function CoursesView_Enhanced() {
     } else {
       setPreviewUrl(null);
     }
+  }, [selectedResource]);
+
+  // Lazy-render uploaded .docx with mammoth (dynamic import → kept off the main bundle)
+  useEffect(() => {
+    let cancelled = false;
+    setDocxHtml(null);
+    const r = selectedResource;
+    if (!r || r.type === 'link' || !r.fileData || !isDocx(r.fileType || '')) { setDocxLoading(false); return; }
+    setDocxLoading(true);
+    (async () => {
+      try {
+        const buf = await (await fetch(r.fileData)).arrayBuffer();
+        // @ts-ignore — mammoth ships no bundled type declarations
+        const mammoth = await import('mammoth');
+        const out = await mammoth.convertToHtml({ arrayBuffer: buf });
+        if (!cancelled) setDocxHtml(out.value || '<p>(empty document)</p>');
+      } catch (e) {
+        if (!cancelled) setDocxHtml(null);
+      } finally {
+        if (!cancelled) setDocxLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [selectedResource]);
 
   const getInitials = (name: string) =>
@@ -444,6 +472,22 @@ export default function CoursesView_Enhanced() {
             <iframe title={r.title} src={officeSrc} className="w-full h-full bg-white" />
           ) : isLink ? (
             <iframe title={r.title} src={url} className="w-full h-full bg-white" />
+          ) : isDocx(ft) ? (
+            docxLoading ? (
+              <div className="w-full h-full flex items-center justify-center text-mute text-xs font-mono uppercase tracking-[0.16em]">Rendering document…</div>
+            ) : docxHtml ? (
+              <div className="w-full h-full overflow-auto bg-paper">
+                <style>{`.docx-view{color:#1a1a1a;max-width:780px;margin:0 auto;padding:40px 28px;font-family:Inter,system-ui,sans-serif;line-height:1.6}.docx-view h1{font-size:1.6rem;font-weight:800;margin:1.1em 0 .5em}.docx-view h2{font-size:1.3rem;font-weight:700;margin:1em 0 .4em}.docx-view h3{font-size:1.1rem;font-weight:700;margin:.9em 0 .3em}.docx-view p{margin:0 0 .8em}.docx-view ul,.docx-view ol{margin:0 0 .8em 1.4em;list-style:revert}.docx-view li{margin:.2em 0}.docx-view table{border-collapse:collapse;margin:1em 0;width:100%}.docx-view td,.docx-view th{border:1px solid #ccc;padding:6px 10px}.docx-view img{max-width:100%;height:auto}.docx-view a{color:#FF5A1F;text-decoration:underline}`}</style>
+                <div className="docx-view" dangerouslySetInnerHTML={{ __html: docxHtml }} />
+              </div>
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center text-center p-8">
+                <div className="w-20 h-20 rounded-2xl bg-ink3 border-2 border-white/10 flex items-center justify-center mb-5"><FileText size={36} className="text-mute" /></div>
+                <h3 className="font-display font-black text-xl mb-2">Couldn't render</h3>
+                <p className="text-sm text-mute max-w-sm mb-6 leading-relaxed">This .docx couldn't be parsed. Open it externally instead.</p>
+                <button onClick={() => openResourceInNewTab(r)} className="px-6 py-3 rounded-xl bg-orange-500 text-ink font-bold text-sm flex items-center gap-2 hover:brightness-105 transition-all"><Download size={16} /> Open / download</button>
+              </div>
+            )
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-center p-8">
               <div className="w-20 h-20 rounded-2xl bg-ink3 border-2 border-white/10 flex items-center justify-center mb-5">{isOfficeFile ? <Presentation size={36} className="text-orange-400" /> : <FileText size={36} className="text-mute" />}</div>
