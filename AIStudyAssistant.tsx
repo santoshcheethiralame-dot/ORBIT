@@ -924,6 +924,8 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
   const genId = useRef(0);
+  const [notice, setNotice] = useState('');
+  const flashNotice = useCallback((m: string) => { setNotice(m); window.setTimeout(() => setNotice(''), 2600); }, []);
 
   useEffect(() => {
     async function load() {
@@ -1097,15 +1099,24 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
 
   const flashcardsFromText = useCallback(async (content: string) => {
     try {
+      flashNotice('Making flashcards…');
       const cards = await generateAnkiCards(block.subjectName, content.slice(0, 3000), 6);
-      if (!cards.length) return;
-      const csv = ['Front,Back,Tags', ...cards.map(c => `"${c.front.replace(/"/g, '""')}","${c.back.replace(/"/g, '""')}","${c.tags.join(' ')}"`)].join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = `${block.subjectName}-flashcards.csv`; a.click();
-      URL.revokeObjectURL(url);
-    } catch { }
-  }, [block.subjectName]);
+      if (!cards.length) { flashNotice('Could not generate cards'); return; }
+      const today = getISTEffectiveDate();
+      await db.topics.bulkAdd(cards.map(c => ({
+        subjectId: block.subjectId,
+        name: c.front.slice(0, 80),
+        question: c.front,
+        answer: c.back,
+        lastStudied: today,
+        nextReview: today,
+        easeFactor: 1.8,
+        reviewCount: 0,
+        comprehensionHistory: [],
+      })));
+      flashNotice(`Added ${cards.length} card${cards.length === 1 ? '' : 's'} to Review`);
+    } catch { flashNotice('Failed to save cards'); }
+  }, [block.subjectId, block.subjectName, flashNotice]);
 
   const saveTextToNotes = useCallback(async (content: string) => {
     try {
@@ -1114,8 +1125,9 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
       const stamp = new Date().toLocaleDateString();
       const appended = (subj.notes ? subj.notes + '\n\n' : '') + `--- Orbit Coach · ${stamp} ---\n` + content;
       await db.subjects.update(block.subjectId, { notes: appended });
+      flashNotice('Saved to subject notes');
     } catch { }
-  }, [block.subjectId]);
+  }, [block.subjectId, flashNotice]);
 
   const readiness = subjectIntelligence?.readiness;
   const readinessColor = readiness === undefined ? '#71717a'
@@ -1318,7 +1330,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                       <CopyBtn text={msg.content} />
                       {msg.role === 'assistant' && (
                         <>
-                          <button onClick={() => flashcardsFromText(msg.content)} title="Make flashcards (Anki)" className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all" style={{ color: 'rgba(255,122,60,0.7)' }}><Sparkles size={12} strokeWidth={2.5} /></button>
+                          <button onClick={() => flashcardsFromText(msg.content)} title="Save flashcards to Review deck" className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all" style={{ color: 'rgba(255,122,60,0.7)' }}><Layers size={12} strokeWidth={2.5} /></button>
                           <button onClick={() => saveTextToNotes(msg.content)} title="Save to subject notes" className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all" style={{ color: 'rgba(255,255,255,0.3)' }}><StickyNote size={12} strokeWidth={2.5} /></button>
                           {messages[messages.length - 1]?.id === msg.id && !streaming && (
                             <button onClick={regenerate} title="Regenerate" className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all" style={{ color: 'rgba(255,255,255,0.3)' }}><RefreshCw size={12} strokeWidth={2.5} /></button>
@@ -1367,6 +1379,13 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
               <div ref={bottomRef} />
             </div>
 
+            {notice && (
+              <div className="px-4 pb-1.5 shrink-0">
+                <div className="mx-auto w-fit inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/15 border border-orange-500/30 text-[11px] font-semibold text-orange-300">
+                  <Layers size={11} strokeWidth={2.5} />{notice}
+                </div>
+              </div>
+            )}
             <div className="px-4 py-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
               <div className="flex gap-2 mb-2.5 overflow-x-auto">
                 {([
