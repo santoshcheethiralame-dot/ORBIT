@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orbit — Navigation concepts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { ink:'#0A0A0A', ink2:'#131314', ink3:'#1C1C1E', orange:'#FF5A1F', orange2:'#FF7A3C', yellow:'#FFD60A', paper:'#F7F5EF', mute:'#9A9AA2', danger:'#F4453B' },
+      fontFamily: { display:['Archivo','sans-serif'], sans:['Inter','sans-serif'], mono:['JetBrains Mono','monospace'] },
+      borderRadius: { '4xl':'28px','5xl':'36px' },
+    }}}
+  </script>
+  <style>
+    body { background:#0A0A0A; color:#fff; -webkit-font-smoothing:antialiased; }
+    .display { font-family:'Archivo',sans-serif; font-weight:900; letter-spacing:-0.04em; line-height:0.9; }
+    .meta { font-family:'JetBrains Mono',monospace; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; }
+    .ic{width:18px;height:18px;display:inline-block;border:2px solid currentColor;border-radius:5px;flex:none}
+    ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#FF5A1F;border-radius:99px;border:3px solid #0A0A0A}
+  </style>
+</head>
+<body class="font-sans">
+<div class="max-w-[1180px] mx-auto px-5 md:px-8 py-10 space-y-12">
+
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl bg-orange flex items-center justify-center text-ink display text-2xl">O</div>
+      <div><div class="display text-2xl">ORBIT</div><div class="meta text-[10px] text-mute mt-1">Concept v9 · navigation</div></div>
+    </div>
+    <span class="meta text-[10px] text-ink bg-yellow px-3 py-1.5 rounded-full">Desktop + mobile · pick a combo</span>
+  </div>
+
+  <div class="flex items-end gap-3">
+    <h2 class="display text-5xl md:text-6xl">NAVIGATION<span class="text-orange">.</span></h2>
+    <span class="meta text-[10px] text-mute mb-2">one hierarchy · focus front-and-centre</span>
+  </div>
+
+  <!-- ============ DESKTOP A — UNIFIED TOP PILL ============ -->
+  <section class="space-y-3">
+    <div class="meta text-[10px] text-orange">Desktop A · unified top pill <span class="text-mute normal-case tracking-normal">— keeps the floating bar, fixes the hierarchy (recommended)</span></div>
+    <div class="rounded-4xl bg-ink p-6 border border-white/10">
+      <div class="rounded-full bg-ink2 border border-white/10 px-3 py-2.5 flex items-center gap-3">
+        <div class="flex items-center gap-2.5 shrink-0 pr-1">
+          <div class="w-9 h-9 rounded-xl bg-orange text-ink display flex items-center justify-center text-lg">O</div>
+          <span class="display text-lg">ORBIT</span>
+        </div>
+        <nav class="flex items-center gap-1 mx-auto">
+          <span class="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-bold bg-white text-ink"><span class="ic"></span>Dashboard</span>
+          <span class="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-bold text-mute hover:text-white"><span class="ic"></span>Courses</span>
+          <span class="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-bold text-mute hover:text-white"><span class="ic"></span>Projects</span>
+          <span class="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-bold text-mute hover:text-white"><span class="ic"></span>Schedule</span>
+          <span class="relative flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-bold text-mute hover:text-white"><span class="ic"></span>Review<span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-orange text-ink text-[9px] font-black flex items-center justify-center">3</span></span>
+          <span class="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-bold text-mute hover:text-white"><span class="ic"></span>Stats</span>
+        </nav>
+        <div class="flex items-center gap-2 shrink-0">
+          <div class="flex items-center gap-0.5 p-1 rounded-full bg-ink3 border border-white/10">
+            <span class="w-9 h-9 rounded-full flex items-center justify-center text-mute hover:text-white"><span class="ic"></span></span>
+            <span class="w-9 h-9 rounded-full flex items-center justify-center text-mute hover:text-white"><span class="ic"></span></span>
+          </div>
+          <span class="flex items-center gap-2 px-5 py-2.5 rounded-full bg-orange text-ink font-bold text-[13px]">▶ Start Focus</span>
+        </div>
+      </div>
+      <p class="meta text-[9px] text-mute mt-3">All 6 destinations equal · Settings/About = utility icons · Focus CTA always present · Review badge. Narrow screens collapse the last pills into a "More" ▾.</p>
+    </div>
+  </section>
+
+  <!-- ============ DESKTOP B — SIDEBAR RAIL ============ -->
+  <section class="space-y-3">
+    <div class="meta text-[10px] text-orange">Desktop B · left sidebar rail <span class="text-mute normal-case tracking-normal">— more "app", scales to any number of destinations</span></div>
+    <div class="rounded-4xl border border-white/10 overflow-hidden flex" style="height:460px">
+      <aside class="w-60 bg-ink2 border-r border-white/10 p-4 flex flex-col gap-1.5">
+        <div class="flex items-center gap-2.5 px-2 py-2 mb-3">
+          <div class="w-9 h-9 rounded-xl bg-orange text-ink display flex items-center justify-center text-lg">O</div>
+          <span class="display text-lg">ORBIT</span>
+        </div>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl bg-orange text-ink font-bold text-sm"><span class="ic"></span>Dashboard</a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-mute hover:text-white hover:bg-white/5 font-bold text-sm"><span class="ic"></span>Courses</a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-mute hover:text-white hover:bg-white/5 font-bold text-sm"><span class="ic"></span>Projects</a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-mute hover:text-white hover:bg-white/5 font-bold text-sm"><span class="ic"></span>Schedule</a>
+        <a class="flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-mute hover:text-white hover:bg-white/5 font-bold text-sm"><span class="flex items-center gap-3"><span class="ic"></span>Review</span><span class="min-w-[18px] h-[18px] px-1 rounded-full bg-orange text-ink text-[9px] font-black flex items-center justify-center">3</span></a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-mute hover:text-white hover:bg-white/5 font-bold text-sm"><span class="ic"></span>Stats</a>
+        <div class="mt-auto space-y-1.5">
+          <button class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-orange text-ink font-bold text-sm">▶ Start Focus</button>
+          <div class="h-px bg-white/10 my-2"></div>
+          <a class="flex items-center gap-3 px-3.5 py-2 rounded-2xl text-mute hover:text-white text-sm font-semibold"><span class="ic"></span>Settings</a>
+          <a class="flex items-center gap-3 px-3.5 py-2 rounded-2xl text-mute hover:text-white text-sm font-semibold"><span class="ic"></span>About</a>
+        </div>
+      </aside>
+      <div class="flex-1 bg-ink flex items-center justify-center">
+        <span class="meta text-[10px] text-mute">content area →</span>
+      </div>
+    </div>
+    <p class="meta text-[9px] text-mute">Collapsible to an icon-only 64px rail on smaller laptops. Persistent Focus button + active subject highlight.</p>
+  </section>
+
+  <!-- ============ MOBILE ============ -->
+  <section class="space-y-3">
+    <div class="meta text-[10px] text-orange">Mobile A · tab bar + Focus FAB + More <span class="text-mute normal-case tracking-normal">— kills the 8-item scroll (recommended)</span></div>
+    <div class="grid sm:grid-cols-2 gap-6">
+
+      <!-- phone 1: bottom bar -->
+      <div class="mx-auto w-[340px] rounded-[2.5rem] border-2 border-white/12 bg-ink overflow-hidden relative" style="height:600px">
+        <div class="p-5 space-y-3">
+          <div class="meta text-[9px] text-mute">Thu · Jun 4</div>
+          <div class="display text-3xl">Good evening,<br>Commander.</div>
+          <div class="rounded-3xl bg-ink2 border border-white/10 h-24"></div>
+          <div class="rounded-3xl bg-ink2 border border-white/10 h-24"></div>
+        </div>
+        <!-- bottom bar with center FAB -->
+        <div class="absolute left-4 right-4 bottom-5">
+          <div class="relative">
+            <!-- center FAB -->
+            <div class="absolute left-1/2 -translate-x-1/2 -top-7 w-16 h-16 rounded-full bg-orange text-ink flex flex-col items-center justify-center shadow-xl shadow-orange/30 border-4 border-ink">
+              <span class="text-xl leading-none">▶</span>
+            </div>
+            <div class="rounded-[1.75rem] bg-ink2 border border-white/10 px-2 py-2 flex items-center justify-between">
+              <span class="flex flex-col items-center gap-1 px-3 py-1.5 text-orange"><span class="ic"></span><span class="text-[9px] font-bold">Home</span></span>
+              <span class="flex flex-col items-center gap-1 px-3 py-1.5 text-mute"><span class="ic"></span><span class="text-[9px] font-bold">Courses</span></span>
+              <span class="w-14"></span>
+              <span class="relative flex flex-col items-center gap-1 px-3 py-1.5 text-mute"><span class="ic"></span><span class="text-[9px] font-bold">Review</span><span class="absolute top-0 right-2 w-4 h-4 rounded-full bg-orange text-ink text-[8px] font-black flex items-center justify-center">3</span></span>
+              <span class="flex flex-col items-center gap-1 px-3 py-1.5 text-mute"><span class="w-[18px] h-[18px] flex flex-col justify-center gap-[3px]"><span class="h-0.5 bg-current rounded"></span><span class="h-0.5 bg-current rounded"></span><span class="h-0.5 bg-current rounded"></span></span><span class="text-[9px] font-bold">More</span></span>
+            </div>
+            <div class="absolute left-1/2 -translate-x-1/2 -bottom-5 meta text-[8px] text-mute">Focus</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- phone 2: More sheet -->
+      <div class="mx-auto w-[340px] rounded-[2.5rem] border-2 border-white/12 bg-ink overflow-hidden relative" style="height:600px">
+        <div class="absolute inset-0 bg-black/50"></div>
+        <div class="absolute left-0 right-0 bottom-0 rounded-t-[2rem] bg-ink2 border-t border-white/10 p-5 pb-7">
+          <div class="w-10 h-1 rounded-full bg-white/20 mx-auto mb-5"></div>
+          <div class="meta text-[10px] text-mute mb-4">More</div>
+          <div class="grid grid-cols-3 gap-3">
+            <div class="rounded-2xl bg-ink3 border border-white/10 p-4 flex flex-col items-center gap-2"><span class="ic text-orange"></span><span class="text-[11px] font-bold">Projects</span></div>
+            <div class="rounded-2xl bg-ink3 border border-white/10 p-4 flex flex-col items-center gap-2"><span class="ic text-yellow"></span><span class="text-[11px] font-bold">Schedule</span></div>
+            <div class="rounded-2xl bg-ink3 border border-white/10 p-4 flex flex-col items-center gap-2"><span class="ic text-paper"></span><span class="text-[11px] font-bold">Stats</span></div>
+            <div class="rounded-2xl bg-ink3 border border-white/10 p-4 flex flex-col items-center gap-2"><span class="ic text-mute"></span><span class="text-[11px] font-bold">Settings</span></div>
+            <div class="rounded-2xl bg-ink3 border border-white/10 p-4 flex flex-col items-center gap-2"><span class="ic text-mute"></span><span class="text-[11px] font-bold">About</span></div>
+            <div class="rounded-2xl bg-orange/12 border border-orange/25 p-4 flex flex-col items-center gap-2 text-orange"><span class="ic"></span><span class="text-[11px] font-bold">Install</span></div>
+          </div>
+          <button class="w-full mt-4 py-3 rounded-2xl bg-ink3 border border-white/10 text-mute font-bold text-sm">Close</button>
+        </div>
+        <div class="absolute left-4 right-4 bottom-5 opacity-30 pointer-events-none">
+          <div class="rounded-[1.75rem] bg-ink2 border border-white/10 h-16"></div>
+        </div>
+      </div>
+    </div>
+    <p class="meta text-[9px] text-mute">Bottom bar = 4 destinations + raised Focus action; everything secondary lives one tap away in <b class="text-white/60">More</b>. No more horizontal scroll.</p>
+  </section>
+
+  <!-- ============ IDEAS / NOTES ============ -->
+  <div class="rounded-4xl bg-ink2 border border-white/10 p-6 md:p-7">
+    <div class="meta text-[10px] text-mute mb-4">Every idea on the table</div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 text-sm">
+      <div><div class="display text-lg text-orange mb-1">One hierarchy</div><p class="text-mute text-xs leading-relaxed">No more demoting Review/Schedule to tiny icons. Every destination is a first-class item.</p></div>
+      <div><div class="display text-lg text-yellow mb-1">Focus first</div><p class="text-mute text-xs leading-relaxed">Start Focus is a raised FAB (mobile) / persistent CTA (desktop) — the app's #1 action, always reachable.</p></div>
+      <div><div class="display text-lg text-paper mb-1">No scroll</div><p class="text-mute text-xs leading-relaxed">Mobile drops from 8 cramped scrolling tabs → 4 + Focus + a "More" sheet for the rest.</p></div>
+      <div><div class="display text-lg text-orange2 mb-1">Live badges</div><p class="text-mute text-xs leading-relaxed">Review shows due-count; Dashboard can show backlog. Orange dots, on-palette.</p></div>
+      <div><div class="display text-lg text-orange mb-1">Consistent</div><p class="text-mute text-xs leading-relaxed">Same labels/icons on both (no "Analytics" vs "Stats"). Kill the dead rainbow gradients.</p></div>
+      <div><div class="display text-lg text-yellow mb-1">Active state</div><p class="text-mute text-xs leading-relaxed">White-fill pill (desktop) / orange + indicator (mobile & sidebar). Clear "where am I".</p></div>
+      <div><div class="display text-lg text-paper mb-1">Keyboard</div><p class="text-mute text-xs leading-relaxed">Optional ⌘K / number-key jump between tabs on desktop.</p></div>
+      <div><div class="display text-lg text-orange2 mb-1">Safe-area</div><p class="text-mute text-xs leading-relaxed">Bottom bar respects iOS home-indicator inset; installed-PWA friendly.</p></div>
+    </div>
+  </div>
+
+  <div class="text-center meta text-[10px] text-mute pt-2 pb-2">Orbit · concept v9 · not wired</div>
+</div>
+</body>
+</html>

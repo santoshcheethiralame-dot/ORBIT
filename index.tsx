@@ -28,7 +28,10 @@ import {
   Brain,
   FolderKanban,
   ListTodo,
+  Menu,
+  Download,
 } from "lucide-react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { db, saveDbSnapshot, restoreDbFromSnapshot } from "./db";
 import { Subject, DailyPlan, StudyBlock, StudyLog, DailyContext } from "./types";
 import { updateAssignmentProgress } from "./brain";
@@ -56,21 +59,27 @@ import { getISTEffectiveDate, isPlanCurrent, effectiveDatePlus } from "./utils/t
 
 // --- Hybrid Enhancement: Define consistent tab structures for desktop/mobile ---
 
-const DESKTOP_TABS = [
-  { id: "dashboard", icon: LayoutGrid, label: "Dashboard", activeGradient: "from-blue-500 to-cyan-500" },
-  { id: "courses",   icon: BookOpen,   label: "Courses",   activeGradient: "from-purple-500 to-pink-500" },
-  { id: "projects",  icon: FolderKanban, label: "Projects", activeGradient: "from-indigo-500 to-blue-500" },
-  { id: "stats",     icon: BarChart2,  label: "Analytics", activeGradient: "from-orange-500 to-red-500" },
+// Primary destinations — desktop pills (all equal hierarchy).
+const NAV_TABS = [
+  { id: "dashboard", icon: LayoutGrid,   label: "Dashboard" },
+  { id: "courses",   icon: BookOpen,     label: "Courses"   },
+  { id: "projects",  icon: FolderKanban, label: "Projects"  },
+  { id: "schedule",  icon: Calendar,     label: "Schedule"  },
+  { id: "review",    icon: ListTodo,     label: "Review"    },
+  { id: "stats",     icon: BarChart2,    label: "Stats"     },
 ];
-// MOBILE_TABS
-const MOBILE_TABS = [
-  { id: "dashboard", icon: LayoutGrid,   label: "Home",     activeGradient: "from-blue-500 to-cyan-500"   },
-  { id: "courses",   icon: BookOpen,     label: "Courses",  activeGradient: "from-purple-500 to-pink-500" },
-  { id: "projects",  icon: FolderKanban, label: "Projects", activeGradient: "from-indigo-500 to-blue-500" },
-  { id: "schedule",  icon: Calendar,     label: "Schedule", activeGradient: "from-teal-500 to-cyan-500"   },
-  { id: "review",    icon: ListTodo,     label: "Review",   activeGradient: "from-fuchsia-500 to-purple-500" },
-  { id: "stats",     icon: BarChart2,    label: "Stats",    activeGradient: "from-orange-500 to-red-500"  },
-  { id: "settings",  icon: Settings,     label: "Settings", activeGradient: "from-green-500 to-emerald-500" },
+// Mobile bottom-bar: 2 + [Focus FAB] + Review + More.
+const MOBILE_PRIMARY = [
+  { id: "dashboard", icon: LayoutGrid, label: "Home"    },
+  { id: "courses",   icon: BookOpen,   label: "Courses" },
+];
+// Everything secondary lives one tap away in the "More" sheet.
+const MORE_TABS = [
+  { id: "projects", icon: FolderKanban, label: "Projects" },
+  { id: "schedule", icon: Calendar,     label: "Schedule" },
+  { id: "stats",    icon: BarChart2,    label: "Stats"    },
+  { id: "settings", icon: Settings,     label: "Settings" },
+  { id: "about",    icon: Info,         label: "About"    },
 ];
 
 // Lightweight fallback shown while a code-split view chunk loads.
@@ -103,6 +112,13 @@ const App = () => {
   const [activeBlock, setActiveBlock] = useState<StudyBlock | null>(null);
   const [showRolloverModal, setShowRolloverModal] = useState(false);
   const [subjectIntelligence, setSubjectIntelligence] = useState<SubjectIntelligence | undefined>();
+  const [showMore, setShowMore] = useState(false);
+
+  // Live count of topics due for review today — powers the nav badge.
+  const reviewDueCount = useLiveQuery(async () => {
+    try { return await db.topics.where('nextReview').belowOrEqual(getISTEffectiveDate()).count(); }
+    catch { return 0; }
+  }, []) ?? 0;
 
   // ✅ Add refs for preventing race conditions
   const rolloverCheckInProgress = useRef(false);
@@ -576,6 +592,19 @@ const App = () => {
     setView(tabId as any);
   };
 
+  // Focus entry from the nav (desktop CTA + mobile FAB). Starts the next
+  // unfinished block; if today's plan is clear, routes to the dashboard.
+  const startFocusFromNav = () => {
+    const next = todayPlan?.blocks?.find(b => !b.completed);
+    if (next) {
+      SoundManager.playClick();
+      setActiveBlock(next);
+      setView("focus");
+    } else {
+      switchTab("dashboard");
+    }
+  };
+
   // ─── Safety: if we need context but have no subjects, go to onboarding ─────
   // Prevents a blank screen when the DB has a semester but no subjects yet
   useEffect(() => {
@@ -675,94 +704,69 @@ const App = () => {
       )}
 
       {/* DESKTOP NAV - FLOATING GLASSMORPHIC PILL */}
-      <header className="hidden md:block fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-7xl px-4 lg:px-8">
+      <header className="hidden lg:block fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-7xl px-4 lg:px-8">
         <div className="relative px-3 py-2.5 rounded-full bg-ink2 border border-white/10">
           <div className="relative z-10 flex items-center justify-between gap-4">
-            {/* LEFT: Brand */}
+            {/* LEFT: Brand (wordmark hides on tighter desktops to keep the pills on one line) */}
             <div className="flex items-center gap-2.5 shrink-0 pl-1">
               <div className="w-9 h-9 rounded-xl bg-orange-500 flex items-center justify-center font-display text-ink text-xl leading-none">O</div>
-              <span className="text-lg font-display text-white tracking-tight">ORBIT</span>
+              <span className="hidden xl:inline text-lg font-display text-white tracking-tight">ORBIT</span>
             </div>
 
-            {/* CENTRE: Nav tabs */}
+            {/* CENTRE: Nav tabs — all destinations, equal hierarchy */}
             {showNavigation && (
               <nav className="flex items-center gap-1">
-                {DESKTOP_TABS.map((tab) => {
+                {NAV_TABS.map((tab) => {
                   const active = activeTab === tab.id;
+                  const badge = tab.id === "review" ? reviewDueCount : 0;
                   return (
                     <button
                       key={tab.id}
                       onClick={() => switchTab(tab.id as any)}
                       aria-current={active ? 'page' : undefined}
-                      className={`relative flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-bold tracking-tight transition-colors duration-200 ${active
+                      className={`relative flex items-center gap-1.5 px-3 py-2 rounded-full text-[13px] font-bold tracking-tight transition-colors duration-200 ${active
                           ? 'bg-white text-ink'
                           : 'text-zinc-400 hover:text-white'
                         }`}
                     >
                       <tab.icon size={15} strokeWidth={2.4} />
                       <span>{tab.label}</span>
+                      {badge > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-orange-500 text-ink text-[9px] font-black flex items-center justify-center">{badge}</span>
+                      )}
                     </button>
                   );
                 })}
               </nav>
             )}
 
-            {/* RIGHT: Actions + CTA */}
+            {/* RIGHT: utility icons + Focus CTA */}
             {showNavigation ? (
               <div className="flex items-center gap-2 shrink-0">
-                {/* Icon group */}
                 <div className="flex items-center gap-0.5 p-1 rounded-full bg-ink3 border border-white/10">
-                  <button
-                    onClick={() => switchTab("review" as any)}
-                    className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "review" ? 'bg-white/10 text-orange-400' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
-                    title="Review queue"
-                    aria-label="Review queue"
-                  >
-                    <ListTodo size={16} strokeWidth={2.2} />
-                  </button>
-                  <button
-                    onClick={() => switchTab("schedule" as any)}
-                    className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "schedule" ? 'bg-white/10 text-orange-400' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
-                    title="Schedule"
-                    aria-label="Schedule"
-                  >
-                    <Calendar size={16} strokeWidth={2.2} />
-                  </button>
                   <button
                     onClick={() => switchTab("about" as any)}
                     className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "about" ? 'bg-white/10 text-orange-400' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
-                    title="About"
-                    aria-label="About"
+                    title="About" aria-label="About"
                   >
                     <Info size={16} strokeWidth={2.2} />
                   </button>
                   <button
                     onClick={() => switchTab("settings" as any)}
                     className={`p-2 rounded-xl transition-colors duration-200 ${activeTab === "settings" ? 'bg-white/10 text-orange-400' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
-                    title="Settings"
-                    aria-label="Settings"
+                    title="Settings" aria-label="Settings"
                   >
                     <Settings size={16} strokeWidth={2.2} />
                   </button>
                 </div>
 
-                {/* Focus CTA */}
-                {todayPlan && todayPlan.blocks.find(b => !b.completed) && (
-                  <button
-                    onClick={() => {
-                      const nextBlock = todayPlan.blocks.find(b => !b.completed);
-                      if (nextBlock) {
-                        SoundManager.playClick();
-                        setActiveBlock(nextBlock);
-                        setView("focus");
-                      }
-                    }}
-                    className="flex items-center gap-2 px-5 py-2 rounded-full bg-orange-500 text-ink font-bold text-[13px] tracking-tight transition-colors duration-200 hover:bg-orange-400 active:scale-95"
-                  >
-                    <Play size={13} fill="currentColor" />
-                    <span>Start Focus</span>
-                  </button>
-                )}
+                <button
+                  onClick={startFocusFromNav}
+                  className="flex items-center gap-2 px-5 py-2 rounded-full bg-orange-500 text-ink font-bold text-[13px] tracking-tight transition-colors duration-200 hover:bg-orange-400 active:scale-95"
+                >
+                  <Play size={13} fill="currentColor" />
+                  <span>Start Focus</span>
+                </button>
               </div>
             ) : (
               <div className="px-4 py-2 rounded-full bg-ink3 border border-white/10">
@@ -774,7 +778,7 @@ const App = () => {
       </header>
 
       {/* Spacer for fixed navbar */}
-      <div className="hidden md:block h-24" />
+      <div className="hidden lg:block h-24" />
 
       {/* MAIN CONTENT */}
       <main className="flex-1 min-h-screen pb-24 md:pb-0 overflow-x-clip">
@@ -814,52 +818,105 @@ const App = () => {
         </div>
       </main>
 
-      {/* MOBILE NAV - FLOATING GLASSMORPHIC */}
+      {/* MOBILE NAV — bottom bar + centre Focus FAB + More sheet */}
       {showNavigation && (
-        <div className="md:hidden fixed bottom-4 left-4 right-4 z-50">
-          {/* Primary CTA - Floating Above */}
-          {todayPlan && todayPlan.blocks.find(b => !b.completed) && (
-            <div className="mb-3 animate-bounce-slow">
-            </div>
-          )}
-
-          {/* Flat brutalist Bottom Nav */}
-          <div className="relative overflow-hidden rounded-[2rem] p-2 bg-ink2 border border-white/10">
-            <div className="relative z-10 flex items-center overflow-x-auto scrollbar-none gap-0.5">
-              {MOBILE_TABS.map((tab) => {
-                const active = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => switchTab(tab.id as any)}
-                    aria-current={active ? 'page' : undefined}
-                    className={`relative flex flex-col items-center justify-center gap-1 py-2.5 px-3 rounded-2xl min-w-[60px] transition-colors duration-200 ${active ? "text-orange-400" : "text-zinc-500"}`}
-                  >
-                    <tab.icon size={22} strokeWidth={active ? 2.5 : 2} className="relative z-10" />
-                    <span className="relative z-10 text-[10px] font-bold">{tab.label}</span>
-                    {active && (
-                      <span className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-orange-500" />
-                    )}
-                  </button>
-                );
-              })}
-              {/* About */}
+        <>
+          <div className="lg:hidden fixed bottom-4 left-4 right-4 z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+            <div className="relative">
+              {/* Centre Focus FAB */}
               <button
-                onClick={() => switchTab("about" as any)}
-                aria-current={activeTab === "about" ? 'page' : undefined}
-                className={`relative flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-2xl min-w-[68px] transition-colors duration-200 ${activeTab === "about" ? "text-orange-400" : "text-zinc-500"}`}
-                title="About"
-                aria-label="About"
+                onClick={startFocusFromNav}
+                aria-label="Start focus"
+                className="absolute left-1/2 -translate-x-1/2 -top-6 w-16 h-16 rounded-full bg-orange-500 text-ink flex items-center justify-center shadow-xl shadow-orange-500/30 border-4 border-ink active:scale-95 transition-transform"
               >
-                <Info size={22} strokeWidth={activeTab === "about" ? 2.5 : 2} className="relative z-10" />
-                <span className="relative z-10 text-[10px] font-bold">About</span>
-                {activeTab === "about" && (
-                  <span className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-orange-500" />
-                )}
+                <Play size={24} fill="currentColor" strokeWidth={0} />
               </button>
+
+              <div className="rounded-[1.75rem] p-2 bg-ink2 border border-white/10 flex items-center justify-between">
+                {MOBILE_PRIMARY.map((tab) => {
+                  const active = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => switchTab(tab.id as any)}
+                      aria-current={active ? 'page' : undefined}
+                      className={`relative flex flex-col items-center justify-center gap-1 py-2 px-4 rounded-2xl transition-colors duration-200 ${active ? "text-orange-400" : "text-zinc-500"}`}
+                    >
+                      <tab.icon size={22} strokeWidth={active ? 2.5 : 2} />
+                      <span className="text-[10px] font-bold">{tab.label}</span>
+                      {active && <span className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-orange-500" />}
+                    </button>
+                  );
+                })}
+
+                {/* spacer for the FAB */}
+                <div className="w-14 shrink-0" aria-hidden="true" />
+
+                {/* Review (with due badge) */}
+                <button
+                  onClick={() => switchTab("review" as any)}
+                  aria-current={activeTab === "review" ? 'page' : undefined}
+                  className={`relative flex flex-col items-center justify-center gap-1 py-2 px-4 rounded-2xl transition-colors duration-200 ${activeTab === "review" ? "text-orange-400" : "text-zinc-500"}`}
+                >
+                  <ListTodo size={22} strokeWidth={activeTab === "review" ? 2.5 : 2} />
+                  <span className="text-[10px] font-bold">Review</span>
+                  {reviewDueCount > 0 && (
+                    <span className="absolute top-0 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-orange-500 text-ink text-[9px] font-black flex items-center justify-center">{reviewDueCount}</span>
+                  )}
+                  {activeTab === "review" && <span className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-orange-500" />}
+                </button>
+
+                {/* More */}
+                <button
+                  onClick={() => setShowMore(true)}
+                  aria-label="More"
+                  className={`relative flex flex-col items-center justify-center gap-1 py-2 px-4 rounded-2xl transition-colors duration-200 ${MORE_TABS.some(t => t.id === activeTab) ? "text-orange-400" : "text-zinc-500"}`}
+                >
+                  <Menu size={22} strokeWidth={2.2} />
+                  <span className="text-[10px] font-bold">More</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+
+          {/* More sheet */}
+          {showMore && (
+            <div className="lg:hidden fixed inset-0 z-[60]" onClick={() => setShowMore(false)}>
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" />
+              <div
+                className="absolute left-0 right-0 bottom-0 rounded-t-[2rem] bg-ink2 border-t border-white/10 p-5 animate-in slide-in-from-bottom-4 fade-in duration-300"
+                style={{ paddingBottom: 'max(1.75rem, env(safe-area-inset-bottom))' }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-5" />
+                <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-4">More</div>
+                <div className="grid grid-cols-3 gap-3">
+                  {MORE_TABS.map((tab) => {
+                    const active = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => { switchTab(tab.id as any); setShowMore(false); }}
+                        className={`flex flex-col items-center gap-2 py-4 rounded-2xl border transition-colors ${active ? "bg-orange-500/15 border-orange-500/30 text-orange-400" : "bg-ink3 border-white/10 text-white hover:border-white/25"}`}
+                      >
+                        <tab.icon size={20} strokeWidth={2.2} />
+                        <span className="text-[11px] font-bold">{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => { (window as any).triggerPwaInstall?.(); setShowMore(false); }}
+                    className="flex flex-col items-center gap-2 py-4 rounded-2xl border bg-orange-500/[0.08] border-orange-500/25 text-orange-400"
+                  >
+                    <Download size={20} strokeWidth={2.2} />
+                    <span className="text-[11px] font-bold">Install</span>
+                  </button>
+                </div>
+                <button onClick={() => setShowMore(false)} className="w-full mt-4 py-3 rounded-2xl bg-ink3 border border-white/10 text-zinc-400 font-bold text-sm hover:text-white">Close</button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <style>{`
