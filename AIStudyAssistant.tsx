@@ -1039,7 +1039,9 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
       history, systemPrompt + modeSuffix + LEVEL_SUFFIX[level],
       (chunk) => { full += chunk; streamRef.current = stripThinking(full); setStreamText(streamRef.current); },
       () => {
-        setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: stripThinking(full), timestamp: Date.now() }]);
+        const finalText = stripThinking(full) || full.trim();
+        if (!finalText) { setError('The model returned an empty response. If you only see this with free models, enable them in your OpenRouter privacy settings — otherwise try again.'); setStreaming(false); setStreamText(''); streamRef.current = ''; return; }
+        setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: finalText, timestamp: Date.now() }]);
         setStreamText(''); setStreaming(false); streamRef.current = '';
         const n = sessionCount + 1; setSessionCount(n);
         localStorage.setItem('orbit-ai-sessions', n.toString());
@@ -1060,7 +1062,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
     geminiStreamMultimodal(
       parts, systemPrompt + LEVEL_SUFFIX[level],
       (chunk) => { if (genId.current !== myId) return; full += chunk; streamRef.current = stripThinking(full); setStreamText(streamRef.current); },
-      () => { if (genId.current !== myId) return; setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: stripThinking(full), timestamp: Date.now() }]); setStreamText(''); setStreaming(false); streamRef.current = ''; },
+      () => { if (genId.current !== myId) return; const finalText = stripThinking(full) || full.trim(); if (!finalText) { setError('The model returned an empty response. Try again.'); setStreaming(false); setStreamText(''); streamRef.current = ''; return; } setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: finalText, timestamp: Date.now() }]); setStreamText(''); setStreaming(false); streamRef.current = ''; },
       (err) => { if (genId.current !== myId) return; setError(err); setStreaming(false); setStreamText(''); streamRef.current = ''; },
       1800,
     );
