@@ -3,7 +3,7 @@ import {
   Play, Pause, Coffee, X, Sparkles, Lock, Unlock, Music2, Volume2, VolumeX,
   BookOpen, FileText, ExternalLink, CheckCircle, Square, Plus, Wind,
   Flame, Zap, Clock, Crown, TrendingUp, ChevronDown, Maximize2, Minimize2,
-  CircleDashed, Settings as SettingsIcon
+  CircleDashed, Settings as SettingsIcon, Target, Eye, EyeOff
 } from "lucide-react";
 import { StudyBlock } from "./types";
 import type { Resource } from "./types";
@@ -127,6 +127,9 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   const [scapeVol, setScapeVol] = useState(0.5);
   const [todayMin, setTodayMin] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [intention, setIntention] = useState('');
+  const [hideTime, setHideTime] = useState(false);
+  const [distractions, setDistractions] = useState(0);
 
   useEffect(() => { setStudyReminderPaused(true); return () => setStudyReminderPaused(false); }, []);
 
@@ -200,7 +203,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.hidden) { lastTickRef.current = Date.now(); }
+      if (document.hidden) { lastTickRef.current = Date.now(); if (isRunning && !isBreak && !isOvertime) setDistractions(d => d + 1); }
       else if (isRunning) {
         const elapsed = Math.floor((Date.now() - lastTickRef.current) / 1000);
         if (elapsed > 0) {
@@ -457,6 +460,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
 
   const timeStr = `${time.min1}${time.min2}:${time.sec1}${time.sec2}`;
   const pct = Math.round(progress * 100);
+  const shownTime = hideTime ? '••:••' : timeStr;
+  const dig = hideTime ? { min1: '•', min2: '•', sec1: '•', sec2: '•' } : time;
 
   const OrbitFace = (
     <button onClick={addFive} className="relative block" style={{ width: 410, height: 410, maxWidth: "78vw", maxHeight: "78vw" }} title="Tap to add 5 minutes">
@@ -471,7 +476,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       </div>
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
         <span className="meta text-[10px] mb-3" style={{ color: theme.primary }}>◐ {phaseLabel}</span>
-        <div className="display tabular-nums" style={{ fontSize: "clamp(48px, 13vw, 92px)" }}>{timeStr}</div>
+        <div className="display tabular-nums" style={{ fontSize: "clamp(48px, 13vw, 92px)" }}>{shownTime}</div>
         <div className="meta text-[10px] text-mute mt-3">{time.isNegative ? "OVERTIME" : `of ${String(block.duration).padStart(2, "0")}:00 · ${pct}%`}</div>
       </div>
     </button>
@@ -481,12 +486,12 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
     <div className="flex flex-col items-center gap-6">
       <span className="meta text-[10px]" style={{ color: theme.primary }}>◐ {phaseLabel}</span>
       <div className="flex items-center justify-center scale-[0.62] md:scale-90">
-        <FlipDigit value={time.min1} /><FlipDigit value={time.min2} />
+        <FlipDigit value={dig.min1} /><FlipDigit value={dig.min2} />
         <div className="flex flex-col gap-3 mx-2">
           <div className="w-3 h-3 rounded-full" style={{ background: theme.primary }} />
           <div className="w-3 h-3 rounded-full" style={{ background: theme.primary }} />
         </div>
-        <FlipDigit value={time.sec1} /><FlipDigit value={time.sec2} />
+        <FlipDigit value={dig.sec1} /><FlipDigit value={dig.sec2} />
       </div>
       <div className="w-64 max-w-[70vw]">
         <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
@@ -500,7 +505,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   const MinimalFace = (
     <button onClick={addFive} className="flex flex-col items-center" title="Tap to add 5 minutes">
       <span className="meta text-[10px] mb-4" style={{ color: theme.primary }}>◐ {phaseLabel}</span>
-      <div className="display tabular-nums leading-none" style={{ fontSize: "clamp(72px, 22vw, 190px)" }}>{timeStr}</div>
+      <div className="display tabular-nums leading-none" style={{ fontSize: "clamp(72px, 22vw, 190px)" }}>{shownTime}</div>
       <div className="w-72 max-w-[78vw] mt-7">
         <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
           <div className="h-full rounded-full" style={{ width: `${pct}%`, background: theme.primary, transition: "width 0.5s ease" }} />
@@ -590,6 +595,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
                   <ChevronDown size={10} className="opacity-60" />
                 </button>
                 <button onClick={cycleSkin} title="Timer skin" className="w-9 h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><CircleDashed size={14} /></button>
+                <button onClick={() => setHideTime(h => !h)} title={hideTime ? "Show time" : "Hide time"} className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center transition-colors ${hideTime ? "bg-orange-500/15 border-orange-500/30 text-orange-400" : "bg-ink2/80 border-white/15 text-mute hover:text-white"}`}>{hideTime ? <EyeOff size={14} /> : <Eye size={14} />}</button>
                 <button onClick={() => { if (!isRunning) setStrictMode(s => !s); }} title={strictMode ? "Strict on" : "Strict off"} disabled={isRunning}
                   className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-colors ${strictMode ? "bg-yellow-400/15 border-yellow-400/30 text-yellow-400" : "bg-ink2/80 border-white/10 text-mute hover:text-white"} ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}>
                   {strictMode ? <Lock size={14} /> : <Unlock size={14} />}
@@ -618,6 +624,19 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
             ) : (
               <div className="flex flex-col items-center" style={{ animation: "scaleIn .5s cubic-bezier(0.34,1.56,0.64,1)" }}>
                 {skin === "orbit" ? OrbitFace : skin === "flip" ? FlipFace : MinimalFace}
+                {!hasStarted ? (
+                  <div className="mt-8 w-full max-w-sm px-4">
+                    <label className="meta text-[9px] text-mute flex items-center gap-1.5 mb-2 justify-center"><Target size={11} className="text-orange-400" /> Intention — the one thing you'll finish (optional)</label>
+                    <input value={intention} onChange={e => setIntention(e.target.value)} maxLength={120} placeholder="e.g. finish problem set 3"
+                      onKeyDown={e => { if (e.key === "Enter") toggleTimer(); }}
+                      className="w-full bg-ink2/80 border-2 border-white/15 rounded-xl px-4 py-3 text-sm text-white text-center placeholder:text-mute/40 focus:outline-none focus:border-orange-500/50 transition-colors" />
+                  </div>
+                ) : intention ? (
+                  <div className="mt-7 flex items-center gap-2 px-4 py-2 rounded-lg bg-ink2/50 border border-white/10 max-w-md">
+                    <Target size={12} className="text-orange-400 shrink-0" />
+                    <span className="text-sm text-white/75 truncate">{intention}</span>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
@@ -702,6 +721,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
             </div>
             <div className="display text-4xl">Orbit complete.</div>
             <p className="text-sm text-mute mt-2">{summaryData.duration} min of deep work on <b className="text-white/80">{block.subjectName}</b>.</p>
+            <p className="meta text-[9px] text-mute mt-2 flex items-center justify-center gap-1.5"><Eye size={11} className={distractions === 0 ? "text-yellow-400" : "text-mute"} /> {distractions === 0 ? "Stayed fully on task" : `${distractions} tab-away${distractions === 1 ? "" : "s"}`}{intention ? ` · "${intention}"` : ""}</p>
             <div className="grid grid-cols-3 gap-2.5 w-full mt-6">
               <div className="rounded-xl bg-ink2/70 border-2 border-white/15 p-3"><div className="display text-xl text-orange-400 flex items-center justify-center gap-1"><TrendingUp size={16} />+{summaryData.readinessGain}%</div><div className="meta text-[8px] text-mute mt-1">Readiness</div></div>
               <div className="rounded-xl bg-ink2/70 border-2 border-white/15 p-3"><div className="display text-xl text-yellow-400">+{Math.max(0, Math.round(summaryData.duration * 2))}</div><div className="meta text-[8px] text-mute mt-1">XP</div></div>
