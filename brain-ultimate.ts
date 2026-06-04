@@ -18,8 +18,10 @@ import {
   resolveConstraints,
   predictReadiness,
   updateAssignmentProgress,
+  getWeekForecast,
   SubjectReadiness,
   PlanResult,
+  DayForecast,
 } from "./brain";
 
 import {
@@ -182,6 +184,8 @@ export {
   resolveConstraints,
   predictReadiness,
   updateAssignmentProgress,
+  getWeekForecast,
+  type DayForecast,
 };
 
 export default {

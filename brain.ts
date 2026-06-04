@@ -14,7 +14,7 @@ import {
 
 // Re-export for consumers
 export type { SubjectReadiness };
-import { getISTEffectiveDate, formatLocalDate, getISTTime } from "./utils/time";
+import { getISTEffectiveDate, formatLocalDate, getISTTime, effectiveDatePlus } from "./utils/time";
 import { notifyDataChange } from "./db";
 import { getDefaultFocusDuration, getSmartPlanner } from "./utils/settingsHelper";
 import { getProductivityProfile, getSkipRisk } from "./brain-analytics";
@@ -553,6 +553,68 @@ export async function getAllReadinessScores(dbInstance: OrbitDB = db): Promise<R
       : base;
   }
   return readinessMap;
+}
+
+/* ======================================================
+  WEEK FORECAST (Plan-Gen v2 / A) — read-only look-ahead.
+  Distributes open-assignment demand + due reviews + exams across the next N
+  days so the user sees crunch coming. Not persisted (no speculative plans).
+====================================================== */
+
+export interface DayForecast {
+  date: string;
+  label: string;
+  projectedMin: number;
+  capacity: number;
+  level: 'light' | 'normal' | 'heavy' | 'extreme';
+  drivers: string[];
+  hasExam: boolean;
+}
+
+const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+export async function getWeekForecast(dbInstance: OrbitDB = db, days = 7): Promise<DayForecast[]> {
+  if (!getSmartPlanner()) return [];
+  const today = getISTEffectiveDate();
+  const [assignments, topics, exams] = await Promise.all([
+    dbInstance.assignments.toArray(),
+    dbInstance.topics.toArray(),
+    dbInstance.exams.toArray().catch(() => [] as ExamEntry[]),
+  ]);
+  const capacity = resolveConstraints({ mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false } as DailyContext).maxMinutes;
+  const out: DayForecast[] = [];
+
+  for (let d = 0; d < days; d++) {
+    const date = effectiveDatePlus(d);
+    const [y, m, dd] = date.split('-').map(Number);
+    const label = d === 0 ? 'Today' : WEEKDAY[new Date(y, m - 1, dd).getDay()];
+    let mins = 0;
+    const drivers: string[] = [];
+
+    let assignMin = 0;
+    for (const a of assignments) {
+      if (a.completed || !a.dueDate) continue;
+      const due = String(a.dueDate).slice(0, 10);
+      if (date > due) continue;
+      const remaining = Math.max(0, (a.estimatedEffort ?? DEFAULT_ASSIGNMENT_EFFORT_MIN) - (a.progressMinutes ?? 0));
+      if (remaining <= 0) continue;
+      const daysLeft = Math.max(1, daysBetweenDates(due, today));
+      assignMin += remaining / daysLeft;
+    }
+    if (assignMin > 0) { mins += assignMin; drivers.push(`${Math.round(assignMin)}m assignments`); }
+
+    const dueTopics = topics.filter(t => String(t.nextReview).slice(0, 10) === date);
+    if (dueTopics.length) { mins += dueTopics.length * 25; drivers.push(`${dueTopics.length} review${dueTopics.length > 1 ? 's' : ''}`); }
+
+    const hasExam = exams.some(e => !e.completed && String(e.examDate).slice(0, 10) === date);
+    if (hasExam) drivers.unshift('exam');
+
+    const level: DayForecast['level'] =
+      mins >= capacity * 1.2 ? 'extreme' : mins >= capacity * 0.85 ? 'heavy' : mins <= capacity * 0.4 ? 'light' : 'normal';
+
+    out.push({ date, label, projectedMin: Math.round(mins), capacity, level, drivers: drivers.slice(0, 2), hasExam });
+  }
+  return out;
 }
 
 /* ======================================================

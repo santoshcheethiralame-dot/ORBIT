@@ -8,7 +8,7 @@ import { BlockReason, PageHeader, MetaText, HeaderChip } from "./components";
 import { getISTTime, getISTEffectiveDate, effectiveDatePlus } from "./utils/time";
 import { EmptyBacklog, EmptyTodayPlan } from './EmptyStates';
 import { updateAssignmentProgress } from './brain';
-import { getAllReadinessScores } from './brain-ultimate';
+import { getAllReadinessScores, getWeekForecast } from './brain-ultimate';
 import { useToast } from './Toast';
 import { safeDB, withToast } from './utils/dbErrorHandler';
 import { QuickCapture } from './QuickCapture';
@@ -208,6 +208,8 @@ export const Dashboard = ({
   const assignments = useLiveQuery(() =>
     db.assignments.filter(a => !a.completed).toArray()
   ) || [];
+
+  const weekForecast = useLiveQuery(() => getWeekForecast(), []) || [];
 
   const today = useMemo(() => {
     const d = new Date();
@@ -760,6 +762,32 @@ export const Dashboard = ({
           </div>
         </div>
       </div>
+
+      {/* ── WEEK AHEAD (forecast) ── */}
+      {weekForecast.length > 0 && (
+        <div className="rounded-4xl bg-ink2 border border-white/10 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-display font-black text-lg">WEEK AHEAD</h3>
+            <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-zinc-500">forecast</span>
+          </div>
+          <div className="grid grid-cols-7 gap-2">
+            {weekForecast.map((d) => {
+              const pct = Math.min(100, Math.round((d.projectedMin / Math.max(1, d.capacity)) * 100));
+              const color = d.level === 'extreme' ? '#F4453B' : d.level === 'heavy' ? '#FF5A1F' : d.level === 'light' ? '#3F3F46' : '#FFD60A';
+              return (
+                <div key={d.date} className="flex flex-col items-center gap-1.5" title={d.drivers.join(' · ') || 'light day'}>
+                  <div className="text-[9px] font-mono uppercase tracking-wider text-zinc-500">{d.label}</div>
+                  <div className="w-full h-16 rounded-lg bg-ink3 border border-white/10 relative overflow-hidden flex items-end">
+                    <div className="w-full" style={{ height: `${pct}%`, background: color }} />
+                    {d.hasExam && <div className="absolute top-1 inset-x-0 text-center text-[9px]">📝</div>}
+                  </div>
+                  <div className="text-[9px] font-mono text-zinc-400">{(d.projectedMin / 60).toFixed(1)}h</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── THE PLAN + AI COACH ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
