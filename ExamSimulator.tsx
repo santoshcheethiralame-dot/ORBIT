@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { StudyBlock, Subject, StudyTopic } from './types';
 import { geminiChat, geminiStream } from './gemini';  // ← uses shared wrapper, not raw fetch
+import { db } from './db';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    TYPES
@@ -54,9 +55,9 @@ export interface ExamSimulatorProps {
 ───────────────────────────────────────────────────────────────────────────── */
 
 function scoreColor(pct: number) {
-    if (pct >= 80) return '#34d399';
-    if (pct >= 60) return '#f59e0b';
-    return '#ef4444';
+    if (pct >= 80) return '#FFD60A';
+    if (pct >= 60) return '#FF7A3C';
+    return '#F4453B';
 }
 
 function scoreLabel(pct: number) {
@@ -193,7 +194,7 @@ isCorrect=true if student captured the key concept (partial credit = true).` }],
 ───────────────────────────────────────────────────────────────────────────── */
 
 const DIFF_COLOR: Record<Difficulty, string> = {
-    easy: '#34d399', medium: '#f59e0b', hard: '#ef4444',
+    easy: '#FFD60A', medium: '#FF7A3C', hard: '#F4453B',
 };
 
 const QuestionCard: React.FC<{
@@ -239,9 +240,9 @@ const QuestionCard: React.FC<{
                         <button key={i} onClick={() => setSelected(opt)}
                             className="w-full text-left px-4 py-2.5 rounded-xl text-sm transition-all"
                             style={{
-                                background: selected === opt ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.03)',
-                                border: `1px solid ${selected === opt ? 'rgba(139,92,246,0.35)' : 'rgba(255,255,255,0.06)'}`,
-                                color: selected === opt ? '#e9d5ff' : 'rgba(255,255,255,0.6)',
+                                background: selected === opt ? 'rgba(255,90,31,0.15)' : 'rgba(255,255,255,0.03)',
+                                border: `1px solid ${selected === opt ? 'rgba(255,90,31,0.4)' : 'rgba(255,255,255,0.06)'}`,
+                                color: selected === opt ? '#FF7A3C' : 'rgba(255,255,255,0.6)',
                             }}>
                             {opt}
                         </button>
@@ -277,9 +278,9 @@ const QuestionCard: React.FC<{
                     </div>
                     <div className="px-3.5 py-3 rounded-xl text-sm leading-relaxed"
                         style={{
-                            background: attempt.isCorrect ? 'rgba(52,211,153,0.07)' : 'rgba(239,68,68,0.07)',
-                            border: `1px solid ${attempt.isCorrect ? 'rgba(52,211,153,0.2)' : 'rgba(239,68,68,0.2)'}`,
-                            color: attempt.isCorrect ? 'rgba(209,250,229,0.85)' : 'rgba(254,226,226,0.85)',
+                            background: attempt.isCorrect ? 'rgba(255,214,10,0.08)' : 'rgba(244,69,59,0.08)',
+                            border: `1px solid ${attempt.isCorrect ? 'rgba(255,214,10,0.22)' : 'rgba(244,69,59,0.22)'}`,
+                            color: attempt.isCorrect ? 'rgba(255,236,160,0.9)' : 'rgba(254,205,200,0.9)',
                         }}>
                         {attempt.feedback}
                     </div>
@@ -297,7 +298,10 @@ const Results: React.FC<{
     session: ExamSession;
     onRetry: () => void;
     onNew: () => void;
-}> = ({ session, onRetry, onNew }) => {
+    subjectId?: number;
+    existingTopics: string[];
+}> = ({ session, onRetry, onNew, subjectId, existingTopics }) => {
+    const [added, setAdded] = useState(0);
     const correct = session.attempts.filter(a => a.isCorrect).length;
     const total = session.questions.length;
     const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
@@ -309,7 +313,22 @@ const Results: React.FC<{
         session.questions
             .filter((q, i) => !session.attempts[i]?.isCorrect)
             .map(q => q.topic),
-    )];
+    )].filter(Boolean);
+
+    const newWeak = weakTopics.filter(t => !existingTopics.includes(t));
+    const addToPlan = async () => {
+        if (!subjectId || newWeak.length === 0) return;
+        const today = new Date().toISOString().split('T')[0];
+        await db.topics.bulkAdd(newWeak.map(name => ({
+            subjectId, name,
+            lastStudied: today,
+            nextReview: today,          // due now → surfaces in Review & Today immediately
+            easeFactor: 1.4,            // weak area → harder → higher SR priority
+            reviewCount: 0,
+            comprehensionHistory: [1],  // record the poor exam showing
+        })));
+        setAdded(newWeak.length);
+    };
 
     return (
         <div className="space-y-4 py-2">
@@ -331,8 +350,8 @@ const Results: React.FC<{
                         <div key={q.id} className="flex items-start gap-3 px-3.5 py-2.5 rounded-xl"
                             style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
                             {a?.isCorrect
-                                ? <CheckCircle2 size={13} className="shrink-0 mt-0.5" style={{ color: '#34d399' }} strokeWidth={2} />
-                                : <XCircle size={13} className="shrink-0 mt-0.5" style={{ color: '#ef4444' }} strokeWidth={2} />}
+                                ? <CheckCircle2 size={13} className="shrink-0 mt-0.5" style={{ color: '#FFD60A' }} strokeWidth={2} />
+                                : <XCircle size={13} className="shrink-0 mt-0.5" style={{ color: '#F4453B' }} strokeWidth={2} />}
                             <div className="flex-1 min-w-0">
                                 <p className="text-xs text-white/60 leading-snug line-clamp-2">{q.question}</p>
                                 {!a?.isCorrect && (
@@ -345,15 +364,33 @@ const Results: React.FC<{
             </div>
 
             {weakTopics.length > 0 && (
-                <div className="px-3.5 py-3 rounded-xl space-y-1.5"
-                    style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                    <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(251,191,36,0.6)' }}>
+                <div className="px-3.5 py-3 rounded-xl space-y-2"
+                    style={{ background: 'rgba(255,122,60,0.06)', border: '1px solid rgba(255,122,60,0.18)' }}>
+                    <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,122,60,0.7)' }}>
                         Review these
                     </p>
-                    {weakTopics.map(t => (
-                        <div key={t} className="flex items-center gap-2">
-                            <AlertTriangle size={10} style={{ color: '#f59e0b' }} strokeWidth={2.5} />
-                            <span className="text-xs" style={{ color: 'rgba(254,243,199,0.7)' }}>{t}</span>
+                    <div className="space-y-1.5">
+                        {weakTopics.map(t => (
+                            <div key={t} className="flex items-center gap-2">
+                                <AlertTriangle size={10} style={{ color: '#FF7A3C' }} strokeWidth={2.5} />
+                                <span className="text-xs" style={{ color: 'rgba(255,235,210,0.8)' }}>{t}</span>
+                            </div>
+                        ))}
+                    </div>
+                    {subjectId && (added > 0 ? (
+                        <div className="flex items-center gap-2 pt-0.5 text-xs font-bold" style={{ color: '#FFD60A' }}>
+                            <CheckCircle2 size={13} strokeWidth={2.5} />
+                            Added {added} — they'll surface in Review &amp; Today
+                        </div>
+                    ) : newWeak.length > 0 ? (
+                        <button onClick={addToPlan}
+                            className="w-full mt-1 py-2 rounded-lg text-[11px] font-black uppercase tracking-wide flex items-center justify-center gap-2 hover:opacity-90 transition-all"
+                            style={{ background: 'linear-gradient(135deg,#FF5A1F,#FF7A3C)', color: '#0A0A0A' }}>
+                            <Target size={13} strokeWidth={2.5} />Add {newWeak.length} weak {newWeak.length === 1 ? 'topic' : 'topics'} to plan
+                        </button>
+                    ) : (
+                        <div className="flex items-center gap-2 pt-0.5 text-[11px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                            <CheckCircle2 size={12} strokeWidth={2.5} />Already in your plan
                         </div>
                     ))}
                 </div>
@@ -367,7 +404,7 @@ const Results: React.FC<{
                 </button>
                 <button onClick={onNew}
                     className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold"
-                    style={{ background: 'linear-gradient(135deg,rgba(255,90,31,0.3),rgba(255,90,31,0.3))', border: '1px solid rgba(139,92,246,0.3)', color: '#c4b5fd' }}>
+                    style={{ background: 'linear-gradient(135deg,rgba(255,90,31,0.2),rgba(255,122,60,0.2))', border: '1px solid rgba(255,90,31,0.35)', color: '#FF7A3C' }}>
                     <Brain size={12} strokeWidth={2.5} />New Exam
                 </button>
             </div>
@@ -425,7 +462,7 @@ const ExamGeneratingLoader: React.FC<{
 
     const current = EXAM_STAGES[stage];
     const dots = '.'.repeat(dotCount);
-    const diffColor = difficulty === 'easy' ? '#10b981' : difficulty === 'hard' ? '#ef4444' : '#f59e0b';
+    const diffColor = difficulty === 'easy' ? '#FFD60A' : difficulty === 'hard' ? '#F4453B' : '#FF7A3C';
 
     return (
         <div className="flex flex-col items-center justify-center py-10 gap-6 select-none">
@@ -434,7 +471,7 @@ const ExamGeneratingLoader: React.FC<{
                 <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
                     style={{
                         background: 'linear-gradient(135deg,rgba(255,90,31,0.15),rgba(255,90,31,0.12))',
-                        border: '1px solid rgba(139,92,246,0.25)',
+                        border: '1px solid rgba(255,90,31,0.3)',
                         boxShadow: '0 0 30px rgba(255,90,31,0.15)',
                         animation: 'pulse 2s ease-in-out infinite',
                     }}>
@@ -481,7 +518,7 @@ const ExamGeneratingLoader: React.FC<{
             {/* Meta chips */}
             <div className="flex items-center gap-2">
                 <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold"
-                    style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: '#c4b5fd' }}>
+                    style={{ background: 'rgba(255,90,31,0.12)', border: '1px solid rgba(255,90,31,0.22)', color: '#FF7A3C' }}>
                     {count} questions
                 </span>
                 <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold"
@@ -571,7 +608,7 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({ block, subject, to
             <div className="space-y-5 py-2">
                 <div className="text-center">
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
-                        style={{ background: 'linear-gradient(135deg,rgba(255,90,31,0.15),rgba(255,90,31,0.15))', border: '1px solid rgba(139,92,246,0.2)' }}>
+                        style={{ background: 'linear-gradient(135deg,rgba(255,90,31,0.15),rgba(255,90,31,0.15))', border: '1px solid rgba(255,90,31,0.25)' }}>
                         <Trophy size={20} style={{ color: '#FF7A3C' }} strokeWidth={1.5} />
                     </div>
                     <p className="text-sm font-bold text-white/70">Exam Simulator</p>
@@ -582,7 +619,7 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({ block, subject, to
 
                 {error && (
                     <div className="px-3.5 py-2.5 rounded-xl text-xs flex items-start gap-2"
-                        style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)', color: '#fca5a5' }}>
+                        style={{ background: 'rgba(244,69,59,0.08)', border: '1px solid rgba(244,69,59,0.22)', color: 'rgba(254,205,200,0.9)' }}>
                         <AlertTriangle size={12} className="shrink-0 mt-0.5" strokeWidth={2.5} />{error}
                     </div>
                 )}
@@ -609,7 +646,7 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({ block, subject, to
                             <button key={d} onClick={() => setDifficulty(d)}
                                 className="py-2 rounded-xl text-xs font-bold capitalize transition-all"
                                 style={difficulty === d
-                                    ? { background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.35)', color: '#c4b5fd' }
+                                    ? { background: 'rgba(255,90,31,0.2)', border: '1px solid rgba(255,90,31,0.4)', color: '#FF7A3C' }
                                     : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}>
                                 {d}
                             </button>
@@ -624,7 +661,7 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({ block, subject, to
                             <button key={n} onClick={() => setCount(n)}
                                 className="py-2 rounded-xl text-xs font-bold transition-all"
                                 style={count === n
-                                    ? { background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.35)', color: '#c4b5fd' }
+                                    ? { background: 'rgba(255,90,31,0.2)', border: '1px solid rgba(255,90,31,0.4)', color: '#FF7A3C' }
                                     : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}>
                                 {n}
                             </button>
@@ -651,6 +688,8 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({ block, subject, to
         return (
             <Results
                 session={session}
+                subjectId={block.subjectId}
+                existingTopics={(topics ?? []).map(t => t.name)}
                 onRetry={() => {
                     setSession({ ...session, attempts: [], startedAt: Date.now(), finishedAt: undefined });
                     setCurrentQ(0);
@@ -693,7 +732,7 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({ block, subject, to
                 {attempt && currentQ < session.questions.length - 1 && (
                     <button onClick={() => setCurrentQ(c => c + 1)}
                         className="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2"
-                        style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.2)', color: '#c4b5fd' }}>
+                        style={{ background: 'rgba(255,90,31,0.12)', border: '1px solid rgba(255,90,31,0.25)', color: '#FF7A3C' }}>
                         Next Question <ArrowRight size={12} strokeWidth={2.5} />
                     </button>
                 )}
