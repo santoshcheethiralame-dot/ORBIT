@@ -31,7 +31,7 @@ import {
   getQualityRatingOptions,
   getQualityEmoji,
   getEnergyProfile,
-} from "./brain-enhanced-integration";
+} from "./brain-analytics";
 
 import {
   calculateProbabilisticReadiness,

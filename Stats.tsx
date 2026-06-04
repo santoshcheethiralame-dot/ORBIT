@@ -27,7 +27,7 @@ import {
 } from "./brain";
 import { SubjectReadiness } from "./types";
 // These are initialized with safe fallbacks so they never throw before the
-// brain-enhanced-integration module finishes its dynamic import.
+// brain-analytics module finishes its dynamic import.
 let getSubjectPerformance: (subjectId: number, days: number, db: any) => Promise<any> = async (subjectId, _days, db) => {
   const logs = await db.logs.where('subjectId').equals(subjectId).toArray();
   const total = logs.length || 1;
@@ -600,7 +600,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       }
     };
     if ((viewMode === 'performance' || viewMode === 'insights') && !brainEnhancedLoaded) {
-      import('./brain-enhanced-integration')
+      import('./brain-analytics')
         .then(module => {
           getSubjectPerformance = module.getSubjectPerformance;
           detectBurnout = module.detectBurnout;
@@ -622,7 +622,7 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
       if (burnoutSignals) return;
       setBurnoutLoading(true);
       try {
-        const mod = await import('./brain-enhanced-integration').catch(() => null);
+        const mod = await import('./brain-analytics').catch(() => null);
         if (mod && mounted) {
           getSubjectPerformance = mod.getSubjectPerformance ?? getSubjectPerformance;
           detectBurnout = mod.detectBurnout ?? detectBurnout;
