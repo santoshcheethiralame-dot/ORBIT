@@ -6,7 +6,7 @@ import {
   MessageSquare, Layers, StickyNote, ChevronRight,
   TrendingUp, Clock, Target, Eye, Loader2,
   ArrowLeft, CheckCircle2, Circle, Globe, Trophy,
-  Zap, LayoutGrid,
+  Zap, LayoutGrid, Square, RefreshCw,
 } from 'lucide-react';
 import { StudyBlock, Resource, Subject, StudyLog, StudyTopic, Assignment, SyllabusUnit, SubjectReadiness } from './types';
 import {
@@ -18,6 +18,7 @@ import {
   hasApiKey,
 } from './gemini';
 import { db } from './db';
+import 'katex/dist/katex.min.css';
 import { getAllReadinessScores } from './brain-ultimate';
 import { enrichTopics, TopicWithReadiness } from './TopicReadinessView';
 import { ExamSimulator } from './ExamSimulator';
@@ -668,6 +669,7 @@ function buildSystemPrompt(block: StudyBlock, intel?: SubjectIntelligence, ctx?:
   lines.push(`- Socratic: after explaining something, ask a targeted follow-up to check understanding.`);
   lines.push(`- If a topic is flagged as critical or weak, proactively weave it into your coaching.`);
   lines.push(`- **Bold** key terms. Bullets for lists. Numbered steps for procedures.`);
+  lines.push('- Write math in LaTeX ($…$ inline, $$…$$ for display) and put code in triple-backtick fenced blocks.');
   lines.push(`- 150–350 words per response unless a deep worked example is needed.`);
 
   return lines.join('\n');
@@ -731,34 +733,93 @@ const CopyBtn = ({ text }: { text: string }) => {
   );
 };
 
-const MD = ({ text }: { text: string }) => {
+let _katex: any = null;
+let _katexPromise: Promise<any> | null = null;
+function loadKatex(): Promise<any> {
+  if (_katex) return Promise.resolve(_katex);
+  if (!_katexPromise) _katexPromise = import('katex').then(m => { _katex = (m as any).default ?? m; return _katex; }).catch(() => null);
+  return _katexPromise;
+}
+function useKatex(): any {
+  const [, force] = useState(0);
+  useEffect(() => { if (!_katex) loadKatex().then(() => force(x => x + 1)); }, []);
+  return _katex;
+}
+
+// Inline formatting: render $…$ math (when katex is ready), then bold/italic/inline-code on the rest.
+function inlineHtml(seg: string, katex: any): string {
+  return seg.split(/(\$\S(?:[^$\n]*?\S)?\$)/g).map(p => {
+    if (katex && p.length > 2 && p.startsWith('$') && p.endsWith('$')) {
+      try { return katex.renderToString(p.slice(1, -1), { throwOnError: false }); } catch { /* fall through to text */ }
+    }
+    return escHtml(p)
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:4px;font-size:0.85em;font-family:monospace">$1</code>');
+  }).join('');
+}
+
+const CodeBlock = ({ code }: { code: string }) => {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="my-2 rounded-xl overflow-hidden border border-white/10" style={{ background: 'rgba(0,0,0,0.45)' }}>
+      <div className="flex items-center justify-between px-3 py-1.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-zinc-500">code</span>
+        <button onClick={async () => { await navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+          className="transition-colors" style={{ color: copied ? '#FF7A3C' : 'rgba(255,255,255,0.4)' }}>
+          {copied ? <Check size={12} strokeWidth={2.5} /> : <Copy size={12} strokeWidth={2.5} />}
+        </button>
+      </div>
+      <pre className="px-3.5 py-3 overflow-x-auto text-[12.5px] leading-relaxed" style={{ fontFamily: "'JetBrains Mono', monospace", color: 'rgba(255,255,255,0.85)' }}><code>{code}</code></pre>
+    </div>
+  );
+};
+
+const MDText = ({ text, katex }: { text: string; katex: any }) => {
   const lines = text.split('\n');
   return (
-    <div className="space-y-1">
+    <>
       {lines.map((line, i) => {
         if (!line.trim()) return <div key={i} className="h-1" />;
-        let html = escHtml(line)
-          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\*(.*?)\*/g, '<em>$1</em>')
-          .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:4px;font-size:0.85em;font-family:monospace">$1</code>');
+        const bm = line.trim().match(/^\$\$(.+)\$\$$/);
+        if (bm && katex) {
+          try { return <div key={i} className="my-1.5 overflow-x-auto" dangerouslySetInnerHTML={{ __html: katex.renderToString(bm[1], { throwOnError: false, displayMode: true }) }} />; } catch { /* fall through */ }
+        }
         if (line.match(/^#{1,3}\s/)) {
           const lvl = (line.match(/^(#+)/)?.[1].length) ?? 1;
           return <div key={i} className={`font-bold ${lvl === 1 ? 'text-sm text-white/90 mt-2' : 'text-xs text-white/70 mt-1.5'}`}
-            dangerouslySetInnerHTML={{ __html: html.replace(/^#+\s/, '') }} />;
+            dangerouslySetInnerHTML={{ __html: inlineHtml(line.replace(/^#+\s/, ''), katex) }} />;
         }
         if (line.match(/^[-•*]\s/)) return (
           <div key={i} className="flex gap-2 text-sm leading-relaxed">
             <span style={{ color: 'rgba(255,122,60,0.5)', flexShrink: 0, marginTop: 3 }}>▸</span>
-            <span dangerouslySetInnerHTML={{ __html: html.replace(/^[-•*]\s/, '') }} />
+            <span dangerouslySetInnerHTML={{ __html: inlineHtml(line.replace(/^[-•*]\s/, ''), katex) }} />
           </div>
         );
         if (line.match(/^\d+\.\s/)) return (
           <div key={i} className="flex gap-2 text-sm leading-relaxed">
             <span style={{ color: 'rgba(255,122,60,0.5)', flexShrink: 0, fontSize: 11, marginTop: 1 }}>{line.match(/^(\d+)/)?.[1]}.</span>
-            <span dangerouslySetInnerHTML={{ __html: html.replace(/^\d+\.\s/, '') }} />
+            <span dangerouslySetInnerHTML={{ __html: inlineHtml(line.replace(/^\d+\.\s/, ''), katex) }} />
           </div>
         );
-        return <p key={i} className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />;
+        return <p key={i} className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: inlineHtml(line, katex) }} />;
+      })}
+    </>
+  );
+};
+
+const MD = ({ text }: { text: string }) => {
+  const katex = useKatex();
+  const segments = text.split('```');
+  return (
+    <div className="space-y-1">
+      {segments.map((seg, si) => {
+        if (si % 2 === 1) {
+          const nl = seg.indexOf('\n');
+          const code = (nl >= 0 ? seg.slice(nl + 1) : seg).replace(/\n+$/, '');
+          return <CodeBlock key={si} code={code} />;
+        }
+        return <MDText key={si} text={seg} katex={katex} />;
       })}
     </div>
   );
@@ -856,6 +917,9 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
   const [mode, setMode] = useState<CoachMode>('coach');
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const streamRef = useRef('');
+  const [chatLoaded, setChatLoaded] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -918,6 +982,20 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
     setSessionCount(parseInt(localStorage.getItem('orbit-ai-sessions') || '0'));
   }, [block.subjectId]);
 
+  // Persist chat per subject so it survives close / reopen.
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem('orbit-chat-' + block.subjectId);
+      if (s) { const arr = JSON.parse(s); if (Array.isArray(arr)) setMessages(arr); }
+    } catch { /* ignore */ }
+    setChatLoaded(true);
+  }, [block.subjectId]);
+
+  useEffect(() => {
+    if (!chatLoaded) return;
+    try { localStorage.setItem('orbit-chat-' + block.subjectId, JSON.stringify(messages.slice(-50))); } catch { /* ignore */ }
+  }, [messages, chatLoaded, block.subjectId]);
+
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, streamText]);
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -929,44 +1007,60 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
     ? buildSystemPrompt(block, subjectIntelligence, richCtx)
     : buildSystemPrompt(block, subjectIntelligence);
 
-  const sendMessage = useCallback(async (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed || streaming) return;
-    setError(''); setInput('');
-    if (inputRef.current) inputRef.current.style.height = 'auto';
-
-    const userMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: trimmed, timestamp: Date.now() };
-    setMessages(prev => [...prev, userMsg]);
-    setStreaming(true); setStreamText('');
-
-    const history: GeminiMessage[] = [...messages, userMsg].map(m => ({
+  const runCompletion = useCallback((convo: Message[]) => {
+    setError(''); setStreaming(true); setStreamText(''); streamRef.current = '';
+    const ctrl = new AbortController(); abortRef.current = ctrl;
+    const history: GeminiMessage[] = convo.map(m => ({
       role: m.role === 'user' ? 'user' : 'model',
       parts: [{ text: m.content }],
     }));
-
     let full = '';
     const modeSuffix = mode === 'quiz'
       ? '\n\n## QUIZ MODE\nRelentlessly quiz the student one question at a time. After each answer: mark it right/wrong, explain briefly, then ask the next — progressively harder. Never dump all questions at once.'
       : mode === 'feynman'
       ? "\n\n## FEYNMAN MODE\nAnswer using the Feynman Technique: lead with a plain-English explanation (zero jargon), then a vivid real-world analogy, then ONE concrete worked example, then the key insight most people miss. Teach like you're talking to a sharp 16-year-old — but still answer exactly what the student asked."
       : '';
-    const sysForMode = systemPrompt + modeSuffix;
     geminiStream(
-      history, sysForMode,
-      (chunk) => { full += chunk; setStreamText(stripThinking(full)); },
+      history, systemPrompt + modeSuffix,
+      (chunk) => { full += chunk; streamRef.current = stripThinking(full); setStreamText(streamRef.current); },
       () => {
         setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: stripThinking(full), timestamp: Date.now() }]);
-        setStreamText(''); setStreaming(false);
+        setStreamText(''); setStreaming(false); streamRef.current = '';
         const n = sessionCount + 1; setSessionCount(n);
         localStorage.setItem('orbit-ai-sessions', n.toString());
       },
-      (err) => { setError(err); setStreaming(false); setStreamText(''); },
-      2200,
-      'standard',
-      undefined,
-      { temperature: 0.55 },
+      (err) => { setError(err); setStreaming(false); setStreamText(''); streamRef.current = ''; },
+      2200, 'standard', ctrl.signal, { temperature: 0.55 },
     );
-  }, [messages, streaming, systemPrompt, sessionCount, mode, block]);
+  }, [mode, systemPrompt, sessionCount]);
+
+  const sendMessage = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || streaming) return;
+    setInput('');
+    if (inputRef.current) inputRef.current.style.height = 'auto';
+    const userMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: trimmed, timestamp: Date.now() };
+    const next = [...messages, userMsg];
+    setMessages(next);
+    runCompletion(next);
+  }, [messages, streaming, runCompletion]);
+
+  const stopGen = useCallback(() => {
+    abortRef.current?.abort();
+    const partial = streamRef.current; streamRef.current = '';
+    setStreaming(false); setStreamText('');
+    if (partial.trim()) setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: partial, timestamp: Date.now() }]);
+  }, []);
+
+  const regenerate = useCallback(() => {
+    if (streaming) return;
+    let idx = messages.length - 1;
+    while (idx >= 0 && messages[idx].role === 'assistant') idx--;
+    if (idx < 0) return;
+    const trimmed = messages.slice(0, idx + 1);
+    setMessages(trimmed);
+    runCompletion(trimmed);
+  }, [messages, streaming, runCompletion]);
 
   const flashcardsFromText = useCallback(async (content: string) => {
     try {
@@ -1039,7 +1133,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {messages.length > 0 && (
-              <button onClick={() => { setMessages([]); setStreamText(''); setError(''); }}
+              <button onClick={() => { abortRef.current?.abort(); setMessages([]); setStreamText(''); setError(''); streamRef.current = ''; try { localStorage.removeItem('orbit-chat-' + block.subjectId); } catch { /* ignore */ } }}
                 className="p-1.5 rounded-lg hover:bg-white/8" style={{ color: 'rgba(255,255,255,0.25)' }}>
                 <RotateCcw size={13} strokeWidth={2.5} />
               </button>
@@ -1188,9 +1282,27 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                         <>
                           <button onClick={() => flashcardsFromText(msg.content)} title="Make flashcards (Anki)" className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all" style={{ color: 'rgba(255,122,60,0.7)' }}><Sparkles size={12} strokeWidth={2.5} /></button>
                           <button onClick={() => saveTextToNotes(msg.content)} title="Save to subject notes" className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all" style={{ color: 'rgba(255,255,255,0.3)' }}><StickyNote size={12} strokeWidth={2.5} /></button>
+                          {messages[messages.length - 1]?.id === msg.id && !streaming && (
+                            <button onClick={regenerate} title="Regenerate" className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all" style={{ color: 'rgba(255,255,255,0.3)' }}><RefreshCw size={12} strokeWidth={2.5} /></button>
+                          )}
                         </>
                       )}
                     </div>
+                    {msg.role === 'assistant' && messages[messages.length - 1]?.id === msg.id && !streaming && (
+                      <div className="flex flex-wrap gap-1.5 px-1 pt-0.5">
+                        {([
+                          [Lightbulb, 'Simpler', 'Explain this more simply, like I am 15'],
+                          [Layers, 'Deeper', 'Go deeper on this — more detail and nuance'],
+                          [Sparkles, 'Example', 'Give me a concrete worked example of this'],
+                          [Zap, 'Quiz me', 'Quiz me on this with 3 questions, one at a time'],
+                        ] as const).map(([Icon, label, instr]) => (
+                          <button key={label} onClick={() => sendMessage(instr + ':\n"' + msg.content.slice(0, 200) + '"')}
+                            className="inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase tracking-[0.1em] px-2 py-1 rounded-lg bg-ink2 border border-white/10 text-zinc-400 hover:text-white hover:border-white/25 transition-colors">
+                            <Icon size={10} strokeWidth={2.5} />{label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1240,11 +1352,18 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
                   placeholder={streaming ? 'Thinking…' : mode === 'feynman' ? "Ask anything — I'll explain it simply…" : `Ask anything about ${block.subjectName}…`}
                   className="flex-1 bg-transparent text-sm text-white placeholder:text-white/20 resize-none focus:outline-none leading-relaxed py-1.5"
                   style={{ maxHeight: 100 }} />
-                <button onClick={() => sendMessage(input)} disabled={!input.trim() || streaming}
-                  className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-30"
-                  style={{ background: mode === 'feynman' ? 'linear-gradient(135deg,#FFD60A,#FFC400)' : 'linear-gradient(135deg,#FF5A1F,#FF7A3C)' }}>
-                  <Send size={15} className={mode === 'feynman' ? 'text-ink' : 'text-white'} strokeWidth={2.5} />
-                </button>
+                {streaming ? (
+                  <button onClick={stopGen} title="Stop generating"
+                    className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 bg-ink2 border-2 border-white/20 text-white">
+                    <Square size={12} strokeWidth={2.5} fill="currentColor" />
+                  </button>
+                ) : (
+                  <button onClick={() => sendMessage(input)} disabled={!input.trim()}
+                    className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-30"
+                    style={{ background: mode === 'feynman' ? 'linear-gradient(135deg,#FFD60A,#FFC400)' : 'linear-gradient(135deg,#FF5A1F,#FF7A3C)' }}>
+                    <Send size={15} className={mode === 'feynman' ? 'text-ink' : 'text-white'} strokeWidth={2.5} />
+                  </button>
+                )}
               </div>
             </div>
           </>
