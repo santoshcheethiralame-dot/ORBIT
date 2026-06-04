@@ -187,13 +187,13 @@ export const BlockReason = ({ block }: BlockReasonProps) => {
       return { icon: AlertTriangle, color: 'orange', label: 'Warning' };
     }
     if (reason.includes('🔥') || reason.includes('Deadline')) {
-      return { icon: Flame, color: 'amber', label: 'Urgent' };
+      return { icon: Flame, color: 'orange', label: 'Urgent' };
     }
     if (reason.includes('🚀') || reason.includes('New')) {
-      return { icon: Rocket, color: 'cyan', label: 'New' };
+      return { icon: Rocket, color: 'yellow', label: 'New' };
     }
     if (reason.includes('🎯') || reason.includes('Final')) {
-      return { icon: Target, color: 'emerald', label: 'Final Push' };
+      return { icon: Target, color: 'yellow', label: 'Final Push' };
     }
     if (reason.includes('⭐') || reason.includes('High-value')) {
       return { icon: Star, color: 'yellow', label: 'High Value' };
@@ -202,7 +202,7 @@ export const BlockReason = ({ block }: BlockReasonProps) => {
       return { icon: Brain, color: 'purple', label: 'Focus Required' };
     }
     if (reason.includes('📚') || reason.includes('Class')) {
-      return { icon: BookOpen, color: 'blue', label: 'Scheduled' };
+      return { icon: BookOpen, color: 'zinc', label: 'Scheduled' };
     }
     if (reason.includes('⏰') || reason.includes('decay')) {
       return { icon: Clock, color: 'zinc', label: 'Maintenance' };
