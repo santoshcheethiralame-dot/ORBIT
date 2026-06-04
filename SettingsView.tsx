@@ -546,7 +546,7 @@ export const SettingsView = () => {
 
           <div id="sec-ai" className="rounded-4xl bg-ink2 border border-white/10 p-6 md:p-8 scroll-mt-[100px] space-y-5">
             <div className="flex items-center gap-3 mb-1"><div className="w-9 h-9 rounded-xl bg-orange-500/15 flex items-center justify-center text-orange-400"><Sparkles size={18} strokeWidth={2.5} /></div><h3 className="font-display font-black text-2xl">AI COACH</h3></div>
-            <p className="text-sm text-mute leading-relaxed">Bring your own OpenRouter key to power the AI coach, exam generator and notes. Stored only on this device — never uploaded.</p>
+            <p className="text-sm text-mute leading-relaxed">Bring your own OpenRouter key to power the AI coach, exam generator and notes. Orbit runs entirely on <span className="text-white font-semibold">free models</span>, so a free key works — no credits needed. Stored only on this device — never uploaded.</p>
             <div>
               <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-mute mb-2">OpenRouter API key</div>
               <div className="flex items-center gap-2 bg-ink3 border border-white/10 rounded-2xl px-4 py-2.5">

@@ -38,16 +38,19 @@ export function hasApiKey(): boolean {
 
 export type TaskComplexity = 'simple' | 'standard' | 'complex' | 'vision';
 
-// NOTE (2026-06): the old IDs (google/gemini-flash-1.5, openrouter/free,
-// gemini-2.0-flash-exp:free) were DEPRECATED/REMOVED from OpenRouter → every AI
-// call 400'd ("not a valid model") and the whole assistant appeared broken.
-// gemini-3.5-flash is the current cheap, fast, multimodal Flash. If it ever 400s
-// again, check https://openrouter.ai/api/v1/models for the live slug and bump here.
+// ALL FREE MODELS — user requirement: zero cost. These are OpenRouter ":free"
+// slugs, usable with a free OpenRouter key (subject to free-tier rate limits).
+// Verified live against https://openrouter.ai/api/v1/models (2026-06). Model IDs
+// rot over time: if AI starts 400'ing ("not a valid model"), re-fetch that catalog
+// and swap in the current best ":free" slugs here.
+// Reasoning tokens are ALSO free on these, so cheatsheets/notes use think-mode for
+// quality at no cost (see AIOptions.reasoningEffort). Kimi K2.6 = strongest free
+// all-rounder (262K ctx, vision + reasoning); Gemma 4 = fast/reliable for short JSON.
 export const MODELS: Record<TaskComplexity, string> = {
-    simple: 'google/gemini-3.5-flash',    // Insights, labels, short JSON (≤200 tokens)
-    standard: 'google/gemini-3.5-flash',  // Chat, grading, summaries
-    complex: 'google/gemini-3.5-flash',   // Exam gen, deep notes
-    vision: 'google/gemini-3.5-flash',    // Diagram/image analysis (multimodal)
+    simple: 'google/gemma-4-26b-a4b-it:free',   // Insights, labels, short JSON — fast & reliable
+    standard: 'moonshotai/kimi-k2.6:free',      // Chat / coaching — best free conversational
+    complex: 'moonshotai/kimi-k2.6:free',       // Cheatsheets, deep notes, grading — strongest free
+    vision: 'google/gemma-4-31b-it:free',       // Diagram / image analysis (multimodal, free)
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -119,11 +122,24 @@ function buildHeaders(): Record<string, string> {
    SINGLE-SHOT (non-streaming) — use for JSON generation, short responses
 ───────────────────────────────────────────────────────────────────────────── */
 
+/** Per-call tuning. temperature: lower = more precise/factual. reasoningEffort:
+ *  enable the model's think-before-answer mode for higher-quality output (costs
+ *  more tokens + a little latency — worth it for cheatsheets/notes/grading). */
+export interface AIOptions { temperature?: number; reasoningEffort?: 'low' | 'medium' | 'high'; }
+
+function tuning(options?: AIOptions): Record<string, unknown> {
+    return {
+        ...(options?.temperature !== undefined ? { temperature: options.temperature } : {}),
+        ...(options?.reasoningEffort ? { reasoning: { effort: options.reasoningEffort } } : {}),
+    };
+}
+
 export async function geminiChat(
     messages: GeminiMessage[],
     systemPrompt?: string,
     maxTokens = 1024,
     complexity: TaskComplexity = 'standard',
+    options?: AIOptions,
 ): Promise<string> {
     return withRetry(async () => {
         const res = await fetch(BASE_URL, {
@@ -133,6 +149,7 @@ export async function geminiChat(
                 model: MODELS[complexity],
                 max_tokens: maxTokens,
                 messages: toOR(messages, systemPrompt),
+                ...tuning(options),
             }),
         });
         if (!res.ok) {
@@ -157,6 +174,7 @@ export async function geminiStream(
     maxTokens = 1024,
     complexity: TaskComplexity = 'standard',
     signal?: AbortSignal,
+    options?: AIOptions,
 ): Promise<void> {
     try {
         // FIX: Pass AbortSignal so callers can cancel on component unmount.
@@ -169,6 +187,7 @@ export async function geminiStream(
                 max_tokens: maxTokens,
                 stream: true,
                 messages: toOR(messages, systemPrompt),
+                ...tuning(options),
             }),
         });
 
@@ -459,8 +478,9 @@ Rules:
 - Tags = lowercase subtopic names` }],
         }],
         'You are an Anki expert. Return only valid JSON array.',
-        400,
+        700,
         'standard',
+        { temperature: 0.3 },
     );
     try {
         return JSON.parse(raw.replace(/```json|```/g, '').trim());

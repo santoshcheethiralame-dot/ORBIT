@@ -70,6 +70,16 @@ function escHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/* Some free "reasoning" models leak their chain-of-thought as <think>…</think>
+   into the content stream. Strip complete blocks, and while streaming hide
+   everything from an as-yet-unclosed opening tag so the user only sees the answer. */
+function stripThinking(s: string): string {
+  let out = s.replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, '');
+  const open = out.search(/<think(?:ing)?>/i);
+  if (open !== -1) out = out.slice(0, open);
+  return out.replace(/^\s+/, '');
+}
+
 const NotesMD = ({ text }: { text: string }) => {
   const lines = text.split('\n');
   return (
@@ -129,69 +139,83 @@ const NotesGenerator: React.FC<NotesGeneratorProps> = ({ block, subject, topics,
 
   const syllabus = subject?.syllabus ?? [];
 
+  // Builders supply CONTEXT only; outputSpec() picks the structure per format.
   function buildUnitPrompt(title: string, extra?: string): string {
-    return `You are an expert academic notes writer.
+    return `Subject: ${subject?.name ?? block.subjectName}${subject?.code ? ` (${subject.code})` : ''}${subject?.credits ? `, ${subject.credits} credits` : ''}${subject?.difficulty ? `, difficulty ${subject.difficulty}/5` : ''}
+Topic to cover: **${title}**${syllabus.length ? `\nWhere it sits in the syllabus: ${syllabus.map(u => u.title).join(' → ')}` : ''}${extra ? `\n${extra}` : ''}`;
+  }
 
-Subject: ${subject?.name ?? block.subjectName}${subject?.code ? ` (${subject.code})` : ''}${subject?.credits ? `, ${subject.credits} credits` : ''}${subject?.difficulty ? `, difficulty ${subject.difficulty}/5` : ''}
-Topic: **${title}**
-${syllabus.length ? `Syllabus: ${syllabus.map(u => u.title).join(' → ')}` : ''}
-${extra ?? ''}
+  function buildResourcePrompt(resource: Resource, content: string): string {
+    return `Subject: ${block.subjectName}
+Source resource: "${resource.title}" (${resource.type})
+${content ? `\n---RESOURCE CONTENT (base the output on this)---\n${content}\n---END---` : '(No extractable text — work from the title plus your own knowledge of this topic.)'}
+Base the material on what THIS resource actually covers.`;
+  }
 
-Generate comprehensive, exam-ready study notes:
+  // Format-aware output structure. A cheat-sheet is NOT terse prose-notes — it's a
+  // distinct dense reference layout, so each format gets its own skeleton.
+  function outputSpec(title: string): string {
+    if (format === 'cheatsheet') return `
+Produce an ULTRA-DENSE, exam-day CHEAT-SHEET for the above. Maximum signal per line, ZERO filler — no full prose sentences. Use exactly this skeleton (drop a heading only if nothing genuinely fits it):
+
+# ${title} — Cheat Sheet
+## ⚡ Formulas & Equations
+- each formula on its own line, then a 3–5 word gloss of every symbol
+## 🔑 Core Definitions
+- **Term** — ≤8-word definition
+## ⚙️ Procedures / Methods
+1. terse numbered steps for each process
+## 🧠 Mnemonics & Memory Hooks
+- acronyms, analogies, memory aids
+## ⚠️ Common Traps
+- the mistake → the fix
+## ★ Most Likely Exam Points
+- highest-yield facts to walk in knowing
+
+Prefer bullets/tables over paragraphs. **Bold** every key term. Keep it to one screen of dense reference.`;
+
+    if (format === 'concise') return `
+Produce a tight ONE-PAGE REVISION SHEET for the above — only the highest-yield points as short bullets under 3–5 clear ## headings. Minimal prose. Include must-know formulas/definitions, skip background padding. **Bold** key terms.`;
+
+    // detailed
+    return `
+Produce COMPREHENSIVE, exam-ready notes for the above using this structure:
 
 # ${title}
 ## Overview
 ## Core Concepts
 ## Key Theory / Framework
 ## Formulas / Rules
-## Examples & Applications
+## Worked Examples & Applications
 ## Common Mistakes
 ## Quick-Recall Summary
 
-Use **bold** for every key term. Dense, exam-ready — every sentence must add value.`;
+Be thorough — full explanations and at least one worked example where relevant. **Bold** every key term; bullets for lists; numbered steps for procedures. Accurate and specific; never pad.`;
   }
 
-  function buildResourcePrompt(resource: Resource, content: string): string {
-    return `Generate comprehensive exam-ready notes from this resource.
-
-Subject: ${block.subjectName}
-Resource: "${resource.title}" (${resource.type})
-${content ? `\n---CONTENT---\n${content}\n---END---` : ''}
-
-# Notes: ${resource.title}
-## What This Covers
-## Core Concepts
-## Key Points
-## Formulas / Procedures
-## Critical Takeaways
-## Potential Exam Questions
-
-Use **bold** for all key terms. Be comprehensive.`;
-  }
-
-  async function generate(label: string, prompt: string) {
+  async function generate(label: string, contextPrompt: string, title?: string) {
     setMode('generating');
     setNotes(''); setStreaming(''); setError(''); setAnkiCards([]);
     setSourceLabel(label);
 
+    const docTitle = title ?? label;
+    const finalPrompt = contextPrompt + '\n' + outputSpec(docTitle);
+    // Per-format budgets (kept within free-model comfort zones).
+    const maxTokens = format === 'detailed' ? 3200 : format === 'cheatsheet' ? 2400 : 1600;
+    const temperature = format === 'cheatsheet' ? 0.25 : format === 'concise' ? 0.3 : 0.4;
+
     let full = '';
-    // Format toggle steers depth/density of the generated notes.
-    const styleHint = format === 'concise'
-      ? '\n\n---OUTPUT STYLE: CONCISE---\nKeep it tight — only the highest-yield points as short bullets, minimal prose. Aim for a one-page revision sheet.'
-      : format === 'cheatsheet'
-      ? '\n\n---OUTPUT STYLE: CHEAT-SHEET---\nUltra-dense exam cheat-sheet — compact bullets, formulas, definitions and mnemonics only. No full sentences, no filler.'
-      : '\n\n---OUTPUT STYLE: DETAILED---\nBe comprehensive and thorough — full explanations, worked examples and depth on every section.';
-    const finalPrompt = prompt + styleHint;
-    // FIX: Uses geminiStream from gemini.ts (not raw fetch + hardcoded model)
     await new Promise<void>((resolve) => {
       geminiStream(
         [{ role: 'user', parts: [{ text: finalPrompt }] }],
-        'You are a world-class academic notes writer. Generate comprehensive, dense, exam-ready notes in markdown.',
-        (chunk) => { full += chunk; setStreaming(full); },
-        () => { setNotes(full); setStreaming(''); setMode('done'); resolve(); },
+        'You are a world-class study-notes writer. Output clean, well-structured GitHub-flavored markdown. Be accurate and exam-focused; if unsure of a fact, say so in a short phrase rather than inventing it.',
+        (chunk) => { full += chunk; setStreaming(stripThinking(full)); },
+        () => { setNotes(stripThinking(full)); setStreaming(''); setMode('done'); resolve(); },
         (err) => { setError(err); setMode('idle'); resolve(); },
-        2400,
+        maxTokens,
         'complex',
+        undefined,                                   // signal
+        { temperature, reasoningEffort: 'medium' },  // think-mode — free quality boost
       );
     });
   }
@@ -242,31 +266,22 @@ Use **bold** for all key terms. Be comprehensive.`;
       content = await fetchUrlText(resource.url);
     }
     setStatus({ stage: 'Writing notes', detail: 'streaming…' });
-    await generate(resource.title, buildResourcePrompt(resource, content));
+    await generate(resource.title, buildResourcePrompt(resource, content.slice(0, 16000)));
   }, []);
 
   const onChat = useCallback(async () => {
     if (!chatMessages?.length) return;
     setStatus({ stage: 'Synthesising conversation', detail: `${chatMessages.length} messages` });
     const convo = chatMessages.map(m => `${m.role === 'user' ? 'Student' : 'Coach'}: ${m.content}`).join('\n\n');
-    const prompt = `Synthesise this study session into dense exam-ready notes.
+    const prompt = `Synthesise this study-coaching conversation into study material.
 
 Subject: ${block.subjectName}${block.notes ? `\nTopic: ${block.notes}` : ''}
 
 ---CONVERSATION---
 ${convo}
 ---END---
-
-# Session Notes: ${block.subjectName}
-## Key Concepts Covered
-## Important Points
-## Formulas / Procedures
-## Things to Remember
-## Action Items
-## Quick Summary
-
-Use **bold** for all key terms. No filler.`;
-    await generate('This conversation', prompt);
+Capture every useful concept, definition, formula and takeaway that came up.`;
+    await generate('This conversation', prompt, block.subjectName);
   }, [chatMessages, block]);
 
   const exportAnki = useCallback(async () => {
@@ -1012,16 +1027,18 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
     const sysForMode = systemPrompt + modeSuffix;
     geminiStream(
       history, sysForMode,
-      (chunk) => { full += chunk; setStreamText(full); },
+      (chunk) => { full += chunk; setStreamText(stripThinking(full)); },
       () => {
-        setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: full, timestamp: Date.now() }]);
+        setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: stripThinking(full), timestamp: Date.now() }]);
         setStreamText(''); setStreaming(false);
         const n = sessionCount + 1; setSessionCount(n);
         localStorage.setItem('orbit-ai-sessions', n.toString());
       },
       (err) => { setError(err); setStreaming(false); setStreamText(''); },
-      1800,
+      2200,                       // fuller answers
       'standard',
+      undefined,                  // signal
+      { temperature: 0.55 },      // focused but natural; no reasoning = stays snappy
     );
   }, [messages, streaming, systemPrompt, sessionCount, mode, block]);
 
