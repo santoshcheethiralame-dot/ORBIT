@@ -1143,7 +1143,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
             style={{ background: 'rgba(255,214,10,0.07)', border: '1px solid rgba(255,214,10,0.22)' }}>
             <AlertTriangle size={13} className="shrink-0 mt-0.5" style={{ color: '#FFD60A' }} strokeWidth={2.5} />
             <span className="text-[11px] leading-snug" style={{ color: 'rgba(255,236,160,0.9)' }}>
-              No AI key set — add your free OpenRouter key in <span className="font-bold">Settings → AI Assistant</span> to enable the coach, notes &amp; exams.
+              No AI key set — add your OpenRouter key under <span className="font-bold">Settings → AI Coach</span> to enable chat, notes &amp; exams.
             </span>
           </div>
         )}
