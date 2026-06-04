@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orbit — Focus Session concept</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { ink:'#0A0A0A', ink2:'#131314', ink3:'#1C1C1E', orange:'#FF5A1F', orange2:'#FF7A3C', yellow:'#FFD60A', paper:'#F7F5EF', mute:'#9A9AA2', danger:'#F4453B' },
+      fontFamily: { display:['Archivo','sans-serif'], sans:['Inter','sans-serif'], mono:['JetBrains Mono','monospace'] },
+      borderRadius: { '4xl':'28px','5xl':'36px' },
+    }}}
+  </script>
+  <style>
+    body { background:#0A0A0A; color:#fff; -webkit-font-smoothing:antialiased; }
+    .display { font-family:'Archivo',sans-serif; font-weight:900; letter-spacing:-0.04em; line-height:0.9; }
+    .meta { font-family:'JetBrains Mono',monospace; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; }
+    .tnum{font-variant-numeric:tabular-nums}
+
+    /* ---- dynamic fluid nebula background (scoped to the focus environment) ---- */
+    .nebula{position:absolute;inset:0;overflow:hidden}
+    .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.30;mix-blend-mode:screen}
+    .blob.b1{width:560px;height:560px;left:-9%;top:-16%;background:radial-gradient(circle at 35% 35%,#FF5A1F,transparent 68%);animation:drift1 26s ease-in-out infinite}
+    .blob.b2{width:460px;height:460px;right:-10%;top:-8%;background:radial-gradient(circle at 40% 40%,#FFD60A,transparent 66%);animation:drift2 33s ease-in-out infinite}
+    .blob.b3{width:640px;height:640px;left:18%;bottom:-30%;background:radial-gradient(circle at 50% 40%,#FF7A3C,transparent 70%);animation:drift3 30s ease-in-out infinite}
+    .nebula.calm .blob.b1{background:radial-gradient(circle at 35% 35%,#FFD60A,transparent 68%);opacity:.22}
+    .nebula.calm .blob.b3{background:radial-gradient(circle at 50% 40%,#FFB020,transparent 70%);opacity:.20}
+    .nebula.bright .blob{opacity:.42}
+    @keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(70px,50px) scale(1.18)}}
+    @keyframes drift2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-55px,40px) scale(1.12)}}
+    @keyframes drift3{0%,100%{transform:translate(0,0) scale(1.05)}50%{transform:translate(45px,-60px) scale(.92)}}
+    @keyframes breathe{0%,100%{transform:scale(.82);opacity:.55}50%{transform:scale(1);opacity:1}}
+    ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#FF5A1F;border-radius:99px;border:3px solid #0A0A0A}
+  </style>
+</head>
+<body class="font-sans">
+<div class="max-w-[1180px] mx-auto px-5 md:px-8 py-10 space-y-14">
+
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl bg-orange flex items-center justify-center text-ink display text-2xl">O</div>
+      <div><div class="display text-2xl">ORBIT</div><div class="meta text-[10px] text-mute mt-1">Concept v10 · focus session</div></div>
+    </div>
+    <span class="meta text-[10px] text-ink bg-yellow px-3 py-1.5 rounded-full">Living nebula · calm centre</span>
+  </div>
+
+  <div class="flex items-end gap-3">
+    <h2 class="display text-5xl md:text-6xl">FOCUS<span class="text-orange">.</span></h2>
+    <span class="meta text-[10px] text-mute mb-2">an immersive deep-work environment</span>
+  </div>
+
+  <!-- ============ FRAME 1 — IN SESSION ============ -->
+  <div class="meta text-[10px] text-orange">In session · deep-focus phase · fluid nebula drifting</div>
+  <div class="rounded-5xl border border-white/12 bg-ink overflow-hidden relative" style="height:760px">
+    <div class="nebula"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+
+    <!-- top bar -->
+    <div class="absolute top-0 inset-x-0 flex items-start justify-between px-8 py-6 z-20">
+      <div>
+        <div class="meta text-[11px] text-orange flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-orange"></span>Operating Systems</div>
+        <div class="text-sm text-mute mt-1.5">Deadlocks · block 2 of 4</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="meta text-[9px] bg-orange/15 border border-orange/30 text-orange px-3 py-2 rounded-full flex items-center gap-1.5">♫ Lo-fi <span class="opacity-60">▾</span></span>
+        <span class="w-9 h-9 rounded-full bg-ink2/80 border border-white/10 text-mute flex items-center justify-center text-xs">◐</span>
+        <span class="w-9 h-9 rounded-full bg-ink2/80 border border-white/10 text-mute flex items-center justify-center text-xs">🔒</span>
+        <span class="w-9 h-9 rounded-full bg-ink2/80 border border-white/10 text-mute flex items-center justify-center text-sm">✕</span>
+      </div>
+    </div>
+
+    <!-- subtle transient milestone -->
+    <div class="absolute top-24 left-1/2 -translate-x-1/2 z-20">
+      <span class="meta text-[9px] text-mute flex items-center gap-2"><span class="text-orange">✦</span> Halfway · locked in</span>
+    </div>
+
+    <!-- centre: orbit timer (hero, generous space) -->
+    <div class="absolute inset-0 flex items-center justify-center z-10">
+      <div class="relative" style="width:410px;height:410px">
+        <svg viewBox="0 0 200 200" class="w-full h-full" style="transform:rotate(-90deg)">
+          <circle cx="100" cy="100" r="93" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3.5"/>
+          <circle cx="100" cy="100" r="93" fill="none" stroke="#FF5A1F" stroke-width="5" stroke-linecap="round" stroke-dasharray="584" stroke-dashoffset="222"/>
+        </svg>
+        <div class="absolute inset-0" style="transform:rotate(223deg)">
+          <div class="absolute left-1/2 top-0 w-5 h-5 rounded-full bg-yellow" style="transform:translate(-50%,-50%);box-shadow:0 0 26px #FFD60A,0 0 8px #FFD60A"></div>
+        </div>
+        <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <span class="meta text-[10px] text-orange mb-4">◐ Deep focus</span>
+          <div class="display tnum" style="font-size:94px">26:14</div>
+          <div class="meta text-[10px] text-mute mt-3">of 45:00 · 62%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- bottom band: tools · dock · stats (one calm row) -->
+    <div class="absolute bottom-0 inset-x-0 px-8 pb-8 z-20">
+      <div class="grid grid-cols-3 items-end gap-4">
+        <div class="flex items-center gap-2 justify-self-start">
+          <span class="w-10 h-10 rounded-xl bg-ink2/80 border border-white/10 text-mute flex items-center justify-center text-sm">≣</span>
+          <span class="w-10 h-10 rounded-xl bg-ink2/80 border border-white/10 text-mute flex items-center justify-center text-sm">✦</span>
+          <span class="w-10 h-10 rounded-xl bg-ink2/80 border border-white/10 text-mute flex items-center justify-center text-sm">▦</span>
+        </div>
+        <div class="flex items-center gap-3 justify-self-center">
+          <span class="bg-ink2/80 border border-white/10 text-white font-bold text-sm px-5 py-3.5 rounded-2xl">☕ Break</span>
+          <span class="bg-orange text-ink font-bold text-base px-9 py-3.5 rounded-2xl">❚❚ Pause</span>
+          <span class="bg-ink2/80 border border-white/10 text-mute font-bold text-sm px-5 py-3.5 rounded-2xl">■ End</span>
+        </div>
+        <div class="justify-self-end text-right space-y-1.5">
+          <div class="meta text-[9px] text-mute">◷ 1h 20m today</div>
+          <div class="meta text-[9px] text-mute">🔥 12 · <span class="text-orange">+45 XP</span></div>
+          <div class="meta text-[9px] text-yellow/80">+8% on finish</div>
+        </div>
+      </div>
+      <div class="text-center meta text-[8px] text-mute/60 mt-4">space = pause · F = full-screen focus · tap timer = +5 min</div>
+    </div>
+  </div>
+
+  <!-- ============ FRAME 2 + 3 ============ -->
+  <div class="grid lg:grid-cols-2 gap-5">
+    <!-- BREAK -->
+    <div>
+      <div class="meta text-[10px] text-yellow mb-3">Break · scene calms to yellow</div>
+      <div class="rounded-5xl border border-white/12 bg-ink overflow-hidden relative" style="height:640px">
+        <div class="nebula calm"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+        <div class="relative z-10 h-full flex flex-col items-center justify-center px-8">
+          <div class="absolute top-6 inset-x-0 text-center meta text-[10px] text-mute">Break · 4:32 left</div>
+          <div class="relative w-56 h-56 flex items-center justify-center">
+            <div class="absolute rounded-full bg-yellow/10 border border-yellow/30" style="width:100%;height:100%;animation:breathe 5s ease-in-out infinite"></div>
+            <div class="absolute rounded-full bg-yellow/15 border border-yellow/40" style="width:68%;height:68%;animation:breathe 5s ease-in-out infinite reverse"></div>
+            <div class="relative text-center"><div class="display text-3xl text-yellow">Breathe</div><div class="meta text-[9px] text-yellow/70 mt-2">in · hold · out</div></div>
+          </div>
+          <p class="text-sm text-mute mt-8 text-center max-w-xs">Stand up · hydrate · look 20&nbsp;ft away for 20&nbsp;sec. Your brain consolidates while you rest.</p>
+          <div class="flex items-center gap-3 mt-7">
+            <span class="bg-ink2/80 border border-white/10 text-white font-bold text-sm px-5 py-3 rounded-2xl">+1 min</span>
+            <span class="bg-yellow text-ink font-bold text-sm px-6 py-3 rounded-2xl">Back to focus →</span>
+          </div>
+          <div class="absolute bottom-6 inset-x-0 text-center meta text-[9px] text-mute">Next · block 3 · DBMS</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPLETE -->
+    <div>
+      <div class="meta text-[10px] text-orange mb-3">Complete · nebula flares bright</div>
+      <div class="rounded-5xl border border-white/12 bg-ink overflow-hidden relative" style="height:640px">
+        <div class="nebula bright"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+        <div class="relative z-10 h-full flex flex-col items-center justify-between px-7 py-9">
+          <div class="flex flex-col items-center">
+            <div class="relative w-32 h-32 flex items-center justify-center mb-4">
+              <div class="absolute rounded-full border-2 border-orange/30" style="width:100%;height:100%"></div>
+              <div class="absolute rounded-full border-2 border-orange/50" style="width:62%;height:62%"></div>
+              <div class="w-16 h-16 rounded-full bg-orange flex items-center justify-center text-ink display text-2xl">✓</div>
+            </div>
+            <div class="display text-3xl text-center">Orbit complete.</div>
+            <p class="text-sm text-mute mt-2 text-center">45 minutes of deep work on <b class="text-white/80">Deadlocks</b>.</p>
+          </div>
+          <div class="grid grid-cols-3 gap-2.5 w-full max-w-sm">
+            <div class="rounded-2xl bg-ink2/70 border border-white/10 p-3 text-center"><div class="display text-xl text-orange">+8%</div><div class="meta text-[8px] text-mute mt-1">Readiness</div></div>
+            <div class="rounded-2xl bg-ink2/70 border border-white/10 p-3 text-center"><div class="display text-xl text-yellow">+90</div><div class="meta text-[8px] text-mute mt-1">XP</div></div>
+            <div class="rounded-2xl bg-ink2/70 border border-white/10 p-3 text-center"><div class="display text-xl text-paper">13</div><div class="meta text-[8px] text-mute mt-1">Day streak</div></div>
+          </div>
+          <div class="w-full max-w-sm">
+            <div class="meta text-[9px] text-mute mb-2 text-center">How locked in were you?</div>
+            <div class="grid grid-cols-3 gap-2.5">
+              <span class="rounded-2xl border-2 border-orange/30 bg-orange/10 py-2.5 text-center"><div class="text-2xl">😓</div><div class="text-[11px] font-bold text-orange mt-1">Scattered</div></span>
+              <span class="rounded-2xl border-2 border-yellow/30 bg-yellow/10 py-2.5 text-center"><div class="text-2xl">😐</div><div class="text-[11px] font-bold text-yellow mt-1">Okay</div></span>
+              <span class="rounded-2xl border-2 border-white/25 bg-white/[0.06] py-2.5 text-center"><div class="text-2xl">😃</div><div class="text-[11px] font-bold text-paper mt-1">Deep</div></span>
+            </div>
+          </div>
+          <div class="w-full max-w-sm"><div class="bg-orange text-ink font-bold text-sm py-3.5 rounded-2xl text-center">Log &amp; start block 3 →</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SKINS + IDEAS ============ -->
+  <div class="grid lg:grid-cols-[1fr_1.4fr] gap-5">
+    <div class="rounded-4xl bg-ink2 border border-white/10 p-6">
+      <div class="meta text-[10px] text-mute mb-4">Timer skins</div>
+      <div class="grid grid-cols-3 gap-3">
+        <div class="rounded-2xl border-2 border-orange bg-orange/10 p-4 flex flex-col items-center gap-2"><div class="w-10 h-10 rounded-full border-2 border-orange relative"><span class="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-yellow"></span></div><span class="text-[10px] font-bold text-orange">Orbit</span></div>
+        <div class="rounded-2xl border-2 border-white/10 bg-ink3 p-4 flex flex-col items-center gap-2"><div class="w-10 h-7 rounded bg-white/10 flex items-center justify-center display text-[10px]">12</div><span class="text-[10px] font-bold text-mute">Flip</span></div>
+        <div class="rounded-2xl border-2 border-white/10 bg-ink3 p-4 flex flex-col items-center gap-2"><div class="display text-lg">26</div><span class="text-[10px] font-bold text-mute">Minimal</span></div>
+      </div>
+    </div>
+    <div class="rounded-4xl bg-ink2 border border-white/10 p-6">
+      <div class="meta text-[10px] text-mute mb-4">What keeps it alive (without the clutter)</div>
+      <div class="grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+        <div class="flex gap-2"><span class="text-orange">▸</span><span class="text-mute text-xs leading-relaxed"><b class="text-white/80">Fluid nebula</b> slowly drifts behind everything</span></div>
+        <div class="flex gap-2"><span class="text-orange">▸</span><span class="text-mute text-xs leading-relaxed"><b class="text-white/80">Orbiting planet</b> tracks progress in real time</span></div>
+        <div class="flex gap-2"><span class="text-orange">▸</span><span class="text-mute text-xs leading-relaxed"><b class="text-white/80">Phases</b> warm-up → deep → re-entry shift the scene</span></div>
+        <div class="flex gap-2"><span class="text-orange">▸</span><span class="text-mute text-xs leading-relaxed"><b class="text-white/80">Milestone flares</b> at 25/50/75% — one quiet line</span></div>
+        <div class="flex gap-2"><span class="text-orange">▸</span><span class="text-mute text-xs leading-relaxed"><b class="text-white/80">Soundscapes</b> brown/white noise + deep-space hum (offline)</span></div>
+        <div class="flex gap-2"><span class="text-orange">▸</span><span class="text-mute text-xs leading-relaxed"><b class="text-white/80">XP + streak</b> tick up live, tucked in the corner</span></div>
+        <div class="flex gap-2"><span class="text-orange">▸</span><span class="text-mute text-xs leading-relaxed"><b class="text-white/80">Breathing break</b> + completion ceremony</span></div>
+        <div class="flex gap-2"><span class="text-orange">▸</span><span class="text-mute text-xs leading-relaxed"><b class="text-white/80">Strict lock</b> · keyboard · tap-timer +5</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="text-center meta text-[10px] text-mute pt-2 pb-2">Orbit · concept v10 · not wired</div>
+</div>
+</body>
+</html>

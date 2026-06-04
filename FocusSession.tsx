@@ -1,112 +1,66 @@
-// FocusSession: Minimal flip-clock with massive smooth timer
+// FocusSession — immersive deep-work environment: living nebula + orbiting timer.
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import {
-  Play, Pause, BookOpen, Coffee, CheckCircle, X, Sparkles,
-  Settings, Flame, FileText, ExternalLink, Volume2, VolumeX,
-  SkipForward, Zap, Crown, Target, TrendingUp, Clock, Brain, Award, Activity
+  Play, Pause, Coffee, X, Sparkles, Lock, Unlock, Music2, Volume2, VolumeX,
+  BookOpen, FileText, ExternalLink, CheckCircle, Square, Plus, Wind,
+  Flame, Zap, Clock, Crown, TrendingUp, ChevronDown, Maximize2, Minimize2,
+  CircleDashed, Settings as SettingsIcon
 } from "lucide-react";
 import { StudyBlock } from "./types";
 import type { Resource } from "./types";
 import { updateAssignmentProgress } from "./brain";
 import { db } from "./db";
 import { recordTopicReview, getISTEffectiveDate } from "./tracking";
+import { effectiveDatePlus } from "./utils/time";
 import { QualityRatingModal } from "./QualityRatingModal";
 import { recordBlockOutcome } from "./brain-enhanced-integration";
 import { AIStudyAssistant } from "./AIStudyAssistant";
-import { FrostedTile, FrostedMini, PageHeader, MetaText } from "./components";
 import { useSettings } from "./SettingsContext";
 import { SoundManager } from "./utils/sounds";
+import { soundscape, SOUNDSCAPES, SoundscapeType } from "./utils/soundscapes";
 import { onDataChange } from "./db";
 
-// Minimal Flip Clock Digit - PERFECT ANIMATION (fixed timing)
+// ── Mechanical flip-clock digit (used by the "Flip" timer skin) ──
 const FLIP_DURATION_MS = 600;
 
 const FlipDigit: React.FC<{ value: string }> = React.memo(({ value }) => {
   const [displayValue, setDisplayValue] = useState(value);
   const [prevValue, setPrevValue] = useState(value);
   const [isFlipping, setIsFlipping] = useState(false);
-
-  // ref to clear the end timer if value changes rapidly or component unmounts
   const endTimerRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => { mountedRef.current = false; };
-  }, []);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   useEffect(() => {
-    // no flip if same value
     if (value === displayValue) return;
-
-    // Store the outgoing value for the animated overlay
     setPrevValue(displayValue);
-    // Immediately update displayValue to the NEW value.
-    // The static top shows this new value, but it's hidden behind the
-    // animated overlay (z-index 4) which shows prevValue flipping away.
     setDisplayValue(value);
     setIsFlipping(true);
-
-    // clear any existing timer first
     if (endTimerRef.current !== null) window.clearTimeout(endTimerRef.current);
-
-    // stop flipping at full duration
     endTimerRef.current = window.setTimeout(() => {
       if (mountedRef.current) setIsFlipping(false);
       endTimerRef.current = null;
     }, FLIP_DURATION_MS);
-
     return () => {
-      if (endTimerRef.current !== null) {
-        window.clearTimeout(endTimerRef.current);
-        endTimerRef.current = null;
-      }
+      if (endTimerRef.current !== null) { window.clearTimeout(endTimerRef.current); endTimerRef.current = null; }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]); // intentionally only depend on incoming value
+  }, [value]);
 
   return (
     <div className="flip-card-container" style={{ ["--flip-duration" as any]: `${FLIP_DURATION_MS}ms` }}>
       <div className="flip-card">
-        {/* Top Half - Static (shows current displayValue) */}
-        <div className="flip-card-top">
-          <div className="flip-card-face">
-            {displayValue}
-          </div>
-        </div>
-
-        {/* Bottom Half - Static (always shows current displayValue = new value) */}
-        <div className="flip-card-bottom">
-          <div className="flip-card-face">
-            {displayValue}
-          </div>
-        </div>
-
-        {/* Top Half - Animated (shows OLD value, flips away to reveal new value behind) */}
-        {isFlipping && (
-          <div className="flip-card-top-flip">
-            <div className="flip-card-face">
-              {prevValue}
-            </div>
-          </div>
-        )}
-
-        {/* Bottom Half - Animated (shows NEW value, flips in from top) */}
-        {isFlipping && (
-          <div className="flip-card-bottom-flip">
-            <div className="flip-card-face">
-              {displayValue}
-            </div>
-          </div>
-        )}
+        <div className="flip-card-top"><div className="flip-card-face">{displayValue}</div></div>
+        <div className="flip-card-bottom"><div className="flip-card-face">{displayValue}</div></div>
+        {isFlipping && (<div className="flip-card-top-flip"><div className="flip-card-face">{prevValue}</div></div>)}
+        {isFlipping && (<div className="flip-card-bottom-flip"><div className="flip-card-face">{displayValue}</div></div>)}
       </div>
-
       <div className="flip-divider" />
     </div>
   );
 });
-
-FlipDigit.displayName = 'FlipDigit';
+FlipDigit.displayName = "FlipDigit";
 
 export interface SubjectIntelligence {
   nextExam?: string;
@@ -123,20 +77,19 @@ interface FocusSessionProps {
   subjectIntelligence?: SubjectIntelligence;
 }
 
-const haptic = (pattern: 'light' | 'medium' | 'heavy' | 'success' = 'light') => {
+const haptic = (pattern: "light" | "medium" | "heavy" | "success" = "light") => {
   try {
-    if (!('vibrate' in navigator)) return;
+    if (!("vibrate" in navigator)) return;
     const patterns = { light: 5, medium: 10, heavy: 15, success: [10, 50, 10, 50, 15] };
-    // navigator.vibrate accepts number or number[]; cast to any to avoid TS mismatch
     (navigator as any).vibrate(patterns[pattern]);
   } catch (error) {
-    console.debug('Haptic feedback not available:', error);
+    console.debug("Haptic feedback not available:", error);
   }
 };
 
-export const FocusSession: React.FC<FocusSessionProps> = ({
-  block, onComplete, onExit, subjectIntelligence
-}) => {
+const fmtMin = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`);
+
+export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, onExit, subjectIntelligence }) => {
   const { settings } = useSettings();
 
   const [timeLeft, setTimeLeft] = useState(block.duration * 60);
@@ -147,7 +100,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const [breakTime, setBreakTime] = useState(0);
   const breakDuration = useMemo(() => settings.study.breakDuration * 60, [settings.study.breakDuration]);
   const [strictMode, setStrictMode] = useState(settings.study.strictModeDefault);
-  // Ref so the interval callback always sees the current value without a stale closure
   const autoStartBreaksRef = useRef(settings.study.autoStartBreaks);
   useEffect(() => { autoStartBreaksRef.current = settings.study.autoStartBreaks; }, [settings.study.autoStartBreaks]);
   const [soundEnabled, setSoundEnabled] = useState(settings.audio.enabled);
@@ -166,30 +118,34 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const [subjectResources, setSubjectResources] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasStarted, setHasStarted] = useState(false);
-  const [useRing, setUseRing] = useState(true); // ring timer (default) vs mechanical flip clock
   const [showSummary, setShowSummary] = useState(false);
   const [summaryData, setSummaryData] = useState<{ duration: number; quality: number; readinessGain: number; aiTip?: string; } | null>(null);
+
+  // ── New immersive-UI state ──
+  const [skin, setSkin] = useState<"orbit" | "flip" | "minimal">("orbit");
+  const [zen, setZen] = useState(false);
+  const [showSound, setShowSound] = useState(false);
+  const [scape, setScape] = useState<SoundscapeType>("silence");
+  const [scapeVol, setScapeVol] = useState(0.5);
+  const [todayMin, setTodayMin] = useState(0);
+  const [streak, setStreak] = useState(0);
 
   const isMountedRef = useRef(true);
   const lastTickRef = useRef(Date.now());
 
+  // strict mode → warn before leaving the tab
   useEffect(() => {
     if (!strictMode || !isRunning) return;
-
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      e.returnValue = 'Focus session is active. Are you sure you want to leave?';
+      e.returnValue = "Focus session is active. Are you sure you want to leave?";
       return e.returnValue;
     };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [strictMode, isRunning]);
 
-  useEffect(() => {
-    const cleanup = onDataChange(() => { });
-    return cleanup;
-  }, []);
+  useEffect(() => { const cleanup = onDataChange(() => { }); return cleanup; }, []);
 
   useEffect(() => {
     const loadResources = async () => {
@@ -199,176 +155,136 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     loadResources();
   }, [block.subjectId]);
 
+  // load today's focus minutes + global day streak for the live HUD
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
+    let alive = true;
+    (async () => {
+      try {
+        const today = getISTEffectiveDate();
+        const logs = await db.logs.toArray();
+        if (!alive) return;
+        const todaySum = logs.filter((l: any) => l.date === today).reduce((s: number, l: any) => s + (l.duration || 0), 0);
+        setTodayMin(todaySum);
+        const dates = [...new Set(logs.map((l: any) => l.date))].sort();
+        let st = 0;
+        if (dates.length) {
+          const last = dates[dates.length - 1];
+          const yest = effectiveDatePlus(-1);
+          if (last === today || last === yest) {
+            st = 1;
+            for (let i = dates.length - 2; i >= 0; i--) {
+              const d1 = new Date(dates[i + 1] as string).getTime();
+              const d0 = new Date(dates[i] as string).getTime();
+              if (Math.floor((d1 - d0) / 86400000) === 1) st++; else break;
+            }
+          }
+        }
+        setStreak(st);
+      } catch (e) { /* non-fatal HUD data */ }
+    })();
+    return () => { alive = false; };
   }, []);
 
-  useEffect(() => {
-    if (isRunning) setHasStarted(true);
-  }, [isRunning]);
+  useEffect(() => { const timer = setTimeout(() => setIsLoading(false), 700); return () => clearTimeout(timer); }, []);
+  useEffect(() => { if (isRunning) setHasStarted(true); }, [isRunning]);
 
+  // persist notes + stop soundscape on unmount
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      try { soundscape.stop(); } catch { /* ignore */ }
       if (notes) {
-        try {
-          localStorage.setItem(`orbit-session-notes-${block.id}`, notes);
-        } catch (e) {
-          console.warn('Failed to save notes on unmount:', e);
-        }
+        try { localStorage.setItem(`orbit-session-notes-${block.id}`, notes); }
+        catch (e) { console.warn("Failed to save notes on unmount:", e); }
       }
     };
   }, [notes, block.id]);
 
+  // catch-up on tab refocus
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        lastTickRef.current = Date.now();
-      } else if (isRunning) {
+      if (document.hidden) { lastTickRef.current = Date.now(); }
+      else if (isRunning) {
         const elapsed = Math.floor((Date.now() - lastTickRef.current) / 1000);
         if (elapsed > 0) {
-          if (isBreak) {
-            setBreakTime(prev => Math.max(0, prev - elapsed));
-          } else if (isOvertime) {
-            setOvertime(prev => prev + elapsed);
-          } else {
-            setTimeLeft(prev => Math.max(0, prev - elapsed));
-          }
+          if (isBreak) setBreakTime(prev => Math.max(0, prev - elapsed));
+          else if (isOvertime) setOvertime(prev => prev + elapsed);
+          else setTimeLeft(prev => Math.max(0, prev - elapsed));
         }
         lastTickRef.current = Date.now();
       }
     };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [isRunning, isBreak, isOvertime]);
-
-  // ---------------------------------------------------------------------------
-  // Helper callbacks: showMilestoneMessage -> playSound -> checkMilestone
-  // Placed before the interval effect to avoid "used before declaration" errors.
-  // ---------------------------------------------------------------------------
 
   const showMilestoneMessage = useCallback((text: string) => {
     setMilestoneText(text);
     setShowMilestone(true);
-    // hide after 2s
-    setTimeout(() => setShowMilestone(false), 2000);
+    setTimeout(() => setShowMilestone(false), 2200);
   }, []);
 
-  const playSound = useCallback((type: 'start' | 'milestone' | 'complete') => {
+  const playSound = useCallback((type: "start" | "milestone" | "complete") => {
     if (!soundEnabled) return;
-    if (type === 'complete') {
-      SoundManager.playSuccess();
-      haptic('success');
-    } else if (type === 'milestone') {
-      SoundManager.playMilestone();
-      haptic('medium');
-    } else {
-      SoundManager.playClick();
-      haptic('light');
-    }
+    if (type === "complete") { SoundManager.playSuccess(); haptic("success"); }
+    else if (type === "milestone") { SoundManager.playMilestone(); haptic("medium"); }
+    else { SoundManager.playClick(); haptic("light"); }
   }, [soundEnabled]);
 
   const checkMilestone = useCallback((progress: number) => {
     setMilestones(prev => {
-      if (progress >= 0.75 && !prev.m75) {
-        showMilestoneMessage("Almost Done!");
-        playSound('milestone');
-        return { ...prev, m75: true };
-      }
-      if (progress >= 0.5 && !prev.m50) {
-        showMilestoneMessage("Halfway There!");
-        playSound('milestone');
-        return { ...prev, m50: true };
-      }
-      if (progress >= 0.25 && !prev.m25) {
-        showMilestoneMessage("25% Complete!");
-        playSound('milestone');
-        return { ...prev, m25: true };
-      }
+      if (progress >= 0.75 && !prev.m75) { showMilestoneMessage("Re-entry · almost there"); playSound("milestone"); return { ...prev, m75: true }; }
+      if (progress >= 0.5 && !prev.m50) { showMilestoneMessage("Halfway · locked in"); playSound("milestone"); return { ...prev, m50: true }; }
+      if (progress >= 0.25 && !prev.m25) { showMilestoneMessage("Quarter done · in the zone"); playSound("milestone"); return { ...prev, m25: true }; }
       return prev;
     });
   }, [playSound, showMilestoneMessage]);
 
-  // ---------------------------------------------------------------------------
-  // Interval ticking effect — FIX: use refs for all mutable timer state so the
-  // interval is created once per start/stop, not rebuilt on every tick.
-  // ---------------------------------------------------------------------------
-  const isBreakRef    = useRef(isBreak);
+  const isBreakRef = useRef(isBreak);
   const isOvertimeRef = useRef(isOvertime);
-  const breakDurRef   = useRef(breakDuration);
-  const blockDurRef   = useRef(block.duration);
-  // FIX: also mirror timeLeft and overtime in refs so the milestone calculation
-  // can read current values without triggering extra renders via nested setState.
-  const timeLeftRef   = useRef(timeLeft);
-  const overtimeRef   = useRef(overtime);
-
-  useEffect(() => { isBreakRef.current    = isBreak;      }, [isBreak]);
-  useEffect(() => { isOvertimeRef.current = isOvertime;   }, [isOvertime]);
-  useEffect(() => { breakDurRef.current   = breakDuration;}, [breakDuration]);
-  useEffect(() => { blockDurRef.current   = block.duration;}, [block.duration]);
-  useEffect(() => { timeLeftRef.current   = timeLeft;     }, [timeLeft]);
-  useEffect(() => { overtimeRef.current   = overtime;     }, [overtime]);
+  const breakDurRef = useRef(breakDuration);
+  const blockDurRef = useRef(block.duration);
+  const timeLeftRef = useRef(timeLeft);
+  const overtimeRef = useRef(overtime);
+  useEffect(() => { isBreakRef.current = isBreak; }, [isBreak]);
+  useEffect(() => { isOvertimeRef.current = isOvertime; }, [isOvertime]);
+  useEffect(() => { breakDurRef.current = breakDuration; }, [breakDuration]);
+  useEffect(() => { blockDurRef.current = block.duration; }, [block.duration]);
+  useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
+  useEffect(() => { overtimeRef.current = overtime; }, [overtime]);
 
   useEffect(() => {
     if (!isRunning) return;
-
     const interval = setInterval(() => {
       const now = Date.now();
       const delta = now - lastTickRef.current;
-
       if (delta >= 1000) {
         const secondsPassed = Math.floor(delta / 1000);
         lastTickRef.current = now - (delta % 1000);
-
         if (isBreakRef.current) {
           setBreakTime(prev => {
-            if (prev <= secondsPassed) {
-              setIsBreak(false);
-              setIsRunning(false);
-              playSound('complete');
-              return 0;
-            }
+            if (prev <= secondsPassed) { setIsBreak(false); setIsRunning(false); playSound("complete"); return 0; }
             return prev - secondsPassed;
           });
         } else {
           setTimeLeft(prev => {
             if (prev <= secondsPassed && !isOvertimeRef.current) {
-              if (autoStartBreaksRef.current) {
-                setIsBreak(true);
-                setBreakTime(breakDurRef.current);
-                playSound('complete');
-                return 0;
-              }
-              setIsOvertime(true);
-              setOvertime(0);
-              playSound('complete');
-              return 0;
+              if (autoStartBreaksRef.current) { setIsBreak(true); setBreakTime(breakDurRef.current); playSound("complete"); return 0; }
+              setIsOvertime(true); setOvertime(0); playSound("complete"); return 0;
             }
             return prev > 0 ? Math.max(0, prev - secondsPassed) : 0;
           });
-
           if (isOvertimeRef.current) setOvertime(prev => prev + secondsPassed);
-
-          // Compute progress from refs — no extra renders needed.
-          const total   = isBreakRef.current ? breakDurRef.current : blockDurRef.current * 60;
+          const total = isBreakRef.current ? breakDurRef.current : blockDurRef.current * 60;
           const current = isOvertimeRef.current ? 0 : timeLeftRef.current;
-          const p       = isOvertimeRef.current ? 1 : Math.min(1, Math.max(0, (total - current) / total));
+          const p = isOvertimeRef.current ? 1 : Math.min(1, Math.max(0, (total - current) / total));
           checkMilestone(p);
         }
       }
     }, 100);
-
     return () => clearInterval(interval);
-    // FIX: deps only include stable values — isRunning triggers create/destroy,
-    // not the rapidly-changing timer state values.
   }, [isRunning, playSound, checkMilestone]);
-
-  // ---------------------------------------------------------------------------
-  // Rest of component logic
-  // ---------------------------------------------------------------------------
 
   const elapsedSeconds = block.duration * 60 - timeLeft;
   const canFinishEarly = elapsedSeconds >= 300;
@@ -376,9 +292,16 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const currentVal = isOvertime ? -overtime : (isBreak ? breakTime : timeLeft);
   const progress = isOvertime ? 1 : Math.min(1, Math.max(0, (currentTotal - currentVal) / currentTotal));
   const sessionMinutes = Math.floor(elapsedSeconds / 60);
-  const focusIntensity = Math.min(100, Math.round((sessionMinutes / block.duration) * 100));
+  const sessionXp = Math.max(0, Math.round(sessionMinutes * 2));
 
-  // ── Exit safety: never silently discard elapsed study time ──
+  const phaseLabel = isOvertime ? "Overtime"
+    : isBreak ? "Recharge"
+      : !hasStarted ? "Ready"
+        : progress >= 0.85 ? "Re-entry"
+          : progress <= 0.12 ? "Warm-up"
+            : "Deep focus";
+
+  // ── Exit safety ──
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const requestExit = () => {
     if (!isBreak && elapsedSeconds >= 60) setShowExitConfirm(true);
@@ -388,20 +311,14 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     try {
       const mins = Math.max(1, Math.floor(elapsedSeconds / 60));
       await db.logs.add({
-        subjectId: block.subjectId,
-        duration: mins,
-        date: getISTEffectiveDate(),
-        timestamp: Date.now(),
-        type: block.type,
-        projectId: block.projectId,
-        notes: 'Partial session (exited early)',
+        subjectId: block.subjectId, duration: mins, date: getISTEffectiveDate(),
+        timestamp: Date.now(), type: block.type, projectId: block.projectId,
+        notes: "Partial session (exited early)",
       } as any);
-      if (block.type === 'assignment' && block.assignmentId) {
-        await updateAssignmentProgress(block.assignmentId, mins);
+      if (block.type === "assignment" && (block as any).assignmentId) {
+        await updateAssignmentProgress((block as any).assignmentId, mins);
       }
-    } catch (e) {
-      console.error('Failed to log partial session', e);
-    }
+    } catch (e) { console.error("Failed to log partial session", e); }
     setShowExitConfirm(false);
     onExit();
   };
@@ -412,743 +329,414 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     const mins = Math.floor(absSeconds / 60);
     const secs = absSeconds % 60;
     return {
-      min1: String(Math.floor(mins / 10)),
-      min2: String(mins % 10),
-      sec1: String(Math.floor(secs / 10)),
-      sec2: String(secs % 10),
-      isNegative: val < 0
+      min1: String(Math.floor(mins / 10)), min2: String(mins % 10),
+      sec1: String(Math.floor(secs / 10)), sec2: String(secs % 10),
+      isNegative: val < 0,
     };
   }, [isOvertime, overtime, isBreak, breakTime, timeLeft]);
 
-  const getThemeColors = () => {
-    if (isOvertime) {
-      return {
-        primary: "#f59e0b",
-        secondary: "#fb923c",
-        glow: "rgba(251,146,60,0.3)",
-      };
-    }
-    if (isBreak) {
-      return {
-        primary: "#FFD60A",
-        secondary: "#FFE14D",
-        glow: "rgba(255,214,10,0.3)",
-      };
-    }
-    return {
-      primary: "#FF5A1F",
-      secondary: "#FF7A3C",
-      glow: "rgba(255,90,31,0.3)",
-    };
-  };
-
-  const theme = getThemeColors();
+  const theme = isOvertime
+    ? { primary: "#FF7A3C", secondary: "#FFD60A", glow: "rgba(255,122,60,0.35)" }
+    : isBreak
+      ? { primary: "#FFD60A", secondary: "#FFE14D", glow: "rgba(255,214,10,0.32)" }
+      : { primary: "#FF5A1F", secondary: "#FF7A3C", glow: "rgba(255,90,31,0.34)" };
 
   const toggleTimer = () => {
     if (soundEnabled) SoundManager.playClick();
-    haptic('light');
+    haptic("light");
     setIsRunning(!isRunning);
-    if (!isRunning && !hasStarted) {
-      playSound('start');
-      lastTickRef.current = Date.now();
-    }
+    if (!isRunning && !hasStarted) { playSound("start"); lastTickRef.current = Date.now(); }
   };
 
   const startBreak = () => {
     if (strictMode) return;
-    setIsBreak(true);
-    setBreakTime(breakDuration);
-    setIsRunning(true);
-    lastTickRef.current = Date.now();
-    playSound('start');
+    setIsBreak(true); setBreakTime(breakDuration); setIsRunning(true);
+    lastTickRef.current = Date.now(); playSound("start");
   };
+  const endBreak = (resume: boolean) => {
+    setIsBreak(false); setBreakTime(0); setIsRunning(resume);
+    if (resume) lastTickRef.current = Date.now();
+  };
+
+  const addFive = () => {
+    if (isBreak || isOvertime) return;
+    setTimeLeft(p => p + 300);
+    if (soundEnabled) SoundManager.playClick();
+    haptic("light");
+  };
+
+  const selectScape = (id: SoundscapeType) => {
+    setScape(id);
+    soundscape.setVolume(scapeVol);
+    soundscape.play(id);
+    haptic("light");
+  };
+  const changeVol = (v: number) => { setScapeVol(v); soundscape.setVolume(v); };
+
+  const cycleSkin = () => setSkin(s => (s === "orbit" ? "flip" : s === "flip" ? "minimal" : "orbit"));
 
   const finishFromOvertime = async () => {
     const totalDuration = block.duration + Math.floor(overtime / 60);
     await handleFocusComplete(totalDuration, notes);
   };
 
-  const handleFocusComplete = useCallback(async (actualDuration?: number, sessionNotes?: string) => {
+  const handleFocusComplete = useCallback(async (actualDuration?: number, sNotes?: string) => {
     if (!block || !isMountedRef.current) return;
-
     const durationToLog = actualDuration || block.duration;
-    if (block.type === 'assignment' && block.assignmentId) {
-      await updateAssignmentProgress(block.assignmentId, durationToLog);
+    if (block.type === "assignment" && (block as any).assignmentId) {
+      await updateAssignmentProgress((block as any).assignmentId, durationToLog);
     }
-
     if (isMountedRef.current) {
-      playSound('complete');
+      playSound("complete");
       setCompletedDuration(durationToLog);
-      setSessionNotes(sessionNotes || "");
+      setSessionNotes(sNotes || "");
       setShowQualityModal(true);
     }
   }, [block, playSound]);
 
   const handleQualityRating = async (rating: 1 | 2 | 3 | 4 | 5, topic?: string, aiTip?: string) => {
-    await recordBlockOutcome(block, {
-      actualDuration: completedDuration,
-      completionQuality: rating,
-      skipped: wasSkipped
-    });
-
-    // Update spaced-repetition state and capture the review metadata so the
-    // SINGLE StudyLog (written by onComplete -> index.tsx) carries it. This
-    // replaces the old double-log (recordTopicReview used to write its own log).
+    await recordBlockOutcome(block, { actualDuration: completedDuration, completionQuality: rating, skipped: wasSkipped });
     let reviewMeta: { topicId: string; comprehensionRating: 1 | 2 | 3; reviewNumber: number; nextReview: string } | undefined;
-    if (block.type === 'review' && topic && topic.trim()) {
+    if (block.type === "review" && topic && topic.trim()) {
       let srRating: 1 | 2 | 3 = 2;
-      if (rating <= 2) srRating = 1;
-      else if (rating >= 4) srRating = 3;
-      reviewMeta = await recordTopicReview(
-        block.subjectId,
-        topic.trim(),
-        srRating,
-        block.duration,
-        getISTEffectiveDate()
-      );
+      if (rating <= 2) srRating = 1; else if (rating >= 4) srRating = 3;
+      reviewMeta = await recordTopicReview(block.subjectId, topic.trim(), srRating, block.duration, getISTEffectiveDate());
     }
-
     const readinessGain = rating >= 4 ? 10 : rating >= 3 ? 6 : 3;
-    setSummaryData({ duration: completedDuration, quality: rating, readinessGain, aiTip: aiTip || '' });
+    setSummaryData({ duration: completedDuration, quality: rating, readinessGain, aiTip: aiTip || "" });
     setShowQualityModal(false);
     setShowSummary(true);
-    setTimeout(() => {
-      setShowSummary(false);
-      onComplete(completedDuration, sessionNotes, reviewMeta);
-    }, aiTip ? 4500 : 3500);
+    setTimeout(() => { setShowSummary(false); onComplete(completedDuration, sessionNotes, reviewMeta); }, aiTip ? 4800 : 3600);
   };
 
-  // Dismissing the rating prompt must NOT fabricate a score (it previously
-  // recorded a fake 3/5 into the adaptive engine + SR schedule). The session
-  // still completes — the StudyLog is written by onComplete — we just record
-  // no quality outcome for this block.
-  const handleQualityDismiss = () => {
-    setShowQualityModal(false);
-    onComplete(completedDuration, sessionNotes);
-  };
+  const handleQualityDismiss = () => { setShowQualityModal(false); onComplete(completedDuration, sessionNotes); };
 
   const handleResourceClick = (resource: Resource) => {
     if (resource.fileData && resource.fileType) {
-      const base64Data = resource.fileData.includes('base64,')
-        ? resource.fileData.split('base64,')[1]
-        : resource.fileData;
-
+      const base64Data = resource.fileData.includes("base64,") ? resource.fileData.split("base64,")[1] : resource.fileData;
       try {
         const byteCharacters = atob(base64Data);
         const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
+        for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
         const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: resource.fileType });
         const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank', 'noopener,noreferrer');
+        window.open(blobUrl, "_blank", "noopener,noreferrer");
         setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-      } catch (error) {
-        console.error('Error opening file:', error);
-      }
+      } catch (error) { console.error("Error opening file:", error); }
       return;
     }
-
-    if (!resource.url || resource.url.trim() === '') return;
-    window.open(resource.url, '_blank', 'noopener,noreferrer');
+    if (!resource.url || resource.url.trim() === "") return;
+    window.open(resource.url, "_blank", "noopener,noreferrer");
   };
 
+  // keyboard: Esc, space=pause, F=zen
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      const anyModal = showNotes || showAI || showSettings || showResources || showSound;
       if (e.key === "Escape") {
         if (showNotes) setShowNotes(false);
         else if (showAI) setShowAI(false);
         else if (showSettings) setShowSettings(false);
         else if (showResources) setShowResources(false);
+        else if (showSound) setShowSound(false);
+        else if (zen) setZen(false);
         else if (isRunning && !strictMode) setIsRunning(false);
       }
-      if (e.key === " " && !showNotes && !showAI && !showSettings && !showResources && e.target === document.body) {
-        e.preventDefault();
-        toggleTimer();
-      }
+      if (e.target !== document.body) return;
+      if (e.key === " " && !anyModal) { e.preventDefault(); toggleTimer(); }
+      if ((e.key === "f" || e.key === "F") && !anyModal) { e.preventDefault(); setZen(z => !z); }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showNotes, showAI, showSettings, showResources, isRunning, strictMode]); // dependencies intentionally include interactive state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showNotes, showAI, showSettings, showResources, showSound, isRunning, strictMode, zen]);
 
+  // browser tab title
   useEffect(() => {
-    if (!isRunning && !isBreak) {
-      document.title = "Orbit";
-      return;
-    }
+    if (!isRunning && !isBreak) { document.title = "Orbit"; return; }
     const timeVal = isOvertime ? overtime : (isBreak ? breakTime : timeLeft);
-    const formatted = isOvertime
-      ? `+${Math.floor(timeVal / 60)}:${(timeVal % 60).toString().padStart(2, '0')}`
-      : `${Math.floor(timeVal / 60)}:${(timeVal % 60).toString().padStart(2, '0')}`;
-    const emoji = isOvertime ? '⏱️' : (isBreak ? '☕' : '🎯');
-    document.title = `${emoji} ${formatted}`;
+    const formatted = `${Math.floor(timeVal / 60)}:${(timeVal % 60).toString().padStart(2, "0")}`;
+    const emoji = isOvertime ? "⏱️" : (isBreak ? "☕" : "🎯");
+    document.title = `${emoji} ${isOvertime ? "+" : ""}${formatted}`;
     return () => { document.title = "Orbit"; };
   }, [isRunning, isBreak, isOvertime, timeLeft, breakTime, overtime]);
 
-  return (
-    <div className="fixed inset-0 z-50 bg-[#0a0b0f] flex flex-col overflow-hidden">
-      <style>{`
-        /* Perfect Flip Clock Animation */
-        .flip-card-container {
-          --flip-duration: ${FLIP_DURATION_MS}ms;
-          position: relative;
-          width: 130px;
-          height: 180px;
-          margin: 0 8px;
-          perspective: 1400px;
-        }
-        
-        @media (min-width: 768px) {
-          .flip-card-container {
-            width: 180px;
-            height: 240px;
-            margin: 0 10px;
-          }
-        }
-        
-        .flip-card {
-          position: relative;
-          width: 100%;
-          height: 100%;
-          transform-style: preserve-3d;
-        }
-        
-        .flip-card-top,
-        .flip-card-bottom,
-        .flip-card-top-flip,
-        .flip-card-bottom-flip {
-          position: absolute;
-          width: 100%;
-          height: 50%;
-          overflow: hidden;
-          background: rgba(37, 39, 46, 0.5);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          box-shadow: 
-            0 8px 32px rgba(0, 0, 0, 0.5),
-            inset 0 1px 0 rgba(255, 255, 255, 0.1);
-        }
-        
-        .flip-card-top {
-          top: 0;
-          border-radius: 20px 20px 4px 4px;
-          border-bottom: 1px solid rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: flex-end;
-          justify-content: center;
-          z-index: 2;
-        }
-        
-        .flip-card-bottom {
-          bottom: 0;
-          border-radius: 4px 4px 20px 20px;
-          display: flex;
-          align-items: flex-start;
-          justify-content: center;
-          z-index: 1;
-        }
-        
-        .flip-card-face {
-          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
-          font-size: 100px;
-          font-weight: 800;
-          color: #ffffff;
-          line-height: 1;
-          user-select: none;
-          text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-          filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
-        }
-        
-        @media (min-width: 768px) {
-          .flip-card-face {
-            font-size: 140px;
-          }
-        }
-        
-        .flip-card-top .flip-card-face {
-          transform: translateY(50%);
-        }
-        
-        .flip-card-bottom .flip-card-face {
-          transform: translateY(-50%);
-        }
-        
-        /* Animated halves */
-        .flip-card-top-flip {
-          top: 0;
-          border-radius: 20px 20px 4px 4px;
-          transform-origin: bottom center;
-          animation: flipTop var(--flip-duration) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
-          z-index: 4;
-          display: flex;
-          align-items: flex-end;
-          justify-content: center;
-          backface-visibility: hidden;
-          -webkit-backface-visibility: hidden;
-          will-change: transform;
-          pointer-events: none;
-        }
-        
-        .flip-card-top-flip .flip-card-face {
-          transform: translateY(50%);
-        }
-        
-        .flip-card-bottom-flip {
-          bottom: 0;
-          border-radius: 4px 4px 20px 20px;
-          transform-origin: top center;
-          animation: flipBottom var(--flip-duration) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
-          z-index: 3;
-          display: flex;
-          align-items: flex-start;
-          justify-content: center;
-          backface-visibility: hidden;
-          -webkit-backface-visibility: hidden;
-          will-change: transform;
-          pointer-events: none;
-        }
-        
-        .flip-card-bottom-flip .flip-card-face {
-          transform: translateY(-50%);
-        }
-        
-        @keyframes flipTop {
-          0% { 
-            transform: rotateX(0deg);
-            filter: brightness(1);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-          }
-          50% {
-            filter: brightness(0.7);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
-          }
-          100% { 
-            transform: rotateX(-180deg);
-            filter: brightness(0.5);
-            box-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
-          }
-        }
-        
-        @keyframes flipBottom {
-          0% { 
-            transform: rotateX(180deg);
-            filter: brightness(0.5);
-            box-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
-          }
-          50% {
-            filter: brightness(0.7);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
-          }
-          100% { 
-            transform: rotateX(0deg);
-            filter: brightness(1);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-          }
-        }
-        
-        .flip-divider {
-          position: absolute;
-          top: 50%;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background: rgba(0, 0, 0, 0.9);
-          transform: translateY(-50%);
-          z-index: 10;
-          pointer-events: none;
-          box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
-        }
-        
-        /* Uniform Card — aligned to the Orbit design tokens for a cohesive
-           premium glass across the focus screen (stat cards, side panels, etc.). */
-        .uniform-card {
-          background: var(--os-surface-1, rgba(255, 255, 255, 0.035));
-          border: 1px solid var(--os-border, rgba(255, 255, 255, 0.09));
-          border-radius: var(--os-r-lg, 18px);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
-          transition: transform var(--os-dur-fast, 150ms) var(--os-ease, ease),
-            border-color var(--os-dur-fast, 150ms) var(--os-ease, ease),
-            background var(--os-dur-fast, 150ms) var(--os-ease, ease);
-        }
+  const timeStr = `${time.min1}${time.min2}:${time.sec1}${time.sec2}`;
+  const pct = Math.round(progress * 100);
 
-        .uniform-card:hover {
-          background: var(--os-surface-2, rgba(255, 255, 255, 0.06));
-          border-color: var(--os-border-strong, rgba(255, 255, 255, 0.16));
-          transform: translateY(-1px);
-        }
-        
-        /* Animations */
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes scaleIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
-        @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
-        
-        .btn-smooth {
-          transition: transform var(--os-dur-fast, 150ms) var(--os-ease, ease),
-            background var(--os-dur-fast, 150ms) var(--os-ease, ease),
-            border-color var(--os-dur-fast, 150ms) var(--os-ease, ease),
-            box-shadow var(--os-dur-fast, 150ms) var(--os-ease, ease),
-            color var(--os-dur-fast, 150ms) var(--os-ease, ease);
-        }
-        .btn-smooth:hover:not(:disabled) {
-          transform: translateY(-1px);
-        }
-        .btn-smooth:active:not(:disabled) {
-          transform: scale(0.98);
-        }
+  // ── timer faces ──
+  const OrbitFace = (
+    <button onClick={addFive} className="relative block" style={{ width: 410, height: 410, maxWidth: "78vw", maxHeight: "78vw" }} title="Tap to add 5 minutes">
+      <svg viewBox="0 0 100 100" className="w-full h-full" style={{ transform: "rotate(-90deg)" }}>
+        <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2.6" />
+        <circle cx="50" cy="50" r="45" fill="none" stroke={theme.primary} strokeWidth="3.4" strokeLinecap="round"
+          strokeDasharray={2 * Math.PI * 45} strokeDashoffset={(2 * Math.PI * 45) * (1 - Math.min(1, progress))}
+          style={{ transition: "stroke-dashoffset 0.6s ease, stroke 0.4s ease" }} />
+      </svg>
+      <div className="absolute inset-0" style={{ transform: `rotate(${progress * 360}deg)`, transition: "transform 0.6s cubic-bezier(0.4,0,0.2,1)" }}>
+        <div className="absolute w-4 h-4 rounded-full" style={{ top: "5%", left: "50%", transform: "translate(-50%,-50%)", background: theme.secondary, boxShadow: `0 0 22px ${theme.glow}, 0 0 7px ${theme.secondary}` }} />
+      </div>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+        <span className="meta text-[10px] mb-3" style={{ color: theme.primary }}>◐ {phaseLabel}</span>
+        <div className="display tabular-nums" style={{ fontSize: "clamp(48px, 13vw, 92px)" }}>{timeStr}</div>
+        <div className="meta text-[10px] text-mute mt-3">{time.isNegative ? "OVERTIME" : `of ${String(block.duration).padStart(2, "0")}:00 · ${pct}%`}</div>
+      </div>
+    </button>
+  );
+
+  const FlipFace = (
+    <div className="flex flex-col items-center gap-6">
+      <span className="meta text-[10px]" style={{ color: theme.primary }}>◐ {phaseLabel}</span>
+      <div className="flex items-center justify-center scale-[0.62] md:scale-90">
+        <FlipDigit value={time.min1} /><FlipDigit value={time.min2} />
+        <div className="flex flex-col gap-3 mx-2">
+          <div className="w-3 h-3 rounded-full" style={{ background: theme.primary }} />
+          <div className="w-3 h-3 rounded-full" style={{ background: theme.primary }} />
+        </div>
+        <FlipDigit value={time.sec1} /><FlipDigit value={time.sec2} />
+      </div>
+      <div className="w-64 max-w-[70vw]">
+        <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: theme.primary, transition: "width 0.5s ease" }} />
+        </div>
+        <div className="meta text-[9px] text-mute text-center mt-2">{time.isNegative ? "OVERTIME" : `of ${String(block.duration).padStart(2, "0")}:00 · ${pct}%`}</div>
+      </div>
+    </div>
+  );
+
+  const MinimalFace = (
+    <button onClick={addFive} className="flex flex-col items-center" title="Tap to add 5 minutes">
+      <span className="meta text-[10px] mb-4" style={{ color: theme.primary }}>◐ {phaseLabel}</span>
+      <div className="display tabular-nums leading-none" style={{ fontSize: "clamp(72px, 22vw, 190px)" }}>{timeStr}</div>
+      <div className="w-72 max-w-[78vw] mt-7">
+        <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: theme.primary, transition: "width 0.5s ease" }} />
+        </div>
+        <div className="meta text-[9px] text-mute text-center mt-2.5">{time.isNegative ? "OVERTIME" : `of ${String(block.duration).padStart(2, "0")}:00 · ${pct}%`}</div>
+      </div>
+    </button>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 bg-ink text-white overflow-hidden">
+      <style>{`
+        .nebula{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+        .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.30;mix-blend-mode:screen}
+        .blob.b1{width:560px;height:560px;left:-9%;top:-16%;background:radial-gradient(circle at 35% 35%,#FF5A1F,transparent 68%);animation:drift1 26s ease-in-out infinite}
+        .blob.b2{width:460px;height:460px;right:-10%;top:-8%;background:radial-gradient(circle at 40% 40%,#FFD60A,transparent 66%);animation:drift2 33s ease-in-out infinite}
+        .blob.b3{width:640px;height:640px;left:18%;bottom:-30%;background:radial-gradient(circle at 50% 40%,#FF7A3C,transparent 70%);animation:drift3 30s ease-in-out infinite}
+        .nebula.calm .blob.b1{background:radial-gradient(circle at 35% 35%,#FFD60A,transparent 68%);opacity:.22}
+        .nebula.calm .blob.b3{background:radial-gradient(circle at 50% 40%,#FFB020,transparent 70%);opacity:.20}
+        .nebula.bright .blob{opacity:.42}
+        @keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(70px,50px) scale(1.18)}}
+        @keyframes drift2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-55px,40px) scale(1.12)}}
+        @keyframes drift3{0%,100%{transform:translate(0,0) scale(1.05)}50%{transform:translate(45px,-60px) scale(.92)}}
+        @keyframes breathe{0%,100%{transform:scale(.82);opacity:.55}50%{transform:scale(1);opacity:1}}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes slideDown{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}
+        @keyframes scaleIn{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
+        @media (prefers-reduced-motion: reduce){.blob{animation:none!important}}
+
+        .flip-card-container{--flip-duration:${FLIP_DURATION_MS}ms;position:relative;width:130px;height:180px;margin:0 8px;perspective:1400px}
+        @media (min-width:768px){.flip-card-container{width:170px;height:230px;margin:0 10px}}
+        .flip-card{position:relative;width:100%;height:100%;transform-style:preserve-3d}
+        .flip-card-top,.flip-card-bottom,.flip-card-top-flip,.flip-card-bottom-flip{position:absolute;width:100%;height:50%;overflow:hidden;background:#131314;border:1px solid rgba(255,255,255,0.1)}
+        .flip-card-top{top:0;border-radius:16px 16px 4px 4px;border-bottom:1px solid rgba(0,0,0,0.5);display:flex;align-items:flex-end;justify-content:center;z-index:2}
+        .flip-card-bottom{bottom:0;border-radius:4px 4px 16px 16px;display:flex;align-items:flex-start;justify-content:center;z-index:1}
+        .flip-card-face{font-family:'Archivo',sans-serif;font-size:100px;font-weight:900;color:#fff;line-height:1;user-select:none}
+        @media (min-width:768px){.flip-card-face{font-size:140px}}
+        .flip-card-top .flip-card-face{transform:translateY(50%)}
+        .flip-card-bottom .flip-card-face{transform:translateY(-50%)}
+        .flip-card-top-flip{top:0;border-radius:16px 16px 4px 4px;transform-origin:bottom center;animation:flipTop var(--flip-duration) cubic-bezier(0.4,0,0.2,1) forwards;z-index:4;display:flex;align-items:flex-end;justify-content:center;backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform;pointer-events:none}
+        .flip-card-top-flip .flip-card-face{transform:translateY(50%)}
+        .flip-card-bottom-flip{bottom:0;border-radius:4px 4px 16px 16px;transform-origin:top center;animation:flipBottom var(--flip-duration) cubic-bezier(0.4,0,0.2,1) forwards;z-index:3;display:flex;align-items:flex-start;justify-content:center;backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform;pointer-events:none}
+        .flip-card-bottom-flip .flip-card-face{transform:translateY(-50%)}
+        @keyframes flipTop{0%{transform:rotateX(0)}100%{transform:rotateX(-180deg)}}
+        @keyframes flipBottom{0%{transform:rotateX(180deg)}100%{transform:rotateX(0)}}
+        .flip-divider{position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(0,0,0,0.9);transform:translateY(-50%);z-index:10;pointer-events:none}
       `}</style>
 
+      {/* living nebula */}
+      <div className={isBreak ? "nebula calm" : "nebula"}><div className="blob b1" /><div className="blob b2" /><div className="blob b3" /></div>
+
       {isLoading && (
-        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-[#0a0b0f]">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center" style={{ animation: 'pulse 2s ease-in-out infinite' }}>
-              <Crown size={32} className="text-orange-400" />
-            </div>
-            <p className="text-xs font-medium text-zinc-500 tracking-wider">PREPARING SESSION</p>
+        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-ink">
+          <div className="flex flex-col items-center gap-4" style={{ animation: "fadeIn .3s ease" }}>
+            <div className="w-14 h-14 rounded-2xl bg-orange/15 border border-orange/30 flex items-center justify-center"><Crown size={28} className="text-orange" /></div>
+            <p className="meta text-[10px] text-mute">Preparing session</p>
           </div>
         </div>
       )}
 
+      {/* milestone flare (subtle line) */}
       {showMilestone && (
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl bg-amber-500/10 border border-amber-400/30 backdrop-blur-xl" style={{ animation: 'slideDown 0.3s ease-out' }}>
-          <p className="text-white font-bold text-sm flex items-center gap-2">
-            <Zap size={16} className="text-amber-400" />
-            {milestoneText}
-          </p>
+        <div className="absolute top-24 left-1/2 z-40" style={{ animation: "slideDown .3s ease-out" }}>
+          <span className="meta text-[10px] text-paper flex items-center gap-2 bg-orange/15 border border-orange/30 px-4 py-2 rounded-full backdrop-blur-sm">
+            <Sparkles size={12} className="text-orange" /> {milestoneText}
+          </span>
         </div>
       )}
 
-      <div className="relative z-10 w-full h-full flex items-center justify-center p-4">
-        <div className="w-full max-w-7xl mx-auto">
-          {!isLoading && (
-            <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_260px] gap-6 items-center">
+      {!isLoading && (
+        <div className="relative z-10 h-full flex flex-col">
 
-              {/* Left Stats */}
-              <div className="hidden lg:flex flex-col gap-3" style={{ animation: 'slideUp 0.4s ease-out 0.1s both' }}>
-                <div className="uniform-card p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center">
-                      <Clock size={16} className="text-orange-400" />
-                    </div>
-                    <div>
-                      <MetaText className="text-[9px] mb-0.5 opacity-60">ELAPSED TIME</MetaText>
-                      <div className="text-xl font-bold text-white tabular-nums">{sessionMinutes}<span className="text-xs text-zinc-500 ml-1">min</span></div>
-                    </div>
-                  </div>
+          {/* ── top bar ── */}
+          {!zen && (
+            <div className="flex items-start justify-between px-5 md:px-8 pt-6 pb-2">
+              <div className="min-w-0">
+                <div className="meta text-[11px] flex items-center gap-2" style={{ color: theme.primary }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: theme.primary }} />
+                  <span className="truncate">{block.subjectName}</span>
                 </div>
-
-                <div className="uniform-card p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-500/10 flex items-center justify-center">
-                      <Activity size={16} className="text-indigo-400" />
-                    </div>
-                    <div>
-                      <MetaText className="text-[9px] mb-0.5 opacity-60">INTENSITY</MetaText>
-                      <div className="text-xl font-bold text-white tabular-nums">{focusIntensity}<span className="text-xs text-zinc-500 ml-1">%</span></div>
-                    </div>
-                  </div>
+                <div className="text-sm text-mute mt-1.5 truncate">
+                  {isBreak ? "On a break" : `${block.type} session · ${block.duration} min`}
+                  {subjectIntelligence?.readiness !== undefined && <span className="text-yellow/80"> · {Math.round(subjectIntelligence.readiness)}% ready</span>}
                 </div>
-
-                <div className="uniform-card p-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                      <Flame size={16} className="text-amber-400" />
-                    </div>
-                    <MetaText className="text-[9px] opacity-60">MILESTONES</MetaText>
-                  </div>
-                  <div className="flex items-center gap-2 ml-1">
-                    {[milestones.m25, milestones.m50, milestones.m75].map((achieved, i) => (
-                      <div key={i} className={`w-2 h-2 rounded-full transition-all ${achieved ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]' : 'bg-zinc-700/30'}`} />
-                    ))}
-                  </div>
-                </div>
-
-                {subjectIntelligence?.readiness !== undefined && (
-                  <div className="uniform-card p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-yellow-500/10 flex items-center justify-center">
-                        <Target size={16} className="text-yellow-400" />
-                      </div>
-                      <div>
-                        <MetaText className="text-[9px] mb-0.5 opacity-60">READINESS</MetaText>
-                        <div className="text-xl font-bold text-yellow-400 tabular-nums">{Math.round(subjectIntelligence.readiness)}<span className="text-xs text-yellow-500/60 ml-1">%</span></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
-
-              {/* Center - Timer */}
-              <div className="flex flex-col items-center gap-6 justify-center">
-                <div className="text-center" style={{ animation: 'fadeIn 0.3s ease-out 0.2s both' }}>
-                  <h1 className="font-display font-black text-4xl md:text-5xl text-white mb-1 leading-[0.95]">
-                    {isBreak ? "Break Time" : block.subjectName}
-                  </h1>
-                  <MetaText className="text-zinc-500 text-[9px] tracking-widest opacity-60">
-                    {isOvertime ? "OVERTIME" : isBreak ? "RECHARGE" : strictMode ? "DEEP FOCUS" : "FOCUS SESSION"}
-                  </MetaText>
-                </div>
-
-                <button onClick={() => setUseRing(r => !r)} className="font-mono text-[9px] uppercase tracking-[0.18em] text-zinc-500 hover:text-white border border-white/10 rounded-full px-3 py-1.5 transition-colors">
-                  {useRing ? '⤢ Flip clock' : '◎ Ring timer'}
+              <div className="flex items-center gap-2 shrink-0">
+                <button onClick={() => setShowSound(v => !v)} className="meta text-[9px] bg-orange/15 border border-orange/30 text-orange px-3 py-2 rounded-full flex items-center gap-1.5 hover:bg-orange/25 transition-colors">
+                  {scape === "silence" ? <VolumeX size={11} /> : <Music2 size={11} />}
+                  {scape === "silence" ? "Sound" : SOUNDSCAPES.find(s => s.id === scape)?.label}
+                  <ChevronDown size={10} className="opacity-60" />
                 </button>
+                <button onClick={cycleSkin} title="Timer skin" className="w-9 h-9 rounded-full bg-ink2/80 border border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors"><CircleDashed size={14} /></button>
+                <button onClick={() => { if (!isRunning) setStrictMode(s => !s); }} title={strictMode ? "Strict on" : "Strict off"} disabled={isRunning}
+                  className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors ${strictMode ? "bg-yellow/15 border-yellow/30 text-yellow" : "bg-ink2/80 border-white/10 text-mute hover:text-white"} ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}>
+                  {strictMode ? <Lock size={14} /> : <Unlock size={14} />}
+                </button>
+                <button onClick={() => setZen(true)} title="Zen mode (F)" className="w-9 h-9 rounded-full bg-ink2/80 border border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors"><Maximize2 size={13} /></button>
+                <button onClick={requestExit} title="Exit" className="w-9 h-9 rounded-full bg-ink2/80 border border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors"><X size={15} /></button>
+              </div>
+            </div>
+          )}
 
-                <div className="relative" style={{ animation: 'scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both' }}>
-                  {useRing ? (
-                    <div className="relative w-[280px] h-[280px] md:w-[320px] md:h-[320px]">
-                      <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                        <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="3" />
-                        <circle cx="50" cy="50" r="45" fill="none" stroke={theme.primary} strokeWidth="3" strokeLinecap="round"
-                          strokeDasharray={2 * Math.PI * 45}
-                          strokeDashoffset={(2 * Math.PI * 45) * (1 - Math.min(1, progress))}
-                          style={{ transition: 'stroke-dashoffset 0.5s ease' }} />
-                      </svg>
-                      <div className={`absolute inset-0 ${isRunning ? 'animate-spin' : ''}`} style={{ animationDuration: '8s' }}>
-                        <div className="absolute left-1/2 -translate-x-1/2 -top-1.5 w-4 h-4 rounded-full" style={{ background: theme.secondary, boxShadow: `0 0 12px 4px ${theme.glow}` }} />
-                      </div>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <div className="font-display font-black text-6xl md:text-7xl tabular-nums">{time.min1}{time.min2}:{time.sec1}{time.sec2}</div>
-                        <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-zinc-500 mt-3 opacity-70">
-                          {time.isNegative ? 'OVERTIME' : `OF ${String(block.duration).padStart(2, '0')}:00 · ${Math.round(progress * 100)}%`}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center">
-                      <FlipDigit value={time.min1} />
-                      <FlipDigit value={time.min2} />
-                      <div className="flex flex-col gap-3 mx-2">
-                        <div className="w-3 h-3 rounded-full bg-gradient-to-br from-orange-400 to-orange-500" style={{ boxShadow: `0 0 16px ${theme.glow}` }} />
-                        <div className="w-3 h-3 rounded-full bg-gradient-to-br from-orange-400 to-orange-500" style={{ boxShadow: `0 0 16px ${theme.glow}` }} />
-                      </div>
-                      <FlipDigit value={time.sec1} />
-                      <FlipDigit value={time.sec2} />
-                    </div>
-                  )}
+          {/* ── centre ── */}
+          <div className="flex-1 flex items-center justify-center px-4 min-h-0">
+            {isBreak ? (
+              <div className="flex flex-col items-center" style={{ animation: "fadeIn .4s ease" }}>
+                <div className="meta text-[10px] text-mute mb-7">Break · {`${Math.floor(breakTime / 60)}:${(breakTime % 60).toString().padStart(2, "0")}`} left</div>
+                <div className="relative w-60 h-60 flex items-center justify-center">
+                  <div className="absolute rounded-full bg-yellow/10 border border-yellow/30" style={{ width: "100%", height: "100%", animation: "breathe 5s ease-in-out infinite" }} />
+                  <div className="absolute rounded-full bg-yellow/15 border border-yellow/40" style={{ width: "68%", height: "68%", animation: "breathe 5s ease-in-out infinite reverse" }} />
+                  <div className="relative text-center"><Wind size={22} className="text-yellow mx-auto mb-2" /><div className="display text-3xl text-yellow">Breathe</div><div className="meta text-[9px] text-yellow/70 mt-2">in · hold · out</div></div>
+                </div>
+                <p className="text-sm text-mute mt-8 text-center max-w-xs">Stand up · hydrate · look 20&nbsp;ft away. Your brain consolidates while you rest.</p>
+                <div className="flex items-center gap-3 mt-7">
+                  <button onClick={() => setBreakTime(t => t + 60)} className="bg-ink2/80 border border-white/10 text-white font-bold text-sm px-5 py-3 rounded-2xl flex items-center gap-2 hover:bg-ink3 transition-colors"><Plus size={15} />1 min</button>
+                  <button onClick={() => endBreak(true)} className="bg-yellow text-ink font-bold text-sm px-6 py-3 rounded-2xl hover:brightness-105 transition-all">Back to focus →</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center" style={{ animation: "scaleIn .5s cubic-bezier(0.34,1.56,0.64,1)" }}>
+                {skin === "orbit" ? OrbitFace : skin === "flip" ? FlipFace : MinimalFace}
+              </div>
+            )}
+          </div>
+
+          {/* ── bottom band ── */}
+          {!zen && !isBreak && (
+            <div className="px-5 md:px-8 pb-7 pt-2">
+              <div className="grid grid-cols-3 items-end gap-3">
+                {/* tools */}
+                <div className="flex items-center gap-2 justify-self-start">
+                  <button onClick={() => setShowNotes(true)} disabled={strictMode && isRunning} title="Notes" className={`w-10 h-10 rounded-xl bg-ink2/80 border border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors ${strictMode && isRunning ? "opacity-30 cursor-not-allowed" : ""}`}><BookOpen size={16} /></button>
+                  <button onClick={() => setShowAI(true)} title="AI coach" className="w-10 h-10 rounded-xl bg-ink2/80 border border-white/10 text-orange hover:bg-orange/10 flex items-center justify-center transition-colors"><Sparkles size={16} /></button>
+                  <button onClick={() => setShowResources(true)} title="Resources" className="w-10 h-10 rounded-xl bg-ink2/80 border border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors"><FileText size={16} /></button>
+                  <button onClick={() => setShowSettings(true)} title="Settings" className="w-10 h-10 rounded-xl bg-ink2/80 border border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors hidden sm:flex"><SettingsIcon size={16} /></button>
                 </div>
 
-                {time.isNegative && (
-                  <div className="flex items-center gap-2 text-orange-400 font-bold text-xs -mt-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
-                    OVERTIME
-                  </div>
-                )}
-
-                {!useRing && (
-                <div className="w-full max-w-md" style={{ animation: 'slideUp 0.4s ease-out 0.4s both' }}>
-                  <div className="h-1.5 w-full bg-white/[0.03] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-300"
-                      style={{
-                        width: `${progress * 100}%`,
-                        background: `linear-gradient(to right, ${theme.primary}, ${theme.secondary})`,
-                        boxShadow: `0 0 16px ${theme.glow}`
-                      }}
-                    />
-                  </div>
-                  <div className="text-center mt-2">
-                    <MetaText className="text-zinc-500 text-[9px] opacity-60">{Math.round(progress * 100)}% COMPLETE</MetaText>
-                  </div>
-                </div>
-                )}
-
-                <div className="w-full max-w-md space-y-2.5" style={{ animation: 'slideUp 0.4s ease-out 0.5s both' }}>
-                  {isOvertime && (
-                    <button onClick={finishFromOvertime}
-                      className="btn-smooth w-full h-12 rounded-xl flex items-center justify-center gap-2.5 font-bold text-sm bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg">
-                      <CheckCircle size={18} />
-                      <span>Complete Session</span>
-                    </button>
-                  )}
-
+                {/* dock */}
+                <div className="flex items-center gap-2.5 justify-self-center">
                   {!isOvertime && (
-                    <button onClick={toggleTimer} disabled={strictMode && isRunning}
-                      className={`btn-smooth w-full h-12 rounded-xl flex items-center justify-center gap-2.5 font-bold text-sm ${isRunning
-                        ? "bg-white/[0.04] border border-white/[0.1] text-white hover:bg-white/[0.06]"
-                        : "bg-white text-black hover:bg-zinc-100"
-                        } ${strictMode && isRunning ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                      {isRunning ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
-                      <span>{isRunning ? (strictMode ? "Deep Focus" : "Pause") : "Start"}</span>
+                    <button onClick={startBreak} disabled={strictMode} className={`bg-ink2/80 border border-white/10 text-white font-bold text-sm px-4 md:px-5 py-3.5 rounded-2xl flex items-center gap-2 hover:bg-ink3 transition-colors ${strictMode ? "opacity-30 cursor-not-allowed" : ""}`}><Coffee size={15} /><span className="hidden md:inline">Break</span></button>
+                  )}
+                  {isOvertime ? (
+                    <button onClick={finishFromOvertime} className="bg-orange text-ink font-bold text-base px-7 py-3.5 rounded-2xl flex items-center gap-2 hover:brightness-105 transition-all"><CheckCircle size={18} />Complete</button>
+                  ) : (
+                    <button onClick={toggleTimer} disabled={strictMode && isRunning} className={`bg-orange text-ink font-bold text-base px-8 md:px-9 py-3.5 rounded-2xl flex items-center gap-2 hover:brightness-105 transition-all ${strictMode && isRunning ? "opacity-60 cursor-not-allowed" : ""}`}>
+                      {isRunning ? <Pause size={18} /> : <Play size={18} />}
+                      {isRunning ? (strictMode ? "Locked" : "Pause") : (hasStarted ? "Resume" : "Start")}
                     </button>
                   )}
-
-                  {!isOvertime && !isBreak && canFinishEarly && !strictMode && (
-                    <button
-                      onClick={() => {
-                        setIsRunning(false);
-                        setShowQualityModal(true);
-                        setCompletedDuration(sessionMinutes);
-                      }}
-                      className="btn-smooth w-full h-10 rounded-xl flex items-center justify-center gap-2 font-semibold text-xs bg-yellow-500/10 text-yellow-300 border border-yellow-500/20 hover:bg-yellow-500/15"
-                    >
-                      <CheckCircle size={14} />
-                      <span>Complete Early ({sessionMinutes} min)</span>
-                    </button>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {!isBreak ? (
-                      <button onClick={startBreak} disabled={strictMode}
-                        className={`btn-smooth uniform-card h-10 flex items-center justify-center gap-2 text-orange-300 text-sm font-medium ${strictMode ? 'opacity-30 cursor-not-allowed' : ''}`}>
-                        <Coffee size={14} />
-                        <span>Break</span>
-                      </button>
-                    ) : (
-                      <button onClick={() => { setIsBreak(false); setBreakTime(0); setIsRunning(false); }}
-                        className="btn-smooth uniform-card h-10 flex items-center justify-center gap-2 text-yellow-300 text-sm font-medium">
-                        <CheckCircle size={14} />
-                        <span>Resume</span>
-                      </button>
-                    )}
-
-                    <button onClick={requestExit} className="btn-smooth uniform-card h-10 flex items-center justify-center gap-2 text-zinc-400 hover:text-red-400 text-sm font-medium">
-                      <X size={14} />
-                      <span>Exit</span>
-                    </button>
-                  </div>
+                  <button onClick={requestExit} className="bg-ink2/80 border border-white/10 text-mute hover:text-white font-bold text-sm px-4 md:px-5 py-3.5 rounded-2xl flex items-center gap-2 transition-colors"><Square size={14} /><span className="hidden md:inline">End</span></button>
                 </div>
 
-                <div className="lg:hidden grid grid-cols-3 gap-2.5 w-full max-w-md" style={{ animation: 'slideUp 0.4s ease-out 0.6s both' }}>
-                  <div className="uniform-card p-3 text-center">
-                    <MetaText className="text-[9px] mb-1 opacity-60">ELAPSED</MetaText>
-                    <div className="text-lg font-bold text-white tabular-nums">{sessionMinutes}<span className="text-xs text-zinc-500">m</span></div>
-                  </div>
-                  <div className="uniform-card p-3 text-center">
-                    <MetaText className="text-[9px] mb-1 opacity-60">INTENSITY</MetaText>
-                    <div className="text-lg font-bold text-white tabular-nums">{focusIntensity}<span className="text-xs text-zinc-500">%</span></div>
-                  </div>
-                  <div className="uniform-card p-3 text-center">
-                    <MetaText className="text-[9px] mb-1 opacity-60">PROGRESS</MetaText>
-                    <div className="flex items-center justify-center gap-1">
-                      {[milestones.m25, milestones.m50, milestones.m75].map((achieved, i) => (
-                        <div key={i} className={`w-1.5 h-1.5 rounded-full ${achieved ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]' : 'bg-zinc-700/30'}`} />
-                      ))}
-                    </div>
-                  </div>
+                {/* stats */}
+                <div className="justify-self-end text-right space-y-1.5 hidden sm:block">
+                  <div className="meta text-[9px] text-mute flex items-center justify-end gap-1.5"><Clock size={10} /> {fmtMin(todayMin + sessionMinutes)} today</div>
+                  <div className="meta text-[9px] text-mute flex items-center justify-end gap-1.5"><Flame size={10} /> {streak} day{streak === 1 ? "" : "s"} · <span className="text-orange">+{sessionXp} XP</span></div>
+                  <div className="meta text-[9px] flex items-center justify-end gap-1.5" style={{ color: "rgba(255,214,10,0.8)" }}><Zap size={10} /> {[milestones.m25, milestones.m50, milestones.m75].filter(Boolean).length}/3 flares</div>
                 </div>
               </div>
-
-              {/* Right Actions */}
-              <div className="hidden lg:flex flex-col gap-3" style={{ animation: 'slideUp 0.4s ease-out 0.1s both' }}>
-                <button onClick={() => setShowNotes(true)} disabled={strictMode && isRunning}
-                  className={`btn-smooth uniform-card p-4 flex items-center gap-3 text-left ${strictMode && isRunning ? 'opacity-30 cursor-not-allowed' : ''}`}>
-                  <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center">
-                    <BookOpen size={16} className="text-zinc-300" />
-                  </div>
-                  <span className="font-medium text-sm text-zinc-300">Notes</span>
-                </button>
-
-                <button onClick={() => setShowAI(true)} className="btn-smooth uniform-card p-4 flex items-center gap-3 text-left">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-500/10 flex items-center justify-center">
-                    <Sparkles size={16} className="text-indigo-400" />
-                  </div>
-                  <span className="font-medium text-sm text-indigo-300">AI Help</span>
-                </button>
-
-                <button onClick={() => setShowResources(true)} className="btn-smooth uniform-card p-4 flex items-center gap-3 text-left">
-                  <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center">
-                    <FileText size={16} className="text-orange-400" />
-                  </div>
-                  <span className="font-medium text-sm text-orange-300">Resources</span>
-                </button>
-
-                <button onClick={() => setShowSettings(true)} className="btn-smooth uniform-card p-4 flex items-center gap-3 text-left">
-                  <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center">
-                    <Settings size={16} className="text-zinc-400" />
-                  </div>
-                  <span className="font-medium text-sm text-zinc-300">Settings</span>
-                </button>
-              </div>
+              {canFinishEarly && !isOvertime && !strictMode && (
+                <div className="text-center mt-3">
+                  <button onClick={() => { setIsRunning(false); setCompletedDuration(sessionMinutes); setShowQualityModal(true); }} className="meta text-[9px] text-mute hover:text-yellow transition-colors inline-flex items-center gap-1.5"><CheckCircle size={11} /> Finish early · log {sessionMinutes} min</button>
+                </div>
+              )}
+              <div className="text-center meta text-[8px] text-mute/50 mt-3">space = {isRunning ? "pause" : "start"} · F = zen · tap timer = +5 min</div>
             </div>
           )}
 
-          {/* Mobile Bottom Nav */}
-          {!isLoading && (
-            <div className="lg:hidden fixed bottom-4 left-4 right-4 z-40 grid grid-cols-4 gap-2">
-              <button onClick={() => setShowNotes(true)} disabled={strictMode && isRunning}
-                className={`btn-smooth uniform-card h-12 flex flex-col items-center justify-center gap-0.5 ${strictMode && isRunning ? 'opacity-30' : ''}`}>
-                <BookOpen size={16} className="text-zinc-300" />
-                <MetaText className="text-[8px] opacity-60">NOTES</MetaText>
-              </button>
-
-              <button onClick={() => setShowAI(true)} className="btn-smooth uniform-card h-12 flex flex-col items-center justify-center gap-0.5">
-                <Sparkles size={16} className="text-indigo-400" />
-                <MetaText className="text-[8px] opacity-60">AI</MetaText>
-              </button>
-
-              <button onClick={() => setShowResources(true)} className="btn-smooth uniform-card h-12 flex flex-col items-center justify-center gap-0.5">
-                <FileText size={16} className="text-orange-400" />
-                <MetaText className="text-[8px] opacity-60">FILES</MetaText>
-              </button>
-
-              <button onClick={() => setShowSettings(true)} className="btn-smooth uniform-card h-12 flex flex-col items-center justify-center gap-0.5">
-                <Settings size={16} className="text-zinc-400" />
-                <MetaText className="text-[8px] opacity-60">MORE</MetaText>
-              </button>
-            </div>
+          {/* zen exit affordance */}
+          {zen && (
+            <button onClick={() => setZen(false)} className="absolute top-6 right-6 z-30 w-10 h-10 rounded-full bg-ink2/70 border border-white/10 text-mute hover:text-white flex items-center justify-center transition-colors" title="Exit zen (Esc)"><Minimize2 size={15} /></button>
           )}
+          {zen && (<div className="absolute bottom-6 inset-x-0 text-center meta text-[8px] text-mute/50 z-20">Zen mode · F or Esc to exit</div>)}
         </div>
-      </div>
+      )}
 
-      {/* All modals remain the same - keeping them for completeness */}
-      {showSettings && (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowSettings(false)} />
-          <div className="relative z-20 w-full md:max-w-md">
-            <FrostedTile variant="indigo" className="md:rounded-3xl rounded-t-3xl">
-              <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-white">Settings</h3>
-                <button onClick={() => setShowSettings(false)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10">
-                  <X size={16} className="text-zinc-400" />
+      {/* ── soundscape popover ── */}
+      {showSound && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setShowSound(false)} />
+          <div className="absolute top-[72px] right-5 md:right-8 z-40 w-60 rounded-2xl border border-white/12 bg-ink2/95 backdrop-blur-md p-3 shadow-2xl" style={{ animation: "scaleIn .15s ease" }}>
+            <div className="meta text-[9px] text-mute px-1 mb-2 flex items-center justify-between"><span>Soundscape</span><span className="text-mute/60">offline</span></div>
+            <div className="space-y-1">
+              {SOUNDSCAPES.map(s => (
+                <button key={s.id} onClick={() => selectScape(s.id)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${scape === s.id ? "bg-orange text-ink" : "text-mute hover:bg-white/5 hover:text-white"}`}>
+                  <span className="flex items-center gap-2">{s.id === "silence" ? <VolumeX size={14} /> : <Music2 size={14} />}{s.label}</span>
+                  {scape === s.id && <span className="w-1.5 h-1.5 rounded-full bg-ink" />}
                 </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 mt-3 px-1">
+              <VolumeX size={12} className="text-mute" />
+              <input type="range" min={0} max={100} value={Math.round(scapeVol * 100)} onChange={e => changeVol(Number(e.target.value) / 100)} className="flex-1 accent-orange" />
+              <Volume2 size={12} className="text-mute" />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── completion ceremony ── */}
+      {showSummary && summaryData && (
+        <div className="fixed inset-0 z-[110] bg-ink flex items-center justify-center p-5">
+          <div className="nebula bright"><div className="blob b1" /><div className="blob b2" /><div className="blob b3" /></div>
+          <div className="relative z-10 flex flex-col items-center text-center max-w-sm w-full" style={{ animation: "scaleIn .45s cubic-bezier(0.34,1.56,0.64,1)" }}>
+            <div className="relative w-32 h-32 flex items-center justify-center mb-5">
+              <div className="absolute rounded-full border-2 border-orange/30" style={{ width: "100%", height: "100%" }} />
+              <div className="absolute rounded-full border-2 border-orange/50" style={{ width: "62%", height: "62%" }} />
+              <div className="w-16 h-16 rounded-full bg-orange flex items-center justify-center text-ink"><CheckCircle size={30} /></div>
+            </div>
+            <div className="display text-4xl">Orbit complete.</div>
+            <p className="text-sm text-mute mt-2">{summaryData.duration} min of deep work on <b className="text-white/80">{block.subjectName}</b>.</p>
+            <div className="grid grid-cols-3 gap-2.5 w-full mt-6">
+              <div className="rounded-2xl bg-ink2/70 border border-white/10 p-3"><div className="display text-xl text-orange flex items-center justify-center gap-1"><TrendingUp size={16} />+{summaryData.readinessGain}%</div><div className="meta text-[8px] text-mute mt-1">Readiness</div></div>
+              <div className="rounded-2xl bg-ink2/70 border border-white/10 p-3"><div className="display text-xl text-yellow">+{Math.max(0, Math.round(summaryData.duration * 2))}</div><div className="meta text-[8px] text-mute mt-1">XP</div></div>
+              <div className="rounded-2xl bg-ink2/70 border border-white/10 p-3"><div className="display text-xl text-paper">{"⭐".repeat(summaryData.quality)}</div><div className="meta text-[8px] text-mute mt-1">Quality</div></div>
+            </div>
+            {summaryData.aiTip && (
+              <div className="flex items-start gap-2.5 px-4 py-3 mt-4 rounded-2xl bg-orange/8 border border-orange/25 text-left">
+                <Sparkles size={13} className="text-orange flex-shrink-0 mt-0.5" />
+                <p className="text-xs leading-relaxed text-white/75">{summaryData.aiTip}</p>
               </div>
-
-              <div className="p-5 space-y-3">
-                <button onClick={() => { setStrictMode(!strictMode); if (soundEnabled) SoundManager.playClick(); }} disabled={isRunning} className="w-full">
-                  <FrostedMini className={`w-full p-4 text-left ${strictMode ? "bg-amber-500/10 border-amber-400/30" : ""} ${isRunning ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold text-white text-sm">Deep Focus Mode</h4>
-                        <MetaText className="text-[10px] mt-0.5">PREVENTS PAUSING</MetaText>
-                      </div>
-                      <div className={`w-11 h-6 rounded-full ${strictMode ? 'bg-amber-500' : 'bg-zinc-700'}`}>
-                        <div className={`w-5 h-5 rounded-full bg-white mt-0.5 transition-all ${strictMode ? 'ml-5' : 'ml-0.5'}`} />
-                      </div>
-                    </div>
-                  </FrostedMini>
-                </button>
-
-                <button onClick={() => { setSoundEnabled(!soundEnabled); if (!soundEnabled) SoundManager.playClick(); }} className="w-full">
-                  <FrostedMini className="w-full p-4 text-left">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold text-white text-sm">Sound Effects</h4>
-                        <MetaText className="text-[10px] mt-0.5">AUDIO FEEDBACK</MetaText>
-                      </div>
-                      <div className={`w-11 h-6 rounded-full ${soundEnabled ? 'bg-orange-500' : 'bg-zinc-700'}`}>
-                        <div className={`w-5 h-5 rounded-full bg-white mt-0.5 transition-all ${soundEnabled ? 'ml-5' : 'ml-0.5'}`} />
-                      </div>
-                    </div>
-                  </FrostedMini>
-                </button>
-              </div>
-
-              <div className="px-5 py-4 border-t border-white/10 bg-black/20">
-                <button onClick={() => setShowSettings(false)}
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-orange-500 text-white font-semibold text-sm">
-                  Done
-                </button>
-              </div>
-            </FrostedTile>
+            )}
           </div>
         </div>
       )}
 
+      {/* ── AI coach ── */}
       {showAI && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowAI(false)} />
@@ -1158,172 +746,121 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         </div>
       )}
 
+      {/* ── notes ── */}
       {showNotes && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowNotes(false)} />
-          <div className="relative z-20 w-full max-w-2xl max-h-[85vh] rounded-3xl overflow-hidden">
-            <FrostedTile variant="orange" className="h-full flex flex-col">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-                <div>
-                  <h3 className="text-lg font-bold text-white">Session Notes</h3>
-                  <MetaText className="mt-0.5">CAPTURE YOUR INSIGHTS</MetaText>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <button onClick={() => setNotes("")} className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/10">
-                    Clear
-                  </button>
-                  <button onClick={() => setShowNotes(false)} className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-orange-500 to-orange-500 text-white text-xs font-bold">
-                    Done
-                  </button>
-                </div>
+          <div className="relative z-20 w-full max-w-2xl max-h-[85vh] rounded-3xl overflow-hidden bg-ink2 border border-white/12 flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <div><h3 className="text-lg font-bold text-white">Session notes</h3><div className="meta text-[10px] text-mute mt-0.5">Capture insights</div></div>
+              <div className="flex items-center gap-2.5">
+                <button onClick={() => setNotes("")} className="px-3 py-1.5 rounded-lg text-xs font-bold text-mute hover:text-white hover:bg-white/10">Clear</button>
+                <button onClick={() => setShowNotes(false)} className="px-4 py-1.5 rounded-lg bg-orange text-ink text-xs font-bold">Done</button>
               </div>
-              <textarea autoFocus value={notes} onChange={(e) => setNotes(e.target.value)}
-                placeholder="Write your thoughts, insights, or questions..."
-                className="w-full h-[50vh] bg-transparent px-6 py-5 resize-none outline-none text-base font-mono leading-relaxed text-white placeholder:text-zinc-500/60" />
-              <div className="px-6 py-3 border-t border-white/10 text-xs text-zinc-500 font-mono bg-black/20">
-                {notes.length} characters
-              </div>
-            </FrostedTile>
+            </div>
+            <textarea autoFocus value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Write your thoughts, insights, or questions..." className="w-full h-[50vh] bg-transparent px-6 py-5 resize-none outline-none text-base font-mono leading-relaxed text-white placeholder:text-mute/50" />
+            <div className="px-6 py-3 border-t border-white/10 meta text-[9px] text-mute">{notes.length} characters</div>
           </div>
         </div>
       )}
 
+      {/* ── resources ── */}
       {showResources && (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-end p-0 md:p-4">
+        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-end md:justify-center p-0 md:p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowResources(false)} />
-          <div className="relative z-20 w-full md:max-w-md h-full md:h-auto md:max-h-[90vh] flex flex-col">
-            <FrostedTile variant="orange" className="md:rounded-3xl rounded-none h-full flex flex-col">
-              <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold text-white">Resources</h3>
-                  <MetaText className="mt-0.5">{block.subjectName.toUpperCase()}</MetaText>
+          <div className="relative z-20 w-full md:max-w-md h-full md:h-auto md:max-h-[90vh] flex flex-col bg-ink2 border border-white/12 md:rounded-3xl rounded-t-3xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+              <div><h3 className="text-lg font-bold text-white">Resources</h3><div className="meta text-[10px] text-mute mt-0.5">{block.subjectName.toUpperCase()}</div></div>
+              <button onClick={() => setShowResources(false)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 text-mute"><X size={16} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              {subjectResources.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                  <div className="w-16 h-16 rounded-2xl bg-ink3 flex items-center justify-center mb-4 border border-white/10"><FileText size={26} className="text-mute" /></div>
+                  <p className="text-white font-bold mb-1">No resources yet</p>
+                  <p className="text-mute text-sm max-w-xs">Add study materials in course details.</p>
                 </div>
-                <button onClick={() => setShowResources(false)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10">
-                  <X size={16} className="text-zinc-400" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-5 space-y-3">
-                {subjectResources.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                    <div className="w-16 h-16 rounded-2xl bg-zinc-800/50 flex items-center justify-center mb-4 border border-zinc-700/30">
-                      <FileText size={28} className="text-zinc-600" />
-                    </div>
-                    <p className="text-zinc-400 font-medium mb-2">No resources yet</p>
-                    <p className="text-zinc-600 text-sm max-w-xs">
-                      Add study materials in course details
-                    </p>
-                  </div>
-                ) : (
-                  subjectResources.map((resource) => {
-                    const hasUrl = (resource.url && resource.url.trim() !== '') || (resource.fileData && resource.fileData.trim() !== '');
-                    return (
-                      <button
-                        key={resource.id}
-                        onClick={() => hasUrl && handleResourceClick(resource)}
-                        disabled={!hasUrl}
-                        className={`block w-full text-left btn-smooth ${!hasUrl ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      >
-                        <FrostedMini className="p-4 hover:bg-white/5">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center border border-orange-400/30">
-                              <FileText size={16} className="text-orange-400" />
+              ) : (
+                subjectResources.map((resource) => {
+                  const hasUrl = (resource.url && resource.url.trim() !== "") || (resource.fileData && resource.fileData.trim() !== "");
+                  return (
+                    <button key={resource.id} onClick={() => hasUrl && handleResourceClick(resource)} disabled={!hasUrl} className={`block w-full text-left ${!hasUrl ? "opacity-50 cursor-not-allowed" : ""}`}>
+                      <div className="p-4 rounded-2xl bg-ink3 border border-white/10 hover:border-orange/30 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-orange/15 flex items-center justify-center border border-orange/25"><FileText size={16} className="text-orange" /></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <h4 className="font-bold text-white text-sm line-clamp-2">{resource.title}</h4>
+                              {hasUrl && <ExternalLink size={14} className="text-orange flex-shrink-0 mt-0.5" />}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2 mb-1">
-                                <h4 className="font-semibold text-white text-sm line-clamp-2">{resource.title}</h4>
-                                {hasUrl && <ExternalLink size={14} className="text-orange-400 flex-shrink-0 mt-0.5" />}
-                              </div>
-                              <MetaText className="text-[10px]">{resource.type.toUpperCase()}</MetaText>
-                            </div>
+                            <div className="meta text-[9px] text-mute">{resource.type.toUpperCase()}</div>
                           </div>
-                        </FrostedMini>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-
-              {subjectResources.length > 0 && (
-                <div className="px-5 py-4 border-t border-white/10 bg-black/20">
-                  <button onClick={() => setShowResources(false)}
-                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-orange-500 text-white font-semibold text-sm">
-                    Done
-                  </button>
-                </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
               )}
-            </FrostedTile>
+            </div>
           </div>
         </div>
       )}
 
-      {showSummary && summaryData && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/90" />
-          <FrostedTile variant="yellow" className="relative z-20 px-8 py-8 max-w-md w-full border-2 border-white/15" style={{ animation: 'scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
-            <div className="text-center mb-6">
-              <div className="w-20 h-20 mx-auto mb-4 rounded-3xl bg-gradient-to-br from-yellow-400 to-yellow-500 flex items-center justify-center">
-                <Sparkles size={32} className="text-white" />
-              </div>
-              <h3 className="text-3xl font-bold text-white mb-2">Complete! 🎉</h3>
-              <p className="text-zinc-300 text-sm">{block.subjectName}</p>
+      {/* ── focus settings ── */}
+      {showSettings && (
+        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowSettings(false)} />
+          <div className="relative z-20 w-full md:max-w-md bg-ink2 border border-white/12 md:rounded-3xl rounded-t-3xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white">Session settings</h3>
+              <button onClick={() => setShowSettings(false)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 text-mute"><X size={16} /></button>
             </div>
-
-            <div className="space-y-3">
-              <FrostedMini variant="yellow" className="flex justify-between items-center px-4 py-3">
-                <span className="text-zinc-300 text-xs font-medium">Duration</span>
-                <span className="text-white font-bold text-xl">{summaryData.duration} min</span>
-              </FrostedMini>
-              <FrostedMini variant="yellow" className="flex justify-between items-center px-4 py-3">
-                <span className="text-zinc-300 text-xs font-medium">Quality</span>
-                <span className="text-white font-bold text-xl">{'⭐'.repeat(summaryData.quality)}</span>
-              </FrostedMini>
-              <FrostedMini variant="yellow" className="flex justify-between items-center px-4 py-3 bg-gradient-to-r from-yellow-500/15 to-yellow-500/15 border-yellow-400/30">
-                <span className="text-yellow-200 text-xs font-medium">Readiness Gain</span>
-                <span className="text-yellow-300 font-bold text-xl flex items-center gap-1.5">
-                  <TrendingUp size={18} />
-                  +{summaryData.readinessGain}%
-                </span>
-              </FrostedMini>
-              {summaryData.aiTip && (
-                <div className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-indigo-500/8 border border-indigo-500/25 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <Sparkles size={13} className="text-indigo-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs leading-relaxed text-indigo-100/80">{summaryData.aiTip}</p>
+            <div className="p-5 space-y-3">
+              <button onClick={() => { if (!isRunning) { setStrictMode(!strictMode); if (soundEnabled) SoundManager.playClick(); } }} disabled={isRunning} className={`w-full p-4 rounded-2xl border text-left transition-colors ${strictMode ? "bg-yellow/10 border-yellow/30" : "bg-ink3 border-white/10"} ${isRunning ? "opacity-40 cursor-not-allowed" : ""}`}>
+                <div className="flex items-center justify-between">
+                  <div><h4 className="font-bold text-white text-sm">Strict focus</h4><div className="meta text-[9px] text-mute mt-0.5">Prevents pausing</div></div>
+                  <div className={`w-11 h-6 rounded-full transition-colors ${strictMode ? "bg-yellow" : "bg-ink"}`}><div className={`w-5 h-5 rounded-full bg-white mt-0.5 transition-all ${strictMode ? "ml-5" : "ml-0.5"}`} /></div>
                 </div>
-              )}
+              </button>
+              <button onClick={() => { setSoundEnabled(!soundEnabled); if (!soundEnabled) SoundManager.playClick(); }} className="w-full p-4 rounded-2xl border bg-ink3 border-white/10 text-left transition-colors">
+                <div className="flex items-center justify-between">
+                  <div><h4 className="font-bold text-white text-sm">Sound effects</h4><div className="meta text-[9px] text-mute mt-0.5">Clicks &amp; chimes</div></div>
+                  <div className={`w-11 h-6 rounded-full transition-colors ${soundEnabled ? "bg-orange" : "bg-ink"}`}><div className={`w-5 h-5 rounded-full bg-white mt-0.5 transition-all ${soundEnabled ? "ml-5" : "ml-0.5"}`} /></div>
+                </div>
+              </button>
+              <div className="p-4 rounded-2xl border bg-ink3 border-white/10">
+                <h4 className="font-bold text-white text-sm mb-2.5">Timer skin</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["orbit", "flip", "minimal"] as const).map(s => (
+                    <button key={s} onClick={() => setSkin(s)} className={`py-2.5 rounded-xl text-xs font-bold capitalize transition-colors ${skin === s ? "bg-orange text-ink" : "bg-ink border border-white/10 text-mute hover:text-white"}`}>{s}</button>
+                  ))}
+                </div>
+              </div>
             </div>
-          </FrostedTile>
+          </div>
         </div>
       )}
 
       {showQualityModal && (
         <QualityRatingModal
           block={block}
-          initialTopic={block.type === 'review' ? (block.topicId?.replace(/-/g, ' ') || block.notes || "") : undefined}
+          initialTopic={block.type === "review" ? (block.topicId?.replace(/-/g, " ") || block.notes || "") : undefined}
           onRate={handleQualityRating}
           onClose={handleQualityDismiss}
         />
       )}
 
       {showExitConfirm && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md p-6 animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-label="End session?">
-          <div className="w-full max-w-sm bg-zinc-900 border border-white/10 rounded-3xl p-7 space-y-5 shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md p-6" role="dialog" aria-modal="true" aria-label="End session?">
+          <div className="w-full max-w-sm bg-ink2 border border-white/12 rounded-3xl p-7 space-y-5 shadow-2xl" style={{ animation: "scaleIn .2s ease" }}>
             <div>
               <h3 className="text-xl font-bold text-white mb-1">End this session?</h3>
-              <p className="text-sm text-zinc-400">
-                You've studied <span className="font-bold text-white">{sessionMinutes} min</span>. Log it before leaving, or discard.
-              </p>
+              <p className="text-sm text-mute">You've studied <span className="font-bold text-white">{sessionMinutes} min</span>. Log it before leaving, or discard.</p>
             </div>
             <div className="space-y-2.5">
-              <button onClick={logAndExit} className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-all active:scale-95">
-                Log {sessionMinutes} min &amp; exit
-              </button>
-              <button onClick={() => setShowExitConfirm(false)} className="w-full py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-sm transition-all">
-                Keep studying
-              </button>
-              <button onClick={() => { setShowExitConfirm(false); onExit(); }} className="w-full py-2.5 rounded-2xl text-zinc-500 hover:text-red-400 font-medium text-sm transition-all">
-                Discard &amp; exit
-              </button>
+              <button onClick={logAndExit} className="w-full py-3 rounded-2xl bg-orange text-ink font-bold text-sm transition-all active:scale-95">Log {sessionMinutes} min &amp; exit</button>
+              <button onClick={() => setShowExitConfirm(false)} className="w-full py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm transition-all">Keep studying</button>
+              <button onClick={() => { setShowExitConfirm(false); onExit(); }} className="w-full py-2.5 rounded-2xl text-mute hover:text-danger font-bold text-sm transition-all">Discard &amp; exit</button>
             </div>
           </div>
         </div>
