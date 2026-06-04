@@ -21,9 +21,9 @@ import {
   geminiStream, GeminiMessage,
   fetchUrlText,        // FIX: from gemini.ts, not local duplicate
   extractPdfText,      // FIX: from gemini.ts, not local duplicate
-  feynmanify,          // NEW: Feynman technique wrapper
   generateAnkiCards,   // NEW: Anki card generator
   AnkiCard,
+  hasApiKey,           // gate the coach when no OpenRouter key is set
 } from './gemini';
 import { db } from './db';
 import { getAllReadinessScores } from './brain-ultimate';
@@ -995,33 +995,21 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
     setMessages(prev => [...prev, userMsg]);
     setStreaming(true); setStreamText('');
 
-    // Feynman mode — pipe last AI message through feynmanify
-    if (mode === 'feynman') {
-      const lastAI = messages.filter(m => m.role === 'assistant').slice(-1)[0];
-      const concept = lastAI ? lastAI.content.split('\n')[0].replace(/[#*]/g, '').trim() : trimmed;
-      let full = '';
-      await feynmanify(
-        concept,
-        `Subject: ${block.subjectName}. Student asked: ${trimmed}`,
-        (chunk) => { full += chunk; setStreamText(full); },
-        () => {
-          setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: full, timestamp: Date.now() }]);
-          setStreamText(''); setStreaming(false);
-        },
-        (err) => { setError(err); setStreaming(false); setStreamText(''); },
-      );
-      return;
-    }
-
     const history: GeminiMessage[] = [...messages, userMsg].map(m => ({
       role: m.role === 'user' ? 'user' : 'model',
       parts: [{ text: m.content }],
     }));
 
     let full = '';
-    const sysForMode = mode === 'quiz'
-      ? systemPrompt + '\n\n## QUIZ MODE\nRelentlessly quiz the student one question at a time. After each answer: mark it right/wrong, explain briefly, then ask the next — progressively harder. Never dump all questions at once.'
-      : systemPrompt;
+    // Mode steers coaching STYLE via a system-prompt suffix so the AI still
+    // answers the student's actual message. (The old Feynman path ignored the
+    // user's input and re-explained the previous answer — that's why it felt broken.)
+    const modeSuffix = mode === 'quiz'
+      ? '\n\n## QUIZ MODE\nRelentlessly quiz the student one question at a time. After each answer: mark it right/wrong, explain briefly, then ask the next — progressively harder. Never dump all questions at once.'
+      : mode === 'feynman'
+      ? "\n\n## FEYNMAN MODE\nAnswer using the Feynman Technique: lead with a plain-English explanation (zero jargon), then a vivid real-world analogy, then ONE concrete worked example, then the key insight most people miss. Teach like you're talking to a sharp 16-year-old — but still answer exactly what the student asked."
+      : '';
+    const sysForMode = systemPrompt + modeSuffix;
     geminiStream(
       history, sysForMode,
       (chunk) => { full += chunk; setStreamText(full); },
@@ -1067,6 +1055,7 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
   const starters = getStarters(block, subjectIntelligence, richCtx);
   const topicsDue = richCtx.topicsDueReview?.length ?? 0;
   const pendingAssignments = richCtx.assignments?.filter(a => !a.completed).length ?? 0;
+  const apiKeyMissing = !hasApiKey();
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'chat', label: 'Chat', icon: <MessageSquare size={13} strokeWidth={2.5} /> },
@@ -1093,22 +1082,22 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 shrink-0"
           style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
               style={{ background: 'linear-gradient(135deg,#FF5A1F,#FF7A3C)', boxShadow: '0 0 12px rgba(255,90,31,0.4)' }}>
               <Wand2 size={15} className="text-white" strokeWidth={2} />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-white">Orbit Coach</span>
-                <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+                <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse shrink-0" />
               </div>
-              <div className="text-[10px] font-mono uppercase tracking-[0.12em]" style={{ color: '#FF7A3C' }}>
+              <div className="text-[10px] font-mono uppercase tracking-[0.12em] truncate" style={{ color: '#FF7A3C' }}>
                 {block.subjectName}{readiness !== undefined ? ` · readiness ${readiness}%` : ''}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             {messages.length > 0 && (
               <button onClick={() => { setMessages([]); setStreamText(''); setError(''); }}
                 className="p-1.5 rounded-lg hover:bg-white/8" style={{ color: 'rgba(255,255,255,0.25)' }}>
@@ -1121,9 +1110,9 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
           </div>
         </div>
 
-        {/* Tabs + Feynman */}
-        <div className="flex items-center justify-between px-5 pt-3 gap-2 shrink-0">
-          <div className="flex gap-1 overflow-x-auto">
+        {/* Tabs */}
+        <div className="flex items-center px-5 pt-3 shrink-0">
+          <div className="flex gap-1 overflow-x-auto w-full" style={{ scrollbarWidth: 'none' }}>
             {TABS.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[11px] font-mono font-bold uppercase tracking-[0.12em] transition-colors shrink-0 ${tab === t.id ? 'bg-white text-ink' : 'text-zinc-400 hover:text-white'}`}>
@@ -1131,15 +1120,33 @@ export const AIStudyAssistant: React.FC<AIStudyAssistantProps> = ({ block, subje
               </button>
             ))}
           </div>
-          <div className="flex items-center bg-ink2 border-2 border-white/10 rounded-lg p-0.5 shrink-0">
-            {(['coach', 'feynman', 'quiz'] as const).map(m => (
-              <button key={m} onClick={() => setMode(m)} title={m === 'feynman' ? "Explain it simply" : m === 'quiz' ? 'Quiz me relentlessly' : 'Socratic coaching'}
-                className={`text-[9px] font-mono font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 rounded-md transition-colors ${mode === m ? (m === 'feynman' ? 'bg-yellow-400 text-ink' : 'bg-orange-500 text-ink') : 'text-zinc-400 hover:text-white'}`}>
-                {m}
-              </button>
-            ))}
-          </div>
         </div>
+
+        {/* Mode selector — applies to Chat only; its own row so it never crowds the tabs on mobile */}
+        {tab === 'chat' && (
+          <div className="flex items-center gap-2 px-5 pt-2.5 shrink-0">
+            <span className="text-[9px] font-mono font-bold uppercase tracking-[0.14em] shrink-0" style={{ color: 'rgba(255,255,255,0.28)' }}>Mode</span>
+            <div className="flex items-center gap-0.5 bg-ink2 border-2 border-white/10 rounded-lg p-0.5 flex-1 sm:flex-none">
+              {(['coach', 'feynman', 'quiz'] as const).map(m => (
+                <button key={m} onClick={() => setMode(m)} title={m === 'feynman' ? "Explain it simply" : m === 'quiz' ? 'Quiz me relentlessly' : 'Socratic coaching'}
+                  className={`flex-1 sm:flex-none text-[9px] font-mono font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 rounded-md transition-colors ${mode === m ? (m === 'feynman' ? 'bg-yellow-400 text-ink' : 'bg-orange-500 text-ink') : 'text-zinc-400 hover:text-white'}`}>
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* No API key — the #1 reason the coach "doesn't work" */}
+        {apiKeyMissing && (
+          <div className="mx-5 mt-3 shrink-0 flex items-start gap-2 px-3.5 py-2.5 rounded-xl"
+            style={{ background: 'rgba(255,214,10,0.07)', border: '1px solid rgba(255,214,10,0.22)' }}>
+            <AlertTriangle size={13} className="shrink-0 mt-0.5" style={{ color: '#FFD60A' }} strokeWidth={2.5} />
+            <span className="text-[11px] leading-snug" style={{ color: 'rgba(255,236,160,0.9)' }}>
+              No AI key set — add your free OpenRouter key in <span className="font-bold">Settings → AI Assistant</span> to enable the coach, notes &amp; exams.
+            </span>
+          </div>
+        )}
 
         {/* ── CHAT TAB ── */}
         {tab === 'chat' && (

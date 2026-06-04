@@ -38,11 +38,16 @@ export function hasApiKey(): boolean {
 
 export type TaskComplexity = 'simple' | 'standard' | 'complex' | 'vision';
 
+// NOTE (2026-06): the old IDs (google/gemini-flash-1.5, openrouter/free,
+// gemini-2.0-flash-exp:free) were DEPRECATED/REMOVED from OpenRouter → every AI
+// call 400'd ("not a valid model") and the whole assistant appeared broken.
+// gemini-3.5-flash is the current cheap, fast, multimodal Flash. If it ever 400s
+// again, check https://openrouter.ai/api/v1/models for the live slug and bump here.
 export const MODELS: Record<TaskComplexity, string> = {
-    simple: 'openrouter/free',                    // Insights, labels, short JSON (≤200 tokens)
-    standard: 'google/gemini-flash-1.5',            // Chat, grading, summaries
-    complex: 'google/gemini-flash-1.5',            // Exam gen, deep notes (upgrade to haiku when budget allows)
-    vision: 'google/gemini-2.0-flash-exp:free',   // Diagram/image analysis
+    simple: 'google/gemini-3.5-flash',    // Insights, labels, short JSON (≤200 tokens)
+    standard: 'google/gemini-3.5-flash',  // Chat, grading, summaries
+    complex: 'google/gemini-3.5-flash',   // Exam gen, deep notes
+    vision: 'google/gemini-3.5-flash',    // Diagram/image analysis (multimodal)
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
