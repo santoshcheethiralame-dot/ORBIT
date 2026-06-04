@@ -22,11 +22,21 @@ export function hasApiKey(): boolean {
 
 export type TaskComplexity = 'simple' | 'standard' | 'complex' | 'vision';
 
+// Free models, tried IN ORDER. If a provider is down/overloaded ("provider returned
+// error") or returns nothing, the next one is tried automatically — different providers
+// for resilience. Verified against https://openrouter.ai/api/v1/models (2026-06).
+export const FALLBACKS: Record<TaskComplexity, string[]> = {
+    simple: ['google/gemma-4-26b-a4b-it:free', 'google/gemma-4-31b-it:free', 'moonshotai/kimi-k2.6:free'],
+    standard: ['google/gemma-4-31b-it:free', 'moonshotai/kimi-k2.6:free', 'google/gemma-4-26b-a4b-it:free'],
+    complex: ['google/gemma-4-31b-it:free', 'moonshotai/kimi-k2.6:free', 'google/gemma-4-26b-a4b-it:free'],
+    vision: ['google/gemma-4-31b-it:free', 'moonshotai/kimi-k2.6:free'],
+};
+
 export const MODELS: Record<TaskComplexity, string> = {
-    simple: 'google/gemma-4-26b-a4b-it:free',
-    standard: 'moonshotai/kimi-k2.6:free',
-    complex: 'moonshotai/kimi-k2.6:free',
-    vision: 'google/gemma-4-31b-it:free',
+    simple: FALLBACKS.simple[0],
+    standard: FALLBACKS.standard[0],
+    complex: FALLBACKS.complex[0],
+    vision: FALLBACKS.vision[0],
 };
 
 export interface GeminiMessage {
@@ -100,24 +110,34 @@ export async function geminiChat(
     complexity: TaskComplexity = 'standard',
     options?: AIOptions,
 ): Promise<string> {
-    return withRetry(async () => {
-        const res = await fetch(BASE_URL, {
-            method: 'POST',
-            headers: buildHeaders(),
-            body: JSON.stringify({
-                model: MODELS[complexity],
-                max_tokens: maxTokens,
-                messages: toOR(messages, systemPrompt),
-                ...tuning(options),
-            }),
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err?.error?.message || `OpenRouter ${res.status}`);
-        }
-        const data = await res.json();
-        return data?.choices?.[0]?.message?.content ?? '';
-    });
+    const models = FALLBACKS[complexity] ?? [MODELS[complexity]];
+    let lastErr: any = new Error('No response');
+    for (const model of models) {
+        try {
+            return await withRetry(async () => {
+                const res = await fetch(BASE_URL, {
+                    method: 'POST',
+                    headers: buildHeaders(),
+                    body: JSON.stringify({
+                        model,
+                        max_tokens: maxTokens,
+                        messages: toOR(messages, systemPrompt),
+                        ...tuning(options),
+                    }),
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err?.error?.message || `OpenRouter ${res.status}`);
+                }
+                const data = await res.json();
+                if (data?.error) throw new Error(data.error.message || 'Provider returned error');
+                const content = data?.choices?.[0]?.message?.content ?? '';
+                if (!content) throw new Error('Empty response');
+                return content;
+            });
+        } catch (e) { lastErr = e; }
+    }
+    throw lastErr;
 }
 
 export async function geminiStream(
@@ -131,54 +151,60 @@ export async function geminiStream(
     signal?: AbortSignal,
     options?: AIOptions,
 ): Promise<void> {
-    try {
-        const res = await fetch(BASE_URL, {
-            method: 'POST',
-            headers: buildHeaders(),
-            signal,
-            body: JSON.stringify({
-                model: MODELS[complexity],
-                max_tokens: maxTokens,
-                stream: true,
-                messages: toOR(messages, systemPrompt),
-                ...tuning(options),
-            }),
-        });
-
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            onError(err?.error?.message || `OpenRouter ${res.status}`);
-            return;
-        }
-
-        const reader = res.body?.getReader();
-        if (!reader) { onError('No response body'); return; }
-
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() ?? '';
-            for (const line of lines) {
-                if (!line.startsWith('data: ')) continue;
-                const raw = line.slice(6).trim();
-                if (raw === '[DONE]') continue;
-                try {
-                    const json = JSON.parse(raw);
-                    const text = json?.choices?.[0]?.delta?.content ?? '';
-                    if (text) onChunk(text);
-                } catch { }
+    const models = FALLBACKS[complexity] ?? [MODELS[complexity]];
+    let lastErr = 'No response';
+    let produced = false;
+    for (const model of models) {
+        try {
+            const res = await fetch(BASE_URL, {
+                method: 'POST',
+                headers: buildHeaders(),
+                signal,
+                body: JSON.stringify({
+                    model,
+                    max_tokens: maxTokens,
+                    stream: true,
+                    messages: toOR(messages, systemPrompt),
+                    ...tuning(options),
+                }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                lastErr = err?.error?.message || `OpenRouter ${res.status}`;
+                continue;
             }
+            const reader = res.body?.getReader();
+            if (!reader) { lastErr = 'No response body'; continue; }
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let streamErr = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() ?? '';
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const raw = line.slice(6).trim();
+                    if (raw === '[DONE]') continue;
+                    try {
+                        const json = JSON.parse(raw);
+                        if (json?.error) { streamErr = json.error.message || 'Provider returned error'; continue; }
+                        const text = json?.choices?.[0]?.delta?.content ?? '';
+                        if (text) { produced = true; onChunk(text); }
+                    } catch { }
+                }
+            }
+            if (produced) { onDone(); return; }
+            lastErr = streamErr || lastErr;
+        } catch (e: any) {
+            if (e?.name === 'AbortError') return;
+            if (produced) { onDone(); return; }
+            lastErr = e?.message ?? 'Unknown error';
         }
-        onDone();
-    } catch (e: any) {
-        if (e?.name === 'AbortError') return;
-        onError(e?.message ?? 'Unknown error');
     }
+    onError(lastErr);
 }
 
 export async function geminiChatMultimodal(
