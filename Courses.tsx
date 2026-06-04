@@ -405,101 +405,57 @@ export default function CoursesView_Enhanced() {
     }
   };
 
-  // Auto-download presentations (mirror previous behavior) but now use openResourceInNewTab
-  React.useEffect(() => {
-    if (selectedResource?.type !== 'link') {
-      const isPPT = selectedResource && isPowerPoint(selectedResource.fileType);
-      if (isPPT) {
-        openResourceInNewTab(selectedResource);
-      }
-    }
-  }, [selectedResource?.id, selectedResource?.fileType]); // note: triggers only when selectedResource changes
-
-  // NOTE: changed below — we open everything externally on click (full-page view / download).
-  // The modal/preview remains in file for manual use, but default click opens in new tab.
-  if (selectedResource && selectedResource.type !== 'link') {
-    const isPPT = isPowerPoint(selectedResource.fileType);
-    const canPreview = !isPPT && (
-      selectedResource.fileType?.includes("pdf") ||
-      selectedResource.fileType?.startsWith("image") ||
-      selectedResource.fileType?.startsWith("video")
-    );
-
+  // In-app resource viewer: links + PDFs + Office (docx/pptx/xlsx via Office Online for URLs)
+  // + images/video render inside Orbit; offline-uploaded Office files fall back to open/download.
+  if (selectedResource) {
+    const r = selectedResource;
+    const isLink = r.type === 'link';
+    const url = r.url || '';
+    const ft = r.fileType || '';
+    const hay = (isLink ? url : (r.title || '')).toLowerCase();
+    const isPdf = ft.includes('pdf') || (isLink && hay.includes('.pdf'));
+    const isImg = ft.startsWith('image') || (isLink && /\.(png|jpe?g|gif|webp|svg|bmp)(\?|#|$)/.test(hay));
+    const isVid = ft.startsWith('video') || (isLink && /\.(mp4|webm|ogg|mov)(\?|#|$)/.test(hay));
+    const isOfficeUrl = isLink && /\.(docx?|pptx?|xlsx?)(\?|#|$)/.test(hay);
+    const isOfficeFile = !isLink && isOfficeDoc(ft);
+    const officeSrc = isOfficeUrl ? ('https://view.officeapps.live.com/op/embed.aspx?src=' + encodeURIComponent(url)) : '';
+    const fileSrc = isLink ? url : (previewUrl || '');
     return (
-      <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center animate-in fade-in duration-300 p-4 md:p-8">
-        <div className="fixed top-4 md:top-8 left-4 md:left-8 right-4 md:right-8 z-[60] flex items-center justify-between gap-4">
-          <FrostedTile className="flex items-center gap-3 px-4 md:px-6 py-3 md:py-4 min-w-0 flex-1 shadow-xl hover:border-white/15 transition-all">
-            {isPPT && <Presentation size={18} className="text-orange-400 flex-shrink-0" />}
-            <div className="font-bold truncate text-sm md:text-base text-white">{selectedResource.title}</div>
-          </FrostedTile>
-
-          <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-            <button
-              onClick={toggleFullscreen}
-              className="p-3 md:p-4 min-h-[48px] min-w-[48px] md:min-h-[56px] md:min-w-[56px]">
-              <FrostedTile className="w-full h-full flex items-center justify-center text-zinc-300 hover:text-white hover:border-white/20 hover:-translate-y-1 transition-all">
-                {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
-              </FrostedTile>
-            </button>
-
-            <button
-              onClick={() => setSelectedResource(null)}
-              aria-label="Close preview"
-              className="p-3 md:p-4 min-h-[48px] min-w-[48px] md:min-h-[56px] md:min-w-[56px]">
-              <FrostedTile className="w-full h-full flex items-center justify-center text-zinc-300 hover:text-white hover:border-red-500/30 hover:-translate-y-1 transition-all">
-                <X size={22} />
-              </FrostedTile>
-            </button>
+      <div className="fixed inset-0 z-[120] bg-ink/95 backdrop-blur-sm flex flex-col p-3 md:p-6">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-9 h-9 rounded-lg bg-orange-500/15 border border-orange-500/25 flex items-center justify-center text-orange-400 shrink-0">{isLink ? <Link size={16} /> : isOfficeFile ? <Presentation size={16} /> : <FileText size={16} />}</span>
+            <div className="font-bold text-white truncate">{r.title}</div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={() => openResourceInNewTab(r)} className="px-3 py-2 rounded-lg bg-ink2 border-2 border-white/12 text-zinc-300 hover:text-white text-xs font-bold flex items-center gap-2 transition-colors"><ExternalLink size={14} /><span className="hidden sm:inline">Open externally</span></button>
+            <button onClick={toggleFullscreen} className="w-9 h-9 rounded-lg bg-ink2 border-2 border-white/12 text-zinc-300 hover:text-white flex items-center justify-center transition-colors">{isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button>
+            <button onClick={() => setSelectedResource(null)} aria-label="Close preview" className="w-9 h-9 rounded-lg bg-ink2 border-2 border-white/12 text-mute hover:text-white flex items-center justify-center transition-colors"><X size={18} /></button>
           </div>
         </div>
-
-        <div className="w-full max-w-6xl h-[85vh] my-auto">
-          <FrostedTile className="h-full flex flex-col overflow-hidden">
-            <div className="flex-1 bg-zinc-950 p-4 md:p-6 rounded-3xl overflow-hidden flex items-center justify-center min-h-0">
-              {isPPT ? (
-                <div className="flex flex-col items-center justify-center text-center max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="w-24 h-24 md:w-28 md:h-28 rounded-3xl bg-gradient-to-br from-orange-500/20 to-orange-600/20 flex items-center justify-center mb-8 border border-orange-500/30 shadow-lg shadow-orange-500/20 animate-in zoom-in duration-700">
-                    <Presentation size={48} className="text-orange-400" />
-                  </div>
-                  <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">PowerPoint Presentation</h3>
-                  <p className="text-sm md:text-base text-zinc-400 mb-8 leading-relaxed">
-                    Your download should start automatically. If it doesn't, click the button below.
-                  </p>
-                  <button
-                    onClick={() => openResourceInNewTab(selectedResource)}
-                    className="px-8 md:px-10 py-4 md:py-5 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 rounded-2xl transition-all font-bold text-base md:text-lg border border-indigo-500/30 hover:scale-105 active:scale-95 duration-300 flex items-center justify-center gap-3 min-h-[64px] shadow-lg hover:shadow-indigo-500/20"
-                  >
-                    <Download size={22} />
-                    Download Presentation
-                  </button>
-                </div>
-              ) : canPreview ? (
-                selectedResource.fileType.includes("pdf") ? (
-                  <iframe src={previewUrl ?? ""} className="w-full h-full bg-white rounded-2xl shadow-2xl" />
-                ) : selectedResource.fileType.startsWith("image") ? (
-                  <img src={previewUrl ?? ""} className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl" />
-                ) : (
-                  <video src={previewUrl ?? ""} controls className="max-w-full max-h-full rounded-2xl shadow-2xl" />
-                )
-              ) : (
-                <div className="flex flex-col items-center justify-center text-center max-w-md animate-in fade-in duration-300">
-                  <div className="w-24 h-24 md:w-28 md:h-28 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-8 shadow-lg">
-                    <FileText size={48} className="text-zinc-600" />
-                  </div>
-                  <h3 className="text-xl md:text-2xl font-bold text-white mb-3">Preview not supported</h3>
-                  <p className="text-sm md:text-base text-zinc-500 mb-8 leading-relaxed">This file type cannot be previewed in the browser</p>
-                  <button
-                    onClick={() => openResourceInNewTab(selectedResource)}
-                    className="px-8 md:px-10 py-4 md:py-5 bg-indigo-500/20 hover:bg-indigo-500/30 rounded-2xl transition-all font-bold text-base border border-indigo-500/30 hover:scale-105 active:scale-95 duration-300 flex items-center justify-center gap-3 min-h-[64px]"
-                  >
-                    <Download size={22} />
-                    Download File
-                  </button>
-                </div>
-              )}
+        <div className="flex-1 min-h-0 rounded-2xl overflow-hidden bg-ink2 border-2 border-white/12">
+          {isImg ? (
+            <div className="w-full h-full flex items-center justify-center bg-black"><img src={fileSrc} alt={r.title} className="max-w-full max-h-full object-contain" /></div>
+          ) : isVid ? (
+            <div className="w-full h-full flex items-center justify-center bg-black"><video src={fileSrc} controls className="max-w-full max-h-full" /></div>
+          ) : isPdf ? (
+            <iframe title={r.title} src={fileSrc} className="w-full h-full bg-white" />
+          ) : isOfficeUrl ? (
+            <iframe title={r.title} src={officeSrc} className="w-full h-full bg-white" />
+          ) : isLink ? (
+            <iframe title={r.title} src={url} className="w-full h-full bg-white" />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center text-center p-8">
+              <div className="w-20 h-20 rounded-2xl bg-ink3 border-2 border-white/10 flex items-center justify-center mb-5">{isOfficeFile ? <Presentation size={36} className="text-orange-400" /> : <FileText size={36} className="text-mute" />}</div>
+              <h3 className="font-display font-black text-xl mb-2">{isOfficeFile ? 'Office file' : 'Preview unavailable'}</h3>
+              <p className="text-sm text-mute max-w-sm mb-6 leading-relaxed">{isOfficeFile ? 'Uploaded Office files cannot render offline in the browser. Open it externally, or add it as a public link (Drive/OneDrive) to preview inside Orbit.' : 'This file type cannot be previewed here.'}</p>
+              <button onClick={() => openResourceInNewTab(r)} className="px-6 py-3 rounded-xl bg-orange-500 text-ink font-bold text-sm flex items-center gap-2 hover:brightness-105 transition-all"><Download size={16} /> Open / download</button>
             </div>
-          </FrostedTile>
+          )}
         </div>
+        {isLink && !isOfficeUrl && !isPdf && !isImg && !isVid && (
+          <div className="text-center text-[11px] text-mute mt-2">Some sites block embedding — use "Open externally" if the page stays blank.</div>
+        )}
       </div>
     );
   }
@@ -795,7 +751,7 @@ export default function CoursesView_Enhanced() {
               <div className="space-y-2 mb-4 max-h-[220px] overflow-y-auto">
                 {(selectedSubject.resources || []).map((r) => (
                   <div key={r.id} className="flex items-center justify-between p-3 rounded-xl bg-ink3 border-2 border-white/10 hover:border-orange-500/30 transition-colors group">
-                    <button onClick={() => openResourceInNewTab(r)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                    <button onClick={() => setSelectedResource(r)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
                       <span className="w-9 h-9 rounded-lg bg-orange-500/15 border border-orange-500/25 flex items-center justify-center text-orange-400 shrink-0">{r.type === 'link' ? <Link size={16} /> : isPowerPoint(r.fileType || '') ? <Presentation size={16} /> : <FileText size={16} />}</span>
                       <span className="truncate text-sm font-bold text-white">{r.title}</span>
                     </button>
@@ -806,7 +762,7 @@ export default function CoursesView_Enhanced() {
             )}
             <div className="grid grid-cols-2 gap-2">
               <label className="cursor-pointer">
-                <input type="file" multiple hidden onChange={async (e) => { const files = Array.from((e.target && e.target.files) || []); for (const f of files) await processAndSaveFile(f); }} />
+                <input type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,image/*,video/*" hidden onChange={async (e) => { const files = Array.from((e.target && e.target.files) || []); for (const f of files) await processAndSaveFile(f); }} />
                 <div className="p-3 rounded-xl bg-ink3 border-2 border-white/10 hover:border-orange-500/30 text-center text-sm font-bold text-white flex items-center justify-center gap-2 transition-colors"><Upload size={16} /> Upload</div>
               </label>
               <button onClick={() => setShowLinkForm(!showLinkForm)} className="p-3 rounded-xl bg-ink3 border-2 border-white/10 hover:border-orange-500/30 text-sm font-bold text-white flex items-center justify-center gap-2 transition-colors"><Link size={16} /> Add link</button>
