@@ -1,4 +1,4 @@
-# 🧠 The BRAIN (v3.3)
+# 🧠 The BRAIN (v4 — unified)
 
 > **Technical Architecture & Cognitive Model of Orbit**
 
@@ -8,47 +8,22 @@ This document details how Orbit "thinks." It explains the algorithms, data struc
 
 ## 🏗️ System Architecture
 
-Orbit v3.3 is built on a **Triple-Brain Architecture** with a live AI coaching layer and instant capture system:
+Orbit runs on **one engine** behind a single public barrel. The UI imports only from `brain-ultimate.ts`; the barrel delegates to the engine (`brain.ts`) and the analytics module (`brain-analytics.ts`).
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    USER-FACING LAYER                                │
-│  Dashboard · FocusSession · QuickCapture · DailyContextModal        │
-└───────────────────────────────┬────────────────────────────────────┘
-                                │
-┌───────────────────────────────▼────────────────────────────────────┐
-│                    AI COACHING LAYER                                │
-│  AIInsightBanner · AIStudyAssistant · ExamSimulator                 │
-│  DashboardInsights · ScheduleOptimizer · QualityRatingModal         │
-└───────────────────────────────┬────────────────────────────────────┘
-                                │
-┌───────────────────────────────▼────────────────────────────────────┐
-│                 BRAIN-ULTIMATE (Orchestrator)                       │
-│  Single entry point for all AI planning logic.                      │
-│  Routes to the correct strategy based on data maturity.            │
-└──────────┬──────────────────────────────────┬──────────────────────┘
-           │                                  │
-┌──────────▼──────────┐           ┌───────────▼───────────┐
-│  LAYER 1 (Core)     │           │  LAYER 3 (Research)   │
-│  brain.ts           │           │  brain-research-       │
-│                     │◄──────────│  grade.ts              │
-│  • Readiness calc   │           │                        │
-│  • Plan generation  │           │  • Bayesian mastery    │
-│  • SM-2 spaced rep  │           │  • Formal optimization │
-│  • Displacement     │           │  • Gain prediction     │
-└──────────┬──────────┘           └───────────▲────────────┘
-           │                                  │
-┌──────────▼──────────────────────────────────┘
-│  LAYER 2 (Enhanced)
-│  brain-enhanced-integration.ts
-│
-│  • Performance tracking (BlockOutcomes)
-│  • Burnout detection
-│  • Energy profile management
-│  • Interleaving analysis
-│  • Quality rating helpers
-└───────────────────────────────────────────────
-```
+**Modules**
+- **`brain.ts` — engine:** one readiness model (`calculateReadiness` = volume × Ebbinghaus decay), daily-plan generation (displacement, circadian ordering, SM-2 spaced repetition), load analysis, assignment progress.
+- **`brain-analytics.ts`:** block-outcome recording, per-subject performance, burnout detection, interleaving, energy budget, quality + dashboard helpers.
+- **`brain-ultimate.ts` — public barrel:** `generateEnhancedPlan` (core plan + one persisted-performance duration pass) and `getAllReadinessScores` (always returns `SubjectReadiness`), plus re-exports of the engine/analytics public API.
+
+### Unification (2026-06-04, v4)
+- **Deleted `brain-research-grade.ts`** — single consumer, non-persistent (in-memory state reset every reload), cargo-culted (greedy labelled "ILP", a non-Bayesian "BKT", fabricated confidence intervals); its planner was already off the happy path.
+- **One readiness model.** Removed the `getUnifiedReadiness` 14-day switch that changed both the score *and* the returned object shape — Stats/Dashboard/Courses now agree.
+- **One planner path:** `index.tsx → generateEnhancedPlan → core generateDailyPlan → one duration pass`. Deleted the duplicate `generateEnhancedPlan` and the research planner.
+- **Renamed** `brain-enhanced-integration.ts → brain-analytics.ts`; pruned dead exports (`runBrain`, `simulateWeek`, `runWhatIfScenario`, `applyInterleaving`, `getStudyStreak`, `getQualityDistribution`, …). ~1,700 LOC removed across the brain.
+- The **"single import rule" is now real**: consumers import only from `brain-ultimate.ts`.
+
+> ⚠️ **Historical note:** the sections below that reference a three-layer "Triple-Brain", strategy routing (`research`/`enhanced`/`hybrid`), or "Layer 3 — Research Grade" describe the **pre-v4** design and are kept for history only. The engine is unified as described above.
+
 
 ---
 
