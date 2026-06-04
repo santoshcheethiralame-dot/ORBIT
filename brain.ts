@@ -13,7 +13,7 @@ import {
 
 // Re-export for consumers
 export type { SubjectReadiness };
-import { getISTEffectiveDate, formatLocalDate } from "./utils/time";
+import { getISTEffectiveDate, formatLocalDate, getISTTime } from "./utils/time";
 import { notifyDataChange } from "./db";
 import { getDefaultFocusDuration } from "./utils/settingsHelper";
 
@@ -133,7 +133,6 @@ export async function updateAssignmentProgress(
       });
 
       notifyDataChange('ASSIGNMENT_UPDATED', { assignmentId, newProgress });
-      console.log(`Assignment ${assignmentId}: ${currentProgress}min → ${newProgress}min (${estimatedEffort}min total)`);
     });
   } catch (err) {
     console.error('Failed to update assignment progress:', err);
@@ -205,7 +204,7 @@ export function calculateReadiness(
   if (!lastStudy) {
     lastStudiedDays = 999;
   } else {
-    const lastDate = new Date(lastStudy.timestamp).toISOString().split("T")[0];
+    const lastDate = formatLocalDate(new Date(lastStudy.timestamp));
     lastStudiedDays = daysBetweenDates(effectiveDate, lastDate);
   }
 
@@ -860,7 +859,6 @@ export const generateDailyPlan = async (
         // ISA is exclusive — skip everything else, return immediately
         const ordered = await orderBlocksCircadian(blocks, subjects);
         const loadAnalysis = await analyzeLoad(ordered, context, constraints, readinessMap, dbInstance);
-        console.log(`🎯 ISA Exclusive: ${ordered.length} blocks, ${usedMinutes.value} minutes for ${sub.name}`);
         return { blocks: ordered, loadAnalysis };
       }
     }
@@ -1105,7 +1103,7 @@ export const generateDailyPlan = async (
             .filter((l) => l.projectId === p.id)
             .sort((a, b) => b.timestamp - a.timestamp)[0];
 
-          const lastDate = lastLog ? new Date(lastLog.timestamp).toISOString().split("T")[0] : null;
+          const lastDate = lastLog ? formatLocalDate(new Date(lastLog.timestamp)) : null;
           let daysIdle = lastDate ? daysBetweenDates(effectiveDate, lastDate) : progressionPercentage === 0 ? 1 : 3;
 
           let isNewProject = !lastLog && progressionPercentage === 0;
@@ -1174,7 +1172,7 @@ export const generateDailyPlan = async (
           .sort((a, b) => b.timestamp - a.timestamp)[0];
 
         const lastDate = lastStudy
-          ? new Date(lastStudy.timestamp).toISOString().split("T")[0]
+          ? formatLocalDate(new Date(lastStudy.timestamp))
           : null;
 
         const daysSinceStudy = lastDate
@@ -1208,7 +1206,6 @@ export const generateDailyPlan = async (
     const targetMinBlocks = Math.min(MIN_BLOCKS_FALLBACK, constraints.maxBlocks);
 
     if (currentBlockCount < targetMinBlocks && !context.isSick && subjects.length > 0) {
-      console.log(`📈 Fallback: ${currentBlockCount} < ${targetMinBlocks} target`);
 
       const scheduledSubjectIds = new Set<number>(blocks.map(b => b.subjectId));
 
@@ -1262,7 +1259,6 @@ export const generateDailyPlan = async (
         index++;
       }
 
-      console.log(`✓ Fallback added ${index} blocks`);
     }
 
     // 🔧 Emergency fallback: If STILL no blocks
@@ -1317,7 +1313,6 @@ export const generateDailyPlan = async (
     const ordered = await orderBlocksCircadian(blocks, subjects);
     const loadAnalysis = await analyzeLoad(ordered, context, constraints, readinessMap, dbInstance);
 
-    console.log(`🎯 Final plan: ${ordered.length} blocks, ${usedMinutes.value} minutes`);
 
     return {
       blocks: ordered,
@@ -1408,7 +1403,7 @@ async function orderBlocksCircadian(
   creative.sort(byPriority);
 
   // Time-Aware Circadian Ordering
-  const hour = new Date().getHours();
+  const hour = getISTTime().getHours();
   let initialOrder: StudyBlock[] = [];
 
   if (hour >= 18) {
