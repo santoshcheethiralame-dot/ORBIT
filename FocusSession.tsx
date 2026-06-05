@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import {
   Play, Pause, Coffee, X, Sparkles, Lock, Unlock, Music2, Volume2, VolumeX,
-  BookOpen, FileText, ExternalLink, CheckCircle, Square, Plus, Wind,
+  BookOpen, FileText, ExternalLink, CheckCircle, Square, Plus,
   Flame, Zap, Clock, Crown, TrendingUp, ChevronDown, Maximize2, Minimize2,
   CircleDashed, Settings as SettingsIcon, Target, Eye, EyeOff
 } from "lucide-react";
@@ -131,7 +131,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   const [showSummary, setShowSummary] = useState(false);
   const [summaryData, setSummaryData] = useState<{ duration: number; quality: number; readinessGain: number; aiTip?: string; } | null>(null);
 
-  const [skin, setSkin] = useState<"orbit" | "flip" | "minimal">("orbit");
+  const [skin, setSkin] = useState<"orbit" | "flip" | "minimal">("minimal");
   const [zen, setZen] = useState(false);
   const [showSound, setShowSound] = useState(false);
   const [scape, setScape] = useState<SoundscapeType>("silence");
@@ -473,6 +473,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   const pct = Math.round(progress * 100);
   const shownTime = hideTime ? '••:••' : timeStr;
   const dig = hideTime ? { min1: '•', min2: '•', sec1: '•', sec2: '•' } : time;
+  const faceMeta = time.isNegative ? "OVERTIME" : isBreak ? `recharge · ${pct}%` : `of ${String(block.duration).padStart(2, "0")}:00 · ${pct}%`;
 
   const OrbitFace = (
     <button onClick={addFive} className="relative block" style={{ width: 410, height: 410, maxWidth: "78vw", maxHeight: "78vw" }} title="Tap to add 5 minutes">
@@ -483,45 +484,45 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
           style={{ transition: "stroke-dashoffset 0.6s ease, stroke 0.4s ease" }} />
       </svg>
       <div className="absolute inset-0" style={{ transform: `rotate(${progress * 360}deg)`, transition: "transform 0.6s cubic-bezier(0.4,0,0.2,1)" }}>
-        <div className="absolute w-4 h-4 rounded-full" style={{ top: "5%", left: "50%", transform: "translate(-50%,-50%)", background: theme.secondary, boxShadow: `0 0 22px ${theme.glow}, 0 0 7px ${theme.secondary}` }} />
+        <div className="absolute w-4 h-4 rounded-full" style={{ top: "5%", left: "50%", transform: "translate(-50%,-50%)", background: theme.secondary, boxShadow: `0 0 22px ${theme.glow}, 0 0 7px ${theme.secondary}`, transition: "background .5s ease, box-shadow .5s ease" }} />
       </div>
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span className="meta text-[10px] mb-3" style={{ color: theme.primary }}>◐ {phaseLabel}</span>
-        <div className="display tabular-nums" style={{ fontSize: "clamp(48px, 13vw, 92px)" }}>{shownTime}</div>
-        <div className="meta text-[10px] text-mute mt-3">{time.isNegative ? "OVERTIME" : `of ${String(block.duration).padStart(2, "0")}:00 · ${pct}%`}</div>
+        <span className="meta text-[10px] mb-3" style={{ color: theme.primary, transition: "color .5s ease" }}>◐ {phaseLabel}</span>
+        <div className="display tabular-nums" style={{ fontSize: "clamp(48px, 13vw, 92px)", color: isBreak ? theme.primary : undefined, transition: "color .5s ease" }}>{shownTime}</div>
+        <div className="meta text-[10px] text-mute mt-3">{faceMeta}</div>
       </div>
     </button>
   );
 
   const FlipFace = (
     <div className="flex flex-col items-center gap-6">
-      <span className="meta text-[10px]" style={{ color: theme.primary }}>◐ {phaseLabel}</span>
+      <span className="meta text-[10px]" style={{ color: theme.primary, transition: "color .5s ease" }}>◐ {phaseLabel}</span>
       <div className="flex items-center justify-center scale-[0.62] md:scale-90">
         <FlipDigit value={dig.min1} /><FlipDigit value={dig.min2} />
         <div className="flex flex-col gap-3 mx-2">
-          <div className="w-3 h-3 rounded-full" style={{ background: theme.primary }} />
-          <div className="w-3 h-3 rounded-full" style={{ background: theme.primary }} />
+          <div className="w-3 h-3 rounded-full" style={{ background: theme.primary, transition: "background .5s ease" }} />
+          <div className="w-3 h-3 rounded-full" style={{ background: theme.primary, transition: "background .5s ease" }} />
         </div>
         <FlipDigit value={dig.sec1} /><FlipDigit value={dig.sec2} />
       </div>
       <div className="w-64 max-w-[70vw]">
         <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: theme.primary, transition: "width 0.5s ease" }} />
+          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: theme.primary, transition: "width 0.5s ease, background .5s ease" }} />
         </div>
-        <div className="meta text-[9px] text-mute text-center mt-2">{time.isNegative ? "OVERTIME" : `of ${String(block.duration).padStart(2, "0")}:00 · ${pct}%`}</div>
+        <div className="meta text-[9px] text-mute text-center mt-2">{faceMeta}</div>
       </div>
     </div>
   );
 
   const MinimalFace = (
     <button onClick={addFive} className="flex flex-col items-center" title="Tap to add 5 minutes">
-      <span className="meta text-[10px] mb-4" style={{ color: theme.primary }}>◐ {phaseLabel}</span>
-      <div className="display tabular-nums leading-none" style={{ fontSize: "clamp(72px, 22vw, 190px)" }}>{shownTime}</div>
+      <span className="meta text-[10px] mb-4" style={{ color: theme.primary, transition: "color .5s ease" }}>◐ {phaseLabel}</span>
+      <div className="display tabular-nums leading-none" style={{ fontSize: "clamp(72px, 22vw, 190px)", color: isBreak ? theme.primary : undefined, transition: "color .5s ease" }}>{shownTime}</div>
       <div className="w-72 max-w-[78vw] mt-7">
         <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: theme.primary, transition: "width 0.5s ease" }} />
+          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: theme.primary, transition: "width 0.5s ease, background .5s ease" }} />
         </div>
-        <div className="meta text-[9px] text-mute text-center mt-2.5">{time.isNegative ? "OVERTIME" : `of ${String(block.duration).padStart(2, "0")}:00 · ${pct}%`}</div>
+        <div className="meta text-[9px] text-mute text-center mt-2.5">{faceMeta}</div>
       </div>
     </button>
   );
@@ -574,6 +575,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="orbit-fall" style={{ backgroundImage: FALL_BG, backgroundSize: FALL_SIZES, animationPlayState: isRunning ? 'running' : 'paused' }} />
         <div className="orbit-fall-mask" />
+        <div className="absolute inset-0 transition-opacity duration-700 ease-out" style={{ opacity: isBreak ? 1 : 0, background: "radial-gradient(120% 90% at 50% 30%, rgba(255,214,10,0.07), transparent 70%)" }} />
       </div>
 
       {isLoading && (
@@ -599,8 +601,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
           {!zen && (
             <div className="flex items-start justify-between px-5 md:px-8 pt-6 pb-2">
               <div className="min-w-0">
-                <div className="meta text-[11px] flex items-center gap-2" style={{ color: theme.primary }}>
-                  <span className="w-2 h-2 rounded-full" style={{ background: theme.primary }} />
+                <div className="meta text-[11px] flex items-center gap-2" style={{ color: theme.primary, transition: "color .5s ease" }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: theme.primary, transition: "background .5s ease" }} />
                   <span className="truncate">{block.subjectName}</span>
                 </div>
                 <div className="text-sm text-mute mt-1.5 truncate">
@@ -627,38 +629,30 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
           )}
 
           <div className="flex-1 flex items-center justify-center px-4 min-h-0">
-            {isBreak ? (
-              <div className="flex flex-col items-center" style={{ animation: "fadeIn .4s ease" }}>
-                <div className="meta text-[10px] text-mute mb-7">Break · {`${Math.floor(breakTime / 60)}:${(breakTime % 60).toString().padStart(2, "0")}`} left</div>
-                <div className="relative w-60 h-60 flex items-center justify-center">
-                  <div className="absolute rounded-full bg-yellow-400/10 border border-yellow-400/30" style={{ width: "100%", height: "100%", animation: "breathe 5s ease-in-out infinite" }} />
-                  <div className="absolute rounded-full bg-yellow-400/15 border border-yellow-400/40" style={{ width: "68%", height: "68%", animation: "breathe 5s ease-in-out infinite reverse" }} />
-                  <div className="relative text-center"><Wind size={22} className="text-yellow-400 mx-auto mb-2" /><div className="display text-3xl text-yellow-400">Breathe</div><div className="meta text-[9px] text-yellow-400/70 mt-2">in · hold · out</div></div>
-                </div>
-                <p className="text-sm text-mute mt-8 text-center max-w-xs">Stand up · hydrate · look 20&nbsp;ft away. Your brain consolidates while you rest.</p>
-                <div className="flex items-center gap-3 mt-7">
-                  <button onClick={() => setBreakTime(t => t + 60)} className="bg-ink2/80 border-2 border-white/15 text-white font-bold text-sm px-5 py-3 rounded-xl flex items-center gap-2 hover:bg-ink3 transition-colors"><Plus size={15} />1 min</button>
-                  <button onClick={() => endBreak(true)} className="bg-yellow-400 text-ink font-bold text-sm px-6 py-3 rounded-xl hover:brightness-105 transition-all">Back to focus →</button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center" style={{ animation: "scaleIn .5s cubic-bezier(0.34,1.56,0.64,1)" }}>
-                {skin === "orbit" ? OrbitFace : skin === "flip" ? FlipFace : MinimalFace}
-                {!hasStarted ? (
-                  <div className="mt-8 w-full max-w-sm px-4">
-                    <label className="meta text-[9px] text-mute flex items-center gap-1.5 mb-2 justify-center"><Target size={11} className="text-orange-400" /> Intention — the one thing you'll finish (optional)</label>
-                    <input value={intention} onChange={e => setIntention(e.target.value)} maxLength={120} placeholder="e.g. finish problem set 3"
-                      onKeyDown={e => { if (e.key === "Enter") toggleTimer(); }}
-                      className="w-full bg-ink2/80 border-2 border-white/15 rounded-xl px-4 py-3 text-sm text-white text-center placeholder:text-mute/40 focus:outline-none focus:border-orange-500/50 transition-colors" />
+            <div className="flex flex-col items-center" style={{ animation: "scaleIn .5s cubic-bezier(0.34,1.56,0.64,1)" }}>
+              {skin === "orbit" ? OrbitFace : skin === "flip" ? FlipFace : MinimalFace}
+              {isBreak ? (
+                <div className="flex flex-col items-center mt-8" style={{ animation: "fadeIn .4s ease" }}>
+                  <p className="text-sm text-mute text-center max-w-xs mb-5">Stand up · hydrate · look 20&nbsp;ft away. Rest is part of the work.</p>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => setBreakTime(t => t + 60)} className="bg-ink2/80 border-2 border-white/15 text-white font-bold text-sm px-5 py-3 rounded-xl flex items-center gap-2 hover:bg-ink3 transition-colors"><Plus size={15} />1 min</button>
+                    <button onClick={() => endBreak(true)} className="bg-yellow-400 text-ink font-bold text-sm px-6 py-3 rounded-xl hover:brightness-105 transition-all">Back to focus →</button>
                   </div>
-                ) : intention ? (
-                  <div className="mt-7 flex items-center gap-2 px-4 py-2 rounded-lg bg-ink2/50 border border-white/10 max-w-md">
-                    <Target size={12} className="text-orange-400 shrink-0" />
-                    <span className="text-sm text-white/75 truncate">{intention}</span>
-                  </div>
-                ) : null}
-              </div>
-            )}
+                </div>
+              ) : !hasStarted ? (
+                <div className="mt-8 w-full max-w-sm px-4">
+                  <label className="meta text-[9px] text-mute flex items-center gap-1.5 mb-2 justify-center"><Target size={11} className="text-orange-400" /> Intention — the one thing you'll finish (optional)</label>
+                  <input value={intention} onChange={e => setIntention(e.target.value)} maxLength={120} placeholder="e.g. finish problem set 3"
+                    onKeyDown={e => { if (e.key === "Enter") toggleTimer(); }}
+                    className="w-full bg-ink2/80 border-2 border-white/15 rounded-xl px-4 py-3 text-sm text-white text-center placeholder:text-mute/40 focus:outline-none focus:border-orange-500/50 transition-colors" />
+                </div>
+              ) : intention ? (
+                <div className="mt-7 flex items-center gap-2 px-4 py-2 rounded-lg bg-ink2/50 border border-white/10 max-w-md">
+                  <Target size={12} className="text-orange-400 shrink-0" />
+                  <span className="text-sm text-white/75 truncate">{intention}</span>
+                </div>
+              ) : null}
+            </div>
           </div>
 
           {!zen && !isBreak && (
