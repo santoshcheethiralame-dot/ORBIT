@@ -24,8 +24,8 @@ const FLIP_DURATION_MS = 600;
 
 // Brutalist "falling light" focus background — orange streaks + yellow dots on black.
 const FALL_ROWS: [number, number][] = [[235, 117.5], [252, 126], [150, 75], [253, 126.5], [204, 102], [134, 67], [179, 89.5], [299, 149.5], [215, 107.5], [281, 140.5], [158, 79], [210, 105]];
-const FALL_STREAK = 'rgba(255,122,60,0.5)';
-const FALL_DOT = 'rgba(255,214,10,0.65)';
+const FALL_STREAK = 'rgba(255,122,60,0.95)';
+const FALL_DOT = 'rgba(255,214,10,1)';
 const FALL_BG = FALL_ROWS.flatMap(([sy, dy]) => [
   `radial-gradient(4px 100px at 0px ${sy}px, ${FALL_STREAK}, transparent)`,
   `radial-gradient(4px 100px at 300px ${sy}px, ${FALL_STREAK}, transparent)`,
@@ -547,10 +547,9 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
         @keyframes scaleIn{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
         @media (prefers-reduced-motion: reduce){.blob{animation:none!important}}
 
-        .orbit-fall{position:absolute;inset:0;pointer-events:none;animation:orbitfall 150s linear infinite both;opacity:.5}
-        .orbit-fall-mask{position:absolute;inset:0;pointer-events:none;backdrop-filter:blur(0.7em);-webkit-backdrop-filter:blur(0.7em);background-image:radial-gradient(circle at 50% 50%,transparent 0,transparent 2px,#0A0A0A 2px);background-size:8px 8px}
+        .orbit-fall{position:absolute;inset:0;pointer-events:none;animation:orbitfall 110s linear infinite both;opacity:1}
+        .orbit-fall-mask{position:absolute;inset:0;pointer-events:none;backdrop-filter:blur(0.35em);-webkit-backdrop-filter:blur(0.35em);background-image:radial-gradient(circle at 50% 50%,transparent 0,transparent 3px,#0A0A0A 3px);background-size:9px 9px}
         @keyframes orbitfall{from{background-position:0px 220px, 3px 220px, 151.5px 337.5px, 25px 24px, 28px 24px, 176.5px 150px, 50px 16px, 53px 16px, 201.5px 91px, 75px 224px, 78px 224px, 226.5px 230.5px, 100px 19px, 103px 19px, 251.5px 121px, 125px 120px, 128px 120px, 276.5px 187px, 150px 31px, 153px 31px, 301.5px 120.5px, 175px 235px, 178px 235px, 326.5px 384.5px, 200px 121px, 203px 121px, 351.5px 228.5px, 225px 224px, 228px 224px, 376.5px 364.5px, 250px 26px, 253px 26px, 401.5px 105px, 275px 75px, 278px 75px, 426.5px 180px}to{background-position:0px 6800px, 3px 6800px, 151.5px 6917.5px, 25px 13632px, 28px 13632px, 176.5px 13758px, 50px 5416px, 53px 5416px, 201.5px 5491px, 75px 17175px, 78px 17175px, 226.5px 17301.5px, 100px 5119px, 103px 5119px, 251.5px 5221px, 125px 8428px, 128px 8428px, 276.5px 8495px, 150px 9876px, 153px 9876px, 301.5px 9965.5px, 175px 13391px, 178px 13391px, 326.5px 13540.5px, 200px 14741px, 203px 14741px, 351.5px 14848.5px, 225px 18770px, 228px 18770px, 376.5px 18910.5px, 250px 5082px, 253px 5082px, 401.5px 5161px, 275px 6375px, 278px 6375px, 426.5px 6480px}}
-        @media (max-width:640px){.orbit-fall,.orbit-fall-mask{display:none}}
         @media (prefers-reduced-motion: reduce){.orbit-fall{animation:none}}
 
         .flip-card-container{--flip-duration:${FLIP_DURATION_MS}ms;position:relative;width:130px;height:180px;margin:0 8px;perspective:1400px}
@@ -573,7 +572,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       `}</style>
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="orbit-fall" style={{ backgroundImage: FALL_BG, backgroundSize: FALL_SIZES }} />
+        <div className="orbit-fall" style={{ backgroundImage: FALL_BG, backgroundSize: FALL_SIZES, animationPlayState: isRunning ? 'running' : 'paused' }} />
         <div className="orbit-fall-mask" />
       </div>
 
