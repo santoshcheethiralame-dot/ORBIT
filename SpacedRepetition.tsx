@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Brain, Calendar, TrendingUp, CheckCircle, AlertCircle, Clock, Target, Sparkles, Wand2, RotateCcw, CheckCircle2, XCircle } from 'lucide-react';
+import { Brain, Calendar, TrendingUp, CheckCircle, AlertCircle, Clock, Target, Sparkles, Wand2, RotateCcw, CheckCircle2, XCircle, ExternalLink } from 'lucide-react';
 import { StudyTopic } from './types';
 import { db } from './db';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -351,8 +351,22 @@ export const UpcomingReviewsWidget = () => {
                 </span>
               </div>
               <div className="text-sm text-white font-medium">{topic.name}</div>
-              <div className="text-xs text-orange-400/60 mt-1">
-                Review #{topic.reviewCount} • Ease: {topic.easeFactor.toFixed(1)}
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-xs text-orange-400/60">
+                  Review #{topic.reviewCount} • Ease: {topic.easeFactor.toFixed(1)}
+                </div>
+                {topic.sourceUrl && (
+                  <a
+                    href={topic.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs font-bold text-orange-300 hover:text-orange-200 shrink-0"
+                    title={`Open this in ${topic.sourceApp === 'crux' ? 'CRUX' : 'ATLAS'}`}
+                  >
+                    {topic.sourceApp === 'crux' ? 'CRUX' : 'ATLAS'}
+                    <ExternalLink size={11} strokeWidth={2.5} />
+                  </a>
+                )}
               </div>
             </div>
           ))}
@@ -663,6 +677,18 @@ export const ReviewQueueView = () => {
             <span>·</span>
             <span>Ease: {current.easeFactor.toFixed(1)}</span>
           </div>
+
+          {(current as any).sourceUrl && (
+            <a
+              href={(current as any).sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-orange-300 hover:text-orange-200 transition-colors"
+            >
+              Open in {(current as any).sourceApp === 'crux' ? 'CRUX' : 'ATLAS'}
+              <ExternalLink size={12} strokeWidth={2.5} />
+            </a>
+          )}
         </div>
 
         {!showRating ? (
