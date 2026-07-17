@@ -182,6 +182,13 @@ export interface StudyTopic {
   comprehensionHistory: number[];
   question?: string;
   answer?: string;
+
+  // Set when the topic arrived from ATLAS/CRUX (utils/studyItems.ts), so a
+  // review can link back to the material it came from. Absent on topics
+  // created inside Orbit.
+  sourceUrl?: string;
+  sourceApp?: string;
+  sourcePath?: string;
 }
 
 export interface StudyLog {
