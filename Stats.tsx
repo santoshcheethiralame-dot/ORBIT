@@ -23,6 +23,7 @@ import {
 import { calculateReadiness } from "./brain";
 import { getAllReadinessScores } from "./brain-ultimate";
 import { SubjectReadiness } from "./types";
+import { getCalibration } from "./utils/fsrs";
 let getSubjectPerformance: (subjectId: number, days: number, db: any) => Promise<any> = async (subjectId, _days, db) => {
   const logs = await db.logs.where('subjectId').equals(subjectId).toArray();
   const total = logs.length || 1;
@@ -1119,6 +1120,19 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
   const totalHoursDisp = (totalMinutes % 60 === 0) ? String(totalMinutes / 60) : totalHours;
   const insight: any = enhancedInsights[0];
 
+  // Calibration is computed all-time (needs volume to be meaningful), from the
+  // reveal-moment predictions stored on review logs. Rows without a prediction
+  // are ignored by getCalibration, so legacy reviews don't dilute it.
+  const calibration = useMemo(() => getCalibration(logs.filter(l => l.type === "review") as any), [logs]);
+  const calReadout = (() => {
+    if (!calibration || calibration.n < 5) return null;
+    const o = calibration.overconfidence ?? 0;
+    if (Math.abs(o) < 0.05) return "Your confidence tracks reality closely — you're well-calibrated.";
+    return o > 0
+      ? `You overestimate recall by ~${Math.round(o * 100)} points on average — trust the confident feeling a little less.`
+      : `You underestimate recall by ~${Math.round(Math.abs(o) * 100)} points on average — you know more than you feel you do.`;
+  })();
+
   return (
     <div className="pb-24 md:pb-32 pt-4 md:pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-4 md:space-y-6">
       <PageHeader
@@ -1215,6 +1229,75 @@ export const StatsView = ({ logs, subjects }: { logs: StudyLog[]; subjects: Subj
           <div className="rounded-4xl bg-ink2 border border-white/10 p-5"><div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Avg / day</div><div className="font-display font-black text-3xl mt-2">{avgDailyHours}<span className="text-lg">h</span></div></div>
         )}
       </div>
+
+      {calibration && calibration.n >= 1 && (
+        <div className="rounded-4xl bg-ink2 border border-white/10 p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <Target size={18} className="text-orange-400" />
+            <h3 className="font-display font-black text-2xl">CALIBRATION</h3>
+            <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-mute ml-1 hidden sm:inline">metacognition · all-time</span>
+          </div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-mute mb-6">Did your confidence match reality? · {calibration.n} prediction{calibration.n !== 1 ? "s" : ""}</div>
+
+          {calibration.n < 5 ? (
+            <div className="rounded-2xl bg-white/[0.04] border border-white/10 p-6 text-center">
+              <div className="text-sm text-mute">Predict on <span className="text-white font-bold">{5 - calibration.n}</span> more flashcard{5 - calibration.n !== 1 ? "s" : ""} to unlock your calibration profile.</div>
+              <div className="text-[10px] text-mute/60 mt-1.5">On each review, guess “will I recall it?” before you flip — that guess is the data.</div>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div className="rounded-3xl bg-white/[0.04] border border-white/10 p-5">
+                  <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Brier score</div>
+                  <div className="font-display font-black text-4xl mt-2">{calibration.brier!.toFixed(2)}</div>
+                  <div className="text-[10px] text-mute mt-1">0 = perfect · lower is better</div>
+                </div>
+                <div className="rounded-3xl bg-white/[0.04] border border-white/10 p-5">
+                  <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">{(calibration.overconfidence ?? 0) >= 0 ? "Overconfidence" : "Underconfidence"}</div>
+                  <div className="font-display font-black text-4xl mt-2" style={{ color: Math.abs(calibration.overconfidence ?? 0) < 0.05 ? "#FFD60A" : (calibration.overconfidence ?? 0) > 0 ? "#FF5A1F" : "#38B000" }}>{(calibration.overconfidence ?? 0) >= 0 ? "+" : "−"}{Math.round(Math.abs(calibration.overconfidence ?? 0) * 100)}<span className="text-lg">pt</span></div>
+                  <div className="text-[10px] text-mute mt-1">confidence − actual recall</div>
+                </div>
+                <div className="rounded-3xl bg-white/[0.04] border border-white/10 p-5">
+                  <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Recall rate</div>
+                  <div className="font-display font-black text-4xl mt-2 text-yellow-400">{Math.round((calibration.accuracy ?? 0) * 100)}<span className="text-lg">%</span></div>
+                  <div className="text-[10px] text-mute mt-1">you predicted {Math.round((calibration.meanConfidence ?? 0) * 100)}% avg</div>
+                </div>
+                <div className="rounded-3xl bg-white/[0.04] border border-white/10 p-5">
+                  <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-mute">Predictions</div>
+                  <div className="font-display font-black text-4xl mt-2">{calibration.n}</div>
+                  <div className="text-[10px] text-mute mt-1">reveal-moment guesses</div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl bg-white/[0.04] border border-white/10 p-6">
+                <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-mute mb-4">Reliability — bar is how often you actually recalled it · tick is what you predicted</div>
+                <div className="space-y-3">
+                  {calibration.buckets.map((b) => (
+                    <div key={b.value} className="flex items-center gap-3">
+                      <span className="text-[11px] font-mono text-mute w-12 shrink-0">{Math.round(b.value * 100)}%</span>
+                      <div className="flex-1 h-6 bg-white/[0.06] rounded-lg overflow-hidden relative">
+                        {b.n > 0 && (
+                          <div className="h-full rounded-lg flex items-center justify-end pr-2" style={{ width: `${Math.max(8, (b.actual ?? 0) * 100)}%`, background: "linear-gradient(90deg,#FF5A1F,#FFD60A)" }}>
+                            <span className="text-[10px] font-bold text-ink">{Math.round((b.actual ?? 0) * 100)}%</span>
+                          </div>
+                        )}
+                        <div className="absolute top-0 bottom-0 w-0.5 bg-white/70" style={{ left: `${b.value * 100}%` }} title={`predicted ${Math.round(b.value * 100)}%`} />
+                      </div>
+                      <span className="text-[10px] font-mono text-mute w-14 text-right shrink-0">{b.n > 0 ? `n=${b.n}` : "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {calReadout && (
+                <div className="mt-4 rounded-2xl bg-orange-500/10 border border-orange-500/20 p-4 text-sm text-white leading-snug">
+                  <span className="font-bold text-orange-400">Read:</span> {calReadout} <span className="text-mute">This is the introspection-vs-reality signal MIRROR studies — measured on you.</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };
