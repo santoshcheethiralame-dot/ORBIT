@@ -642,6 +642,49 @@ export const Dashboard = ({
         </div>
       </header>
 
+      {/* NOW — the single next action, elevated above everything else so the
+          first thing you see is what to do, not a decision to make. */}
+      {nextBlock ? (
+        <div className="rounded-4xl bg-ink2 border-2 border-orange-500/30 p-6 md:p-7 relative overflow-hidden">
+          <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle,#FF5A1F22,transparent 70%)' }} />
+          <div className="relative flex flex-col sm:flex-row sm:items-center gap-5">
+            <div className="flex-1 min-w-0">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-orange-400">
+                Now · {nextBlock.type}{nextBlock.tier === 'stretch' ? ' · stretch' : ''}
+              </span>
+              <h2 className="font-display font-black text-3xl md:text-4xl mt-2 leading-[0.95] truncate">{nextBlock.subjectName}</h2>
+              <p className="text-sm text-zinc-400 mt-2">
+                {worst && worst.critical && nextBlock.subjectName === worst.name
+                  ? 'Your most-slipping subject — this block pulls it back.'
+                  : nextBlock.type === 'review'
+                  ? 'Review while it’s fresh — that’s where retention is won.'
+                  : nextBlock.type === 'recovery'
+                  ? 'A lighter recovery block — momentum over intensity.'
+                  : 'Next in today’s plan. One block, full focus.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-4 shrink-0">
+              <div className="text-right">
+                <div className="font-display font-black text-4xl tabular-nums leading-none">{nextBlock.duration}<span className="text-lg text-mute">m</span></div>
+                <div className="text-[9px] font-mono uppercase tracking-[0.16em] text-zinc-500 mt-1">{completedCount}/{totalCount} done · {fmtDur(remainingMin)} left</div>
+              </div>
+              <button onClick={() => onStartFocus(nextBlock)} className="bg-orange-500 text-ink font-bold px-7 py-5 rounded-2xl hover:brightness-105 active:scale-95 transition-all flex items-center gap-2 text-lg">
+                <Play size={20} fill="currentColor" strokeWidth={0} /> Start
+              </button>
+            </div>
+          </div>
+          <div className="relative mt-5 h-1.5 rounded-full bg-white/10 overflow-hidden">
+            <div className="h-full bg-orange-500 rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+          </div>
+        </div>
+      ) : totalCount > 0 ? (
+        <div className="rounded-4xl bg-ink2 border border-white/10 p-7 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-yellow-500/15 border border-yellow-500/25 flex items-center justify-center text-yellow-400 mx-auto mb-4"><CheckCircle size={28} /></div>
+          <h2 className="font-display font-black text-2xl">Today’s plan is done</h2>
+          <p className="text-sm text-zinc-400 mt-2">{completedCount} block{completedCount === 1 ? '' : 's'} cleared. Rest is part of the process — or add a stretch block below.</p>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-4xl bg-ink2 border border-white/10 p-6 flex items-center gap-4">
           <div className="relative w-[72px] h-[72px] shrink-0">

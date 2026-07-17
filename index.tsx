@@ -489,6 +489,24 @@ const App = () => {
           await db.studyBlocks.update(activeBlock.id, { completed: true });
 
           setTodayPlan(newPlan);
+
+          // Reality feedback: if this block ran well over plan, the rest of the
+          // day is now optimistic. Offer a reflow (regenerate remaining blocks
+          // from the same context — completed ones are preserved by the merge in
+          // handleContextGenerate) rather than letting the day silently slip.
+          const overBy = durationToLog - activeBlock.duration;
+          const remaining = newBlocks.filter(
+            (b) => !b.completed && !(newPlan.droppedBlocks || []).includes(b.id)
+          );
+          if (overBy >= 15 && remaining.length > 0 && newPlan.context) {
+            const ctx = newPlan.context;
+            setTimeout(() => {
+              toast.warning(`You ran ${overBy}m over — the rest of today is now tight.`, {
+                label: 'REFLOW DAY',
+                onClick: () => void handleContextGenerate(ctx),
+              });
+            }, 1200);
+          }
         }
 
         toast.success("Study block completed!", {

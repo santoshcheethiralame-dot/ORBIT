@@ -19,7 +19,7 @@ interface ToastContextType {
   success: (message: string, action?: Toast['action']) => void;
   error: (message: string) => void;
   info: (message: string) => void;
-  warning: (message: string) => void;
+  warning: (message: string, action?: Toast['action']) => void;
 }
 
 const ToastContext = createContext<ToastContextType | null>(null);
@@ -59,8 +59,8 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
     showToast({ type: 'info', message });
   }, [showToast]);
 
-  const warning = useCallback((message: string) => {
-    showToast({ type: 'warning', message, duration: 6000 });
+  const warning = useCallback((message: string, action?: Toast['action']) => {
+    showToast({ type: 'warning', message, duration: action ? 9000 : 6000, action });
   }, [showToast]);
 
   return (
