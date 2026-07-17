@@ -17,6 +17,7 @@ import {
   getSubjectPerformance,
   detectBurnout,
   analyzeInterleaving,
+  reorderForInterleaving,
   validateEnergyBudget,
   recordBlockOutcome,
   getDashboardInsights,
@@ -94,6 +95,13 @@ export async function generateUltimatePlan(
       block.duration = newDuration;
     }
   }
+
+  // Interleaving enforcement: break up any run of 3+ same-subject blocks so the
+  // day mixes subjects (spacing effect). Done before the interleaving analysis
+  // below so loadAnalysis reflects the improved order. Reordering is safe —
+  // blocks carry no absolute time.
+  const { blocks: interleaved, moved: interleaveMoves } = reorderForInterleaving(blocks);
+  if (interleaveMoves > 0) blocks.splice(0, blocks.length, ...interleaved);
 
   const planningStrategy: 'core' | 'enhanced' = uniqueDays < 5 ? 'core' : 'enhanced';
   const confidence = uniqueDays >= 30 ? 0.9 : uniqueDays >= 5 ? 0.8 : 0.65;

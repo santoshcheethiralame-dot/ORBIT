@@ -5,6 +5,7 @@ import {
   StudyBlock, BlockOutcome, ExamEntry
 } from "./types";
 import { effectiveDatePlus } from "./utils/time";
+import { seedFromLegacy } from "./utils/fsrs";
 
 export interface UserSettings {
   key: string;
@@ -119,6 +120,36 @@ export class OrbitDB extends Dexie {
       studyBlocks: "id, date, completed, subjectId, type",
       exams: "++id, subjectId, examDate, examType, completed",
       settings: "key",
+    });
+
+    // v13: FSRS-6 scheduling. Seed each existing topic's fsrsCard from its
+    // legacy SM-2 state so no review schedule is lost in the switchover.
+    // (fsrsCard isn't indexed, so the stores string is unchanged from v12.)
+    this.version(13).stores({
+      semesters: "++id",
+      subjects: "++id, name, code",
+      projects: "++id, subjectId",
+      schedule: "++id, day, slot",
+      assignments: "id, subjectId, dueDate, estimatedEffort, progressMinutes, completed",
+      plans: "date",
+      logs: "++id, timestamp, date, subjectId, type, topicId",
+      topics: "++id, subjectId, name, nextReview",
+      blockOutcomes: "++id, blockId, subjectId, timestamp, date, completed, skipped, timeOfDay",
+      studyBlocks: "id, date, completed, subjectId, type",
+      exams: "++id, subjectId, examDate, examType, completed",
+      settings: "key",
+    }).upgrade(async (tx) => {
+      const topics = await tx.table("topics").toArray();
+      for (const t of topics) {
+        if (t.fsrsCard || !t.nextReview) continue;
+        t.fsrsCard = seedFromLegacy({
+          easeFactor: t.easeFactor ?? 1.8,
+          lastStudied: t.lastStudied || t.nextReview,
+          nextReview: t.nextReview,
+          reviewCount: t.reviewCount ?? 1,
+        });
+        await tx.table("topics").put(t);
+      }
     });
   }
 }

@@ -1,4 +1,5 @@
 import { db, OrbitDB } from "./db";
+import { reviewTopic, seedFromLegacy, type Grade, type FsrsCardBlob } from "./utils/fsrs";
 import {
   DailyContext,
   StudyBlock,
@@ -253,43 +254,27 @@ Study ${hoursPerDay}h/day for ${daysFromNow} days:
   return { projectedScore, breakdown };
 }
 
-function calculateNextReview(
-  lastReviewDate: string,
-  easeFactor: number,
-  reviewNumber: number,
-  comprehensionRating: 1 | 2 | 3
-): { nextReviewDate: string; newEaseFactor: number } {
-
-  let newEaseFactor = easeFactor;
-
-  if (comprehensionRating === 3) {
-    newEaseFactor = Math.min(2.5, easeFactor + 0.15);
-  } else if (comprehensionRating === 1) {
-    newEaseFactor = Math.max(1.3, easeFactor - 0.15);
-  }
-
-  let intervalDays: number;
-
-  if (reviewNumber === 0) {
-    intervalDays = comprehensionRating === 1 ? 1 :
-      comprehensionRating === 2 ? 3 : 7;
-  } else if (reviewNumber === 1) {
-    intervalDays = comprehensionRating === 1 ? 1 :
-      comprehensionRating === 2 ? 6 : 8;
-  } else {
-    const cappedEF   = Math.min(newEaseFactor, 2.3);
-    const cappedExp  = Math.min(reviewNumber - 1, 5);
-    const prevEstimate = 6 * Math.pow(cappedEF, cappedExp);
-    intervalDays = Math.round(Math.min(prevEstimate, 30 / newEaseFactor) * newEaseFactor);
-  }
-
-  intervalDays = Math.min(intervalDays, 30);
-
-  const lastDate = new Date(lastReviewDate);
-  lastDate.setDate(lastDate.getDate() + intervalDays);
-  const nextReviewDate = lastDate.toISOString().split('T')[0];
-
-  return { nextReviewDate, newEaseFactor };
+// Scheduling now runs through FSRS-6 (utils/fsrs.ts). This helper advances a
+// topic's FSRS card by one graded review and returns both the new card state
+// and the date-only `nextReview` used by the due-query index. Legacy topics
+// (no fsrsCard yet) are seeded from their SM-2 state so no schedule is lost.
+function advanceReview(
+  topic: Pick<StudyTopic, "fsrsCard" | "easeFactor" | "lastStudied" | "nextReview" | "reviewCount"> | null,
+  grade: Grade,
+  now: Date,
+): { fsrsCard: FsrsCardBlob; nextReviewDate: string } {
+  const prior =
+    topic?.fsrsCard ??
+    (topic
+      ? seedFromLegacy({
+          easeFactor: topic.easeFactor,
+          lastStudied: topic.lastStudied,
+          nextReview: topic.nextReview,
+          reviewCount: topic.reviewCount,
+        })
+      : undefined);
+  const fsrsCard = reviewTopic(prior, grade, now);
+  return { fsrsCard, nextReviewDate: fsrsCard.due.split("T")[0] };
 }
 
 export async function getTopicsDueForReview(dateStr: string, dbInstance: OrbitDB = db): Promise<StudyTopic[]> {
@@ -349,7 +334,9 @@ async function addSpacedRepetitionReviews(
 
 export interface TopicReviewResult {
   topicId: string;
-  comprehensionRating: 1 | 2 | 3;
+  comprehensionRating: 1 | 2 | 3; // clamped legacy value for old analytics
+  grade: 1 | 2 | 3 | 4; // FSRS grade actually applied
+  recalled: boolean; // grade >= 2 (retrieved vs blanked)
   reviewNumber: number;
   nextReview: string;
 }
@@ -357,24 +344,25 @@ export interface TopicReviewResult {
 export async function recordTopicReview(
   subjectId: number,
   topicName: string,
-  comprehensionRating: 1 | 2 | 3,
+  grade: 1 | 2 | 3 | 4,
   duration: number,
   dateStr: string,
   dbInstance: OrbitDB = db
 ): Promise<TopicReviewResult> {
-  void duration;
+  void duration; // elapsed time is logged separately; FSRS schedules from grade
   const topicId = topicName.toLowerCase().replace(/\s+/g, '-');
+  const now = new Date();
+  const recalled = grade >= 2;
+  const legacyRating = Math.min(3, grade) as 1 | 2 | 3;
   let reviewNumber = 1;
   let nextReview = dateStr;
   try {
-    let topic = await dbInstance.topics
+    const topic = await dbInstance.topics
       .where({ subjectId, name: topicName })
       .first();
 
     if (!topic) {
-      const { nextReviewDate, newEaseFactor } = calculateNextReview(
-        dateStr, 1.8, 0, comprehensionRating
-      );
+      const { fsrsCard, nextReviewDate } = advanceReview(null, grade, now);
       reviewNumber = 1;
       nextReview = nextReviewDate;
       await dbInstance.topics.add({
@@ -382,28 +370,27 @@ export async function recordTopicReview(
         name: topicName,
         lastStudied: dateStr,
         nextReview: nextReviewDate,
-        easeFactor: newEaseFactor,
+        easeFactor: 1.8,
         reviewCount: 1,
-        comprehensionHistory: [comprehensionRating]
+        comprehensionHistory: [grade],
+        fsrsCard,
       });
     } else {
-      const { nextReviewDate, newEaseFactor } = calculateNextReview(
-        topic.lastStudied, topic.easeFactor, topic.reviewCount, comprehensionRating
-      );
+      const { fsrsCard, nextReviewDate } = advanceReview(topic, grade, now);
       reviewNumber = topic.reviewCount + 1;
       nextReview = nextReviewDate;
       await dbInstance.topics.update(topic.id!, {
         lastStudied: dateStr,
         nextReview: nextReviewDate,
-        easeFactor: newEaseFactor,
         reviewCount: topic.reviewCount + 1,
-        comprehensionHistory: [...topic.comprehensionHistory, comprehensionRating]
+        comprehensionHistory: [...topic.comprehensionHistory, grade],
+        fsrsCard,
       });
     }
   } catch (err) {
     console.error('Failed to record topic review:', err);
   }
-  return { topicId, comprehensionRating, reviewNumber, nextReview };
+  return { topicId, comprehensionRating: legacyRating, grade, recalled, reviewNumber, nextReview };
 }
 
 function topicRetrievability(t: StudyTopic, effectiveDate: string): number {

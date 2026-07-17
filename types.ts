@@ -184,6 +184,10 @@ export interface StudyTopic {
   easeFactor: number;
   reviewCount: number;
   comprehensionHistory: number[];
+  // FSRS-6 memory state (utils/fsrs.ts). The source of truth for scheduling;
+  // `nextReview` above mirrors fsrsCard.due (date-only) for the due-query index.
+  // Absent on legacy topics until their first review under FSRS.
+  fsrsCard?: import("./utils/fsrs").FsrsCardBlob;
   question?: string;
   answer?: string;
 
@@ -207,6 +211,14 @@ export interface StudyLog {
   notes?: string;
   topicId?: string;
   comprehensionRating?: 1 | 2 | 3;
+  // FSRS grade actually applied (1 Again · 2 Hard · 3 Good · 4 Easy). Kept
+  // alongside comprehensionRating for backward-compatible analytics.
+  grade?: 1 | 2 | 3 | 4;
+  // Confidence calibration: what you predicted before revealing (P(recall),
+  // 0..1) and whether you actually recalled it (grade >= 2). Together they make
+  // this review a metacognition data point. Absent on non-flashcard reviews.
+  predictedConfidence?: number;
+  recalled?: boolean;
   nextReviewDate?: string;
   easeFactor?: number;
   reviewNumber?: number;

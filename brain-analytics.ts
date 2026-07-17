@@ -385,6 +385,38 @@ export async function detectBurnout(
   }
 }
 
+/**
+ * Enforce interleaving: no 3rd consecutive block of the same subject. The
+ * spacing/interleaving effect says mixing subjects beats massing one for hours,
+ * so when a run of 3+ same-subject blocks forms we pull the nearest later
+ * different-subject block forward. Break blocks are anchors — never moved and
+ * skipped when counting runs. Returns the reordered list plus how many moves
+ * were made (0 = the plan was already well-mixed). StudyBlock carries no
+ * absolute time, so reordering the array is safe.
+ */
+export function reorderForInterleaving(blocks: StudyBlock[]): { blocks: StudyBlock[]; moved: number } {
+  const result = [...blocks];
+  const MAX_RUN = 2;
+  let moved = 0;
+  for (let i = MAX_RUN; i < result.length; i++) {
+    if (result[i].type === "break") continue;
+    const subj = result[i].subjectId;
+    let run = 1;
+    for (let k = i - 1; k >= 0 && result[k].subjectId === subj && result[k].type !== "break"; k--) run++;
+    if (run <= MAX_RUN) continue;
+    let swapIdx = -1;
+    for (let m = i + 1; m < result.length; m++) {
+      if (result[m].type === "break") continue;
+      if (result[m].subjectId !== subj) { swapIdx = m; break; }
+    }
+    if (swapIdx === -1) break; // everything remaining is the same subject
+    const [pulled] = result.splice(swapIdx, 1);
+    result.splice(i, 0, pulled);
+    moved++;
+  }
+  return { blocks: result, moved };
+}
+
 export function analyzeInterleaving(blocks: StudyBlock[]): {
   varietyScore: number;
   consecutiveSameSubject: number;

@@ -6,6 +6,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { safeDB, withToast } from './utils/dbErrorHandler';
 import { geminiChat } from './gemini';
 import { getISTEffectiveDate } from './utils/time';
+import { CONFIDENCE_LEVELS, getCalibration } from './utils/fsrs';
 
 async function generateFlashcard(
   topicName: string,
@@ -496,6 +497,7 @@ export const ReviewQueueView = () => {
   const [doneCount, setDoneCount] = useState(0);
   const [sessionComplete, setSessionComplete] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [predictedConfidence, setPredictedConfidence] = useState<number | null>(null);
   const cardShownAt = React.useRef<number>(Date.now());
 
   const topics = useLiveQuery(async () => {
@@ -522,15 +524,25 @@ export const ReviewQueueView = () => {
     return { deckSize: all.length, retention };
   }) || { deckSize: 0, retention: 0 };
 
-  React.useEffect(() => { cardShownAt.current = Date.now(); }, [currentIdx]);
+  React.useEffect(() => {
+    cardShownAt.current = Date.now();
+    setIsFlipped(false);
+    setShowRating(false);
+    setPredictedConfidence(null);
+  }, [currentIdx]);
 
-  const handleRate = async (rating: 1 | 2 | 3) => {
+  const calibration = useLiveQuery(async () => {
+    const rows = await db.logs.where('type').equals('review').toArray();
+    return getCalibration(rows as any);
+  });
+
+  const handleRate = async (grade: 1 | 2 | 3 | 4) => {
     if (!current) return;
 
     const elapsedMin = Math.max(1, Math.round((Date.now() - cardShownAt.current) / 60_000));
 
     const { recordTopicReview } = await import('./tracking');
-    const sr = await recordTopicReview(current.subjectId, current.name, rating, elapsedMin, today);
+    const sr = await recordTopicReview(current.subjectId, current.name, grade, elapsedMin, today);
     try {
       await db.logs.add({
         subjectId: current.subjectId,
@@ -540,6 +552,9 @@ export const ReviewQueueView = () => {
         type: 'review',
         topicId: sr.topicId,
         comprehensionRating: sr.comprehensionRating,
+        grade: sr.grade,
+        recalled: sr.recalled,
+        predictedConfidence: predictedConfidence ?? undefined,
         reviewNumber: sr.reviewNumber,
         nextReviewDate: sr.nextReview,
       } as any);
@@ -548,6 +563,7 @@ export const ReviewQueueView = () => {
     setDoneCount(d => d + 1);
     setShowRating(false);
     setIsFlipped(false);
+    setPredictedConfidence(null);
 
     if (currentIdx + 1 >= totalDue) {
       setSessionComplete(true);
@@ -580,8 +596,11 @@ export const ReviewQueueView = () => {
   }
 
   if (sessionComplete) {
+    const cal = calibration;
+    const over = cal?.overconfidence ?? 0;
+    const overColor = over >= 0.05 ? '#FF5A1F' : over <= -0.05 ? '#38B000' : '#FFD60A';
     return (
-      <div className="max-w-2xl mx-auto px-4 py-10">
+      <div className="max-w-2xl mx-auto px-4 py-10 space-y-5">
         <div className="rounded-4xl bg-orange-500 text-ink p-10 text-center">
           <div className="font-display text-4xl mb-2">Session done.</div>
           <p className="text-sm font-semibold opacity-70 mb-6">You reviewed {doneCount} topic{doneCount !== 1 ? 's' : ''} today.</p>
@@ -592,6 +611,42 @@ export const ReviewQueueView = () => {
             ↻ Review again
           </button>
         </div>
+
+        {cal && cal.n >= 3 && (
+          <div className="rounded-4xl bg-ink2 border border-white/10 p-6 md:p-7 text-left">
+            <div className="flex items-center gap-2 mb-1">
+              <Target size={15} className="text-orange-400" />
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Calibration</h3>
+            </div>
+            <p className="text-[11px] text-zinc-500 mb-5">How well your confidence matched reality — across {cal.n} predictions. This is your metacognition, measured.</p>
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              <div>
+                <div className="font-display text-2xl text-white">{cal.brier != null ? cal.brier.toFixed(2) : '—'}</div>
+                <div className="text-[9px] uppercase tracking-widest text-zinc-500 font-mono mt-0.5">Brier ↓</div>
+              </div>
+              <div>
+                <div className="font-display text-2xl" style={{ color: overColor }}>{over >= 0 ? '+' : '−'}{Math.round(Math.abs(over) * 100)}%</div>
+                <div className="text-[9px] uppercase tracking-widest text-zinc-500 font-mono mt-0.5">{Math.abs(over) < 0.05 ? 'Well-tuned' : over > 0 ? 'Overconfident' : 'Underconfident'}</div>
+              </div>
+              <div>
+                <div className="font-display text-2xl text-yellow-400">{Math.round((cal.accuracy ?? 0) * 100)}<span className="text-base text-zinc-600">%</span></div>
+                <div className="text-[9px] uppercase tracking-widest text-zinc-500 font-mono mt-0.5">Recalled</div>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              {cal.buckets.filter(b => b.n > 0).map(b => (
+                <div key={b.value} className="flex items-center gap-2.5">
+                  <span className="text-[10px] text-zinc-500 font-mono w-9 shrink-0">{Math.round(b.value * 100)}%</span>
+                  <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${(b.actual ?? 0) * 100}%`, background: 'linear-gradient(90deg,#FF5A1F,#FFD60A)' }} />
+                  </div>
+                  <span className="text-[10px] text-zinc-400 font-mono w-20 text-right shrink-0">{b.actual != null ? `${Math.round(b.actual * 100)}% real · ${b.n}` : '—'}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-zinc-600 mt-4 leading-relaxed">Left = what you predicted, bar = how often you actually recalled it. A tier whose bar lands far from its label is miscalibration — the exact introspection-vs-reality gap MIRROR studies.</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -649,16 +704,31 @@ export const ReviewQueueView = () => {
               <h2 className="text-2xl font-bold text-white leading-tight mb-5">{current.question}</h2>
 
               {!isFlipped ? (
-                <button
-                  onClick={() => setIsFlipped(true)}
-                  className="mx-auto flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 text-sm font-bold transition-all hover:scale-105 active:scale-95"
-                >
-                  Reveal Answer
-                </button>
+                <div className="animate-in fade-in duration-200">
+                  <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-bold mb-3">Before you look — will you recall it?</div>
+                  <div className="grid grid-cols-4 gap-2 max-w-md mx-auto">
+                    {CONFIDENCE_LEVELS.map((c) => (
+                      <button
+                        key={c.key}
+                        onClick={() => { setPredictedConfidence(c.value); setIsFlipped(true); }}
+                        className="py-3 rounded-2xl border-2 transition-all hover:scale-105 active:scale-95"
+                        style={{ borderColor: `${c.accent}55`, background: `${c.accent}14` }}
+                      >
+                        <div className="text-2xl mb-1">{c.emoji}</div>
+                        <div className="text-[11px] font-bold" style={{ color: c.accent }}>{c.label}</div>
+                        <div className="text-[9px] mt-0.5 text-zinc-500">{Math.round(c.value * 100)}%</div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-zinc-600 mt-3">Predict first — it trains your metacognition and feeds MIRROR.</p>
+                </div>
               ) : (
                 <div className="rounded-2xl bg-orange-500/10 border border-orange-500/20 p-5 text-left animate-in fade-in zoom-in-95 duration-200">
                   <div className="text-xs text-orange-400 uppercase tracking-wider font-bold mb-2">Answer</div>
                   <p className="text-zinc-200 leading-relaxed">{current.answer || '—'}</p>
+                  {predictedConfidence != null && (
+                    <div className="mt-3 text-[10px] text-zinc-500 font-mono uppercase tracking-wider">You predicted {Math.round(predictedConfidence * 100)}% — now rate honestly ↓</div>
+                  )}
                 </div>
               )}
             </>
@@ -700,23 +770,24 @@ export const ReviewQueueView = () => {
             {current.question && !isFlipped ? 'Reveal answer first' : 'Rate understanding ↓'}
           </button>
         ) : (
-          <div className="mt-6 grid grid-cols-3 gap-3">
+          <div className="mt-6 grid grid-cols-4 gap-2.5">
             {[
-              { rating: 1 as const, emoji: '😓', label: 'Hard', sub: 'soon',   accent: '#FF5A1F', bg: 'rgba(255,90,31,0.10)',  bd: 'rgba(255,90,31,0.40)',  hov: 'rgba(255,90,31,0.20)' },
-              { rating: 2 as const, emoji: '😐', label: 'Good', sub: 'normal', accent: '#FFD60A', bg: 'rgba(255,214,10,0.10)', bd: 'rgba(255,214,10,0.35)', hov: 'rgba(255,214,10,0.20)' },
-              { rating: 3 as const, emoji: '😃', label: 'Easy', sub: 'later',  accent: '#F7F5EF', bg: 'rgba(255,255,255,0.06)', bd: 'rgba(255,255,255,0.22)', hov: 'rgba(255,255,255,0.12)' },
+              { rating: 1 as const, emoji: '🤷', label: 'Again', sub: 'blanked',   accent: '#FF5A1F', bg: 'rgba(255,90,31,0.10)',  bd: 'rgba(255,90,31,0.40)',  hov: 'rgba(255,90,31,0.20)' },
+              { rating: 2 as const, emoji: '😬', label: 'Hard',  sub: 'struggled', accent: '#FF9F1C', bg: 'rgba(255,159,28,0.10)', bd: 'rgba(255,159,28,0.35)', hov: 'rgba(255,159,28,0.20)' },
+              { rating: 3 as const, emoji: '🙂', label: 'Good',  sub: 'got it',    accent: '#FFD60A', bg: 'rgba(255,214,10,0.10)', bd: 'rgba(255,214,10,0.35)', hov: 'rgba(255,214,10,0.20)' },
+              { rating: 4 as const, emoji: '😎', label: 'Easy',  sub: 'instant',   accent: '#38B000', bg: 'rgba(56,176,0,0.12)',   bd: 'rgba(56,176,0,0.45)',   hov: 'rgba(56,176,0,0.22)' },
             ].map(({ rating, emoji, label, sub, accent, bg, bd, hov }) => (
               <button
                 key={rating}
                 onClick={() => handleRate(rating)}
-                className="py-4 rounded-2xl border-2 transition-all hover:scale-105 active:scale-95"
+                className="py-3.5 rounded-2xl border-2 transition-all hover:scale-105 active:scale-95"
                 style={{ background: bg, borderColor: bd }}
                 onMouseEnter={e => { e.currentTarget.style.background = hov; }}
                 onMouseLeave={e => { e.currentTarget.style.background = bg; }}
               >
-                <div className="text-3xl mb-1">{emoji}</div>
+                <div className="text-2xl mb-1">{emoji}</div>
                 <div className="text-xs font-bold" style={{ color: accent }}>{label}</div>
-                <div className="text-[10px] mt-0.5" style={{ color: accent, opacity: 0.6 }}>{sub}</div>
+                <div className="text-[9px] mt-0.5" style={{ color: accent, opacity: 0.6 }}>{sub}</div>
               </button>
             ))}
           </div>
