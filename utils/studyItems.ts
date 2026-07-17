@@ -117,6 +117,10 @@ export async function ingestStudyItems(raw: unknown): Promise<ImportResult> {
     itemsKept: 0,
   };
 
+  // ATLAS tracks are self-study roadmaps, not graded courses; tag them so the
+  // Courses view can show them apart, without readiness/exam/grade chrome.
+  const kind: Subject['kind'] = env.source === 'atlas' ? 'roadmap' : 'course';
+
   await db.transaction('rw', [db.subjects, db.topics], async () => {
     for (const incoming of env.subjects) {
       // `code` is the join key, so re-importing updates rather than duplicates.
@@ -130,7 +134,9 @@ export async function ingestStudyItems(raw: unknown): Promise<ImportResult> {
         // real PES codes (CS352A…), so this often lands on a subject that
         // already has your own PDFs and links attached; replacing would bin
         // them. Everything else (difficulty, grades, colour, notes) is yours
-        // and is left alone.
+        // and is left alone. `kind` is re-stamped so an ATLAS re-import fixes
+        // a subject imported before roadmaps existed.
+        const patch: Partial<Subject> = { kind };
         if (incoming.resources?.length) {
           const kept = existing.resources ?? [];
           const merged = [...kept];
@@ -139,8 +145,9 @@ export async function ingestStudyItems(raw: unknown): Promise<ImportResult> {
             if (at >= 0) merged[at] = { ...merged[at], ...r };
             else merged.push(r);
           }
-          await db.subjects.update(subjectId, { resources: merged });
+          patch.resources = merged;
         }
+        await db.subjects.update(subjectId, patch);
       } else {
         subjectId = await db.subjects.add({
           name: incoming.name,
@@ -148,6 +155,7 @@ export async function ingestStudyItems(raw: unknown): Promise<ImportResult> {
           credits: incoming.credits ?? 0,
           difficulty: incoming.difficulty ?? 3,
           resources: incoming.resources ?? [],
+          kind,
           createdAt: now,
         } as Subject);
         result.subjectsCreated += 1;

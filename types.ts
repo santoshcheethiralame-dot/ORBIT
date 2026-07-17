@@ -53,6 +53,10 @@ export interface Subject {
   colorIndex?: number;
   notes?: string;
   createdAt?: string;
+  // 'roadmap' = a self-study track imported from ATLAS: reviewed like anything
+  // else, but shown apart from graded courses (no readiness/exam/grade chrome).
+  // Undefined / 'course' = a normal course. See Courses.tsx.
+  kind?: 'course' | 'roadmap';
 }
 
 export interface ExamEntry {

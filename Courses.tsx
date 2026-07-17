@@ -3,7 +3,7 @@ import {
   BookOpen, Award, FileText, Upload, Trash2, X, Search, Target,
   Clock, Download, CheckSquare, Square, Calculator, TrendingUp,
   Link, ExternalLink, Plus, Edit2, StickyNote, Sparkles, Presentation,
-  Maximize2, Minimize2, ChevronLeft, AlertTriangle
+  Maximize2, Minimize2, ChevronLeft, AlertTriangle, Map as MapIcon
 } from "lucide-react";
 import { db } from "./db";
 import { ResourceType, SubjectReadiness } from "./types";
@@ -127,6 +127,8 @@ export default function CoursesView_Enhanced() {
   const subjects = useLiveQuery(() => db.subjects.toArray()) || [];
   const logs = useLiveQuery(() => db.logs.toArray()) || [];
   const exams = useLiveQuery(() => db.exams.filter((e: any) => !e.completed).toArray()) || [];
+  // All topics — used to show a roadmap's topic + due counts in the list.
+  const allTopics = useLiveQuery(() => db.topics.toArray()) || [];
   const toast = useToast();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -630,7 +632,14 @@ export default function CoursesView_Enhanced() {
     const nextExam = subjExams[0];
     const nextExamDays = nextExam ? dayDiff(nextExam.examDate, tdy) : null;
     const topicByName = new Map((subjectTopics || []).map((t) => [String(t.name).toLowerCase().trim(), t]));
-    const masteryOf = (t: any) => t ? Math.max(0, Math.min(100, Math.round(((t.easeFactor - 1.3) / 1.2) * 70 + Math.min(t.reviewCount || 0, 6) / 6 * 30))) : 0;
+    // A roadmap (ATLAS) is self-study — no readiness/exam/grade chrome, just the
+    // reviewable topic list.
+    const isRoadmap = selectedSubject.kind === 'roadmap';
+    // A never-reviewed topic has no demonstrated mastery — don't read 70% off
+    // the default easeFactor (2.5). Mastery only accrues once you've reviewed.
+    const masteryOf = (t: any) => (t && (t.reviewCount || 0) > 0)
+      ? Math.max(0, Math.min(100, Math.round(((t.easeFactor - 1.3) / 1.2) * 70 + Math.min(t.reviewCount || 0, 6) / 6 * 30)))
+      : 0;
     const rowFor = (name: string, t: any) => { let due = 'new'; let dueDays: number | null = null; if (t) { const d = dayDiff(t.nextReview, tdy); dueDays = d; due = d < 0 ? 'overdue' : d === 0 ? 'due' : 'scheduled'; } return { name, mastery: masteryOf(t), due, dueDays, reviews: t ? (t.reviewCount || 0) : 0 }; };
     const unitTitles = (selectedSubject.syllabus || []).map((u: any) => u.title);
     const topicRows: any[] = [];
@@ -656,7 +665,7 @@ export default function CoursesView_Enhanced() {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-[1.5fr_1fr] gap-4 mb-4">
+        <div className={"grid gap-4 mb-4 " + (isRoadmap ? "" : "lg:grid-cols-[1.5fr_1fr]")}>
           <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-7 relative overflow-hidden">
             <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle,#FF5A1F22,transparent 70%)' }} />
             <div className="relative">
@@ -671,17 +680,26 @@ export default function CoursesView_Enhanced() {
               </div>
               <h1 className="font-display font-black text-4xl md:text-6xl mb-3 leading-[0.92]">{selectedSubject.name || 'Untitled'}</h1>
               <div className="flex flex-wrap items-center gap-2">
-                <span className={META + " bg-ink3 border border-white/10 px-3 py-1.5 rounded-lg"}>{selectedSubject.code || 'NO CODE'}</span>
-                <span className={META + " bg-ink3 border border-white/10 px-3 py-1.5 rounded-lg"}>{selectedSubject.credits ?? 0} credits</span>
+                {isRoadmap ? (
+                  <span className="flex items-center gap-1.5 text-[9px] font-mono font-bold uppercase tracking-[0.16em] text-orange-400 bg-orange-500/15 border border-orange-500/30 px-3 py-1.5 rounded-lg">
+                    <MapIcon size={11} /> Roadmap · self-study
+                  </span>
+                ) : (
+                  <>
+                    <span className={META + " bg-ink3 border border-white/10 px-3 py-1.5 rounded-lg"}>{selectedSubject.code || 'NO CODE'}</span>
+                    <span className={META + " bg-ink3 border border-white/10 px-3 py-1.5 rounded-lg"}>{selectedSubject.credits ?? 0} credits</span>
+                  </>
+                )}
                 <span className="flex items-center gap-1.5 bg-orange-500/10 border border-orange-500/25 px-3 py-1.5 rounded-lg">
                   {[1, 2, 3, 4, 5].map((n) => <span key={n} className={"w-1.5 h-1.5 rounded-full " + (n <= (selectedSubject.difficulty || 0) ? "bg-orange-400" : "bg-white/15")} />)}
                   <span className="text-[9px] font-mono uppercase tracking-[0.16em] text-orange-400 ml-1">difficulty</span>
                 </span>
-                {nextExam && <span className="text-[9px] font-mono uppercase tracking-[0.16em] text-yellow-400 bg-yellow-400/10 border border-yellow-400/25 px-3 py-1.5 rounded-lg">{nextExam.examType.toUpperCase()} in {Math.max(0, nextExamDays ?? 0)}d</span>}
+                {!isRoadmap && nextExam && <span className="text-[9px] font-mono uppercase tracking-[0.16em] text-yellow-400 bg-yellow-400/10 border border-yellow-400/25 px-3 py-1.5 rounded-lg">{nextExam.examType.toUpperCase()} in {Math.max(0, nextExamDays ?? 0)}d</span>}
               </div>
             </div>
           </div>
 
+          {!isRoadmap && (
           <button onClick={() => setShowPrediction(selectedSubject.id!)} className="rounded-3xl bg-ink2 border-2 border-white/12 p-6 flex items-center gap-5 text-left hover:border-white/20 transition-colors">
             <div className="relative w-28 h-28 shrink-0">
               <svg viewBox="0 0 100 100" className="w-full h-full" style={{ transform: 'rotate(-90deg)' }}>
@@ -697,13 +715,14 @@ export default function CoursesView_Enhanced() {
               {forecast && forecastGain > 0 && <div className="text-[9px] font-mono uppercase tracking-[0.16em] text-yellow-400 mt-2 bg-yellow-400/10 border border-yellow-400/25 px-2.5 py-1.5 rounded-lg inline-block">↗ +{forecastGain}% · 1h/day · 7d</div>}
             </div>
           </button>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-          <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-5"><div className={META + " mb-2"}>Study time</div><div className="font-display font-black text-3xl tabular-nums">{getTotalHours(selectedSubject.id!)}<span className="text-base text-mute">h</span></div><div className={META + " mt-1"}>{computeProgress(selectedSubject)}% syllabus</div></div>
+        <div className={"grid gap-4 mb-4 " + (isRoadmap ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4")}>
+          <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-5"><div className={META + " mb-2"}>{isRoadmap ? 'Topics' : 'Study time'}</div>{isRoadmap ? (<><div className="font-display font-black text-3xl tabular-nums">{(subjectTopics || []).length}</div><div className={META + " mt-1"}>in this roadmap</div></>) : (<><div className="font-display font-black text-3xl tabular-nums">{getTotalHours(selectedSubject.id!)}<span className="text-base text-mute">h</span></div><div className={META + " mt-1"}>{computeProgress(selectedSubject)}% syllabus</div></>)}</div>
           <button onClick={reviewsDue > 0 ? goReview : undefined} className={"rounded-3xl p-5 text-left " + (reviewsDue > 0 ? "bg-orange-500 text-ink" : "bg-ink2 border-2 border-white/12")}><div className={"text-[9px] font-mono uppercase tracking-[0.16em] mb-2 " + (reviewsDue > 0 ? "opacity-70" : "text-mute")}>Reviews due</div><div className="font-display font-black text-3xl tabular-nums">{String(reviewsDue).padStart(2, '0')}</div><div className={"text-[9px] font-mono uppercase tracking-[0.16em] mt-1 " + (reviewsDue > 0 ? "opacity-70" : "text-mute")}>{reviewsDue > 0 ? 'tap to review' : 'all caught up'}</div></button>
-          <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-5"><div className={META + " mb-2"}>Next exam</div>{nextExam ? (<><div className="font-display font-black text-3xl text-yellow-400 tabular-nums">{Math.max(0, nextExamDays ?? 0)}<span className="text-base text-mute">d</span></div><div className={META + " mt-1"}>{nextExam.examType.toUpperCase()} · {String(nextExam.examDate).slice(5)}</div></>) : (<><div className="font-display font-black text-3xl text-mute">—</div><div className={META + " mt-1"}>none set</div></>)}</div>
-          <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-5"><div className={META + " mb-2"}>Grade avg</div><div className="font-display font-black text-3xl tabular-nums">{gpa ? gpa + '%' : '—'}</div><div className={META + " mt-1"}>{(selectedSubject.grades || []).length} marks</div></div>
+          {!isRoadmap && <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-5"><div className={META + " mb-2"}>Next exam</div>{nextExam ? (<><div className="font-display font-black text-3xl text-yellow-400 tabular-nums">{Math.max(0, nextExamDays ?? 0)}<span className="text-base text-mute">d</span></div><div className={META + " mt-1"}>{nextExam.examType.toUpperCase()} · {String(nextExam.examDate).slice(5)}</div></>) : (<><div className="font-display font-black text-3xl text-mute">—</div><div className={META + " mt-1"}>none set</div></>)}</div>}
+          {!isRoadmap && <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-5"><div className={META + " mb-2"}>Grade avg</div><div className="font-display font-black text-3xl tabular-nums">{gpa ? gpa + '%' : '—'}</div><div className={META + " mt-1"}>{(selectedSubject.grades || []).length} marks</div></div>}
         </div>
 
         <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6 mb-4">
@@ -738,7 +757,8 @@ export default function CoursesView_Enhanced() {
           )}
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-4 mb-4">
+        <div className={"grid gap-4 mb-4 " + (isRoadmap ? "" : "lg:grid-cols-2")}>
+          {!isRoadmap && (
           <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6">
             <div className="flex items-center justify-between mb-4"><h3 className="font-display font-black text-xl">SYLLABUS</h3><span className={META}>{(selectedSubject.syllabus || []).filter((u) => u.completed).length} / {(selectedSubject.syllabus || []).length} · {computeProgress(selectedSubject)}%</span></div>
             <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-5"><div className="h-full bg-orange-500 rounded-full" style={{ width: computeProgress(selectedSubject) + '%' }} /></div>
@@ -757,20 +777,26 @@ export default function CoursesView_Enhanced() {
               <button onClick={addUnit} className="px-4 py-3 bg-orange-500/15 border-2 border-orange-500/30 text-orange-400 rounded-xl hover:bg-orange-500/25 transition-colors"><Plus size={18} /></button>
             </div>
           </div>
+          )}
 
           <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6">
             <div className="flex items-center justify-between mb-4"><h3 className="font-display font-black text-xl">RESOURCES</h3><span className={META}>{(selectedSubject.resources || []).length} items</span></div>
             {(selectedSubject.resources || []).length > 0 && (
               <div className="space-y-2 mb-4 max-h-[220px] overflow-y-auto">
-                {(selectedSubject.resources || []).map((r) => (
+                {(selectedSubject.resources || []).map((r) => {
+                  // Bridge links (ATLAS/CRUX) are cross-origin SPAs that don't
+                  // embed reliably — open them in a new tab, not the blank iframe.
+                  const isBridgeLink = r.type === 'link' && /^(crux|atlas)-/.test(r.id || '');
+                  return (
                   <div key={r.id} className="flex items-center justify-between p-3 rounded-xl bg-ink3 border-2 border-white/10 hover:border-orange-500/30 transition-colors group">
-                    <button onClick={() => setSelectedResource(r)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                    <button onClick={() => (isBridgeLink ? openResourceInNewTab(r) : setSelectedResource(r))} className="flex items-center gap-3 flex-1 min-w-0 text-left">
                       <span className="w-9 h-9 rounded-lg bg-orange-500/15 border border-orange-500/25 flex items-center justify-center text-orange-400 shrink-0">{r.type === 'link' ? <Link size={16} /> : isPowerPoint(r.fileType || '') ? <Presentation size={16} /> : <FileText size={16} />}</span>
                       <span className="truncate text-sm font-bold text-white">{r.title}</span>
                     </button>
                     <button onClick={() => removeResource(r.id)} aria-label="Remove" className="p-2 rounded-lg text-mute hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all shrink-0"><Trash2 size={15} /></button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             <div className="grid grid-cols-2 gap-2">
@@ -790,7 +816,8 @@ export default function CoursesView_Enhanced() {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-4">
+        <div className={"grid gap-4 " + (isRoadmap ? "" : "lg:grid-cols-2")}>
+          {!isRoadmap && (
           <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display font-black text-xl">GRADES</h3>
@@ -827,6 +854,7 @@ export default function CoursesView_Enhanced() {
               </div>
             )}
           </div>
+          )}
 
           <div className="rounded-3xl bg-ink2 border-2 border-white/12 p-6">
             <div className="flex items-center justify-between mb-4"><h3 className="font-display font-black text-xl">NOTES</h3><span className={META}>{subjectLogs.length} session{subjectLogs.length === 1 ? '' : 's'}</span></div>
@@ -856,6 +884,11 @@ export default function CoursesView_Enhanced() {
       if (sortBy === "difficulty") return (b.difficulty || 0) - (a.difficulty || 0);
       return computeProgress(b) - computeProgress(a);
     });
+
+  // Roadmaps (ATLAS) are self-study tracks — reviewed, but not graded. They get
+  // their own section, kept out of the course readiness/exam/priority ranking.
+  const courseList = filtered.filter((s) => s.kind !== 'roadmap');
+  const roadmapList = filtered.filter((s) => s.kind === 'roadmap');
 
   return (
     <div className="pb-32 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-6 md:space-y-8">
@@ -948,12 +981,12 @@ export default function CoursesView_Enhanced() {
           const f = Math.round(score / 10);
           return <div className="flex gap-1">{Array.from({ length: 10 }).map((_, i) => <div key={i} className={`h-3 flex-1 rounded-sm ${i < f ? segCls : 'bg-white/10'}`} />)}</div>;
         };
-        const ranked = [...filtered].map((s: any) => ({ s, m: meta(s) }));
+        const ranked = [...courseList].map((s: any) => ({ s, m: meta(s) }));
         const shown = statusFilter === 'all' ? ranked : ranked.filter(x => x.m.status === statusFilter);
         const priority = [...ranked].filter(x => x.m.status !== 'mastered').sort((a, b) => a.m.score - b.m.score)[0];
         const avgRead = ranked.length ? Math.round(ranked.reduce((a, x) => a + x.m.score, 0) / ranked.length) : 0;
-        const totalCredits = filtered.reduce((a: number, s: any) => a + (s.credits || 0), 0);
-        const totalHours = Math.round(filtered.reduce((a: number, s: any) => a + Number(getTotalHours(s.id)), 0));
+        const totalCredits = courseList.reduce((a: number, s: any) => a + (s.credits || 0), 0);
+        const totalHours = Math.round(courseList.reduce((a: number, s: any) => a + Number(getTotalHours(s.id)), 0));
         const examCount = exams.filter((e: any) => e.examDate >= today).length;
         const criticalCount = ranked.filter(x => x.m.status === 'critical').length;
         const RC = 2 * Math.PI * 42;
@@ -1045,6 +1078,37 @@ export default function CoursesView_Enhanced() {
                 <div className="text-xs text-mute mt-1">Build out your loadout</div>
               </button>
             </div>
+
+            {roadmapList.length > 0 && (
+              <div className="pt-4">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <MapIcon size={18} className="text-orange-400" />
+                  <h3 className="font-display font-black text-xl">ROADMAPS</h3>
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-[0.16em] text-mute">self-study · reviewed, not graded</span>
+                </div>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {roadmapList.map((s: any, i: number) => {
+                    const ts = allTopics.filter((t: any) => t.subjectId === s.id);
+                    const due = ts.filter((t: any) => t.nextReview <= today).length;
+                    return (
+                      <FrostedTile key={s.id} onClick={() => setSelectedSubjectId(s.id)} className="p-6 cursor-pointer animate-in fade-in duration-300" style={{ animationDelay: `${i * 40}ms` }}>
+                        <div className="relative z-10">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-ink3 border border-white/10 text-orange-400 font-display font-black text-lg flex items-center justify-center">{getInitials(s.name.replace(/^ATLAS · /, ''))}</div>
+                            <span className="text-[9px] font-mono font-bold uppercase tracking-[0.14em] bg-orange-500/15 text-orange-400 px-2.5 py-1 rounded-full">Roadmap</span>
+                          </div>
+                          <div className="font-display font-black text-xl leading-tight">{s.name.replace(/^ATLAS · /, '')}</div>
+                          <div className="flex items-center justify-between mt-5 pt-4 border-t border-white/5 text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-mute">
+                            <span>{ts.length} topic{ts.length === 1 ? '' : 's'}</span>
+                            <span className={due > 0 ? 'text-orange-400' : ''}>{due > 0 ? `${due} due` : 'none due'}</span>
+                          </div>
+                        </div>
+                      </FrostedTile>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}
