@@ -850,12 +850,17 @@ const App = () => {
       )}
 
       <style>{`
+        /* Opacity-only on purpose. This wraps EVERY view, and with a
+           transform/filter (even translateY(0)/blur(0) left by fill-mode:
+           forwards) it becomes the containing block for position:fixed — so
+           every modal inside a view anchored to this column instead of the
+           viewport. No transform/filter here → modals stay fixed to screen. */
         @keyframes slide-up {
-          from { opacity: 0; transform: translateY(10px); filter: blur(4px); }
-          to { opacity: 1; transform: translateY(0); filter: blur(0); }
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
         .animate-slide-up {
-          animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: slide-up 0.35s ease-out forwards;
         }
         @keyframes float {
           0%, 100% { transform: translateX(-50%) translateY(0px); }
