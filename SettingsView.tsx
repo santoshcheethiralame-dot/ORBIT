@@ -17,6 +17,13 @@ import { NotificationManager } from './utils/notifications';
 import StressTestView from './StressTestView';
 import { getApiKey, setApiKey } from './gemini';
 
+// The content apps Orbit can pull from directly, keyed by label. `origin` is
+// where each is deployed; update it here if an app moves to a custom domain.
+const BRIDGE_APPS = {
+  CRUX: 'https://ml-study-ten.vercel.app',
+  ATLAS: 'https://atlas-eight-azure.vercel.app',
+} as const;
+
 export const SettingsView = () => {
   const { settings, updateSetting, resetSettings } = useSettings();
   const [showExportModal, setShowExportModal] = useState(false);
@@ -197,6 +204,65 @@ export const SettingsView = () => {
       default:
         toast.error('Not an Orbit backup or a study-items file');
     }
+  };
+
+  const [pullingFrom, setPullingFrom] = useState<string | null>(null);
+
+  /**
+   * Pull study items straight from CRUX/ATLAS — no file. Opens the app in a
+   * popup with ?handoff=orbit; it reads its own storage and posts the payload
+   * back (see each app's orbitHandoff). We only trust a message whose origin is
+   * the app we opened.
+   */
+  const pullFromApp = (label: keyof typeof BRIDGE_APPS) => {
+    const origin = BRIDGE_APPS[label];
+    const popup = window.open(
+      `${origin}/?handoff=orbit&origin=${encodeURIComponent(window.location.origin)}`,
+      'orbit-import',
+      'width=460,height=560',
+    );
+    if (!popup) {
+      toast.error('Popup blocked — allow popups for Orbit, or use Import file');
+      return;
+    }
+
+    setPullingFrom(label);
+    let settled = false;
+    const finish = () => {
+      settled = true;
+      window.removeEventListener('message', onMessage);
+      setPullingFrom(null);
+      try { popup.close(); } catch { /* ignore */ }
+    };
+
+    const onMessage = async (e: MessageEvent) => {
+      if (e.origin !== origin) return; // only the app we opened
+      const data = e.data as any;
+      if (data?.kind === 'study-items/v1') {
+        finish();
+        try {
+          const result = await ingestStudyItems(data);
+          if (!result.itemsAdded && !result.itemsKept) {
+            toast.info(`Nothing finished in ${label} yet — tick some topics off first`);
+          } else {
+            toast.success(describeImport(result));
+            await loadStats();
+            setShowImportModal(false);
+          }
+        } catch (err) {
+          toast.error(`Couldn't import: ${err instanceof Error ? err.message : 'bad data'}`);
+        }
+      } else if (data?.handoffError) {
+        finish();
+        toast.error(`${label}: ${data.handoffError}`);
+      }
+    };
+
+    window.addEventListener('message', onMessage);
+    // If the user closes the popup, or it never answers, stop waiting.
+    window.setTimeout(() => {
+      if (!settled) { window.removeEventListener('message', onMessage); setPullingFrom(null); }
+    }, 30_000);
   };
 
   const importData = async (file: File) => {
@@ -597,12 +663,27 @@ export const SettingsView = () => {
             <div className="rounded-2xl bg-orange-500/[0.06] border border-orange-500/15 p-3.5">
               <p className="text-xs text-mute leading-relaxed"><span className="text-orange-400 font-bold">Move between devices</span> — export a backup here, then open Orbit on your phone (or desktop) and import it. 100% local · no account.</p>
             </div>
-            <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3.5">
+            <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3.5 space-y-3">
               <p className="text-xs text-mute leading-relaxed">
-                <span className="text-orange-400 font-bold">Study items from ATLAS / CRUX</span> — export from
-                either app, then bring the file in with <b className="text-white">Import</b>. Orbit works out what
-                it is. Finished material becomes reviews; anything already scheduled keeps its place, so re-run
-                it whenever.
+                <span className="text-orange-400 font-bold">Pull study items from ATLAS / CRUX</span> — one click.
+                Orbit opens the app, grabs what you've finished, and schedules the reviews. Adds only; anything
+                already scheduled keeps its place, so re-run it whenever.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(Object.keys(BRIDGE_APPS) as (keyof typeof BRIDGE_APPS)[]).map((label) => (
+                  <button
+                    key={label}
+                    onClick={() => pullFromApp(label)}
+                    disabled={pullingFrom !== null}
+                    className="bg-orange-500/15 border border-orange-500/30 text-orange-300 font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-orange-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {pullingFrom === label ? `Waiting for ${label}…` : `Import from ${label}`}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-mute/70 leading-relaxed">
+                Prefer a file? Use <b className="text-white/80">Import</b> below — export from either app first.
+                The one-click pull opens a small popup, so allow popups for Orbit.
               </p>
             </div>
 
