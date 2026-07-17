@@ -207,17 +207,20 @@ export const SettingsView = () => {
   };
 
   const [pullingFrom, setPullingFrom] = useState<string | null>(null);
+  // Default on: pull the whole curriculum, not just finished topics.
+  const [includeUnstarted, setIncludeUnstarted] = useState(true);
 
   /**
    * Pull study items straight from CRUX/ATLAS — no file. Opens the app in a
    * popup with ?handoff=orbit; it reads its own storage and posts the payload
    * back (see each app's orbitHandoff). We only trust a message whose origin is
-   * the app we opened.
+   * the app we opened. scope=all pulls unstarted topics too (staggered).
    */
   const pullFromApp = (label: keyof typeof BRIDGE_APPS) => {
     const origin = BRIDGE_APPS[label];
+    const scope = includeUnstarted ? 'all' : 'finished';
     const popup = window.open(
-      `${origin}/?handoff=orbit&origin=${encodeURIComponent(window.location.origin)}`,
+      `${origin}/?handoff=orbit&scope=${scope}&origin=${encodeURIComponent(window.location.origin)}`,
       'orbit-import',
       'width=460,height=560',
     );
@@ -681,6 +684,18 @@ export const SettingsView = () => {
                   </button>
                 ))}
               </div>
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={includeUnstarted}
+                  onChange={(e) => setIncludeUnstarted(e.target.checked)}
+                  className="w-4 h-4 accent-orange-500"
+                />
+                <span className="text-xs text-zinc-300">
+                  Include topics I haven't started yet
+                  <span className="text-mute"> — dripped in ~8/day as a study plan, not all at once</span>
+                </span>
+              </label>
               <p className="text-[11px] text-mute/70 leading-relaxed">
                 Prefer a file? Use <b className="text-white/80">Import</b> below — export from either app first.
                 The one-click pull opens a small popup, so allow popups for Orbit.
