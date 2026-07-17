@@ -3,7 +3,7 @@ import {
   Play, Pause, Coffee, X, Sparkles, Lock, Unlock, Music2, Volume2, VolumeX,
   BookOpen, FileText, ExternalLink, CheckCircle, Square, Plus,
   Flame, Zap, Clock, Crown, TrendingUp, ChevronDown, Maximize2, Minimize2,
-  CircleDashed, Settings as SettingsIcon, Target, Eye, EyeOff
+  CircleDashed, Settings as SettingsIcon, Target, Eye, EyeOff, Inbox
 } from "lucide-react";
 import { StudyBlock } from "./types";
 import type { Resource } from "./types";
@@ -117,6 +117,21 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   const [showAI, setShowAI] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showResources, setShowResources] = useState(false);
+  const [showParking, setShowParking] = useState(false);
+  const [parkingInput, setParkingInput] = useState("");
+  const [parked, setParked] = useState<{ id: string; text: string; at: number }[]>(() => {
+    try { return JSON.parse(localStorage.getItem("orbit-parking-lot") || "[]"); } catch { return []; }
+  });
+  const persistParked = useCallback((next: { id: string; text: string; at: number }[]) => {
+    setParked(next);
+    try { localStorage.setItem("orbit-parking-lot", JSON.stringify(next)); } catch {}
+  }, []);
+  const addParked = useCallback(() => {
+    const t = parkingInput.trim();
+    if (!t) return;
+    persistParked([{ id: `${Date.now()}`, text: t, at: Date.now() }, ...parked]);
+    setParkingInput("");
+  }, [parkingInput, parked, persistParked]);
   const [notes, setNotes] = useState("");
   const [showQualityModal, setShowQualityModal] = useState(false);
   const [completedDuration, setCompletedDuration] = useState(0);
@@ -660,6 +675,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
               <div className="flex flex-col-reverse items-center gap-3 sm:grid sm:grid-cols-3 sm:items-end">
                 <div className="flex items-center gap-2 justify-self-start">
                   <button onClick={() => setShowNotes(true)} disabled={strictMode && isRunning} title="Notes" className={`w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors ${strictMode && isRunning ? "opacity-30 cursor-not-allowed" : ""}`}><BookOpen size={16} /></button>
+                  <button onClick={() => setShowParking(true)} title="Parking lot — dump a distraction without breaking focus" className="relative w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><Inbox size={16} />{parked.length > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-orange-500 text-ink text-[9px] font-bold flex items-center justify-center">{parked.length}</span>}</button>
                   <button onClick={() => setShowAI(true)} title="AI coach" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-orange-400 hover:bg-orange-500/10 flex items-center justify-center transition-colors"><Sparkles size={16} /></button>
                   <button onClick={() => setShowResources(true)} title="Resources" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><FileText size={16} /></button>
                   <button onClick={() => setShowSettings(true)} title="Settings" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors hidden sm:flex"><SettingsIcon size={16} /></button>
@@ -773,6 +789,41 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
             </div>
             <textarea autoFocus value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Write your thoughts, insights, or questions..." className="w-full h-[50vh] bg-transparent px-6 py-5 resize-none outline-none text-base font-mono leading-relaxed text-white placeholder:text-mute/50" />
             <div className="px-6 py-3 border-t border-white/10 meta text-[9px] text-mute">{notes.length} characters</div>
+          </div>
+        </div>
+      )}
+
+      {showParking && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowParking(false)} />
+          <div className="relative z-20 w-full max-w-lg max-h-[85vh] rounded-2xl overflow-hidden bg-ink2 border border-white/12 flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <div><h3 className="text-lg font-bold text-white">Parking lot</h3><div className="meta text-[10px] text-mute mt-0.5">Dump the distraction, stay in focus — deal with it later</div></div>
+              <button onClick={() => setShowParking(false)} className="px-4 py-1.5 rounded-lg bg-orange-500 text-ink text-xs font-bold">Done</button>
+            </div>
+            <div className="px-6 py-4 border-b border-white/10">
+              <input autoFocus value={parkingInput} onChange={(e) => setParkingInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addParked(); } }} placeholder="What just pulled your attention? Type it, hit Enter…" className="w-full bg-ink border border-white/12 rounded-xl px-4 py-3 outline-none text-sm text-white placeholder:text-mute/50 focus:border-orange-500/50" />
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-3">
+              {parked.length === 0 ? (
+                <div className="text-center py-8 meta text-xs text-mute/60">Nothing parked. When a thought interrupts you, drop it here instead of chasing it.</div>
+              ) : (
+                <ul className="space-y-2">
+                  {parked.map((p) => (
+                    <li key={p.id} className="flex items-start gap-3 bg-ink/60 border border-white/8 rounded-xl px-4 py-2.5">
+                      <span className="flex-1 text-sm text-white/90 leading-snug">{p.text}</span>
+                      <button onClick={() => persistParked(parked.filter((x) => x.id !== p.id))} title="Clear" className="shrink-0 text-mute/60 hover:text-orange-400 transition-colors"><X size={14} /></button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {parked.length > 0 && (
+              <div className="px-6 py-3 border-t border-white/10 flex items-center justify-between">
+                <span className="meta text-[9px] text-mute">{parked.length} parked</span>
+                <button onClick={() => persistParked([])} className="meta text-[9px] text-mute hover:text-orange-400 transition-colors">Clear all</button>
+              </div>
+            )}
           </div>
         </div>
       )}

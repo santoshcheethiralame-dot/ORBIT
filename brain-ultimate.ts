@@ -72,7 +72,15 @@ export async function generateUltimatePlan(
   for (const block of blocks) {
     const perf = await getSubjectPerformance(block.subjectId, 30, dbInstance);
     if (!perf) continue;
-    if (perf.avgCompletionRate < 0.6 && block.duration > 30) {
+    // Velocity calibration: with ≥1 week of history, size the block to your
+    // MEASURED pace. recommendedDuration is derived from your real actual
+    // durations (and folds in quality), so plans stop being fantasy. Before a
+    // week, fall back to the completion/quality heuristics below.
+    if (uniqueDays >= 7 && perf.recommendedDuration && Math.abs(perf.recommendedDuration - block.duration) >= 10) {
+      const newDuration = Math.max(20, Math.min(90, perf.recommendedDuration));
+      performanceAdjustments.push({ subjectId: block.subjectId, reason: `Sized to your measured pace (~${perf.recommendedDuration}m)`, oldDuration: block.duration, newDuration });
+      block.duration = newDuration;
+    } else if (perf.avgCompletionRate < 0.6 && block.duration > 30) {
       const newDuration = Math.max(20, Math.floor(block.duration * 0.7));
       performanceAdjustments.push({ subjectId: block.subjectId, reason: 'Low completion rate — reducing block size', oldDuration: block.duration, newDuration });
       block.duration = newDuration;
