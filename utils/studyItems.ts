@@ -22,6 +22,25 @@ import type { StudyTopic, Subject } from '../types';
 
 const KIND = 'study-items/v1';
 
+export type FileKind = 'study-items' | 'orbit-backup' | 'unknown';
+
+/**
+ * What is this file? Lets one Import control route to the right handler so the
+ * user never has to know which kind they're holding.
+ *
+ * The two shapes are mutually exclusive by design: a study-items envelope has
+ * `kind` and deliberately has no `version`/`data`, which is exactly what the
+ * backup importer checks for. That's what stops a study file from ever
+ * reaching the destructive path.
+ */
+export function sniffFile(raw: unknown): FileKind {
+  const o = raw as Record<string, unknown>;
+  if (!o || typeof o !== 'object') return 'unknown';
+  if (o.kind === KIND) return 'study-items';
+  if (o.version && o.data && typeof o.data === 'object') return 'orbit-backup';
+  return 'unknown';
+}
+
 export type IncomingItem = {
   name: string;
   lastStudied?: string;
@@ -29,6 +48,9 @@ export type IncomingItem = {
   easeFactor?: number;
   reviewCount?: number;
   comprehensionHistory?: number[];
+  /** CRUX flashcards arrive as a Q/A pair — the shape SM-2 was built for. */
+  question?: string;
+  answer?: string;
   sourceUrl?: string;
   sourceApp?: string;
   sourcePath?: string;
@@ -79,7 +101,12 @@ export function parseEnvelope(raw: unknown): StudyItemEnvelope {
 }
 
 export async function importStudyItems(file: File): Promise<ImportResult> {
-  const env = parseEnvelope(JSON.parse(await file.text()));
+  return ingestStudyItems(JSON.parse(await file.text()));
+}
+
+/** Same thing when the caller has already parsed the JSON (e.g. to sniff it). */
+export async function ingestStudyItems(raw: unknown): Promise<ImportResult> {
+  const env = parseEnvelope(raw);
   const now = new Date().toISOString();
 
   const result: ImportResult = {
@@ -99,10 +126,20 @@ export async function importStudyItems(file: File): Promise<ImportResult> {
       if (existing?.id) {
         subjectId = existing.id;
         result.subjectsMatched += 1;
-        // Refresh the deep-link, leave everything else (difficulty, grades,
-        // colour) alone — those are the user's, not the exporter's.
+        // Merge the deep-link in by id — never assign the array. CRUX exports
+        // real PES codes (CS352A…), so this often lands on a subject that
+        // already has your own PDFs and links attached; replacing would bin
+        // them. Everything else (difficulty, grades, colour, notes) is yours
+        // and is left alone.
         if (incoming.resources?.length) {
-          await db.subjects.update(subjectId, { resources: incoming.resources });
+          const kept = existing.resources ?? [];
+          const merged = [...kept];
+          for (const r of incoming.resources) {
+            const at = merged.findIndex((x) => x.id === r.id);
+            if (at >= 0) merged[at] = { ...merged[at], ...r };
+            else merged.push(r);
+          }
+          await db.subjects.update(subjectId, { resources: merged });
         }
       } else {
         subjectId = await db.subjects.add({
@@ -135,6 +172,10 @@ export async function importStudyItems(file: File): Promise<ImportResult> {
           easeFactor: item.easeFactor ?? 2.5,
           reviewCount: item.reviewCount ?? 0,
           comprehensionHistory: item.comprehensionHistory ?? [],
+          // Without these a flashcard imports as a bare title with nothing to
+          // recall — which is the one thing SM-2 is actually for.
+          question: item.question,
+          answer: item.answer,
           sourceUrl: item.sourceUrl,
           sourceApp: item.sourceApp ?? env.source,
           sourcePath: item.sourcePath,

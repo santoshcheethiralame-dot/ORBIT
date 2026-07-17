@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Bell, BellOff, Clock, Database, Download, Upload, Trash2,
   RotateCcw, Check, X, AlertCircle, Info, Volume2, VolumeX,
@@ -7,7 +7,7 @@ import {
   Settings as SettingsIcon, FileJson, Archive, Moon, Sun, Bug, Code, ArrowRight, ChevronRight, Send, HelpCircle
 } from 'lucide-react';
 import { db } from './db';
-import { importStudyItems, describeImport } from './utils/studyItems';
+import { sniffFile, ingestStudyItems, describeImport } from './utils/studyItems';
 import { FrostedTile, FrostedMini, PageHeader, MetaText } from './components';
 import { safeDB, withToast } from './utils/dbErrorHandler';
 import { useToast } from './Toast';
@@ -26,8 +26,6 @@ export const SettingsView = () => {
   const [stats, setStats] = useState({ subjects: 0, logs: 0, totalHours: 0 });
   const [expandedSection, setExpandedSection] = useState<string | null>('focus');
   const toast = useToast();
-
-  const studyItemsInput = useRef<HTMLInputElement>(null);
 
   const [apiKeyInput, setApiKeyInput] = useState<string>(() => getApiKey());
   const [showApiKey, setShowApiKey] = useState(false);
@@ -158,21 +156,46 @@ export const SettingsView = () => {
   };
 
   /**
-   * Study items from ATLAS/CRUX. Additive — nothing is cleared, and topics we
-   * already schedule keep our SM-2 state. Safe to run as often as you like.
+   * The one way in. Reads the file, works out what it is, and routes:
+   *
+   *   study items (ATLAS/CRUX) -> merge, additive, no confirmation needed
+   *   Orbit backup             -> full restore, which replaces everything
+   *
+   * The two shapes can't be mistaken for each other (see utils/studyItems.ts),
+   * so nothing here depends on the user picking the right button.
    */
-  const loadStudyItems = async (file: File) => {
+  const handleImportFile = async (file: File) => {
+    let raw: unknown;
     try {
-      const result = await importStudyItems(file);
-      if (!result.itemsAdded && !result.itemsKept) {
-        toast.info('That file had no study items in it');
+      raw = JSON.parse(await file.text());
+    } catch {
+      toast.error("That file isn't valid JSON");
+      return;
+    }
+
+    switch (sniffFile(raw)) {
+      case 'study-items':
+        try {
+          const result = await ingestStudyItems(raw);
+          if (!result.itemsAdded && !result.itemsKept) {
+            toast.info('That file had no study items in it');
+            return;
+          }
+          toast.success(describeImport(result));
+          await loadStats();
+          setShowImportModal(false);
+        } catch (err) {
+          console.error('Study item import failed:', err);
+          toast.error(`Couldn't import: ${err instanceof Error ? err.message : 'unreadable file'}`);
+        }
         return;
-      }
-      toast.success(describeImport(result));
-      await loadStats();
-    } catch (err) {
-      console.error('Study item import failed:', err);
-      toast.error(`Couldn't import: ${err instanceof Error ? err.message : 'unreadable file'}`);
+
+      case 'orbit-backup':
+        await importData(file);
+        return;
+
+      default:
+        toast.error('Not an Orbit backup or a study-items file');
     }
   };
 
@@ -441,7 +464,7 @@ export const SettingsView = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {([
           { icon: Download, label: 'Export', desc: 'Backup JSON', onClick: () => setShowExportModal(true), danger: false },
-          { icon: Upload, label: 'Import', desc: 'Restore', onClick: () => setShowImportModal(true), danger: false },
+          { icon: Upload, label: 'Import', desc: 'Backup or study items', onClick: () => setShowImportModal(true), danger: false },
           { icon: RotateCcw, label: 'Reset', desc: 'Defaults', onClick: () => { resetSettings(); SoundManager.refreshSettings?.(); toast.success('Settings reset'); }, danger: false },
           { icon: Trash2, label: 'Clear data', desc: 'Irreversible', onClick: () => setShowDeleteModal(true), danger: true },
         ]).map((a) => (
@@ -574,35 +597,19 @@ export const SettingsView = () => {
             <div className="rounded-2xl bg-orange-500/[0.06] border border-orange-500/15 p-3.5">
               <p className="text-xs text-mute leading-relaxed"><span className="text-orange-400 font-bold">Move between devices</span> — export a backup here, then open Orbit on your phone (or desktop) and import it. 100% local · no account.</p>
             </div>
-            <div className="flex flex-wrap gap-2 pt-1">
-              <button onClick={() => setShowExportModal(true)} className="bg-ink3 border border-white/10 text-white font-bold text-sm px-5 py-3 rounded-2xl hover:border-white/25 transition-colors">Export backup</button>
-              <button onClick={() => setShowImportModal(true)} className="bg-ink3 border border-white/10 text-white font-bold text-sm px-5 py-3 rounded-2xl hover:border-white/25 transition-colors">Import backup</button>
-              <button onClick={() => { const f = (window as any).triggerPwaInstall; if (f) f(); else toast.info('Install from your browser menu (Add to Home Screen)'); }} className="bg-white text-ink font-bold text-sm px-5 py-3 rounded-2xl transition-colors">Install app</button>
+            <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3.5">
+              <p className="text-xs text-mute leading-relaxed">
+                <span className="text-orange-400 font-bold">Study items from ATLAS / CRUX</span> — export from
+                either app, then bring the file in with <b className="text-white">Import</b>. Orbit works out what
+                it is. Finished material becomes reviews; anything already scheduled keeps its place, so re-run
+                it whenever.
+              </p>
             </div>
 
-            <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3.5 space-y-3">
-              <p className="text-xs text-mute leading-relaxed">
-                <span className="text-orange-400 font-bold">Study items from ATLAS / CRUX</span> — pull in what
-                you've finished over there and let the planner schedule the reviews. Adds only; anything
-                already scheduled keeps its place. Safe to re-run whenever.
-              </p>
-              <input
-                ref={studyItemsInput}
-                type="file"
-                accept="application/json,.json"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) loadStudyItems(file);
-                  e.target.value = '';
-                }}
-              />
-              <button
-                onClick={() => studyItemsInput.current?.click()}
-                className="bg-ink3 border border-white/10 text-white font-bold text-sm px-5 py-3 rounded-2xl hover:border-white/25 transition-colors"
-              >
-                Import study items
-              </button>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button onClick={() => setShowExportModal(true)} className="bg-ink3 border border-white/10 text-white font-bold text-sm px-5 py-3 rounded-2xl hover:border-white/25 transition-colors">Export backup</button>
+              <button onClick={() => setShowImportModal(true)} className="bg-ink3 border border-white/10 text-white font-bold text-sm px-5 py-3 rounded-2xl hover:border-white/25 transition-colors">Import</button>
+              <button onClick={() => { const f = (window as any).triggerPwaInstall; if (f) f(); else toast.info('Install from your browser menu (Add to Home Screen)'); }} className="bg-white text-ink font-bold text-sm px-5 py-3 rounded-2xl transition-colors">Install app</button>
             </div>
           </div>
 
@@ -693,16 +700,21 @@ export const SettingsView = () => {
                   </button>
                 </div>
 
-                <div className="space-y-4 mb-6">
-                  <div className="p-5 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-                    <div className="flex gap-4">
-                      <AlertTriangle size={22} className="text-amber-400 flex-shrink-0 mt-0.5" />
-                      <div className="text-sm text-zinc-300">
-                        <p className="font-bold text-base mb-2">Warning</p>
-                        <p className="text-zinc-400">This will replace ALL existing data. Export a backup first if needed.</p>
+                <div className="space-y-3 mb-6">
+                  <div className="p-4 bg-white/[0.03] border border-white/10 rounded-xl">
+                    <p className="text-sm font-bold text-white mb-1">Study items — from ATLAS or CRUX</p>
+                    <p className="text-sm text-zinc-400">Added to your reviews. Nothing is removed, and anything already scheduled keeps its place.</p>
+                  </div>
+                  <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                    <div className="flex gap-3">
+                      <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-bold text-white mb-1">Orbit backup — replaces everything</p>
+                        <p className="text-sm text-zinc-400">A full restore. Everything currently in Orbit is wiped first. Export a backup now if you're unsure.</p>
                       </div>
                     </div>
                   </div>
+                  <p className="text-xs text-mute px-1">Orbit tells the two apart from the file itself — just pick it.</p>
                 </div>
 
                 <label className="block mb-4">
@@ -711,13 +723,14 @@ export const SettingsView = () => {
                     accept=".json"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) importData(file);
+                      if (file) handleImportFile(file);
+                      e.target.value = '';
                     }}
                     className="hidden"
                   />
                   <div className="w-full py-4 bg-orange-500/20 hover:bg-orange-500/30 active:bg-orange-500/40 rounded-xl transition-all font-bold border border-orange-500/40 text-center cursor-pointer min-h-[56px] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 shadow-lg shadow-orange-500/10">
                     <FileJson size={20} />
-                    Choose Backup File
+                    Choose file
                   </div>
                 </label>
 
