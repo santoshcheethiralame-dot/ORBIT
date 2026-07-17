@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Bell, BellOff, Clock, Database, Download, Upload, Trash2,
   RotateCcw, Check, X, AlertCircle, Info, Volume2, VolumeX,
@@ -7,6 +7,7 @@ import {
   Settings as SettingsIcon, FileJson, Archive, Moon, Sun, Bug, Code, ArrowRight, ChevronRight, Send, HelpCircle
 } from 'lucide-react';
 import { db } from './db';
+import { importStudyItems, describeImport } from './utils/studyItems';
 import { FrostedTile, FrostedMini, PageHeader, MetaText } from './components';
 import { safeDB, withToast } from './utils/dbErrorHandler';
 import { useToast } from './Toast';
@@ -26,6 +27,8 @@ export const SettingsView = () => {
   const [expandedSection, setExpandedSection] = useState<string | null>('focus');
   const toast = useToast();
 
+  const studyItemsInput = useRef<HTMLInputElement>(null);
+
   const [apiKeyInput, setApiKeyInput] = useState<string>(() => getApiKey());
   const [showApiKey, setShowApiKey] = useState(false);
 
@@ -40,18 +43,20 @@ export const SettingsView = () => {
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
+  // At component scope so an import can refresh the counts too, not just mount.
+  const loadStats = async () => {
+    try {
+      const subjects = await db.subjects.count();
+      const logs = await db.logs.toArray();
+      const totalMinutes = logs.reduce((sum, log) => sum + (log.duration || 0), 0);
+      const totalHours = Math.round((totalMinutes / 60) * 10) / 10;
+      setStats({ subjects, logs: logs.length, totalHours });
+    } catch (err) {
+      console.error('Failed to load stats:', err);
+    }
+  };
+
   useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const subjects = await db.subjects.count();
-        const logs = await db.logs.toArray();
-        const totalMinutes = logs.reduce((sum, log) => sum + (log.duration || 0), 0);
-        const totalHours = Math.round((totalMinutes / 60) * 10) / 10;
-        setStats({ subjects, logs: logs.length, totalHours });
-      } catch (err) {
-        console.error('Failed to load stats:', err);
-      }
-    };
     loadStats();
   }, []);
 
@@ -149,6 +154,25 @@ export const SettingsView = () => {
     } catch (err) {
       console.error('Export failed:', err);
       toast.error('Failed to export data');
+    }
+  };
+
+  /**
+   * Study items from ATLAS/CRUX. Additive — nothing is cleared, and topics we
+   * already schedule keep our SM-2 state. Safe to run as often as you like.
+   */
+  const loadStudyItems = async (file: File) => {
+    try {
+      const result = await importStudyItems(file);
+      if (!result.itemsAdded && !result.itemsKept) {
+        toast.info('That file had no study items in it');
+        return;
+      }
+      toast.success(describeImport(result));
+      await loadStats();
+    } catch (err) {
+      console.error('Study item import failed:', err);
+      toast.error(`Couldn't import: ${err instanceof Error ? err.message : 'unreadable file'}`);
     }
   };
 
@@ -554,6 +578,31 @@ export const SettingsView = () => {
               <button onClick={() => setShowExportModal(true)} className="bg-ink3 border border-white/10 text-white font-bold text-sm px-5 py-3 rounded-2xl hover:border-white/25 transition-colors">Export backup</button>
               <button onClick={() => setShowImportModal(true)} className="bg-ink3 border border-white/10 text-white font-bold text-sm px-5 py-3 rounded-2xl hover:border-white/25 transition-colors">Import backup</button>
               <button onClick={() => { const f = (window as any).triggerPwaInstall; if (f) f(); else toast.info('Install from your browser menu (Add to Home Screen)'); }} className="bg-white text-ink font-bold text-sm px-5 py-3 rounded-2xl transition-colors">Install app</button>
+            </div>
+
+            <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3.5 space-y-3">
+              <p className="text-xs text-mute leading-relaxed">
+                <span className="text-orange-400 font-bold">Study items from ATLAS / CRUX</span> — pull in what
+                you've finished over there and let the planner schedule the reviews. Adds only; anything
+                already scheduled keeps its place. Safe to re-run whenever.
+              </p>
+              <input
+                ref={studyItemsInput}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) loadStudyItems(file);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                onClick={() => studyItemsInput.current?.click()}
+                className="bg-ink3 border border-white/10 text-white font-bold text-sm px-5 py-3 rounded-2xl hover:border-white/25 transition-colors"
+              >
+                Import study items
+              </button>
             </div>
           </div>
 
