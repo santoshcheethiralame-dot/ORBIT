@@ -20,5 +20,6 @@
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true
-  }
+  },
+  "exclude": ["node_modules", "dist", "sw.ts", "supabase"]
 }

@@ -50,6 +50,7 @@ import { startStudyReminder } from "./utils/studyReminder";
 import { getSubjectIntelligence, SubjectIntelligence } from "./utils/subjectIntelligence";
 import { ToastProvider, useToast } from "./Toast";
 import { initCloudSync } from "./utils/cloudSync";
+import { initReminders, syncDailyStatus } from "./utils/reminders";
 import { CloudSyncBanner } from "./CloudSync";
 
 import { getISTEffectiveDate, isPlanCurrent, effectiveDatePlus } from "./utils/time";
@@ -130,7 +131,7 @@ const App = () => {
 
   // Cloud sync (opt-in): mirrors the local DB to Supabase and pulls it back on
   // other devices. Local-first stays intact; this is a layer under it.
-  useEffect(() => { initCloudSync(); }, []);
+  useEffect(() => { initCloudSync(); initReminders(); }, []);
 
   useEffect(() => {
     const autoMarkExams = async () => {
@@ -419,6 +420,7 @@ const App = () => {
 
       setTodayPlan(plan);
       setNeedsContext(false);
+      void syncDailyStatus();
       saveDbSnapshot();
 
       toast.success(`Daily plan ready: ${plan.blocks.length} blocks scheduled`);
@@ -489,6 +491,7 @@ const App = () => {
           await db.studyBlocks.update(activeBlock.id, { completed: true });
 
           setTodayPlan(newPlan);
+          void syncDailyStatus();
 
           // Reality feedback: if this block ran well over plan, the rest of the
           // day is now optimistic. Offer a reflow (regenerate remaining blocks

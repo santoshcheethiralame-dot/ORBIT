@@ -9,6 +9,7 @@ import {
 import { db } from './db';
 import { sniffFile, ingestStudyItems, describeImport } from './utils/studyItems';
 import { CloudSyncPanel } from './CloudSync';
+import { HardcoreReminders } from './HardcoreReminders';
 import { FrostedTile, FrostedMini, PageHeader, MetaText } from './components';
 import { safeDB, withToast } from './utils/dbErrorHandler';
 import { useToast } from './Toast';
@@ -613,6 +614,7 @@ export const SettingsView = () => {
                 ))}
               </div>
             )}
+            <HardcoreReminders />
           </div>
 
           <div id="sec-sounds" className="rounded-4xl bg-ink2 border border-white/10 p-6 md:p-8 scroll-mt-[100px] space-y-5">
