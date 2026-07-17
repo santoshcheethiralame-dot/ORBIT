@@ -18,6 +18,7 @@ import { db } from "../db";
 import { getISTEffectiveDate } from "./time";
 
 const SETTINGS_KEY = "orbit-reminder-settings";
+const REMINDER_FN = "reminder-cron"; // deployed Supabase Edge Function name
 
 export function isPushSupported(): boolean {
   return (
@@ -234,6 +235,22 @@ export async function syncDailyStatus(): Promise<void> {
     { onConflict: "user_id,date" },
   );
   updateBadge(Math.max(0, s.blocksTotal - s.blocksDone));
+}
+
+// ── Test push (on-demand delivery check) ──────────────────────────────────────
+export async function sendTestPush(): Promise<{ ok: boolean; sent?: number; reason?: string }> {
+  const { data } = await supabase.auth.getUser();
+  const uid = data.user?.id;
+  if (!uid) return { ok: false, reason: "not-signed-in" };
+  try {
+    const { data: res, error } = await supabase.functions.invoke(REMINDER_FN, {
+      body: { test: true, user_id: uid },
+    });
+    if (error) return { ok: false, reason: "error" };
+    return { ok: true, sent: (res as { sent?: number })?.sent ?? 0 };
+  } catch {
+    return { ok: false, reason: "error" };
+  }
 }
 
 // ── Badge ─────────────────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY")!;
 const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY")!;
-const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:vaibhavreddy488@gmail.com";
+const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:santoshcheethirala.me@gmail.com";
 
 webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
 const db = createClient(SUPABASE_URL, SERVICE_ROLE);
@@ -193,9 +193,44 @@ async function run(): Promise<{ evaluated: number; sent: number }> {
   return { evaluated: settings?.length ?? 0, sent };
 }
 
-Deno.serve(async () => {
+// On-demand delivery check — bypasses all trigger/time/quiet-hours logic and
+// just fires one notification to the user's devices. Triggered by the Settings
+// "Send test push" button (body {"test":true,"user_id":...}); with no user_id it
+// hits every subscription (handy from the SQL editor for a personal project).
+async function sendTest(userId?: string): Promise<{ test: true; sent: number; devices: number }> {
+  let q = db.from("push_subscriptions").select("*");
+  if (userId) q = q.eq("user_id", userId);
+  const { data: subs } = await q;
+  const payload = JSON.stringify({
+    title: "Orbit — test push ✅",
+    body: "Delivery works. When you slip, this is how the drill sergeant reaches you.",
+    tag: "orbit-test",
+    url: "/?action=focus",
+    vibrate: [200, 100, 200],
+  });
+  let sent = 0;
+  for (const sub of subs ?? []) {
+    try {
+      await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
+      sent++;
+    } catch (e: any) {
+      if (e?.statusCode === 404 || e?.statusCode === 410) {
+        await db.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+      }
+    }
+  }
+  return { test: true, sent, devices: subs?.length ?? 0 };
+}
+
+Deno.serve(async (req) => {
   try {
-    const result = await run();
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      /* no/empty body — treat as a cron tick */
+    }
+    const result = body?.test ? await sendTest(body.user_id) : await run();
     return new Response(JSON.stringify(result), { headers: { "Content-Type": "application/json" } });
   } catch (e) {
     console.error("reminder-cron fatal", e);

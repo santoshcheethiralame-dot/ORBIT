@@ -5,6 +5,7 @@ import {
   saveReminderSettings,
   enableReminders,
   disableReminders,
+  sendTestPush,
   isPushSupported,
   isInstalledPWA,
 } from "./utils/reminders";
@@ -30,6 +31,7 @@ export const HardcoreReminders = () => {
   const toast = useToast();
   const [s, setS] = useState<ReminderSettings>(getReminderSettings());
   const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
   const supported = isPushSupported();
   const installed = isInstalledPWA();
 
@@ -75,6 +77,19 @@ export const HardcoreReminders = () => {
   const toggleTrigger = (k: ReminderTrigger) => {
     const has = s.triggers.includes(k);
     patch({ triggers: has ? s.triggers.filter((t) => t !== k) : [...s.triggers, k] });
+  };
+
+  const onTest = async () => {
+    setTesting(true);
+    try {
+      const res = await sendTestPush();
+      if (res.ok && (res.sent ?? 0) > 0) toast.success("Test push sent — check your notifications.");
+      else if (res.ok) toast.error("No devices registered yet — toggle Hardcore mode on this device first.");
+      else if (res.reason === "not-signed-in") toast.error("Sign in (Cloud sync) first.");
+      else toast.error("Test failed — is the reminder-cron function deployed?");
+    } finally {
+      setTesting(false);
+    }
   };
 
   const on = s.enabled;
@@ -161,6 +176,14 @@ export const HardcoreReminders = () => {
             <Stepper label="Quiet from" value={fmtHour(s.quietStart)} onDec={() => patch({ quietStart: Math.max(0, s.quietStart - 1) })} onInc={() => patch({ quietStart: Math.min(23, s.quietStart + 1) })} />
             <Stepper label="Quiet until" value={fmtHour(s.quietEnd)} onDec={() => patch({ quietEnd: Math.max(0, s.quietEnd - 1) })} onInc={() => patch({ quietEnd: Math.min(23, s.quietEnd + 1) })} />
           </div>
+
+          <button
+            onClick={onTest}
+            disabled={testing}
+            className={`w-full rounded-2xl border-2 border-orange-500/40 bg-orange-500/10 text-orange-300 font-bold text-sm py-3 transition-colors hover:bg-orange-500/20 ${testing ? "opacity-50" : ""}`}
+          >
+            {testing ? "Sending…" : "Send test push"}
+          </button>
 
           <div className="flex items-start gap-2 text-[11px] text-mute leading-snug">
             <AlertTriangle size={13} className="shrink-0 mt-0.5 text-mute" />
