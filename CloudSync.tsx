@@ -102,10 +102,11 @@ export function CloudSyncBanner() {
             <Cloud size={18} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="font-bold text-white text-sm mb-0.5">Your data lives only on this device</div>
+            <div className="font-bold text-white text-sm mb-0.5">Back up &amp; sync across devices</div>
             <p className="text-xs text-zinc-400 leading-relaxed mb-3">
-              Turn on cloud backup so it syncs to your phone and can never be lost if this browser is cleared.
-              Only you can read it. It stays on this device too — nothing changes offline.
+              Right now your data is only on this device. Sign in to back it up and sync to your phone — or,
+              if you already use Orbit elsewhere, to <b className="text-zinc-200">pull that data here</b>.
+              Only you can read it; it stays local too.
             </p>
             {showSignIn ? (
               <SignInForm />
