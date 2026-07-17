@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { db } from './db';
 import { sniffFile, ingestStudyItems, describeImport } from './utils/studyItems';
+import { CloudSyncPanel } from './CloudSync';
 import { FrostedTile, FrostedMini, PageHeader, MetaText } from './components';
 import { safeDB, withToast } from './utils/dbErrorHandler';
 import { useToast } from './Toast';
@@ -663,9 +664,8 @@ export const SettingsView = () => {
                 </div>
               </div>
             )}
-            <div className="rounded-2xl bg-orange-500/[0.06] border border-orange-500/15 p-3.5">
-              <p className="text-xs text-mute leading-relaxed"><span className="text-orange-400 font-bold">Move between devices</span> — export a backup here, then open Orbit on your phone (or desktop) and import it. 100% local · no account.</p>
-            </div>
+            <CloudSyncPanel />
+
             <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3.5 space-y-3">
               <p className="text-xs text-mute leading-relaxed">
                 <span className="text-orange-400 font-bold">Pull study items from ATLAS / CRUX</span> — one click.

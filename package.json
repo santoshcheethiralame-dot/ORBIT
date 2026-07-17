@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.109.0",
     "@types/katex": "^0.16.8",
     "dexie": "^4.0.0",
     "dexie-react-hooks": "^4.0.0",

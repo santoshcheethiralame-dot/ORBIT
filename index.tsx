@@ -49,6 +49,8 @@ import { NotificationManager } from "./utils/notifications";
 import { startStudyReminder } from "./utils/studyReminder";
 import { getSubjectIntelligence, SubjectIntelligence } from "./utils/subjectIntelligence";
 import { ToastProvider, useToast } from "./Toast";
+import { initCloudSync } from "./utils/cloudSync";
+import { CloudSyncBanner } from "./CloudSync";
 
 import { getISTEffectiveDate, isPlanCurrent, effectiveDatePlus } from "./utils/time";
 
@@ -125,6 +127,10 @@ const App = () => {
   }, []);
 
   useEffect(() => startStudyReminder(), []);
+
+  // Cloud sync (opt-in): mirrors the local DB to Supabase and pulls it back on
+  // other devices. Local-first stays intact; this is a layer under it.
+  useEffect(() => { initCloudSync(); }, []);
 
   useEffect(() => {
     const autoMarkExams = async () => {
@@ -596,6 +602,7 @@ const App = () => {
   return (
     <div className="min-h-screen text-zinc-200 font-sans flex flex-col">
       <SpaceBackground />
+      <CloudSyncBanner />
       {showRolloverModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-2xl">
           <div className="w-full max-w-md bg-ink2 border border-white/10 rounded-[2.5rem] p-8 text-center space-y-6 animate-in zoom-in-95 duration-300">
