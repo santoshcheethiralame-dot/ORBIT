@@ -175,6 +175,18 @@ export async function signInWithEmail(email: string): Promise<void> {
   if (error) throw error;
 }
 
+// One-tap social sign-in. Redirects to the provider and back; detectSessionInUrl
+// (set on the supabase client) completes the session on return. Requires the
+// provider to be enabled in the Supabase dashboard (see docs/CLOUD-SYNC.md).
+export async function signInWithProvider(provider: 'google' | 'github'): Promise<void> {
+  clearOptOut();
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: window.location.origin },
+  });
+  if (error) throw error;
+}
+
 export async function signOutCloud(): Promise<void> {
   await supabase.auth.signOut();
   currentUid = null;
