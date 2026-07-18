@@ -17,7 +17,9 @@ so your data survives a cleared browser and follows you to your phone.
   - local unchanged, cloud changed → adopt cloud (no prompt)
   - cloud unchanged, local changed → push local (no prompt)
   - **both changed → ask the user** (the conflict modal). Never guesses.
-- **Auth = passwordless magic link** (`signInWithOtp`). No passwords stored.
+- **Auth = one-tap GitHub OAuth or a passwordless email magic link**
+  (`signInWithOAuth` / `signInWithOtp`). No passwords stored. Sign-in lives in the
+  onboarding welcome step and in **Settings → Account**.
 
 ## Security
 
@@ -53,10 +55,25 @@ redirects to allow-listed URLs, so in **Authentication → URL Configuration** a
 Without these, the sign-in link will bounce. Everything else is code and already
 deployed.
 
+## GitHub sign-in setup (one-time)
+
+The email magic link works out of the box. To enable the **Continue with GitHub**
+button, register an OAuth app and connect it:
+
+1. GitHub → **Settings → Developer settings → OAuth Apps → New OAuth App**
+   - **Homepage URL:** `https://orbitv2-five.vercel.app`
+   - **Authorization callback URL:** `https://tcnaiawfwdfvmdagqpai.supabase.co/auth/v1/callback`
+2. Register → copy the **Client ID**, generate + copy the **Client Secret**.
+3. Supabase → **Authentication → Providers → GitHub** → enable, paste both → Save.
+4. Confirm the app origin is in **Redirect URLs** (same list as above).
+
+Until the provider is enabled, tapping GitHub returns a "provider not enabled"
+error; the email link keeps working regardless.
+
 ## Files
 
 - `utils/supabaseClient.ts` — the client + project config
 - `utils/cloudSnapshot.ts` — full-fidelity serialize / restore / fingerprint
-- `utils/cloudSync.ts` — auth, push/pull, poll-diff, 3-way reconcile, status
-- `CloudSync.tsx` — consent banner, conflict modal, Settings panel
-- wired in `index.tsx` (init + banner) and `SettingsView.tsx` (panel)
+- `utils/cloudSync.ts` — auth (`signInWithProvider` / `signInWithEmail`), push/pull, poll-diff, 3-way reconcile, status
+- `CloudSync.tsx` — sign-in form (GitHub + email), `OnboardingAuth`, consent banner, conflict modal, Settings panel
+- wired in `index.tsx` (init + banner), `Onboarding.tsx` (welcome sign-in), `SettingsView.tsx` (Account section)

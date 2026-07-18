@@ -61,6 +61,12 @@ export const AboutView = () => {
         <div className="rounded-4xl bg-paper text-ink p-6"><div className="font-display font-black text-4xl">03</div><div className="font-display font-black text-xl mt-3">AI coaching</div><p className="text-sm font-medium opacity-70 mt-2 leading-relaxed">A coach that knows your whole semester — one sharp nudge a day, plus on-demand explain / quiz / flashcards.</p></div>
       </div>
 
+      <div className="grid md:grid-cols-3 gap-4">
+        <div className="rounded-4xl bg-ink2 border border-white/10 p-6"><div className="font-display font-black text-4xl text-orange-400">04</div><div className="font-display font-black text-xl mt-3">FSRS retention</div><p className="text-sm text-mute mt-2 leading-relaxed">Reviews scheduled from your personal forgetting curve (FSRS-6). Predict-before-reveal calibration measures how well you know what you know.</p></div>
+        <div className="rounded-4xl bg-ink2 border border-white/10 p-6"><div className="font-display font-black text-4xl text-yellow-400">05</div><div className="font-display font-black text-xl mt-3">Hardcore reminders</div><p className="text-sm text-mute mt-2 leading-relaxed">Opt-in push that reaches your phone even when Orbit's closed — escalating, quiet-hours-aware, stakes-injected. Gentle to Drill.</p></div>
+        <div className="rounded-4xl bg-ink2 border border-white/10 p-6"><div className="font-display font-black text-4xl text-white">06</div><div className="font-display font-black text-xl mt-3">Optional sync</div><p className="text-sm text-mute mt-2 leading-relaxed">Sign in with GitHub or an email link to back up and sync across devices — your own row, readable only by you. Or stay fully local.</p></div>
+      </div>
+
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 rounded-4xl bg-ink2 border border-white/10 p-7">
           <h3 className="font-display font-black text-2xl mb-5">TRAJECTORY</h3>
@@ -69,8 +75,11 @@ export const AboutView = () => {
               ['Done', 'Triple-brain readiness + adaptive planning'],
               ['Done', 'AI coach · exam simulator · flashcards'],
               ['Done', 'Brutalist redesign — black / orange / yellow'],
-              ['Q3 26', 'Encrypted cloud sync (optional, E2E)'],
-              ['Q4 26', 'Natural-language plan input'],
+              ['Done', 'FSRS-6 review + confidence calibration'],
+              ['Done', 'Hardcore push reminders + daily loop'],
+              ['Done', 'Optional cloud sync + GitHub sign-in'],
+              ['Next', 'FSRS tuning on your own review history'],
+              ['Next', 'Natural-language plan input'],
             ] as const).map(([tag, label], i) => { const done = tag === 'Done'; return (
               <div key={i} className={`flex items-center gap-4 py-2.5 ${done ? '' : 'opacity-60'}`}>
                 <span className={`text-[9px] font-mono font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full w-16 text-center ${done ? 'bg-orange-500/15 text-orange-400' : 'bg-white/10 text-mute'}`}>{tag}</span>
@@ -86,13 +95,13 @@ export const AboutView = () => {
             <a href="https://github.com/santoshcheethirala" target="_blank" rel="noreferrer" className="flex-1 bg-ink3 border border-white/10 rounded-2xl py-3 text-sm font-bold hover:border-white/25 transition-colors flex items-center justify-center gap-2"><Github size={16} /> GitHub</a>
             <a href="https://www.linkedin.com/in/santoshcheethirala/" target="_blank" rel="noreferrer" className="flex-1 bg-white text-ink rounded-2xl py-3 text-sm font-bold flex items-center justify-center gap-2"><Linkedin size={16} /> LinkedIn</a>
           </div>
-          <div className="mt-3 rounded-2xl bg-yellow-400/10 border border-yellow-400/20 px-4 py-3 text-center"><span className="inline-flex items-center justify-center gap-1.5 text-[9px] font-mono font-bold uppercase tracking-[0.14em] text-yellow-300"><Lock size={10} strokeWidth={2.5} /> 100% local · no accounts · no tracking</span></div>
+          <div className="mt-3 rounded-2xl bg-yellow-400/10 border border-yellow-400/20 px-4 py-3 text-center"><span className="inline-flex items-center justify-center gap-1.5 text-[9px] font-mono font-bold uppercase tracking-[0.14em] text-yellow-300"><Lock size={10} strokeWidth={2.5} /> Local-first · accounts optional · no tracking</span></div>
         </div>
       </div>
 
       <div className="rounded-4xl bg-ink2 border border-white/10 p-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
-          {['React 19', 'TypeScript', 'Vite', 'Dexie / IndexedDB', 'Tailwind', 'OpenRouter AI'].map((t) => (
+          {['React 19', 'TypeScript', 'Vite', 'Dexie / IndexedDB', 'Tailwind', 'FSRS-6', 'Supabase', 'OpenRouter AI'].map((t) => (
             <span key={t} className="text-[9px] font-mono font-bold uppercase tracking-[0.14em] bg-ink3 border border-white/10 text-mute px-3 py-1.5 rounded-full">{t}</span>
           ))}
         </div>
