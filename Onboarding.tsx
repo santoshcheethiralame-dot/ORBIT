@@ -4,6 +4,7 @@ import { db, saveDbSnapshot } from "./db";
 import { X, Plus, Minus, ChevronLeft, Upload, Sparkles } from "lucide-react";
 import { useToast } from "./Toast";
 import { getSubjectColor, SUBJECT_COLOR_CLASSES } from "./components";
+import { OnboardingAuth } from "./CloudSync";
 
 export const exportBackup = async () => {
   try {
@@ -330,7 +331,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
               <div className="font-mono text-[11px] font-bold uppercase tracking-widest text-orange-400 mb-5">Welcome</div>
               <h1 className="font-display text-6xl xl:text-7xl 2xl:text-8xl leading-[0.85]">Study,<br />in <span className="text-orange-500">orbit.</span></h1>
-              <p className="text-base xl:text-lg text-zinc-400 mt-7 max-w-md leading-relaxed">Orbit builds each day around your energy, exams and deadlines — then coaches you through it. No account. Everything stays on your device.</p>
+              <p className="text-base xl:text-lg text-zinc-400 mt-7 max-w-md leading-relaxed">Orbit builds each day around your energy, exams and deadlines — then coaches you through it. Works with no account — everything stays on your device. Sign in only if you want it synced to your phone.</p>
               <div className="flex flex-wrap gap-2.5 mt-8">
                 {["Adaptive plans", "Spaced review", "AI coach"].map(t => (
                   <span key={t} className="font-mono text-[10px] font-bold uppercase tracking-widest bg-white/5 border border-white/10 text-zinc-400 px-3 py-2 rounded-full">{t}</span>
@@ -340,7 +341,11 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
                 <button onClick={() => setStep(2)} className={`${primaryBtn} px-8 py-4 text-base`}>Get started →</button>
                 <button onClick={() => fileRef.current?.click()} className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-white flex items-center gap-1.5"><Upload size={11} />Import backup</button>
               </div>
-              <div className="mt-9 font-mono text-[10px] uppercase tracking-widest text-zinc-600">Takes ~2 minutes · no sign-up</div>
+              <div className="mt-8 pt-6 border-t border-white/10 max-w-md">
+                <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-3">Optional — sync across devices</div>
+                <OnboardingAuth />
+              </div>
+              <div className="mt-8 font-mono text-[10px] uppercase tracking-widest text-zinc-600">Takes ~2 minutes</div>
             </div>
           )}
 

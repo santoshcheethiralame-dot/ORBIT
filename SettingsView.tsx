@@ -4,7 +4,7 @@ import {
   RotateCcw, Check, X, AlertCircle, Info, Volume2, VolumeX,
   Target, Coffee, Shield, Sparkles, Zap, Activity,
   ChevronDown, CheckCircle, AlertTriangle, Sunrise, Brain,
-  Settings as SettingsIcon, FileJson, Archive, Moon, Sun, Bug, Code, ArrowRight, ChevronRight, Send, HelpCircle
+  Settings as SettingsIcon, FileJson, Archive, Moon, Sun, Bug, Code, ArrowRight, ChevronRight, Send, HelpCircle, LogIn
 } from 'lucide-react';
 import { db } from './db';
 import { sniffFile, ingestStudyItems, describeImport } from './utils/studyItems';
@@ -552,7 +552,7 @@ export const SettingsView = () => {
         <div className="rounded-4xl bg-ink2 border border-white/10 p-2 flex lg:flex-col gap-1 overflow-x-auto lg:sticky lg:top-[88px] lg:self-start">
           {([
             ['focus', 'Focus'], ['notifications', 'Notifications'],
-            ['sounds', 'Sounds'], ['ai', 'AI'], ['data', 'Data'], ['danger', 'Danger zone'],
+            ['sounds', 'Sounds'], ['ai', 'AI'], ['account', 'Account'], ['data', 'Data'], ['danger', 'Danger zone'],
           ] as const).map(([id, label]) => {
             const isActive = (expandedSection || 'focus') === id;
             const isDanger = id === 'danger';
@@ -653,6 +653,12 @@ export const SettingsView = () => {
             <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs text-orange-400 hover:text-orange-300"><ArrowRight size={13} /> Get a free key at openrouter.ai</a>
           </div>
 
+          <div id="sec-account" className="rounded-4xl bg-ink2 border border-white/10 p-6 md:p-8 scroll-mt-[100px] space-y-5">
+            <div className="flex items-center gap-3 mb-1"><div className="w-9 h-9 rounded-xl bg-orange-500/15 flex items-center justify-center text-orange-400"><LogIn size={18} strokeWidth={2.5} /></div><h3 className="font-display font-black text-2xl">ACCOUNT</h3></div>
+            <p className="text-sm text-mute leading-relaxed">Sign in to sync across devices and enable hardcore reminders. Optional — Orbit works fully offline without one.</p>
+            <CloudSyncPanel />
+          </div>
+
           <div id="sec-data" className="rounded-4xl bg-ink2 border border-white/10 p-6 md:p-8 scroll-mt-[100px] space-y-5">
             <div className="flex items-center gap-3 mb-1"><div className="w-9 h-9 rounded-xl bg-orange-500/15 flex items-center justify-center text-orange-400"><Database size={18} strokeWidth={2.5} /></div><h3 className="font-display font-black text-2xl">DATA</h3></div>
             <div className="flex items-center justify-between py-1"><div><div className="font-bold text-sm">Auto-backup</div><div className="text-xs text-mute">Periodic JSON download</div></div><ToggleSwitch checked={settings.advanced.autoBackup} onChange={(c) => updateSetting('advanced.autoBackup', c)} /></div>
@@ -666,7 +672,6 @@ export const SettingsView = () => {
                 </div>
               </div>
             )}
-            <CloudSyncPanel />
 
             <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3.5 space-y-3">
               <p className="text-xs text-mute leading-relaxed">
