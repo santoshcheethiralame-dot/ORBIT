@@ -1,6 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" fill="none"></rect><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16203a"></stop><stop offset="1" stop-color="#0a0e17"></stop></linearGradient></defs><rect width="64" height="64" rx="13" fill="url(#g)"></rect><g transform="translate(32 32) scale(0.4266666666666667) translate(-60 -60)"><g transform="rotate(-22 60 60)">
-      <ellipse cx="60" cy="60" rx="47" ry="16.5" fill="none" stroke="#6ea8ff" stroke-width="3.6"></ellipse>
-      
-      <circle cx="107" cy="60" r="6.6" fill="#6ea8ff"></circle>
-    </g>
-    <circle cx="60" cy="60" r="19" fill="#ffffff"></circle></g></svg>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Brutalist Orbit mark: black canvas (full-bleed for maskable) + orange orbit -->
+  <rect width="512" height="512" fill="#0A0A0A"/>
+  <circle cx="256" cy="256" r="152" fill="none" stroke="#FF5A1F" stroke-width="12" opacity="0.22"/>
+  <circle cx="256" cy="256" r="112" fill="none" stroke="#FF5A1F" stroke-width="12" opacity="0.4"/>
+  <!-- yellow planet on the orbit -->
+  <circle cx="256" cy="104" r="22" fill="#FFD60A"/>
+  <!-- core "O" -->
+  <circle cx="256" cy="256" r="66" fill="#FF5A1F"/>
+  <circle cx="256" cy="256" r="27" fill="#0A0A0A"/>
+</svg>
