@@ -42,6 +42,7 @@ export const AboutView = () => {
       <PageHeader title="About Orbit" meta={<MetaText>What Orbit is</MetaText>} />
 
       <div className="rounded-5xl bg-orange-500 text-ink p-8 md:p-12 relative overflow-hidden">
+        <img src="/pwa-192x192.png" alt="Orbit" width={72} height={72} className="rounded-2xl mb-5 shadow-lg shadow-black/20" />
         <span className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] bg-ink text-orange-400 px-3 py-1.5 rounded-full">v4.0 · local-first</span>
         <h1 className="font-display font-black text-5xl md:text-7xl mt-5 leading-[0.9]">A focus engine,<br />not a to-do list.</h1>
         <p className="text-sm md:text-base font-semibold opacity-80 mt-5 max-w-2xl">Orbit reads your energy, exams and decay — then builds the day that actually moves your readiness. Short blocks when you're struggling, heavy hits when you're sharp.</p>

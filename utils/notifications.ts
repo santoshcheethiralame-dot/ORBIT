@@ -58,9 +58,9 @@ export const NotificationManager = {
     try {
       new Notification(title, {
         body,
-        icon: icon || '/orbit-icon.png',
+        icon: icon || '/pwa-192x192.png',
         silent: false,
-        badge: '/orbit-icon.png',
+        badge: '/pwa-192x192.png',
         tag: type || 'general',
       });
     } catch (e) {
@@ -69,19 +69,19 @@ export const NotificationManager = {
   },
 
   sendSessionReminder: (title: string, body?: string) => {
-    NotificationManager.send(title, body, '/orbit-icon.png', 'session');
+    NotificationManager.send(title, body, '/pwa-192x192.png', 'session');
   },
 
   sendDailyGoal: (title: string, body?: string) => {
-    NotificationManager.send(title, body, '/orbit-icon.png', 'goal');
+    NotificationManager.send(title, body, '/pwa-192x192.png', 'goal');
   },
 
   sendExamAlert: (title: string, body?: string) => {
-    NotificationManager.send(title, body, '/orbit-icon.png', 'exam');
+    NotificationManager.send(title, body, '/pwa-192x192.png', 'exam');
   },
 
   sendBreakReminder: (title: string, body?: string) => {
-    NotificationManager.send(title, body, '/orbit-icon.png', 'break');
+    NotificationManager.send(title, body, '/pwa-192x192.png', 'break');
   },
 
   test: () => {

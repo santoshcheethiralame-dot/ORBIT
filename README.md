@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🛰️ Orbit 4.0
+<img src="public/pwa-512x512.png" alt="Orbit" width="120" height="120" />
+
+# Orbit 4.0
 
 > **The specialized planning intelligence for high-performance students.**
 
