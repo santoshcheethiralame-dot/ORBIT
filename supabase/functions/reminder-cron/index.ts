@@ -222,7 +222,17 @@ async function sendTest(userId?: string): Promise<{ test: true; sent: number; de
   return { test: true, sent, devices: subs?.length ?? 0 };
 }
 
+// CORS — the Settings "Send test push" button calls this from the browser, so
+// the preflight (OPTIONS) and the response both need these headers. The cron
+// (server-to-server) doesn't care, but they're harmless there.
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
     let body: any = {};
     try {
@@ -231,9 +241,9 @@ Deno.serve(async (req) => {
       /* no/empty body — treat as a cron tick */
     }
     const result = body?.test ? await sendTest(body.user_id) : await run();
-    return new Response(JSON.stringify(result), { headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify(result), { headers: { ...CORS, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("reminder-cron fatal", e);
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...CORS, "Content-Type": "application/json" } });
   }
 });
