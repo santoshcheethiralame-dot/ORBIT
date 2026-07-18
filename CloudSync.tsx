@@ -4,6 +4,8 @@ import {
   subscribeSync, getSyncState, hasOptedOut, optOutOfCloud,
   signInWithEmail, signInWithProvider, signOutCloud, resolveConflict, pushNow, type SyncState,
 } from './utils/cloudSync';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from './db';
 
 
 const ago = (ms: number | null) => {
@@ -92,6 +94,9 @@ export function CloudSyncBanner() {
   const s = useSync();
   const [showSignIn, setShowSignIn] = useState(false);
   const [optedOut, setOptedOut] = useState(hasOptedOut());
+  // Onboarding (empty DB) has its own sign-in block, so hide this banner there
+  // to avoid a double prompt. -1 while the count loads → also hidden briefly.
+  const subjectCount = useLiveQuery(() => db.subjects.count(), [], -1);
 
   // The conflict modal takes priority over everything.
   if (s.status === 'conflict' && s.conflict) {
@@ -122,7 +127,7 @@ export function CloudSyncBanner() {
   }
 
   // Consent banner: only when signed out and the user hasn't opted out.
-  if (s.status !== 'signed-out' || optedOut) return null;
+  if (s.status !== 'signed-out' || optedOut || subjectCount <= 0) return null;
 
   return (
     <div className="fixed bottom-4 inset-x-4 z-[120] mx-auto max-w-2xl">
