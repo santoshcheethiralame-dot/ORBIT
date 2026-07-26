@@ -19,6 +19,22 @@ import webpush from "npm:web-push@3.6.7";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+/**
+ * Dedicated secret for the scheduled sweep.
+ *
+ * Cron auth deliberately does NOT depend on the service-role key. Two reasons:
+ * the value injected as SUPABASE_SERVICE_ROLE_KEY is not guaranteed to be the
+ * same string the cron job presents (projects migrated to the new
+ * publishable/secret key scheme inject a different format, which silently broke
+ * this), and a purpose-scoped secret means the scheduler is not carrying a key
+ * that can read and write every table in the project.
+ *
+ * Set it with:  supabase secrets set CRON_SECRET=<random>
+ * If unset, the service-role key is still accepted so existing installs keep
+ * working.
+ */
+const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY")!;
 const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY")!;
 const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:santoshcheethirala.me@gmail.com";
@@ -249,16 +265,21 @@ const json = (body: unknown, status = 200) =>
  * Compared with a constant-time-ish check so the service key can't be probed
  * byte-by-byte through response timing.
  */
+function secretMatches(token: string, secret: string): boolean {
+  if (!secret || token.length !== secret.length) return false;
+  let diff = 0;
+  for (let i = 0; i < token.length; i++) diff |= token.charCodeAt(i) ^ secret.charCodeAt(i);
+  return diff === 0;
+}
+
 async function authorize(req: Request): Promise<"cron" | string | null> {
   const header = req.headers.get("Authorization") ?? "";
   const token = header.replace(/^Bearer\s+/i, "").trim();
   if (!token) return null;
 
-  if (token.length === SERVICE_ROLE.length) {
-    let diff = 0;
-    for (let i = 0; i < token.length; i++) diff |= token.charCodeAt(i) ^ SERVICE_ROLE.charCodeAt(i);
-    if (diff === 0) return "cron";
-  }
+  // Scheduled sweep: a dedicated secret, or the service-role key for installs
+  // that predate CRON_SECRET.
+  if (secretMatches(token, CRON_SECRET) || secretMatches(token, SERVICE_ROLE)) return "cron";
 
   const { data, error } = await db.auth.getUser(token);
   if (error || !data.user) return null;
@@ -277,7 +298,14 @@ Deno.serve(async (req) => {
 
   try {
     const caller = await authorize(req);
-    if (!caller) return json({ error: "unauthorized" }, 401);
+    if (!caller) {
+      // One line, no values. A rejected caller is usually a probe, but it is
+      // also how a misconfigured scheduler looks — and that failure is
+      // otherwise completely silent: reminders simply stop arriving. Worth a
+      // log entry so it is greppable next time.
+      console.warn("reminder-cron: rejected unauthorized request");
+      return json({ error: "unauthorized" }, 401);
+    }
 
     let body: any = {};
     try {
