@@ -70,8 +70,18 @@ export async function generateUltimatePlan(
   const performanceAdjustments: Array<{
     subjectId: number; reason: string; oldDuration: number; newDuration: number;
   }> = [];
+  // One lookup per distinct subject, resolved in parallel. This was awaited
+  // per block inside the loop, so a plan with three blocks for one subject
+  // scanned that subject's whole log history three times, one after another.
+  const perfBySubject = new Map<number, Awaited<ReturnType<typeof getSubjectPerformance>>>();
+  await Promise.all(
+    [...new Set(blocks.map(b => b.subjectId))].map(async (subjectId) => {
+      perfBySubject.set(subjectId, await getSubjectPerformance(subjectId, 30, dbInstance));
+    }),
+  );
+
   for (const block of blocks) {
-    const perf = await getSubjectPerformance(block.subjectId, 30, dbInstance);
+    const perf = perfBySubject.get(block.subjectId);
     if (!perf) continue;
     // Velocity calibration: with ≥1 week of history, size the block to your
     // MEASURED pace. recommendedDuration is derived from your real actual

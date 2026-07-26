@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Cloud, CloudOff, Check, AlertTriangle, X, RefreshCw, LogOut, Mail, Github } from 'lucide-react';
 import {
-  subscribeSync, getSyncState, hasOptedOut, optOutOfCloud,
+  subscribeSync, getSyncState, hasOptedOut, optOutOfCloud, isCloudPromptSnoozed,
   signInWithEmail, signInWithProvider, signOutCloud, resolveConflict, pushNow, type SyncState,
 } from './utils/cloudSync';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -23,12 +23,39 @@ function useSync(): SyncState {
   return s;
 }
 
+// The banner is mounted at the root (so sign-in stays reachable during
+// onboarding), which also meant it floated over the focus timer — a "back up
+// your data" pitch on the one screen whose entire job is not interrupting you.
+// Let the app mark focus mode so the banner can stand down.
+let focusMode = false;
+const focusListeners = new Set<(v: boolean) => void>();
+export function setFocusMode(active: boolean): void {
+  if (focusMode === active) return;
+  focusMode = active;
+  focusListeners.forEach((f) => f(active));
+}
+function useFocusMode(): boolean {
+  const [v, setV] = useState(focusMode);
+  useEffect(() => {
+    focusListeners.add(setV);
+    setV(focusMode);
+    return () => { focusListeners.delete(setV); };
+  }, []);
+  return v;
+}
+
 // A compact email → magic-link form. Shared by the banner and the settings panel.
 export function SignInForm({ compact }: { compact?: boolean }) {
+  const sync = useSync();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+
+  // A failed OAuth round-trip lands back here with the reason on the sync
+  // state; without this the user saw an unchanged, silent sign-in form.
+  const shownError = err ?? (sync.status === 'signed-out' ? sync.error : null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,8 +68,11 @@ export function SignInForm({ compact }: { compact?: boolean }) {
 
   const oauth = async (p: 'google' | 'github') => {
     setErr(null);
-    try { await signInWithProvider(p); } // redirects away
-    catch (x: any) { setErr(x?.message || 'Sign-in failed'); }
+    // signInWithProvider navigates the whole page away. Until it does, the
+    // button gave no feedback at all and read as broken on a slow connection.
+    setRedirecting(true);
+    try { await signInWithProvider(p); }
+    catch (x: any) { setErr(x?.message || 'Sign-in failed'); setRedirecting(false); }
   };
 
   if (sent) return (
@@ -53,9 +83,9 @@ export function SignInForm({ compact }: { compact?: boolean }) {
 
   return (
     <div className={'space-y-2.5 ' + (compact ? 'flex-1' : '')}>
-      <button type="button" onClick={() => oauth('github')}
-        className="w-full flex items-center justify-center gap-2 bg-ink3 border border-white/15 text-white font-bold text-sm px-3 py-2.5 rounded-xl hover:border-white/30 transition">
-        <Github size={16} /> Continue with GitHub
+      <button type="button" onClick={() => oauth('github')} disabled={redirecting}
+        className="w-full flex items-center justify-center gap-2 bg-ink3 border border-white/15 text-white font-bold text-sm px-3 py-2.5 rounded-xl hover:border-white/30 disabled:opacity-60 transition">
+        <Github size={16} /> {redirecting ? 'Opening GitHub…' : 'Continue with GitHub'}
       </button>
       <div className="flex items-center gap-2 text-[10px] text-mute uppercase tracking-widest">
         <span className="flex-1 h-px bg-white/10" /> or email <span className="flex-1 h-px bg-white/10" />
@@ -70,7 +100,9 @@ export function SignInForm({ compact }: { compact?: boolean }) {
           {busy ? 'Sending…' : 'Send link'}
         </button>
       </form>
-      {err && <span className="block text-xs text-red-400">{err}</span>}
+      {shownError && (
+        <span role="alert" className="block text-xs text-red-400">{shownError}</span>
+      )}
     </div>
   );
 }
@@ -92,8 +124,14 @@ export function OnboardingAuth() {
 /** Global: first-run consent banner + the conflict modal. Mount once. */
 export function CloudSyncBanner() {
   const s = useSync();
+  const inFocus = useFocusMode();
   const [showSignIn, setShowSignIn] = useState(false);
   const [optedOut, setOptedOut] = useState(hasOptedOut());
+  // Coming back from a failed sign-in, open the form straight away — the
+  // reason lives inside it, and behind the collapsed pitch the user would
+  // just see the same "sign in" invitation and conclude nothing happened.
+  const failedSignIn = s.status === 'signed-out' && !!s.error;
+  const expanded = showSignIn || failedSignIn;
   // Onboarding (empty DB) has its own sign-in block, so hide this banner there
   // to avoid a double prompt. -1 while the count loads → also hidden briefly.
   const subjectCount = useLiveQuery(() => db.subjects.count(), [], -1);
@@ -126,8 +164,12 @@ export function CloudSyncBanner() {
     );
   }
 
-  // Consent banner: only when signed out and the user hasn't opted out.
-  if (s.status !== 'signed-out' || optedOut || subjectCount <= 0) return null;
+  // Consent banner: only when signed out and the user hasn't opted out. A
+  // failed sign-in still shows, even after opting out — the user just tried to
+  // sign in, so telling them why it failed outranks the earlier dismissal.
+  if (inFocus) return null;
+  if (isCloudPromptSnoozed() && !failedSignIn) return null;
+  if (s.status !== 'signed-out' || (optedOut && !failedSignIn) || subjectCount <= 0) return null;
 
   return (
     <div className="fixed bottom-4 inset-x-4 z-[120] mx-auto max-w-2xl">
@@ -137,13 +179,21 @@ export function CloudSyncBanner() {
             <Cloud size={18} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="font-bold text-white text-sm mb-0.5">Back up &amp; sync across devices</div>
+            <div className="font-bold text-white text-sm mb-0.5">
+              {failedSignIn ? 'Sign-in didn’t complete' : 'Back up & sync across devices'}
+            </div>
             <p className="text-xs text-zinc-400 leading-relaxed mb-3">
-              Right now your data is only on this device. Sign in to back it up and sync to your phone — or,
-              if you already use Orbit elsewhere, to <b className="text-zinc-200">pull that data here</b>.
-              Only you can read it; it stays local too.
+              {failedSignIn ? (
+                <>Nothing was changed and your data is untouched. You can try again below.</>
+              ) : (
+                <>
+                  Right now your data is only on this device. Sign in to back it up and sync to your phone — or,
+                  if you already use Orbit elsewhere, to <b className="text-zinc-200">pull that data here</b>.
+                  Only you can read it; it stays local too.
+                </>
+              )}
             </p>
-            {showSignIn ? (
+            {expanded ? (
               <SignInForm />
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -156,7 +206,7 @@ export function CloudSyncBanner() {
               </div>
             )}
           </div>
-          {!showSignIn && (
+          {!expanded && (
             <button onClick={() => { optOutOfCloud(); setOptedOut(true); }} aria-label="Dismiss" className="p-1.5 text-mute hover:text-white shrink-0">
               <X size={16} />
             </button>

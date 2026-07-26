@@ -17,8 +17,9 @@ import { AIStudyAssistant } from "./AIStudyAssistant";
 import { useSettings } from "./SettingsContext";
 import { SoundManager } from "./utils/sounds";
 import { soundscape, SOUNDSCAPES, SoundscapeType } from "./utils/soundscapes";
-import { onDataChange } from "./db";
 import { setStudyReminderPaused } from "./utils/studyReminder";
+import { useFocusTimer, clearPersistedTimer } from "./utils/focusTimer";
+import { getStudyStreak, getMinutesOn } from "./utils/streak";
 
 const FLIP_DURATION_MS = 600;
 
@@ -102,16 +103,22 @@ const fmtMin = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `
 export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, onExit, subjectIntelligence }) => {
   const { settings } = useSettings();
 
-  const [timeLeft, setTimeLeft] = useState(block.duration * 60);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isOvertime, setIsOvertime] = useState(false);
-  const [overtime, setOvertime] = useState(0);
-  const [isBreak, setIsBreak] = useState(false);
-  const [breakTime, setBreakTime] = useState(0);
   const breakDuration = useMemo(() => settings.study.breakDuration * 60, [settings.study.breakDuration]);
   const [strictMode, setStrictMode] = useState(settings.study.strictModeDefault);
-  const autoStartBreaksRef = useRef(settings.study.autoStartBreaks);
-  useEffect(() => { autoStartBreaksRef.current = settings.study.autoStartBreaks; }, [settings.study.autoStartBreaks]);
+
+  const playSoundRef = useRef<(t: "start" | "milestone" | "complete") => void>(() => {});
+  const timer = useFocusTimer({
+    blockId: block.id,
+    durationMin: block.duration,
+    breakSec: breakDuration,
+    autoStartBreaks: settings.study.autoStartBreaks,
+    onWorkComplete: useCallback(() => playSoundRef.current("complete"), []),
+    onBreakComplete: useCallback(() => playSoundRef.current("complete"), []),
+  });
+  const {
+    timeLeft, breakTime, overtime, isRunning, isBreak, isOvertime,
+    hasStarted, elapsedSeconds, restored: restoredSession,
+  } = timer;
   const [soundEnabled, setSoundEnabled] = useState(settings.audio.enabled);
   const [showNotes, setShowNotes] = useState(false);
   const [showAI, setShowAI] = useState(false);
@@ -132,7 +139,12 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
     persistParked([{ id: `${Date.now()}`, text: t, at: Date.now() }, ...parked]);
     setParkingInput("");
   }, [parkingInput, parked, persistParked]);
-  const [notes, setNotes] = useState("");
+  // Restore anything typed before an interruption (a deploy now reloads the
+  // page under the user, and a reload is not an unmount).
+  const [notes, setNotes] = useState(() => {
+    try { return localStorage.getItem(`orbit-session-notes-${block.id}`) ?? ""; }
+    catch { return ""; }
+  });
   const [showQualityModal, setShowQualityModal] = useState(false);
   const [completedDuration, setCompletedDuration] = useState(0);
   const [sessionNotes, setSessionNotes] = useState("");
@@ -142,7 +154,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   const [milestoneText, setMilestoneText] = useState("");
   const [subjectResources, setSubjectResources] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [hasStarted, setHasStarted] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [summaryData, setSummaryData] = useState<{ duration: number; quality: number; readinessGain: number; aiTip?: string; } | null>(null);
 
@@ -159,8 +170,18 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
 
   useEffect(() => { setStudyReminderPaused(true); return () => setStudyReminderPaused(false); }, []);
 
+  // Tell the user their session came back rather than silently resuming a
+  // clock that's minutes ahead of where they left it.
+  useEffect(() => {
+    if (!restoredSession) return;
+    showMilestoneMessage("Session restored");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoredSession]);
+
   const isMountedRef = useRef(true);
   const lastTickRef = useRef(Date.now());
+  const blockIdRef = useRef(block.id);
+  useEffect(() => { blockIdRef.current = block.id; }, [block.id]);
 
   useEffect(() => {
     if (!strictMode || !isRunning) return;
@@ -173,7 +194,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [strictMode, isRunning]);
 
-  useEffect(() => { const cleanup = onDataChange(() => { }); return cleanup; }, []);
+  // (Removed a subscription to onDataChange whose callback was empty — it
+  // opened a BroadcastChannel listener that could never do anything.)
 
   useEffect(() => {
     const loadResources = async () => {
@@ -187,58 +209,70 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
     let alive = true;
     (async () => {
       try {
-        const today = getISTEffectiveDate();
-        const logs = await db.logs.toArray();
+        // Was: load every log into memory, then filter and hand-roll a streak
+        // that disagreed with the dashboard's. Both now come from the shared,
+        // index-backed helpers.
+        const [todaySum, st] = await Promise.all([getMinutesOn(), getStudyStreak()]);
         if (!alive) return;
-        const todaySum = logs.filter((l: any) => l.date === today).reduce((s: number, l: any) => s + (l.duration || 0), 0);
         setTodayMin(todaySum);
-        const dates = [...new Set(logs.map((l: any) => l.date))].sort();
-        let st = 0;
-        if (dates.length) {
-          const last = dates[dates.length - 1];
-          const yest = effectiveDatePlus(-1);
-          if (last === today || last === yest) {
-            st = 1;
-            for (let i = dates.length - 2; i >= 0; i--) {
-              const d1 = new Date(dates[i + 1] as string).getTime();
-              const d0 = new Date(dates[i] as string).getTime();
-              if (Math.floor((d1 - d0) / 86400000) === 1) st++; else break;
-            }
-          }
-        }
         setStreak(st);
       } catch (e) { }
     })();
     return () => { alive = false; };
   }, []);
 
-  useEffect(() => { const timer = setTimeout(() => setIsLoading(false), 700); return () => clearTimeout(timer); }, []);
-  useEffect(() => { if (isRunning) setHasStarted(true); }, [isRunning]);
+  // Was a hard-coded 700ms fake "loading" gate on a screen with nothing to
+  // load — the resource/stat fetches below manage their own state. Clear it on
+  // the first paint instead of making every session start 0.7s later.
+  useEffect(() => { setIsLoading(false); }, []);
+
+  // Latest notes, readable from the unmount cleanup without making that
+  // cleanup depend on `notes`.
+  const notesRef = useRef(notes);
+  useEffect(() => { notesRef.current = notes; }, [notes]);
+
+  // Persist as they type, not only on unmount — an unmount never happens when
+  // the page is reloaded out from under the user by a service-worker update.
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      try {
+        const key = `orbit-session-notes-${block.id}`;
+        if (notes) localStorage.setItem(key, notes);
+        else localStorage.removeItem(key);
+      } catch { /* storage unavailable */ }
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [notes, block.id]);
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       try { soundscape.stop(); } catch { }
-      if (notes) {
-        try { localStorage.setItem(`orbit-session-notes-${block.id}`, notes); }
+      const pending = notesRef.current;
+      if (pending) {
+        try { localStorage.setItem(`orbit-session-notes-${blockIdRef.current}`, pending); }
         catch (e) { console.warn("Failed to save notes on unmount:", e); }
       }
     };
-  }, [notes, block.id]);
+    // Mount/unmount only. This previously depended on [notes, block.id], so
+    // the cleanup ran on EVERY keystroke in the notes field — calling
+    // soundscape.stop() each time and killing the ambient audio the moment the
+    // user started typing.
+  }, []);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.hidden) { lastTickRef.current = Date.now(); if (isRunning && !isBreak && !isOvertime) setDistractions(d => d + 1); }
-      else if (isRunning) {
-        const elapsed = Math.floor((Date.now() - lastTickRef.current) / 1000);
-        if (elapsed > 0) {
-          if (isBreak) setBreakTime(prev => Math.max(0, prev - elapsed));
-          else if (isOvertime) setOvertime(prev => prev + elapsed);
-          else setTimeLeft(prev => Math.max(0, prev - elapsed));
-        }
-        lastTickRef.current = Date.now();
+      if (document.hidden) {
+        if (isRunning && !isBreak && !isOvertime) setDistractions(d => d + 1);
+        return;
       }
+      // Deliberately does NOT adjust the clock. The tick loop is driven by
+      // wall-clock deltas from lastTickRef, so on return it already accounts
+      // for every second spent in the background — and it now keeps its own
+      // refs as the source of truth, which this handler's setState calls would
+      // race with and overwrite. Leaving the catch-up to the one owner keeps a
+      // backgrounded session from being double-counted or silently rewound.
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -266,56 +300,19 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
     });
   }, [playSound, showMilestoneMessage]);
 
-  const isBreakRef = useRef(isBreak);
-  const isOvertimeRef = useRef(isOvertime);
-  const breakDurRef = useRef(breakDuration);
-  const blockDurRef = useRef(block.duration);
-  const timeLeftRef = useRef(timeLeft);
-  const overtimeRef = useRef(overtime);
-  useEffect(() => { isBreakRef.current = isBreak; }, [isBreak]);
-  useEffect(() => { isOvertimeRef.current = isOvertime; }, [isOvertime]);
-  useEffect(() => { breakDurRef.current = breakDuration; }, [breakDuration]);
-  useEffect(() => { blockDurRef.current = block.duration; }, [block.duration]);
-  useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
-  useEffect(() => { overtimeRef.current = overtime; }, [overtime]);
+  // The timer state machine now lives in useFocusTimer, derived from wall-clock
+  // anchors. All the mirrored refs this used to need are gone with it.
+  useEffect(() => { playSoundRef.current = playSound; }, [playSound]);
 
-  useEffect(() => {
-    if (!isRunning) return;
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const delta = now - lastTickRef.current;
-      if (delta >= 1000) {
-        const secondsPassed = Math.floor(delta / 1000);
-        lastTickRef.current = now - (delta % 1000);
-        if (isBreakRef.current) {
-          setBreakTime(prev => {
-            if (prev <= secondsPassed) { setIsBreak(false); setIsRunning(false); playSound("complete"); return 0; }
-            return prev - secondsPassed;
-          });
-        } else {
-          setTimeLeft(prev => {
-            if (prev <= secondsPassed && !isOvertimeRef.current) {
-              if (autoStartBreaksRef.current) { setIsBreak(true); setBreakTime(breakDurRef.current); playSound("complete"); return 0; }
-              setIsOvertime(true); setOvertime(0); playSound("complete"); return 0;
-            }
-            return prev > 0 ? Math.max(0, prev - secondsPassed) : 0;
-          });
-          if (isOvertimeRef.current) setOvertime(prev => prev + secondsPassed);
-          const total = isBreakRef.current ? breakDurRef.current : blockDurRef.current * 60;
-          const current = isOvertimeRef.current ? 0 : timeLeftRef.current;
-          const p = isOvertimeRef.current ? 1 : Math.min(1, Math.max(0, (total - current) / total));
-          checkMilestone(p);
-        }
-      }
-    }, 100);
-    return () => clearInterval(interval);
-  }, [isRunning, playSound, checkMilestone]);
-
-  const elapsedSeconds = block.duration * 60 - timeLeft;
   const canFinishEarly = elapsedSeconds >= 300;
-  const currentTotal = isBreak ? breakDuration : block.duration * 60;
+  const currentTotal = isBreak ? breakDuration : timer.workSec;
   const currentVal = isOvertime ? -overtime : (isBreak ? breakTime : timeLeft);
   const progress = isOvertime ? 1 : Math.min(1, Math.max(0, (currentTotal - currentVal) / currentTotal));
+
+  useEffect(() => {
+    if (isBreak || !isRunning) return;
+    checkMilestone(progress);
+  }, [progress, isBreak, isRunning, checkMilestone]);
   const sessionMinutes = Math.floor(elapsedSeconds / 60);
   const sessionXp = Math.max(0, Math.round(sessionMinutes * 2));
 
@@ -329,7 +326,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const requestExit = () => {
     if (!isBreak && elapsedSeconds >= 60) setShowExitConfirm(true);
-    else onExit();
+    else { clearSessionState(); onExit(); }
   };
   const logAndExit = async () => {
     try {
@@ -344,6 +341,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       }
     } catch (e) { console.error("Failed to log partial session", e); }
     setShowExitConfirm(false);
+    clearSessionState();
     onExit();
   };
 
@@ -368,23 +366,20 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   const toggleTimer = () => {
     if (soundEnabled) SoundManager.playClick();
     haptic("light");
-    setIsRunning(!isRunning);
-    if (!isRunning && !hasStarted) { playSound("start"); lastTickRef.current = Date.now(); }
+    if (!isRunning && !hasStarted) playSound("start");
+    timer.toggle();
   };
 
   const startBreak = () => {
     if (strictMode) return;
-    setIsBreak(true); setBreakTime(breakDuration); setIsRunning(true);
-    lastTickRef.current = Date.now(); playSound("start");
+    timer.startBreak();
+    playSound("start");
   };
-  const endBreak = (resume: boolean) => {
-    setIsBreak(false); setBreakTime(0); setIsRunning(resume);
-    if (resume) lastTickRef.current = Date.now();
-  };
+  const endBreak = (resume: boolean) => timer.endBreak(resume);
 
   const addFive = () => {
     if (isBreak || isOvertime) return;
-    setTimeLeft(p => p + 300);
+    timer.addWorkMinutes(5);
     if (soundEnabled) SoundManager.playClick();
     haptic("light");
   };
@@ -404,36 +399,96 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
     await handleFocusComplete(totalDuration, notes);
   };
 
+  // Ending a session must drop BOTH the persisted timer and the saved notes,
+  // or the next session on this block would resume a finished one and restore
+  // stale notes. Blanking notesRef stops the unmount handler writing them back.
+  const clearSessionState = useCallback(() => {
+    clearPersistedTimer();
+    notesRef.current = "";
+    try { localStorage.removeItem(`orbit-session-notes-${blockIdRef.current}`); } catch { }
+  }, []);
+
+  // A session can only be completed once. Both the timer reaching zero and the
+  // "finish overtime" button call this, and nothing stopped them both landing.
+  const completingRef = useRef(false);
+  const summaryTimerRef = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (summaryTimerRef.current !== null) window.clearTimeout(summaryTimerRef.current);
+  }, []);
+
   const handleFocusComplete = useCallback(async (actualDuration?: number, sNotes?: string) => {
-    if (!block || !isMountedRef.current) return;
+    if (!block || !isMountedRef.current || completingRef.current) return;
+    completingRef.current = true;
     const durationToLog = actualDuration || block.duration;
-    if (block.type === "assignment" && (block as any).assignmentId) {
-      await updateAssignmentProgress((block as any).assignmentId, durationToLog);
+    try {
+      if (block.type === "assignment" && (block as any).assignmentId) {
+        await updateAssignmentProgress((block as any).assignmentId, durationToLog);
+      }
+    } catch (e) {
+      console.error("Failed to update assignment progress:", e);
     }
     if (isMountedRef.current) {
       playSound("complete");
       setCompletedDuration(durationToLog);
       setSessionNotes(sNotes || "");
       setShowQualityModal(true);
+    } else {
+      completingRef.current = false;
     }
   }, [block, playSound]);
 
   const handleQualityRating = async (rating: 1 | 2 | 3 | 4 | 5, topic?: string, aiTip?: string) => {
-    await recordBlockOutcome(block, { actualDuration: completedDuration, completionQuality: rating, skipped: wasSkipped });
     let reviewMeta: { topicId: string; comprehensionRating: 1 | 2 | 3; reviewNumber: number; nextReview: string } | undefined;
-    if (block.type === "review" && topic && topic.trim()) {
-      let srRating: 1 | 2 | 3 = 2;
-      if (rating <= 2) srRating = 1; else if (rating >= 4) srRating = 3;
-      reviewMeta = await recordTopicReview(block.subjectId, topic.trim(), srRating, block.duration, getISTEffectiveDate());
+    try {
+      await recordBlockOutcome(block, { actualDuration: completedDuration, completionQuality: rating, skipped: wasSkipped });
+      if (block.type === "review" && topic && topic.trim()) {
+        let srRating: 1 | 2 | 3 = 2;
+        if (rating <= 2) srRating = 1; else if (rating >= 4) srRating = 3;
+        reviewMeta = await recordTopicReview(block.subjectId, topic.trim(), srRating, block.duration, getISTEffectiveDate());
+      }
+    } catch (e) {
+      // Never strand the user on the rating modal because bookkeeping failed —
+      // the session itself still counts.
+      console.error("Failed to record block outcome:", e);
     }
     const readinessGain = rating >= 4 ? 10 : rating >= 3 ? 6 : 3;
     setSummaryData({ duration: completedDuration, quality: rating, readinessGain, aiTip: aiTip || "" });
     setShowQualityModal(false);
     setShowSummary(true);
-    setTimeout(() => { setShowSummary(false); onComplete(completedDuration, sessionNotes, reviewMeta); }, aiTip ? 4800 : 3600);
+    // Tracked so unmounting mid-summary doesn't fire onComplete afterwards.
+    summaryTimerRef.current = window.setTimeout(() => {
+      summaryTimerRef.current = null;
+      if (!isMountedRef.current) return;
+      setShowSummary(false);
+      clearSessionState();
+      onComplete(completedDuration, sessionNotes, reviewMeta);
+    }, aiTip ? 4800 : 3600);
   };
 
-  const handleQualityDismiss = () => { setShowQualityModal(false); onComplete(completedDuration, sessionNotes); };
+  /** Skip the summary countdown. */
+  const finishSummaryNow = () => {
+    if (summaryTimerRef.current !== null) {
+      window.clearTimeout(summaryTimerRef.current);
+      summaryTimerRef.current = null;
+    }
+    setShowSummary(false);
+    clearSessionState();
+    onComplete(completedDuration, sessionNotes);
+  };
+
+  // Dismissing without a rating still completes the block (the work happened),
+  // but the outcome was never recorded — so the planner's calibration silently
+  // lost every dismissed session. Record a neutral outcome instead.
+  const handleQualityDismiss = async () => {
+    try {
+      await recordBlockOutcome(block, { actualDuration: completedDuration, completionQuality: 3, skipped: wasSkipped });
+    } catch (e) {
+      console.error("Failed to record block outcome:", e);
+    }
+    setShowQualityModal(false);
+    clearSessionState();
+    onComplete(completedDuration, sessionNotes);
+  };
 
   const handleResourceClick = (resource: Resource) => {
     if (resource.fileData && resource.fileType) {
@@ -446,13 +501,59 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
         const blob = new Blob([byteArray], { type: resource.fileType });
         const blobUrl = URL.createObjectURL(blob);
         window.open(blobUrl, "_blank", "noopener,noreferrer");
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+        // 100ms was a race the new tab regularly lost — revoking before it had
+        // fetched the blob left the user with a blank viewer. A minute is
+        // ample, and the URL is released either way.
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
       } catch (error) { console.error("Error opening file:", error); }
       return;
     }
     if (!resource.url || resource.url.trim() === "") return;
     window.open(resource.url, "_blank", "noopener,noreferrer");
   };
+
+  // Focus trap. Every overlay here is marked role="dialog", but Tab still
+  // walked straight out into the timer controls behind them — so keyboard and
+  // screen-reader users could operate a screen they couldn't see. Constrain Tab
+  // to the topmost open dialog, and restore focus when it closes.
+  const anyDialogOpen =
+    showNotes || showAI || showSettings || showResources || showSound || showParking ||
+    showQualityModal || showExitConfirm || showSummary;
+
+  useEffect(() => {
+    if (!anyDialogOpen) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const SELECTOR =
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+    const topDialog = (): HTMLElement | null => {
+      const all = document.querySelectorAll<HTMLElement>('[role="dialog"]');
+      return all.length ? all[all.length - 1] : null;
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const dialog = topDialog();
+      if (!dialog) return;
+      const f = Array.from(dialog.querySelectorAll<HTMLElement>(SELECTOR))
+        .filter(el => el.offsetParent !== null);
+      if (f.length === 0) { e.preventDefault(); return; }
+      const firstEl = f[0];
+      const lastEl = f[f.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && (active === firstEl || !dialog.contains(active))) {
+        e.preventDefault(); lastEl.focus();
+      } else if (!e.shiftKey && (active === lastEl || !dialog.contains(active))) {
+        e.preventDefault(); firstEl.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+    };
+  }, [anyDialogOpen]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -464,7 +565,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
         else if (showResources) setShowResources(false);
         else if (showSound) setShowSound(false);
         else if (zen) setZen(false);
-        else if (isRunning && !strictMode) setIsRunning(false);
+        else if (isRunning && !strictMode) timer.pause();
       }
       if (e.target !== document.body) return;
       if (e.key === " " && !anyModal) { e.preventDefault(); toggleTimer(); }
@@ -491,7 +592,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   const faceMeta = time.isNegative ? "OVERTIME" : isBreak ? `recharge · ${pct}%` : `of ${String(block.duration).padStart(2, "0")}:00 · ${pct}%`;
 
   const OrbitFace = (
-    <button onClick={addFive} className="relative block" style={{ width: 410, height: 410, maxWidth: "78vw", maxHeight: "78vw" }} title="Tap to add 5 minutes">
+    <div className="relative block" style={{ width: 410, height: 410, maxWidth: "78vw", maxHeight: "78vw" }}>
       <svg viewBox="0 0 100 100" className="w-full h-full" style={{ transform: "rotate(-90deg)" }}>
         <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2.6" />
         <circle cx="50" cy="50" r="45" fill="none" stroke={theme.primary} strokeWidth="3.4" strokeLinecap="round"
@@ -506,7 +607,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
         <div className="display tabular-nums" style={{ fontSize: "clamp(48px, 13vw, 92px)", color: isBreak ? theme.primary : undefined, transition: "color .5s ease" }}>{shownTime}</div>
         <div className="meta text-[10px] text-mute mt-3">{faceMeta}</div>
       </div>
-    </button>
+    </div>
   );
 
   const FlipFace = (
@@ -530,7 +631,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
   );
 
   const MinimalFace = (
-    <button onClick={addFive} className="flex flex-col items-center" title="Tap to add 5 minutes">
+    <div className="flex flex-col items-center">
       <span className="meta text-[10px] mb-4" style={{ color: theme.primary, transition: "color .5s ease" }}>◐ {phaseLabel}</span>
       <div className="display tabular-nums leading-none" style={{ fontSize: "clamp(72px, 22vw, 190px)", color: isBreak ? theme.primary : undefined, transition: "color .5s ease" }}>{shownTime}</div>
       <div className="w-72 max-w-[78vw] mt-7">
@@ -539,7 +640,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
         </div>
         <div className="meta text-[9px] text-mute text-center mt-2.5">{faceMeta}</div>
       </div>
-    </button>
+    </div>
   );
 
   return (
@@ -631,14 +732,14 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
                   <span className="hidden sm:inline">{scape === "silence" ? "Sound" : SOUNDSCAPES.find(s => s.id === scape)?.label}</span>
                   <ChevronDown size={10} className="opacity-60" />
                 </button>
-                <button onClick={cycleSkin} title="Timer skin" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><CircleDashed size={14} /></button>
-                <button onClick={() => setHideTime(h => !h)} title={hideTime ? "Show time" : "Hide time"} className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg border-2 flex items-center justify-center transition-colors ${hideTime ? "bg-orange-500/15 border-orange-500/30 text-orange-400" : "bg-ink2/80 border-white/15 text-mute hover:text-white"}`}>{hideTime ? <EyeOff size={14} /> : <Eye size={14} />}</button>
-                <button onClick={() => { if (!isRunning) setStrictMode(s => !s); }} title={strictMode ? "Strict on" : "Strict off"} disabled={isRunning}
+                <button onClick={cycleSkin} title="Timer skin" aria-label="Timer skin" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><CircleDashed size={14} /></button>
+                <button onClick={() => setHideTime(h => !h)} title={hideTime ? "Show time" : "Hide time"} aria-label={hideTime ? "Show the timer" : "Hide the timer"} aria-pressed={hideTime} className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg border-2 flex items-center justify-center transition-colors ${hideTime ? "bg-orange-500/15 border-orange-500/30 text-orange-400" : "bg-ink2/80 border-white/15 text-mute hover:text-white"}`}>{hideTime ? <EyeOff size={14} /> : <Eye size={14} />}</button>
+                <button onClick={() => { if (!isRunning) setStrictMode(s => !s); }} title={strictMode ? "Strict on" : "Strict off"} aria-label="Strict mode" aria-pressed={strictMode} disabled={isRunning}
                   className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg border flex items-center justify-center transition-colors ${strictMode ? "bg-yellow-400/15 border-yellow-400/30 text-yellow-400" : "bg-ink2/80 border-white/10 text-mute hover:text-white"} ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}>
                   {strictMode ? <Lock size={14} /> : <Unlock size={14} />}
                 </button>
-                <button onClick={() => setZen(true)} title="Zen mode (F)" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><Maximize2 size={13} /></button>
-                <button onClick={requestExit} title="Exit" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><X size={15} /></button>
+                <button onClick={() => setZen(true)} title="Zen mode (F)" aria-label="Zen mode (F)" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><Maximize2 size={13} /></button>
+                <button onClick={requestExit} title="Exit" aria-label="Exit" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><X size={15} /></button>
               </div>
             </div>
           )}
@@ -650,7 +751,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
                 <div className="flex flex-col items-center mt-8" style={{ animation: "fadeIn .4s ease" }}>
                   <p className="text-sm text-mute text-center max-w-xs mb-5">Stand up · hydrate · look 20&nbsp;ft away. Rest is part of the work.</p>
                   <div className="flex items-center gap-3">
-                    <button onClick={() => setBreakTime(t => t + 60)} className="bg-ink2/80 border-2 border-white/15 text-white font-bold text-sm px-5 py-3 rounded-xl flex items-center gap-2 hover:bg-ink3 transition-colors"><Plus size={15} />1 min</button>
+                    <button onClick={() => timer.addBreakMinutes(1)} className="bg-ink2/80 border-2 border-white/15 text-white font-bold text-sm px-5 py-3 rounded-xl flex items-center gap-2 hover:bg-ink3 transition-colors"><Plus size={15} />1 min</button>
                     <button onClick={() => endBreak(true)} className="bg-yellow-400 text-ink font-bold text-sm px-6 py-3 rounded-xl hover:brightness-105 transition-all">Back to focus →</button>
                   </div>
                 </div>
@@ -674,14 +775,17 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
             <div className="px-5 md:px-8 pb-7 pt-2">
               <div className="flex flex-col-reverse items-center gap-3 sm:grid sm:grid-cols-3 sm:items-end">
                 <div className="flex items-center gap-2 justify-self-start">
-                  <button onClick={() => setShowNotes(true)} disabled={strictMode && isRunning} title="Notes" className={`w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors ${strictMode && isRunning ? "opacity-30 cursor-not-allowed" : ""}`}><BookOpen size={16} /></button>
-                  <button onClick={() => setShowParking(true)} title="Parking lot — dump a distraction without breaking focus" className="relative w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><Inbox size={16} />{parked.length > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-orange-500 text-ink text-[9px] font-bold flex items-center justify-center">{parked.length}</span>}</button>
-                  <button onClick={() => setShowAI(true)} title="AI coach" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-orange-400 hover:bg-orange-500/10 flex items-center justify-center transition-colors"><Sparkles size={16} /></button>
-                  <button onClick={() => setShowResources(true)} title="Resources" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><FileText size={16} /></button>
-                  <button onClick={() => setShowSettings(true)} title="Settings" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors hidden sm:flex"><SettingsIcon size={16} /></button>
+                  <button onClick={() => setShowNotes(true)} disabled={strictMode && isRunning} title="Notes" aria-label="Notes" className={`w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors ${strictMode && isRunning ? "opacity-30 cursor-not-allowed" : ""}`}><BookOpen size={16} /></button>
+                  <button onClick={() => setShowParking(true)} title="Parking lot — dump a distraction without breaking focus" aria-label="Parking lot — dump a distraction without breaking focus" className="relative w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><Inbox size={16} />{parked.length > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-orange-500 text-ink text-[9px] font-bold flex items-center justify-center">{parked.length}</span>}</button>
+                  <button onClick={() => setShowAI(true)} title="AI coach" aria-label="AI coach" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-orange-400 hover:bg-orange-500/10 flex items-center justify-center transition-colors"><Sparkles size={16} /></button>
+                  <button onClick={() => setShowResources(true)} title="Resources" aria-label="Resources" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors"><FileText size={16} /></button>
+                  <button onClick={() => setShowSettings(true)} title="Settings" aria-label="Settings" className="w-10 h-10 rounded-xl bg-ink2/80 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors hidden sm:flex"><SettingsIcon size={16} /></button>
                 </div>
 
                 <div className="flex items-center gap-2.5 justify-self-center">
+                  {!isOvertime && !isBreak && (
+                    <button onClick={addFive} aria-label="Add five minutes to this block" className="bg-ink2/80 border-2 border-white/15 text-white font-bold uppercase tracking-wide text-sm px-4 py-3.5 rounded-xl flex items-center gap-1.5 hover:bg-ink3 transition-colors"><Plus size={15} />5<span className="hidden md:inline"> min</span></button>
+                  )}
                   {!isOvertime && (
                     <button onClick={startBreak} disabled={strictMode} className={`bg-ink2/80 border-2 border-white/15 text-white font-bold uppercase tracking-wide text-sm px-4 md:px-5 py-3.5 rounded-xl flex items-center gap-2 hover:bg-ink3 transition-colors ${strictMode ? "opacity-30 cursor-not-allowed" : ""}`}><Coffee size={15} /><span className="hidden md:inline">Break</span></button>
                   )}
@@ -693,7 +797,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
                       {isRunning ? (strictMode ? "Locked" : "Pause") : (hasStarted ? "Resume" : "Start")}
                     </button>
                   )}
-                  <button onClick={requestExit} className="bg-ink2/80 border-2 border-white/15 text-mute hover:text-white font-bold uppercase tracking-wide text-sm px-4 md:px-5 py-3.5 rounded-xl flex items-center gap-2 transition-colors"><Square size={14} /><span className="hidden md:inline">End</span></button>
+                  <button onClick={requestExit} aria-label="End session" className="bg-ink2/80 border-2 border-white/15 text-mute hover:text-white font-bold uppercase tracking-wide text-sm px-4 md:px-5 py-3.5 rounded-xl flex items-center gap-2 transition-colors"><Square size={14} /><span className="hidden md:inline">End</span></button>
                 </div>
 
                 <div className="justify-self-end text-right space-y-1.5 hidden sm:block">
@@ -704,15 +808,15 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
               </div>
               {canFinishEarly && !isOvertime && !strictMode && (
                 <div className="text-center mt-3">
-                  <button onClick={() => { setIsRunning(false); setCompletedDuration(sessionMinutes); setShowQualityModal(true); }} className="meta text-[9px] text-mute hover:text-yellow-400 transition-colors inline-flex items-center gap-1.5"><CheckCircle size={11} /> Finish early · log {sessionMinutes} min</button>
+                  <button onClick={() => { timer.pause(); setCompletedDuration(sessionMinutes); setShowQualityModal(true); }} className="meta text-[9px] text-mute hover:text-yellow-400 transition-colors inline-flex items-center gap-1.5"><CheckCircle size={11} /> Finish early · log {sessionMinutes} min</button>
                 </div>
               )}
-              <div className="hidden sm:block text-center meta text-[8px] text-mute/50 mt-3">space = {isRunning ? "pause" : "start"} · F = zen · tap timer = +5 min</div>
+              <div className="hidden sm:block text-center meta text-[8px] text-mute/50 mt-3">space = {isRunning ? "pause" : "start"} · F = zen</div>
             </div>
           )}
 
           {zen && (
-            <button onClick={() => setZen(false)} className="absolute top-6 right-6 z-30 w-10 h-10 rounded-lg bg-ink2/70 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors" title="Exit zen (Esc)"><Minimize2 size={15} /></button>
+            <button onClick={() => setZen(false)} className="absolute top-6 right-6 z-30 w-10 h-10 rounded-lg bg-ink2/70 border-2 border-white/15 text-mute hover:text-white flex items-center justify-center transition-colors" title="Exit zen (Esc)" aria-label="Exit zen (Esc)"><Minimize2 size={15} /></button>
           )}
           {zen && (<div className="absolute bottom-6 inset-x-0 text-center meta text-[8px] text-mute/50 z-20">Zen mode · F or Esc to exit</div>)}
         </div>
@@ -741,7 +845,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       )}
 
       {showSummary && summaryData && (
-        <div className="fixed inset-0 z-[110] bg-ink flex items-center justify-center p-5">
+        <div role="dialog" aria-modal="true" aria-label="Session complete" className="fixed inset-0 z-[110] bg-ink flex items-center justify-center p-5">
           <div className="nebula bright"><div className="blob b1" /><div className="blob b2" /><div className="blob b3" /></div>
           <div className="relative z-10 flex flex-col items-center text-center max-w-sm w-full" style={{ animation: "scaleIn .45s cubic-bezier(0.34,1.56,0.64,1)" }}>
             <div className="relative w-32 h-32 flex items-center justify-center mb-5">
@@ -758,17 +862,26 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
               <div className="rounded-xl bg-ink2/70 border-2 border-white/15 p-3"><div className="display text-xl text-paper">{"⭐".repeat(summaryData.quality)}</div><div className="meta text-[8px] text-mute mt-1">Quality</div></div>
             </div>
             {summaryData.aiTip && (
-              <div className="flex items-start gap-2.5 px-4 py-3 mt-4 rounded-xl bg-orange-500/10border border-orange-500/25 text-left">
+              <div className="flex items-start gap-2.5 px-4 py-3 mt-4 rounded-xl bg-orange-500/10 border border-orange-500/25 text-left">
                 <Sparkles size={13} className="text-orange-400 flex-shrink-0 mt-0.5" />
                 <p className="text-xs leading-relaxed text-white/75">{summaryData.aiTip}</p>
               </div>
             )}
+            {/* The summary used to sit on a fixed 3.6–4.8s timer with no way
+                out, holding the user on a screen they'd already read. */}
+            <button
+              onClick={finishSummaryNow}
+              autoFocus
+              className="mt-6 w-full py-3.5 rounded-xl bg-orange-500 text-ink font-bold uppercase tracking-wide text-sm hover:brightness-105 transition-all"
+            >
+              Done
+            </button>
           </div>
         </div>
       )}
 
       {showAI && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="AI coach" className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowAI(false)} />
           <div className="relative z-20 w-full max-w-3xl max-h-[88vh] rounded-2xl overflow-hidden">
             <AIStudyAssistant block={block} subjectIntelligence={subjectIntelligence} onClose={() => setShowAI(false)} />
@@ -777,7 +890,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       )}
 
       {showNotes && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="Session notes" className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowNotes(false)} />
           <div className="relative z-20 w-full max-w-2xl max-h-[85vh] rounded-2xl overflow-hidden bg-ink2 border border-white/12 flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
@@ -794,7 +907,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       )}
 
       {showParking && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="Parking lot" className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowParking(false)} />
           <div className="relative z-20 w-full max-w-lg max-h-[85vh] rounded-2xl overflow-hidden bg-ink2 border border-white/12 flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
@@ -812,7 +925,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
                   {parked.map((p) => (
                     <li key={p.id} className="flex items-start gap-3 bg-ink/60 border border-white/8 rounded-xl px-4 py-2.5">
                       <span className="flex-1 text-sm text-white/90 leading-snug">{p.text}</span>
-                      <button onClick={() => persistParked(parked.filter((x) => x.id !== p.id))} title="Clear" className="shrink-0 text-mute/60 hover:text-orange-400 transition-colors"><X size={14} /></button>
+                      <button onClick={() => persistParked(parked.filter((x) => x.id !== p.id))} title="Clear" aria-label="Clear" className="shrink-0 text-mute/60 hover:text-orange-400 transition-colors"><X size={14} /></button>
                     </li>
                   ))}
                 </ul>
@@ -829,7 +942,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       )}
 
       {showResources && (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-end md:justify-center p-0 md:p-4">
+        <div role="dialog" aria-modal="true" aria-label="Resources" className="fixed inset-0 z-[100] flex items-end md:items-center justify-end md:justify-center p-0 md:p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowResources(false)} />
           <div className="relative z-20 w-full md:max-w-md h-full md:h-auto md:max-h-[90vh] flex flex-col bg-ink2 border border-white/12 md:rounded-2xl rounded-t-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
@@ -870,7 +983,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
       )}
 
       {showSettings && (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
+        <div role="dialog" aria-modal="true" aria-label="Focus settings" className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowSettings(false)} />
           <div className="relative z-20 w-full md:max-w-md bg-ink2 border border-white/12 md:rounded-2xl rounded-t-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
@@ -922,7 +1035,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({ block, onComplete, o
             <div className="space-y-2.5">
               <button onClick={logAndExit} className="w-full py-3 rounded-xl bg-orange-500 text-ink font-bold text-sm transition-all active:scale-95">Log {sessionMinutes} min &amp; exit</button>
               <button onClick={() => setShowExitConfirm(false)} className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border-2 border-white/15 text-white font-bold text-sm transition-all">Keep studying</button>
-              <button onClick={() => { setShowExitConfirm(false); onExit(); }} className="w-full py-2.5 rounded-xl text-mute hover:text-red-400 font-bold text-sm transition-all">Discard &amp; exit</button>
+              <button onClick={() => { setShowExitConfirm(false); clearSessionState(); onExit(); }} className="w-full py-2.5 rounded-xl text-mute hover:text-red-400 font-bold text-sm transition-all">Discard &amp; exit</button>
             </div>
           </div>
         </div>

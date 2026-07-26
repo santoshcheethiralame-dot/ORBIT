@@ -149,11 +149,14 @@ const DayTypeTabs = ({ value, onChange }: { value: string; onChange: (v: "normal
 interface DailyContextModalProps {
   subjects: Subject[];
   onGenerate: (ctx: DailyContext) => Promise<void> | void;
+  /** Close without building a plan. The modal used to be inescapable — you
+   *  could not look at Courses or Stats without first committing to a day. */
+  onDismiss?: () => void;
 }
 
-export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalProps) => {
+export const DailyContextModal = ({ subjects, onGenerate, onDismiss }: DailyContextModalProps) => {
   const dialogRef = useRef<HTMLDivElement>(null);
-  useDialogA11y(dialogRef);
+  useDialogA11y(dialogRef, onDismiss);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -510,15 +513,23 @@ export const DailyContextModal = ({ subjects, onGenerate }: DailyContextModalPro
               </div>
 
               <div className="flex items-center justify-between gap-4 pt-1">
-                <button
-                  onClick={async () => {
-                    setIsGenerating(true);
-                    try { await onGenerate({ mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false }); }
-                    catch { setIsGenerating(false); }
-                  }}
-                  className="meta text-[10px] text-zinc-500 hover:text-white transition-colors px-2 py-2">
-                  Skip for now
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={async () => {
+                      setIsGenerating(true);
+                      try { await onGenerate({ mood: 'normal', dayType: 'normal', isHoliday: false, isSick: false }); }
+                      catch { setIsGenerating(false); }
+                    }}
+                    className="meta text-[10px] text-zinc-500 hover:text-white transition-colors px-2 py-2">
+                    Use defaults
+                  </button>
+                  {onDismiss && (
+                    <button onClick={onDismiss}
+                      className="meta text-[10px] text-zinc-600 hover:text-white transition-colors px-2 py-2">
+                      Not now
+                    </button>
+                  )}
+                </div>
                 <button onClick={handleSubmit} disabled={!canSubmit()}
                   className={`flex-1 max-w-[260px] py-4 text-base font-bold rounded-2xl min-h-[52px] flex items-center justify-center gap-2 transition-all ${canSubmit()
                     ? "bg-orange-500 text-ink hover:scale-[1.02] active:scale-[0.98]"

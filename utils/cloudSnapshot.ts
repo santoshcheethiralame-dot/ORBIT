@@ -26,14 +26,59 @@ export async function serializeAll(): Promise<CloudSnapshot> {
   return { version: 2, createdAt: new Date().toISOString(), tables };
 }
 
-/** A stable fingerprint of the DB, so the sync engine only pushes real changes. */
-export async function snapshotHash(snap?: CloudSnapshot): Promise<string> {
-  const s = snap ?? (await serializeAll());
-  // Hash the tables only (not createdAt, which changes every call).
-  const json = JSON.stringify(s.tables);
+/** The original djb2 fingerprint. Kept ONLY to recognise ancestors written by
+ *  versions before the SHA-256 switch — see snapshotFingerprint. */
+function legacyHash(json: string): string {
   let h = 5381;
   for (let i = 0; i < json.length; i++) h = ((h << 5) + h + json.charCodeAt(i)) | 0;
   return `${json.length}:${h >>> 0}`;
+}
+
+export interface Fingerprint {
+  /** Current-format hash. This is what gets stored. */
+  hash: string;
+  /** Same content under the pre-upgrade algorithm, for ancestor comparison. */
+  legacy: string;
+}
+
+/**
+ * Fingerprint the DB in both the current and the previous format, from a single
+ * serialisation.
+ *
+ * The current format is SHA-256: the old 32-bit djb2 had a real chance of
+ * colliding across a user's edit history, and a collision here is silent data
+ * loss — the engine concludes "nothing changed" and never pushes the edit.
+ *
+ * `legacy` exists purely for the upgrade. Every already-synced user has an
+ * ancestor hash stored in the old format; without recognising it, reconcile
+ * would see "neither side matches the ancestor", declare a conflict, and make
+ * them choose which copy to destroy. Returning both lets the ancestor be
+ * matched under either algorithm and then quietly rewritten in the new one.
+ */
+export async function snapshotFingerprint(snap?: CloudSnapshot): Promise<Fingerprint> {
+  const s = snap ?? (await serializeAll());
+  // Hash the tables only (not createdAt, which changes every call).
+  const json = JSON.stringify(s.tables);
+  const legacy = legacyHash(json);
+
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(json));
+      const hex = Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      return { hash: `${json.length}:${hex}`, legacy };
+    } catch {
+      /* crypto.subtle unavailable (insecure context) — fall back */
+    }
+  }
+
+  return { hash: legacy, legacy };
+}
+
+/** Convenience: just the storable hash. */
+export async function snapshotHash(snap?: CloudSnapshot): Promise<string> {
+  return (await snapshotFingerprint(snap)).hash;
 }
 
 /**

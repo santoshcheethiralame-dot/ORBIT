@@ -69,7 +69,11 @@ export default defineConfig({
   build: {
     target: 'es2022',
     outDir: 'dist',
-    sourcemap: true,
+    // 'hidden' still emits maps (so they can be uploaded to an error tracker or
+    // kept alongside a release) but drops the //# sourceMappingURL comment, so
+    // the deployed bundle no longer advertises ~4MB of full application source
+    // to every visitor.
+    sourcemap: 'hidden',
     chunkSizeWarningLimit: 1024,
     rollupOptions: {
       output: {

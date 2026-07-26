@@ -1,11 +1,10 @@
-if (typeof window !== 'undefined') {
-  const { hostname, protocol, port, pathname, search } = window.location;
-  const isLanIp = /^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
-  const isDev = port === '3000' || port === '5173';
-  if (isLanIp && isDev && protocol !== 'file:') {
-    window.location.replace(`http://localhost:${port}${pathname}${search}`);
-  }
-}
+// NOTE: this used to force any LAN-IP visitor on a dev port over to
+// `localhost`, which made it impossible to open the dev server from a phone on
+// the same network — the one setup you actually need to exercise the PWA,
+// install prompt and push notifications. Serving over the LAN IP is the
+// intended workflow, so no redirect. (Web Push and installability still
+// require a secure context; use `vite --host` behind HTTPS or a tunnel if you
+// need those over the LAN.)
 
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
@@ -35,15 +34,54 @@ import { Dashboard } from "./Dashboard";
 import { SpaceBackground } from "./SpaceBackground";
 import { DailyContextModal } from "./DailyContextModal";
 
-const Onboarding = lazy(() => import("./Onboarding").then(m => ({ default: m.Onboarding })));
-const FocusSession = lazy(() => import("./FocusSession").then(m => ({ default: m.FocusSession })));
-const CoursesView = lazy(() => import("./Courses"));
-const ProjectsView = lazy(() => import("./ProjectsView"));
-const ScheduleView = lazy(() => import("./ScheduleView"));
-const StatsView = lazy(() => import("./Stats").then(m => ({ default: m.StatsView })));
-const ReviewQueueView = lazy(() => import("./SpacedRepetition").then(m => ({ default: m.ReviewQueueView })));
-const AboutView = lazy(() => import("./AboutView").then(m => ({ default: m.AboutView })));
-const SettingsView = lazy(() => import("./SettingsView").then(m => ({ default: m.SettingsView })));
+/**
+ * lazy(), but survives a deploy that happened while the app was open.
+ *
+ * The service worker calls skipWaiting() + clientsClaim(), so a new version
+ * takes over live tabs immediately and cleanupOutdatedCaches() purges the old
+ * precache. The page is still running the PREVIOUS bundle, so the next view it
+ * lazily imports asks for a chunk filename that no longer exists — the import
+ * rejects and the view is dead until a manual refresh.
+ *
+ * A chunk that 404s means "you are running a stale build", and the fix is
+ * always the same: reload and get the current one. The sessionStorage flag
+ * makes it strictly one attempt, so a genuinely broken deploy shows the error
+ * boundary instead of reload-looping.
+ */
+const CHUNK_RELOAD_FLAG = "orbit-chunk-reloaded";
+
+function lazyWithReload<T extends React.ComponentType<any>>(
+  load: () => Promise<{ default: T }>,
+) {
+  return lazy(() =>
+    load()
+      .then((m) => {
+        try { sessionStorage.removeItem(CHUNK_RELOAD_FLAG); } catch { }
+        return m;
+      })
+      .catch((err) => {
+        let alreadyTried = false;
+        try { alreadyTried = sessionStorage.getItem(CHUNK_RELOAD_FLAG) === "1"; } catch { }
+        if (!alreadyTried) {
+          try { sessionStorage.setItem(CHUNK_RELOAD_FLAG, "1"); } catch { }
+          window.location.reload();
+          // Never resolves; the reload replaces this document.
+          return new Promise<{ default: T }>(() => { });
+        }
+        throw err;
+      }),
+  );
+}
+
+const Onboarding = lazyWithReload(() => import("./Onboarding").then(m => ({ default: m.Onboarding })));
+const FocusSession = lazyWithReload(() => import("./FocusSession").then(m => ({ default: m.FocusSession })));
+const CoursesView = lazyWithReload(() => import("./Courses"));
+const ProjectsView = lazyWithReload(() => import("./ProjectsView"));
+const ScheduleView = lazyWithReload(() => import("./ScheduleView"));
+const StatsView = lazyWithReload(() => import("./Stats").then(m => ({ default: m.StatsView })));
+const ReviewQueueView = lazyWithReload(() => import("./SpacedRepetition").then(m => ({ default: m.ReviewQueueView })));
+const AboutView = lazyWithReload(() => import("./AboutView").then(m => ({ default: m.AboutView })));
+const SettingsView = lazyWithReload(() => import("./SettingsView").then(m => ({ default: m.SettingsView })));
 import { SoundManager } from "./utils/sounds";
 import { NotificationManager } from "./utils/notifications";
 import { startStudyReminder } from "./utils/studyReminder";
@@ -51,9 +89,11 @@ import { getSubjectIntelligence, SubjectIntelligence } from "./utils/subjectInte
 import { ToastProvider, useToast } from "./Toast";
 import { initCloudSync } from "./utils/cloudSync";
 import { initReminders, syncDailyStatus } from "./utils/reminders";
-import { CloudSyncBanner } from "./CloudSync";
+import { CloudSyncBanner, setFocusMode } from "./CloudSync";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 import { getISTEffectiveDate, isPlanCurrent, effectiveDatePlus } from "./utils/time";
+import { getStudyStreak } from "./utils/streak";
 
 const NAV_TABS = [
   { id: "dashboard", icon: LayoutGrid,   label: "Dashboard" },
@@ -111,6 +151,27 @@ const App = () => {
     catch { return 0; }
   }, []) ?? 0;
 
+  // Mobile browsers evict backgrounded tabs, so switching apps mid-session and
+  // coming back reloaded the page — and the focus session simply vanished back
+  // to the dashboard. The timer itself persists (utils/focusTimer.ts); this
+  // remembers which block was open so the screen comes back with it.
+  const ACTIVE_FOCUS_KEY = 'orbit-active-focus';
+  const rememberActiveFocus = (b: StudyBlock | null) => {
+    try {
+      if (b) localStorage.setItem(ACTIVE_FOCUS_KEY, JSON.stringify(b));
+      else localStorage.removeItem(ACTIVE_FOCUS_KEY);
+    } catch { /* storage unavailable — session just won't be resumable */ }
+  };
+  const openFocus = (b: StudyBlock) => {
+    rememberActiveFocus(b);
+    setActiveBlock(b);
+    setView("focus");
+  };
+  const closeFocus = () => {
+    rememberActiveFocus(null);
+    setActiveBlock(null);
+  };
+
   const rolloverCheckInProgress = useRef(false);
   const planGenerationInProgress = useRef(false);
   const loadDataInProgress = useRef(false);
@@ -159,17 +220,18 @@ const App = () => {
       const freqDays = settings.advanced.backupFrequency ?? 7;
       const last = localStorage.getItem(BACKUP_KEY);
       const now = Date.now();
-      if (last && now - parseInt(last) < freqDays * 24 * 60 * 60 * 1000) return;
+      if (last && now - parseInt(last, 10) < freqDays * 24 * 60 * 60 * 1000) return;
 
       try {
         const [
           subjectsArr, logsArr, assignmentsArr, plansArr, topicsArr,
           projectsArr, scheduleArr, blockOutcomesArr, studyBlocksArr, semestersArr, examsArr,
+          settingsArr,
         ] = await Promise.all([
           db.subjects.toArray(), db.logs.toArray(), db.assignments.toArray(),
           db.plans.toArray(), db.topics.toArray(), db.projects.toArray(),
           db.schedule.toArray(), db.blockOutcomes.toArray(), db.studyBlocks.toArray(),
-          db.semesters.toArray(), db.exams.toArray(),
+          db.semesters.toArray(), db.exams.toArray(), db.settings.toArray(),
         ]);
 
         const payload = {
@@ -181,21 +243,31 @@ const App = () => {
             plans: plansArr, topics: topicsArr, projects: projectsArr,
             schedule: scheduleArr, blockOutcomes: blockOutcomesArr,
             studyBlocks: studyBlocksArr, semesters: semestersArr, exams: examsArr,
+            settings: settingsArr,
           },
         };
 
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `orbit-auto-backup-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        // A download needs a user gesture — firing one straight from a page-load
+        // timer gets silently blocked or throws an unexplained permission prompt
+        // at the user. Offer it instead, and only mark the backup done once they
+        // actually take it.
+        const download = () => {
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `orbit-auto-backup-${getISTEffectiveDate()}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          localStorage.setItem(BACKUP_KEY, String(Date.now()));
+        };
 
+        // Advance the schedule on the offer, not on the click — otherwise
+        // declining once means being re-prompted every hour forever.
         localStorage.setItem(BACKUP_KEY, String(now));
-        toast.success('Auto-backup downloaded');
+        toast.info('Your scheduled backup is ready.', { label: 'DOWNLOAD', onClick: download });
       } catch (err) {
         console.error('Auto-backup failed:', err);
       }
@@ -256,17 +328,21 @@ const App = () => {
       if (existing && isPlanCurrent(existing.date)) {
         setTodayPlan(existing);
         setNeedsContext(false);
+      } else if (subs.length > 0) {
+        setNeedsContext(true);
+        setTodayPlan(null);
       } else {
-        const subCount = await db.subjects.count();
-        if (subCount > 0) {
-          setNeedsContext(true);
-          setTodayPlan(null);
-        }
+        // No subjects and no plan: there is nothing to render and no context
+        // modal to raise. Without this the dashboard sat permanently blank —
+        // e.g. after deleting every subject while a semester still existed.
+        setNeedsContext(false);
+        setTodayPlan(null);
+        setView("onboarding");
       }
 
       saveDbSnapshot();
     } catch (err) {
-      console.error('âŒ LoadData failed:', err);
+      console.error('LoadData failed:', err);
       toast.error('Failed to load data. Please refresh the page.');
     } finally {
       loadDataInProgress.current = false;
@@ -305,9 +381,26 @@ const App = () => {
           }
         } else {
           await loadData();
+          // Reopen a focus session that was interrupted by a reload/eviction.
+          // Only if the timer still has state for it — otherwise the session
+          // was finished and this is a stale key.
+          try {
+            const raw = localStorage.getItem(ACTIVE_FOCUS_KEY);
+            const timerRaw = localStorage.getItem('orbit-focus-timer');
+            if (raw && timerRaw) {
+              const savedBlock = JSON.parse(raw) as StudyBlock;
+              const savedTimer = JSON.parse(timerRaw);
+              if (savedBlock?.id && savedTimer?.blockId === savedBlock.id) {
+                setActiveBlock(savedBlock);
+                setView("focus");
+              } else {
+                rememberActiveFocus(null);
+              }
+            }
+          } catch { rememberActiveFocus(null); }
         }
       } catch (err) {
-        console.error('âŒ Database initialization failed:', err);
+        console.error('Database initialization failed:', err);
 
         try {
           await loadData();
@@ -347,12 +440,13 @@ const App = () => {
         }
 
         if (lastCheckedDate && lastCheckedDate !== currentEffectiveDate) {
-          const todayStr = getISTEffectiveDate();
-          const existing = await db.plans.get(todayStr);
-          if (!existing) {
-            setTodayPlan(null);
-            setNeedsContext(true);
-          }
+          // Let loadData decide what today needs. This used to set
+          // needsContext(true) up front, which on a fresh mount fired while
+          // `subjects` state was still the initial [] — and the guard that
+          // watched for "needsContext && no subjects" then threw a fully
+          // set-up user into the onboarding wizard on the first load of a new
+          // day. loadData reads the DB, so it can't be fooled by lagging state.
+          setTodayPlan(null);
           await loadData();
         }
 
@@ -360,7 +454,6 @@ const App = () => {
       } catch (error) {
         console.error("Rollover check failed:", error);
         toast.error("Failed to check day rollover. Please refresh.");
-        setNeedsContext(true);
       } finally {
         rolloverCheckInProgress.current = false;
       }
@@ -434,25 +527,17 @@ const App = () => {
     } catch (err) {
       console.error("Plan generation failed:", err);
       toast.error("Failed to generate plan. Please try again.");
+      // Re-throw: DailyContextModal awaits this call and only clears its
+      // "generating…" spinner in its own catch. Swallowing the error here left
+      // the modal spinning forever with no way back.
+      throw err;
     } finally {
       planGenerationInProgress.current = false;
     }
   };
 
-  const calculateStreak = (): number => {
-    if (!logs || logs.length === 0) return 0;
-    let count = 0;
-    const daysSeen = new Set<string>();
-    logs.forEach((l) => {
-      if (l && l.date) daysSeen.add(String(l.date));
-    });
-    for (let i = 0; i < 365; i++) {
-      const key = effectiveDatePlus(-i);
-      if (daysSeen.has(key)) count++;
-      else break;
-    }
-    return count;
-  };
+  // Streak logic lives in utils/streak.ts — this used to be one of three
+  // implementations that disagreed with each other.
 
   const handleFocusComplete = async (
     actualDuration?: number,
@@ -534,10 +619,12 @@ const App = () => {
         });
 
         if (settings.notifications.enabled && settings.notifications.sessionReminders) {
-          const newStreak = calculateStreak();
+          // Read after the log above is committed, so the day just completed
+          // is counted — the old version derived this from stale `logs` state.
+          const newStreak = await getStudyStreak();
           if ([7, 14, 30, 60, 100].includes(newStreak)) {
             NotificationManager.send(
-              `\U0001F525 ${newStreak}-Day Streak!`,
+              `🔥 ${newStreak}-Day Streak!`,
               "Consistency unlocked. Keep the momentum going."
             );
           }
@@ -546,7 +633,7 @@ const App = () => {
         SoundManager.playSuccess();
         await loadData();
         saveDbSnapshot();
-        setActiveBlock(null);
+        closeFocus();
         setView(activeTab as any);
       } catch (err) {
         console.error("Failed to complete block:", err);
@@ -565,18 +652,20 @@ const App = () => {
     const next = todayPlan?.blocks?.find(b => !b.completed);
     if (next) {
       SoundManager.playClick();
-      setActiveBlock(next);
-      setView("focus");
+      openFocus(next);
     } else {
       switchTab("dashboard");
     }
   };
 
-  useEffect(() => {
-    if (needsContext && subjects.length === 0) {
-      setView("onboarding");
-    }
-  }, [needsContext, subjects.length]);
+  // NOTE: there used to be an effect here that sent the user to onboarding
+  // whenever `needsContext` was true and `subjects` was empty. `subjects` is
+  // React state that starts as [] and lags the database, so any code path that
+  // raised needsContext before the first load resolved (notably the day-rollover
+  // check) mistook an established user for a brand-new one and dropped them
+  // into the setup wizard — where finishing it duplicated their subjects and
+  // semester. Whether onboarding is needed is now decided only in loadData(),
+  // from a real read of the database.
 
   useEffect(() => {
     const handleNavigate = (e: Event) => {
@@ -584,17 +673,28 @@ const App = () => {
       if (tab) switchTab(tab);
     };
     const handleToDashboard = () => switchTab('dashboard');
+    // Cloud sync replaced the local DB wholesale — re-read everything this
+    // component holds in useState, or the user lands on an empty dashboard.
+    const handleDataReplaced = () => { void loadData(); };
     window.addEventListener('orbit:navigate', handleNavigate);
     window.addEventListener('navigate-to-dashboard', handleToDashboard);
+    window.addEventListener('orbit:data-replaced', handleDataReplaced);
     return () => {
       window.removeEventListener('orbit:navigate', handleNavigate);
       window.removeEventListener('navigate-to-dashboard', handleToDashboard);
+      window.removeEventListener('orbit:data-replaced', handleDataReplaced);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const isOnboarding = view === "onboarding" || needsContext;
   const showNavigation = !isOnboarding && view !== "focus";
+
+  // Keep the root-level cloud-sync banner off the focus screen.
+  useEffect(() => {
+    setFocusMode(view === "focus");
+    return () => setFocusMode(false);
+  }, [view]);
 
   if (view === "onboarding")
     return (
@@ -611,7 +711,7 @@ const App = () => {
         <FocusSession
           block={activeBlock}
           onComplete={handleFocusComplete}
-          onExit={() => setView(activeTab as any)}
+          onExit={() => { closeFocus(); setView(activeTab as any); }}
           subjectIntelligence={subjectIntelligence}
         />
       </Suspense>
@@ -663,6 +763,7 @@ const App = () => {
         <DailyContextModal
           subjects={subjects}
           onGenerate={handleContextGenerate}
+          onDismiss={() => setNeedsContext(false)}
         />
       )}
 
@@ -740,19 +841,40 @@ const App = () => {
 
       <main className="flex-1 min-h-screen pb-24 md:pb-0 overflow-x-clip">
         <div className="max-w-7xl mx-auto w-full animate-slide-up">
+          {/* Keyed on the tab so switching away from a crashed view resets the
+              boundary — otherwise one broken tab wedges the whole main area. */}
+          <ErrorBoundary key={activeTab} label={NAV_TABS.find(t => t.id === activeTab)?.label ?? 'This view'}>
           <Suspense fallback={<ViewFallback />}>
           {activeTab === "dashboard" && todayPlan && (
             <Dashboard
               plan={todayPlan}
               onStartFocus={(b: StudyBlock) => {
                 SoundManager.playClick();
-                setActiveBlock(b);
-                setView("focus");
+                openFocus(b);
               }}
               subjects={subjects}
               logs={logs}
               onRefresh={() => void loadData()}
             />
+          )}
+          {/* No plan yet and the prompt was dismissed. Without this the
+              dashboard rendered literally nothing and looked broken. */}
+          {activeTab === "dashboard" && !todayPlan && !needsContext && subjects.length > 0 && (
+            <div className="px-6 py-24 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center text-orange-400 mx-auto mb-5">
+                <Calendar size={24} />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">No plan for today yet</h2>
+              <p className="text-sm text-zinc-400 max-w-sm mx-auto mb-6">
+                Tell Orbit how today looks and it'll build the day around it.
+              </p>
+              <button
+                onClick={() => setNeedsContext(true)}
+                className="px-6 py-3.5 rounded-2xl bg-orange-500 text-ink font-bold text-sm hover:brightness-105"
+              >
+                Plan today
+              </button>
+            </div>
           )}
           {activeTab === "courses" && (
             <CoursesViewComponent subjects={subjects} logs={logs} />
@@ -772,6 +894,7 @@ const App = () => {
           {activeTab === "about" && <AboutView />}
           {activeTab === "settings" && <SettingsView />}
           </Suspense>
+          </ErrorBoundary>
         </div>
       </main>
 
@@ -920,17 +1043,53 @@ const App = () => {
   }
 };
 
+/**
+ * Reload when a new service worker takes control.
+ *
+ * sw.ts calls skipWaiting() + clientsClaim(), so a deploy seizes open tabs
+ * immediately — but nothing told the page, which kept running the old bundle
+ * against the new precache. Reloading on controllerchange is what actually
+ * completes the update.
+ *
+ * Anything the user could lose to this reload has to survive it: the focus
+ * timer, the active block, session notes and the onboarding draft all persist
+ * to storage as they change. (Note this only helps from this release onward —
+ * clients installed before it have no such listener.)
+ */
+if ("serviceWorker" in navigator) {
+  // Was this document already controlled when it loaded? If not, the first
+  // controllerchange is just the initial registration claiming the page — a
+  // first-time visitor, not an update. Reloading on that would bounce every
+  // new user once for no reason.
+  const wasControlled = navigator.serviceWorker.controller !== null;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloading || !wasControlled) return;
+    reloading = true;
+    window.location.reload();
+  });
+}
+
 const rootElement = document.getElementById("root");
 if (rootElement) {
-  const root = ReactDOM.createRoot(rootElement);
+  // Reuse the root if this module is evaluated again (HMR in dev, or any
+  // double-import). createRoot on an already-rooted container throws a React
+  // error and leaves two competing trees on the same node.
+  const store = window as unknown as { __orbitRoot?: ReactDOM.Root };
+  const root = store.__orbitRoot ?? ReactDOM.createRoot(rootElement);
+  store.__orbitRoot = root;
   root.render(
-    <ToastProvider>
-      <SettingsProvider>
-        <App />
-        {/* Always mounted — sign-in/restore must be reachable even during
-            onboarding (a fresh device needs to pull its data before setup). */}
-        <CloudSyncBanner />
-      </SettingsProvider>
-    </ToastProvider>
+    <ErrorBoundary root>
+      <ToastProvider>
+        <SettingsProvider>
+          <App />
+          {/* Always mounted — sign-in/restore must be reachable even during
+              onboarding (a fresh device needs to pull its data before setup). */}
+          <CloudSyncBanner />
+        </SettingsProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
+} else {
+  console.error('Orbit could not start: no #root element in the document.');
 }

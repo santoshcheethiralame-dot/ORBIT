@@ -16,6 +16,7 @@ import {
 } from "./pushConfig";
 import { db } from "../db";
 import { getISTEffectiveDate } from "./time";
+import { getStudyStreak } from "./streak";
 
 const SETTINGS_KEY = "orbit-reminder-settings";
 const REMINDER_FN = "reminder-cron"; // deployed Supabase Edge Function name
@@ -144,26 +145,6 @@ interface DailyStatusContext {
   nextBlock?: { subject: string; dueBy: string };
 }
 
-async function currentStreak(todayStr: string): Promise<number> {
-  const logs = await db.logs.toArray();
-  const days = new Set(logs.map((l: any) => l.date));
-  let streak = 0;
-  const d = new Date(todayStr + "T00:00:00");
-  // count back from today (today counts only if there's activity)
-  for (;;) {
-    const key = d.toISOString().slice(0, 10);
-    if (days.has(key)) {
-      streak++;
-      d.setDate(d.getDate() - 1);
-    } else if (key === todayStr) {
-      // no activity yet today — start counting from yesterday
-      d.setDate(d.getDate() - 1);
-      if (!days.has(d.toISOString().slice(0, 10))) break;
-    } else break;
-  }
-  return streak;
-}
-
 async function buildStatus(todayStr: string, wakeHour: number) {
   const [plan, subjects, exams, assignments] = await Promise.all([
     db.plans.get(todayStr),
@@ -190,7 +171,7 @@ async function buildStatus(todayStr: string, wakeHour: number) {
   const daysBetween = (iso: string) =>
     Math.max(0, Math.round((new Date(iso + "T00:00:00").getTime() - new Date(todayStr + "T00:00:00").getTime()) / 86_400_000));
 
-  const context: DailyStatusContext = { streak: await currentStreak(todayStr) };
+  const context: DailyStatusContext = { streak: await getStudyStreak() };
   if (upcomingExam)
     context.nextExam = { subject: subjName(upcomingExam.subjectId), type: upcomingExam.examType, daysLeft: daysBetween(upcomingExam.examDate) };
   if (dueAssign) context.dueAssignment = { title: dueAssign.title, daysLeft: daysBetween(dueAssign.dueDate) };
@@ -238,14 +219,14 @@ export async function syncDailyStatus(): Promise<void> {
 }
 
 // ── Test push (on-demand delivery check) ──────────────────────────────────────
+// The target user is taken from the JWT that supabase-js attaches to the call —
+// the function ignores any user_id in the body — so this can only ever reach
+// the signed-in user's own devices.
 export async function sendTestPush(): Promise<{ ok: boolean; sent?: number; reason?: string }> {
   const { data } = await supabase.auth.getUser();
-  const uid = data.user?.id;
-  if (!uid) return { ok: false, reason: "not-signed-in" };
+  if (!data.user?.id) return { ok: false, reason: "not-signed-in" };
   try {
-    const { data: res, error } = await supabase.functions.invoke(REMINDER_FN, {
-      body: { test: true, user_id: uid },
-    });
+    const { data: res, error } = await supabase.functions.invoke(REMINDER_FN, { body: { test: true } });
     if (error) return { ok: false, reason: "error" };
     return { ok: true, sent: (res as { sent?: number })?.sent ?? 0 };
   } catch {
@@ -276,13 +257,14 @@ export function clearBadge(): void {
 // Keep the server's picture of "today" fresh: sync on load, on tab focus, and
 // every 5 min while open. All calls no-op unless reminders are enabled and the
 // user is signed in, so this is safe to call unconditionally at startup.
-let remindersTimer: number | null = null;
+let remindersStarted = false;
 export function initReminders(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || remindersStarted) return;
+  remindersStarted = true;
   const tick = () => void syncDailyStatus().catch(() => {});
   tick();
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") tick();
   });
-  if (remindersTimer === null) remindersTimer = window.setInterval(tick, 5 * 60 * 1000);
+  window.setInterval(tick, 5 * 60 * 1000);
 }

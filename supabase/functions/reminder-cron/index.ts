@@ -7,6 +7,13 @@
 //
 // Deploy: `supabase functions deploy reminder-cron --no-verify-jwt`
 // Secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (see runbook).
+//
+// AUTH: --no-verify-jwt means the platform lets every request through, so this
+// function does its own checking (see `authorize` below). Two callers only:
+//   • pg_cron, presenting the service-role key  → may run the full sweep
+//   • a signed-in browser, presenting its JWT   → may test-push to ITSELF only
+// Anything else is rejected with 401. Without this the test path would push to
+// every subscription in the database for anyone who knows the URL.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
@@ -194,13 +201,12 @@ async function run(): Promise<{ evaluated: number; sent: number }> {
 }
 
 // On-demand delivery check — bypasses all trigger/time/quiet-hours logic and
-// just fires one notification to the user's devices. Triggered by the Settings
-// "Send test push" button (body {"test":true,"user_id":...}); with no user_id it
-// hits every subscription (handy from the SQL editor for a personal project).
-async function sendTest(userId?: string): Promise<{ test: true; sent: number; devices: number }> {
-  let q = db.from("push_subscriptions").select("*");
-  if (userId) q = q.eq("user_id", userId);
-  const { data: subs } = await q;
+// just fires one notification to the user's own devices. Triggered by the
+// Settings "Send test push" button. The user id comes from the verified JWT,
+// never from the request body, so a caller can only ever reach their own
+// devices.
+async function sendTest(userId: string): Promise<{ test: true; sent: number; devices: number }> {
+  const { data: subs } = await db.from("push_subscriptions").select("*").eq("user_id", userId);
   const payload = JSON.stringify({
     title: "Orbit — test push ✅",
     body: "Delivery works. When you slip, this is how the drill sergeant reaches you.",
@@ -231,19 +237,71 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
+
+/**
+ * Who is calling?
+ *   "cron" — the bearer token IS the service-role key (only pg_cron and the
+ *            project owner have it). Allowed to sweep every user.
+ *   uid    — a valid end-user JWT. Allowed to test-push to their own devices.
+ *   null   — no/!valid credentials. Rejected.
+ * Compared with a constant-time-ish check so the service key can't be probed
+ * byte-by-byte through response timing.
+ */
+async function authorize(req: Request): Promise<"cron" | string | null> {
+  const header = req.headers.get("Authorization") ?? "";
+  const token = header.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return null;
+
+  if (token.length === SERVICE_ROLE.length) {
+    let diff = 0;
+    for (let i = 0; i < token.length; i++) diff |= token.charCodeAt(i) ^ SERVICE_ROLE.charCodeAt(i);
+    if (diff === 0) return "cron";
+  }
+
+  const { data, error } = await db.auth.getUser(token);
+  if (error || !data.user) return null;
+  return data.user.id;
+}
+
+// Cheap per-user cooldown on the test path so a signed-in user can't loop the
+// button (or the endpoint) into a self-inflicted notification storm. Instance
+// memory is enough — it only has to blunt a tight loop.
+const TEST_COOLDOWN_MS = 30_000;
+const lastTestAt = new Map<string, number>();
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
+
   try {
+    const caller = await authorize(req);
+    if (!caller) return json({ error: "unauthorized" }, 401);
+
     let body: any = {};
     try {
       body = await req.json();
     } catch {
       /* no/empty body — treat as a cron tick */
     }
-    const result = body?.test ? await sendTest(body.user_id) : await run();
-    return new Response(JSON.stringify(result), { headers: { ...CORS, "Content-Type": "application/json" } });
+
+    if (body?.test) {
+      // Own devices only — body.user_id is deliberately ignored.
+      if (caller === "cron") return json({ error: "test requires a user session" }, 400);
+      const now = Date.now();
+      const previous = lastTestAt.get(caller) ?? 0;
+      if (now - previous < TEST_COOLDOWN_MS) {
+        return json({ error: "slow down", retryInSeconds: Math.ceil((TEST_COOLDOWN_MS - (now - previous)) / 1000) }, 429);
+      }
+      lastTestAt.set(caller, now);
+      return json(await sendTest(caller));
+    }
+
+    if (caller !== "cron") return json({ error: "forbidden" }, 403);
+    return json(await run());
   } catch (e) {
     console.error("reminder-cron fatal", e);
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...CORS, "Content-Type": "application/json" } });
+    return json({ error: "internal error" }, 500);
   }
 });

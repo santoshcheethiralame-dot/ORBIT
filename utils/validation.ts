@@ -37,21 +37,24 @@ export function validateSubjectName(name: string): string | null {
   if (!name || name.trim().length === 0) {
     return 'Subject name cannot be empty';
   }
-  
+
   const trimmed = name.trim();
-  
+
   if (trimmed.length < 2) {
     return 'Subject name must be at least 2 characters';
   }
-  
+
   if (trimmed.length > 100) {
     return 'Subject name too long (max 100 characters)';
   }
-  
-  if (!/^[a-zA-Z0-9\s\-&().,/]+$/.test(trimmed)) {
+
+  // Unicode letters/marks/numbers, not just ASCII. The old
+  // /^[a-zA-Z0-9\s\-&().,/]+$/ rejected any non-English name — "Matemáticas",
+  // "गणित", "微积分" — which is most of the world's students.
+  if (!/^[\p{L}\p{M}\p{N}\s\-&().,/'+:]+$/u.test(trimmed)) {
     return 'Subject name contains invalid characters';
   }
-  
+
   return null;
 }
 

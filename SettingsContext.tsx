@@ -138,7 +138,12 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
           notifications: {
             ...prev.notifications,
             permission: Notification.permission,
-            enabled: Notification.permission === 'granted',
+            // Mirror the browser permission, but never re-enable on the user's
+            // behalf: this used to set `enabled = permission === 'granted'`,
+            // which silently flipped notifications back on at every reload for
+            // anyone who had turned them off while keeping permission granted.
+            // Revoked permission is still a hard off.
+            enabled: Notification.permission === 'granted' && prev.notifications.enabled,
           }
         }));
       }
@@ -191,7 +196,13 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const importSettings = (data: string): boolean => {
     try {
       const parsed = JSON.parse(data);
-      setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        toast.error('Invalid settings file');
+        return false;
+      }
+      // deepMerge, not a shallow spread — a file carrying only `study` used to
+      // replace that whole group and drop every key it didn't mention.
+      setSettings(deepMerge(DEFAULT_SETTINGS, parsed));
       toast.success('Settings imported successfully');
       return true;
     } catch (err) {
@@ -215,13 +226,7 @@ export const useSettings = () => {
   return context;
 };
 
-export function getDayStartHour(): number {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const settings = JSON.parse(saved);
-      return settings.study?.dayStartHour || 4;
-    }
-  } catch {}
-  return 4;
-}
+// Single source of truth lives in utils/time.ts — this used to be a second,
+// subtly different copy whose `|| 4` turned a legitimate midnight start (0)
+// back into 4am.
+export { getDayStartHour } from './utils/time';

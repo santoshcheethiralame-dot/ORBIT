@@ -1,5 +1,5 @@
 import { supabase, SNAPSHOT_TABLE } from './supabaseClient';
-import { serializeAll, restoreAll, snapshotHash, isEmptySnapshot, type CloudSnapshot } from './cloudSnapshot';
+import { serializeAll, restoreAll, snapshotHash, snapshotFingerprint, isEmptySnapshot, type CloudSnapshot } from './cloudSnapshot';
 
 // ─── Sync model ─────────────────────────────────────────────────────────────
 // Local-first: IndexedDB is the working store. This layer keeps a full-DB
@@ -28,9 +28,29 @@ export interface SyncState {
 }
 
 const OPTOUT_KEY = 'orbit-cloud-optout';
+
+// Storage can be entirely unavailable (Safari private browsing, cookies
+// blocked, embedded webviews). This module runs at import time, so an
+// unguarded localStorage call here took the whole app down with a blank page
+// before React ever mounted. Cloud sync degrades; the app must not.
+const ls = {
+  get(key: string): string | null {
+    try { return localStorage.getItem(key); } catch { return null; }
+  },
+  set(key: string, value: string): void {
+    try { localStorage.setItem(key, value); } catch { /* non-persistent session */ }
+  },
+  remove(key: string): void {
+    try { localStorage.removeItem(key); } catch { /* ignore */ }
+  },
+};
+
 const deviceId = (() => {
-  let d = localStorage.getItem('orbit-device-id');
-  if (!d) { d = Math.floor(Math.random() * 1e9).toString(36); localStorage.setItem('orbit-device-id', d); }
+  let d = ls.get('orbit-device-id');
+  if (!d) {
+    d = `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`;
+    ls.set('orbit-device-id', d);
+  }
   return d;
 })();
 
@@ -42,20 +62,36 @@ const set = (patch: Partial<SyncState>) => { state = { ...state, ...patch }; emi
 export const getSyncState = (): SyncState => ({ ...state });
 export const subscribeSync = (fn: (s: SyncState) => void) => { listeners.add(fn); fn({ ...state }); return () => { listeners.delete(fn); }; };
 
-export const hasOptedOut = () => localStorage.getItem(OPTOUT_KEY) === '1';
-export const optOutOfCloud = () => { localStorage.setItem(OPTOUT_KEY, '1'); emit(); };
-export const clearOptOut = () => localStorage.removeItem(OPTOUT_KEY);
+const SNOOZE_KEY = 'orbit-cloud-prompt-after';
+
+/**
+ * Onboarding already offers sign-in on its welcome step. Without this, a user
+ * who declined it there finished setup and was immediately met with the same
+ * pitch again as a banner — asking twice in about ninety seconds. Snooze the
+ * banner for a day after onboarding; Settings → Account is always available.
+ */
+export const snoozeCloudPrompt = (hours = 24) =>
+  ls.set(SNOOZE_KEY, String(Date.now() + hours * 3600_000));
+
+export const isCloudPromptSnoozed = () => {
+  const until = Number(ls.get(SNOOZE_KEY));
+  return Number.isFinite(until) && until > Date.now();
+};
+
+export const hasOptedOut = () => ls.get(OPTOUT_KEY) === '1';
+export const optOutOfCloud = () => { ls.set(OPTOUT_KEY, '1'); emit(); };
+export const clearOptOut = () => ls.remove(OPTOUT_KEY);
 
 // Per-user "last synced" fingerprint = the common ancestor for reconcile.
 const hashKey = (uid: string) => `orbit-sync-${uid}-hash`;
 const atKey = (uid: string) => `orbit-sync-${uid}-at`;
 const getSynced = (uid: string) => ({
-  hash: localStorage.getItem(hashKey(uid)),
-  at: Number(localStorage.getItem(atKey(uid))) || null,
+  hash: ls.get(hashKey(uid)),
+  at: Number(ls.get(atKey(uid))) || null,
 });
 const setSynced = (uid: string, hash: string) => {
-  localStorage.setItem(hashKey(uid), hash);
-  localStorage.setItem(atKey(uid), String(Date.now()));
+  ls.set(hashKey(uid), hash);
+  ls.set(atKey(uid), String(Date.now()));
   set({ lastSyncedAt: Date.now() });
 };
 
@@ -84,7 +120,12 @@ async function push(uid: string): Promise<void> {
 async function adopt(uid: string, snap: CloudSnapshot): Promise<void> {
   await restoreAll(snap);
   setSynced(uid, await snapshotHash(snap));
-  // Nudge any open Dexie hooks/UI to re-read.
+  // The whole DB was just swapped underneath React. Dexie live queries pick
+  // that up on their own, but the App's plain useState copies (subjects, logs,
+  // today's plan) do not — navigating alone left the user staring at an empty
+  // dashboard until they manually refreshed. Ask for a real reload of that
+  // state, then navigate.
+  window.dispatchEvent(new CustomEvent('orbit:data-replaced'));
   window.dispatchEvent(new CustomEvent('orbit:navigate', { detail: { tab: 'dashboard' } }));
 }
 
@@ -102,8 +143,16 @@ async function reconcile(uid: string): Promise<void> {
     if (!navigator.onLine) { set({ status: 'offline' }); return; }
     set({ status: 'syncing', error: null });
 
-    const [{ snap: cloud, updatedAt: cloudAt }, localHashNow] = await Promise.all([pull(uid), snapshotHash()]);
+    const [{ snap: cloud, updatedAt: cloudAt }, localPrint] = await Promise.all([pull(uid), snapshotFingerprint()]);
+    const localHashNow = localPrint.hash;
     const { hash: ancestor } = getSynced(uid);
+
+    // An ancestor written before the SHA-256 switch is in the old format.
+    // Matching it under either algorithm is what stops this upgrade from
+    // looking like "both copies changed" to every already-synced user and
+    // making them pick a copy to destroy.
+    const unchanged = (print: { hash: string; legacy: string }) =>
+      ancestor !== null && (ancestor === print.hash || ancestor === print.legacy);
 
     // No cloud row yet → push local up (first time), unless local is empty.
     if (!cloud || isEmptySnapshot(cloud)) {
@@ -114,11 +163,12 @@ async function reconcile(uid: string): Promise<void> {
       return;
     }
 
-    const cloudHash = await snapshotHash(cloud);
+    const cloudPrint = await snapshotFingerprint(cloud);
+    const cloudHash = cloudPrint.hash;
     if (cloudHash === localHashNow) { setSynced(uid, cloudHash); set({ status: 'synced' }); return; }
 
-    const localChanged = ancestor !== localHashNow;
-    const cloudChanged = ancestor !== cloudHash;
+    const localChanged = !unchanged(localPrint);
+    const cloudChanged = !unchanged(cloudPrint);
 
     if (!localChanged && cloudChanged) { await adopt(uid, cloud); set({ status: 'synced' }); return; }
     if (localChanged && !cloudChanged) { await push(uid); set({ status: 'synced' }); return; }
@@ -153,8 +203,15 @@ async function pushIfDirty(): Promise<void> {
   if (!currentUid || busy || state.status === 'conflict') return;
   if (!navigator.onLine) { if (state.status !== 'offline') set({ status: 'offline' }); return; }
   const { hash: ancestor } = getSynced(currentUid);
-  const now = await snapshotHash();
-  if (now === ancestor) { if (state.status === 'offline') set({ status: 'synced' }); return; }
+  const print = await snapshotFingerprint();
+  // Accept a pre-upgrade ancestor too, and quietly rewrite it in the new
+  // format — otherwise every upgraded client would push once for no reason.
+  if (ancestor === print.legacy && ancestor !== print.hash) {
+    setSynced(currentUid, print.hash);
+    if (state.status === 'offline') set({ status: 'synced' });
+    return;
+  }
+  if (print.hash === ancestor) { if (state.status === 'offline') set({ status: 'synced' }); return; }
   busy = true;
   try {
     set({ status: 'syncing' });
@@ -195,21 +252,68 @@ export async function signOutCloud(): Promise<void> {
 
 export async function pushNow(): Promise<void> { if (currentUid) await pushIfDirty(); }
 
+/**
+ * An OAuth round-trip that fails comes back to the app as `?error=…` or
+ * `#error=…` and nothing else. Supabase's client strips those params while
+ * looking for a session, so the user simply landed back on the page, still
+ * signed out, with no explanation — "I pressed Continue with GitHub and
+ * nothing happened". Read the error before that, show it, and tidy the URL.
+ */
+function captureAuthRedirectError(): void {
+  try {
+    const url = new URL(window.location.href);
+    const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
+    const err = url.searchParams.get('error') ?? hash.get('error');
+    if (!err) return;
+
+    const description =
+      url.searchParams.get('error_description') ?? hash.get('error_description') ?? err;
+    const code = url.searchParams.get('error_code') ?? hash.get('error_code');
+
+    // access_denied is the user backing out at the provider — not a fault.
+    const friendly =
+      err === 'access_denied' && !code
+        ? 'Sign-in was cancelled.'
+        : decodeURIComponent(description.replace(/\+/g, ' '));
+
+    set({ status: 'signed-out', error: friendly });
+
+    for (const key of ['error', 'error_description', 'error_code', 'state']) {
+      url.searchParams.delete(key);
+    }
+    url.hash = '';
+    window.history.replaceState({}, '', url.pathname + url.search);
+  } catch {
+    /* never let URL parsing break startup */
+  }
+}
+
 let started = false;
 export function initCloudSync(): void {
   if (started) return;
   started = true;
 
+  captureAuthRedirectError();
   supabase.auth.getSession().then(({ data }) => onSession(data.session));
   supabase.auth.onAuthStateChange((_e, session) => onSession(session));
 
   window.addEventListener('online', () => { if (currentUid) reconcile(currentUid); });
   window.addEventListener('offline', () => { if (currentUid) set({ status: 'offline' }); });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') void pushIfDirty(); });
-  window.addEventListener('beforeunload', () => { void pushIfDirty(); });
 
-  // Safety net: catch any change the events missed.
-  setInterval(() => { void pushIfDirty(); }, 20_000);
+  // 'hidden' is the reliable last moment on mobile — a backgrounded or closed
+  // tab may never fire anything else. (There was also a 'beforeunload' handler
+  // calling the same async function; unload cannot await, so it never actually
+  // completed a push. This one does the job.)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') void pushIfDirty();
+  });
+
+  // Safety net for changes the events missed. pushIfDirty fingerprints the
+  // whole DB, so skip it while the tab is hidden: nothing can be changing, and
+  // it was re-serializing every table every 20s forever in background tabs.
+  setInterval(() => {
+    if (document.visibilityState === 'visible') void pushIfDirty();
+  }, 30_000);
 }
 
 async function onSession(session: import('@supabase/supabase-js').Session | null): Promise<void> {

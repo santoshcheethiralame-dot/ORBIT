@@ -35,22 +35,43 @@ export function parseLocalDate(dateStr: string): Date {
   return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
 
-export function getISTTime(): Date {
-  return new Date(
-    new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
-  );
+/**
+ * "Now", in the timezone the day is being lived in.
+ *
+ * This used to be pinned to Asia/Kolkata for every user, which meant anyone
+ * outside IST got the wrong day — a student in California at 8pm was already
+ * on tomorrow's plan. It now follows the device clock, so it is correct
+ * everywhere and unchanged for users actually in IST.
+ *
+ * (The old implementation also round-tripped through
+ * `new Date(date.toLocaleString(...))`, which is engine-dependent parsing and
+ * can yield Invalid Date. Returning a plain Date avoids that entirely.)
+ *
+ * The name is kept because it is referenced across the app; `getEffectiveNow`
+ * is the accurate alias for new code.
+ */
+export function getEffectiveNow(): Date {
+  return new Date();
 }
 
+export const getISTTime = getEffectiveNow;
+
+/**
+ * The date Orbit considers "today". The study day starts at `dayStartHour`
+ * (default 04:00), so a 1am session still counts toward the previous day.
+ */
 export function getISTEffectiveDate(): string {
-  const istNow = getISTTime();
+  const now = getEffectiveNow();
   const dayStartHour = getDayStartHour();
 
-  if (istNow.getHours() < dayStartHour) {
-    istNow.setDate(istNow.getDate() - 1);
+  if (now.getHours() < dayStartHour) {
+    now.setDate(now.getDate() - 1);
   }
 
-  return formatLocalDate(istNow);
+  return formatLocalDate(now);
 }
+
+export const getEffectiveDate = getISTEffectiveDate;
 
 export function effectiveDatePlus(deltaDays: number): string {
   const d = parseLocalDate(getISTEffectiveDate());
@@ -164,10 +185,9 @@ export function isCurrentWeek(dateStr: string): boolean {
 
 export function debugISTInfo(): void {
   const info = getCurrentCycleInfo();
-  console.log("🕒 IST Time Debug", {
-    istNow: getISTTime().toLocaleString("en-IN", {
-      timeZone: "Asia/Kolkata",
-    }),
+  console.log("🕒 Orbit time debug", {
+    now: getEffectiveNow().toLocaleString(),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     effectiveDate: info.effectiveDate,
     isEarlyCycle: info.isEarlyCycle,
     dayStartHour: `${info.dayStartHour}:00`,

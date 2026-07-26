@@ -58,6 +58,19 @@ know who to chase and where to send).
    (`--no-verify-jwt` because pg_cron calls it with the service-role bearer, not
    a user JWT.)
 
+   > **The function authenticates every request itself** — `--no-verify-jwt`
+   > means the *platform* waves everything through, so the code cannot. It
+   > accepts exactly two callers:
+   >
+   > - **service-role bearer** → may run the full sweep (`run()`),
+   > - **a valid end-user JWT** → may only test-push to *its own* devices.
+   >
+   > Anything else gets a 401. The test path takes the user id from the verified
+   > token and ignores `user_id` in the body; it is also rate-limited per user.
+   > Before this, an unauthenticated `POST {"test":true}` with no `user_id`
+   > pushed a notification to **every subscription in the database** — do not
+   > reintroduce a body-supplied user id.
+
 4. **Schedule the cron** — edit `supabase/reminders-cron.sql`, replace
    `<SERVICE_ROLE_KEY>` with your project's service_role key (Settings → API),
    paste into the SQL editor, run.
@@ -70,7 +83,10 @@ know who to chase and where to send).
      -H "Authorization: Bearer <SERVICE_ROLE_KEY>"
    ```
    You should get `{"evaluated":1,"sent":N}` and a notification if a trigger is
-   currently true (e.g. no plan generated yet this morning).
+   currently true (e.g. no plan generated yet this morning). Without a valid
+   bearer this returns 401, and with a *user* token it returns 403 — the sweep
+   is service-role only. To check delivery as a normal user, use the
+   **Send test push** button in Settings, which sends your session token.
 
 ## Triggers
 

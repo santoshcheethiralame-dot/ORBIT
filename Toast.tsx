@@ -18,7 +18,7 @@ interface ToastContextType {
   showToast: (toast: Omit<Toast, 'id'>) => void;
   success: (message: string, action?: Toast['action']) => void;
   error: (message: string) => void;
-  info: (message: string) => void;
+  info: (message: string, action?: Toast['action']) => void;
   warning: (message: string, action?: Toast['action']) => void;
 }
 
@@ -55,8 +55,8 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
     showToast({ type: 'error', message, duration: 7000 });
   }, [showToast]);
 
-  const info = useCallback((message: string) => {
-    showToast({ type: 'info', message });
+  const info = useCallback((message: string, action?: Toast['action']) => {
+    showToast({ type: 'info', message, action });
   }, [showToast]);
 
   const warning = useCallback((message: string, action?: Toast['action']) => {
@@ -125,7 +125,9 @@ const ToastItem = ({
           onClick={() => { toast.action!.onClick(); onRemove(toast.id); }}
           className="px-3 py-1.5 rounded-lg bg-white text-ink font-bold text-xs uppercase tracking-wide transition-all active:scale-95 flex items-center gap-1.5 shrink-0"
         >
-          <Undo size={13} strokeWidth={2.5} />
+          {/* Only an actual undo gets the undo arrow — it was showing on every
+              action, so "DOWNLOAD" and "REFLOW DAY" both read as "revert". */}
+          {toast.action.label.toUpperCase() === 'UNDO' && <Undo size={13} strokeWidth={2.5} />}
           {toast.action.label}
         </button>
       )}

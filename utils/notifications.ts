@@ -44,8 +44,10 @@ export const NotificationManager = {
   },
 
   send: (title: string, body?: string, icon?: string, type?: 'session' | 'goal' | 'exam' | 'break') => {
+    if (!('Notification' in window)) return;
+
     const settings = NotificationManager.getSettings();
-    
+
     if (!settings.enabled || Notification.permission !== 'granted') {
       return;
     }
@@ -55,16 +57,33 @@ export const NotificationManager = {
     if (type === 'exam' && !settings.examAlerts) return;
     if (type === 'break' && !settings.breakReminders) return;
 
+    const options: NotificationOptions = {
+      body,
+      icon: icon || '/pwa-192x192.png',
+      silent: false,
+      badge: '/pwa-64x64.png',
+      tag: type || 'general',
+    };
+
+    // Android Chrome throws "Illegal constructor" for `new Notification()` and
+    // only permits notifications through the service worker registration — so
+    // every in-app notification was silently swallowed by the catch below on
+    // mobile. Go through the SW when there is one, and keep the constructor as
+    // the desktop fallback.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready
+        .then(reg => reg.showNotification(title, options))
+        .catch(() => {
+          try { new Notification(title, options); }
+          catch (e) { console.warn('Failed to send notification:', e); }
+        });
+      return;
+    }
+
     try {
-      new Notification(title, {
-        body,
-        icon: icon || '/pwa-192x192.png',
-        silent: false,
-        badge: '/pwa-192x192.png',
-        tag: type || 'general',
-      });
+      new Notification(title, options);
     } catch (e) {
-      console.warn("Failed to send notification:", e);
+      console.warn('Failed to send notification:', e);
     }
   },
 
