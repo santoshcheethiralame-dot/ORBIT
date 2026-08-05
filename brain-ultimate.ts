@@ -1,5 +1,6 @@
 import { db, OrbitDB } from "./db";
 import { DailyContext, StudyBlock } from "./types";
+import { getISTEffectiveDate } from "./utils/time";
 
 import {
   generateDailyPlan as coreGeneratePlan,
@@ -50,6 +51,63 @@ export interface UltimatePlanResult {
   }>;
   planningStrategy: 'core' | 'enhanced';
   confidence: number;
+}
+
+/** Fallback when a topic carries no estimate from its source app. */
+const DEFAULT_TOPIC_MINUTES = 15;
+
+/**
+ * Say which topics each review block actually covers, and for how long.
+ *
+ * A block used to be "45 minutes of Databases" with no indication of what to
+ * do in it. Now it carries an ordered plan — 20m on entity sets, 25m on
+ * relational algebra — packed from the subject's genuinely due topics using
+ * the estimates the source app measured. Completing the block can then credit
+ * exactly those topics instead of a vague subject-level log.
+ *
+ * Topics are claimed globally, so two blocks for the same subject never both
+ * schedule the same topic.
+ */
+async function attachTopicPlans(blocks: StudyBlock[], dbInstance: OrbitDB, today: string): Promise<void> {
+  const reviewBlocks = blocks.filter(b => b.type === 'review' || b.type === 'prep');
+  if (!reviewBlocks.length) return;
+
+  const subjectIds = [...new Set(reviewBlocks.map(b => b.subjectId))];
+  const claimed = new Set<number>();
+
+  const bySubject = new Map<number, any[]>();
+  for (const sid of subjectIds) {
+    const topics = await dbInstance.topics.where('subjectId').equals(sid).toArray();
+    // Due first (most overdue leads), then never-reviewed, then by name so the
+    // order is stable between regenerations.
+    const due = topics
+      .filter(t => !t.nextReview || t.nextReview <= today)
+      .sort((a, b) =>
+        String(a.nextReview || '').localeCompare(String(b.nextReview || '')) ||
+        (a.reviewCount || 0) - (b.reviewCount || 0) ||
+        String(a.name).localeCompare(String(b.name)));
+    bySubject.set(sid, due);
+  }
+
+  for (const block of reviewBlocks) {
+    const pool = bySubject.get(block.subjectId) ?? [];
+    const plan: { topicId: number; name: string; minutes: number }[] = [];
+    let remaining = block.duration;
+
+    for (const t of pool) {
+      if (remaining < 5) break;
+      if (t.id == null || claimed.has(t.id)) continue;
+      const want = Math.max(5, Math.round(t.estimatedMinutes || DEFAULT_TOPIC_MINUTES));
+      // Give the last topic whatever is left rather than dropping it for being
+      // a few minutes too long — a short pass is better than no pass.
+      const minutes = Math.min(want, remaining);
+      plan.push({ topicId: t.id, name: t.name, minutes });
+      claimed.add(t.id);
+      remaining -= minutes;
+    }
+
+    if (plan.length) block.topicPlan = plan;
+  }
 }
 
 export async function generateUltimatePlan(
@@ -119,6 +177,9 @@ export async function generateUltimatePlan(
   const totalMinutes = blocks.reduce((sum, b) => sum + b.duration, 0);
   const subjectIds = new Set(blocks.map(b => b.subjectId));
   const avgBlockDuration = blocks.length > 0 ? totalMinutes / blocks.length : 0;
+
+  // After durations are final, so the split matches the block actually planned.
+  await attachTopicPlans(blocks, dbInstance, getISTEffectiveDate());
 
   const burnoutRisk = await detectBurnout();
   const interleaving = analyzeInterleaving(blocks);

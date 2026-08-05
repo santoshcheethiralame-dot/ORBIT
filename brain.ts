@@ -582,6 +582,15 @@ async function getExamContext(effectiveDate: string, dbInstance: OrbitDB = db): 
 }
 
 export function resolveConstraints(ctx: DailyContext): DayConstraints {
+  // Applied to whatever the branches below decide. Always leave room for at
+  // least one short block, so a heavy day of commitments still plans something
+  // rather than returning an empty plan.
+  const reserve = (c: DayConstraints): DayConstraints => {
+    const r = Math.max(0, ctx.reservedMinutes ?? 0);
+    if (!r) return c;
+    return { ...c, maxMinutes: Math.max(25, c.maxMinutes - r) };
+  };
+
   let maxMinutes = 180;
   let maxBlocks = 4;
   let maxBlockDuration = 45;
@@ -597,57 +606,57 @@ export function resolveConstraints(ctx: DailyContext): DayConstraints {
   }
 
   if (ctx.isSick) {
-    return {
+    return reserve({
       maxMinutes: 60,
       maxBlocks: 2,
       maxBlockDuration: 45,
       allowProjects: false,
       forceFocusSubject: false,
       excludedSubjectIds: [],
-    };
+    });
   }
 
   if (ctx.dayType === "esa") {
-    return {
+    return reserve({
       maxMinutes: ESA_BASE_MIN,
       maxBlocks: 6,
       maxBlockDuration: 90,
       allowProjects: ctx.daysToExam !== undefined && ctx.daysToExam > 2,
       forceFocusSubject: true,
       excludedSubjectIds: [],
-    };
+    });
   }
 
   if (ctx.dayType === "isa") {
-    return {
+    return reserve({
       maxMinutes: 300,
       maxBlocks: 6,
       maxBlockDuration: 60,
       allowProjects: false,
       forceFocusSubject: true,
       excludedSubjectIds: [],
-    };
+    });
   }
 
   if (ctx.dayType === "pd") {
-    return {
+    return reserve({
       maxMinutes: 300,
       maxBlocks: 5,
       maxBlockDuration: 90,
       allowProjects: true,
       forceFocusSubject: ctx.focusSubjectId !== undefined,
       excludedSubjectIds: [],
-    };
+    });
   }
 
-  return {
+  return reserve({
     maxMinutes,
     maxBlocks,
     maxBlockDuration,
     allowProjects: true,
     forceFocusSubject: false,
     excludedSubjectIds: [],
-  };
+  });
 }
 
 function tryInsertWithDisplacement(

@@ -111,6 +111,23 @@ export interface StudyBlock {
   comprehensionRating?: 1 | 2 | 3;
   reviewNumber?: number;
 
+  /**
+   * Added by the user rather than the planner. Regeneration preserves these
+   * the same way it preserves completed blocks — the planner must never throw
+   * away something you deliberately put on the day.
+   */
+  custom?: boolean;
+  /** Free-text label for a custom block ("Gym", "Group project call"). */
+  label?: string;
+
+  /**
+   * How this block's minutes are split across specific topics, in order.
+   * Lets a 45m review block mean "20m on entity sets, 25m on relational
+   * algebra" instead of an unattributed 45 minutes, and lets completion credit
+   * those exact topics.
+   */
+  topicPlan?: { topicId: number; name: string; minutes: number }[];
+
   isBacklogChunk?: boolean;
   totalEffortRemaining?: number;
 
@@ -142,6 +159,13 @@ export interface DailyContext {
   isSick: boolean;
   bunkedSubjectId?: number;
   daysToExam?: number;
+  /**
+   * Minutes already spoken for today by blocks the planner must not touch —
+   * completed work and user-added blocks. Subtracted from the day's capacity so
+   * regenerating around a custom block plans a realistic day instead of piling
+   * a full plan on top of it.
+   */
+  reservedMinutes?: number;
 }
 
 export interface DailyPlan {
@@ -198,6 +222,14 @@ export interface StudyTopic {
   fsrsCard?: import("./utils/fsrs").FsrsCardBlob;
   question?: string;
   answer?: string;
+
+  /**
+   * How long this topic actually takes, in minutes, as reported by the source
+   * app. Used to size review blocks and to split a block across the topics it
+   * covers, so a 45m block means "20m here, 25m there" rather than an
+   * unattributed 45 minutes.
+   */
+  estimatedMinutes?: number;
 
   // Set when the topic arrived from ATLAS/CRUX (utils/studyItems.ts), so a
   // review can link back to the material it came from. Absent on topics

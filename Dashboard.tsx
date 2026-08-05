@@ -142,6 +142,35 @@ const getGreeting = () => {
   return "Night Operations";
 };
 
+
+/**
+ * What a block actually covers: the topic split the planner allocated, or the
+ * user's own note for a custom block. Without this a block was just "45m of
+ * Databases" with no indication of what to do in it.
+ */
+const BlockDetail = ({ block, tone = 'dark' }: { block: StudyBlock; tone?: 'dark' | 'light' }) => {
+  const muted = tone === 'light' ? 'opacity-70' : 'text-zinc-500';
+  const body = tone === 'light' ? 'opacity-90' : 'text-zinc-300';
+  if (block.custom) {
+    return (
+      <div className={`text-[10px] font-mono uppercase tracking-[0.14em] mt-1 ${muted}`}>
+        Yours{block.label ? ` · ${block.label}` : ''}
+      </div>
+    );
+  }
+  if (!block.topicPlan?.length) return null;
+  return (
+    <ul className={`mt-2 space-y-0.5 text-xs ${body}`}>
+      {block.topicPlan.map((t) => (
+        <li key={t.topicId} className="flex items-baseline gap-2">
+          <span className={`font-mono text-[10px] tabular-nums shrink-0 ${muted}`}>{t.minutes}m</span>
+          <span className="truncate">{t.name}</span>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
 export const Dashboard = ({
   plan,
   onStartFocus,
@@ -164,8 +193,62 @@ export const Dashboard = ({
   const [pullDistance, setPullDistance] = useState(0);
   const [touchStartY, setTouchStartY] = useState(0);
   const [showAllBlocks, setShowAllBlocks] = useState(false);
+  const [showAddBlock, setShowAddBlock] = useState(false);
+  const [newBlock, setNewBlock] = useState<{ subjectId: string; type: StudyBlock['type']; duration: number; label: string }>(
+    { subjectId: '', type: 'review', duration: 45, label: '' },
+  );
+  const addingRef = useRef(false);
 
   const toast = useToast();
+
+  /**
+   * Put a user-made block on today's plan.
+   *
+   * Flagged `custom` so regeneration keeps it (see handleContextGenerate) and
+   * so its minutes count against tomorrow's capacity rather than being planned
+   * over. Priority sits below everything the planner schedules, so it doesn't
+   * displace real work — it's an addition to the day, not a jump to the front.
+   */
+  const addCustomBlock = async () => {
+    if (addingRef.current) return;
+    const subjectId = Number(newBlock.subjectId);
+    const subject = subjects.find(s => s.id === subjectId);
+    if (!subject) { toast.error('Pick a subject'); return; }
+    const duration = Math.max(5, Math.min(240, Math.round(newBlock.duration) || 45));
+
+    addingRef.current = true;
+    try {
+      const dateStr = getISTEffectiveDate();
+      const block: StudyBlock = {
+        id: `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+        subjectId,
+        subjectName: subject.name,
+        type: newBlock.type,
+        duration,
+        completed: false,
+        priority: 95,
+        custom: true,
+        label: newBlock.label.trim() || undefined,
+        date: dateStr,
+        reason: 'You added this block',
+      };
+
+      const current = await db.plans.get(dateStr);
+      if (!current) { toast.error('No plan for today yet — plan the day first'); return; }
+      await db.plans.put({ ...current, blocks: [...current.blocks, block] });
+      await db.studyBlocks.put({ ...block, date: dateStr });
+
+      toast.success(`Added ${duration}m of ${subject.name}`);
+      setShowAddBlock(false);
+      setNewBlock({ subjectId: '', type: 'review', duration: 45, label: '' });
+      onRefresh();
+    } catch (err) {
+      console.error('Failed to add block:', err);
+      toast.error('Could not add the block');
+    } finally {
+      addingRef.current = false;
+    }
+  };
 
   const assignments = useLiveQuery(() =>
     db.assignments.filter(a => !a.completed).toArray()
@@ -602,6 +685,78 @@ export const Dashboard = ({
       onTouchEnd={handleTouchEnd}
       className="pb-32 pt-6 px-4 lg:px-8 w-full max-w-[1400px] mx-auto space-y-8"
     >
+      {showAddBlock && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add a block to today"
+          className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          onClick={() => setShowAddBlock(false)}
+        >
+          <div className="w-full max-w-md bg-ink2 border border-white/10 rounded-3xl p-7" onClick={e => e.stopPropagation()}>
+            <h2 className="font-display font-black text-2xl mb-1">Add a block</h2>
+            <p className="text-sm text-zinc-400 mb-5">
+              Yours to keep — replanning the day won't remove it, and tomorrow's plan will budget around it.
+            </p>
+
+            <label htmlFor="cb-subject" className="block text-[10px] font-mono font-bold uppercase tracking-[0.16em] text-zinc-500 mb-1.5">Subject</label>
+            <select
+              id="cb-subject"
+              value={newBlock.subjectId}
+              onChange={e => setNewBlock(p => ({ ...p, subjectId: e.target.value }))}
+              className="w-full bg-ink3 border border-white/10 rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-orange-500/50 mb-4"
+            >
+              <option value="">Choose…</option>
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div>
+                <label htmlFor="cb-type" className="block text-[10px] font-mono font-bold uppercase tracking-[0.16em] text-zinc-500 mb-1.5">Type</label>
+                <select
+                  id="cb-type"
+                  value={newBlock.type}
+                  onChange={e => setNewBlock(p => ({ ...p, type: e.target.value as StudyBlock['type'] }))}
+                  className="w-full bg-ink3 border border-white/10 rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-orange-500/50"
+                >
+                  {(['review', 'prep', 'project', 'assignment', 'recovery'] as const).map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="cb-duration" className="block text-[10px] font-mono font-bold uppercase tracking-[0.16em] text-zinc-500 mb-1.5">Minutes</label>
+                <input
+                  id="cb-duration"
+                  type="number"
+                  min={5}
+                  max={240}
+                  step={5}
+                  value={newBlock.duration}
+                  onChange={e => setNewBlock(p => ({ ...p, duration: Number(e.target.value) }))}
+                  className="w-full bg-ink3 border border-white/10 rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-orange-500/50"
+                />
+              </div>
+            </div>
+
+            <label htmlFor="cb-label" className="block text-[10px] font-mono font-bold uppercase tracking-[0.16em] text-zinc-500 mb-1.5">Note (optional)</label>
+            <input
+              id="cb-label"
+              value={newBlock.label}
+              maxLength={60}
+              onChange={e => setNewBlock(p => ({ ...p, label: e.target.value }))}
+              placeholder="e.g. finish tutorial sheet 3"
+              className="w-full bg-ink3 border border-white/10 rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-orange-500/50 placeholder:text-zinc-600 mb-6"
+            />
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowAddBlock(false)} className="flex-1 py-3 rounded-2xl bg-ink3 border border-white/10 text-white font-bold text-sm hover:border-white/25">Cancel</button>
+              <button onClick={() => void addCustomBlock()} className="flex-1 py-3 rounded-2xl bg-orange-500 text-ink font-bold text-sm hover:brightness-105">Add to today</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {pullDistance > 0 && (
         <div
           className="fixed top-20 left-1/2 -translate-x-1/2 z-50 transition-all"
@@ -768,9 +923,17 @@ export const Dashboard = ({
         <div className="lg:col-span-2 rounded-4xl bg-ink2 border border-white/10 p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-display font-black text-2xl">THE PLAN</h3>
-            <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">
-              {totalCount} block{totalCount === 1 ? '' : 's'} · {completedCount}/{totalCount} done
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">
+                {totalCount} block{totalCount === 1 ? '' : 's'} · {completedCount}/{totalCount} done
+              </span>
+              <button
+                onClick={() => setShowAddBlock(true)}
+                className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-[0.16em] text-orange-400 bg-orange-500/12 border-2 border-orange-500/30 px-3 py-2 rounded-xl hover:bg-orange-500/20 transition-colors"
+              >
+                <Plus size={12} strokeWidth={3} /> Add block
+              </button>
+            </div>
           </div>
 
           {plan.loadAnalysis?.planExplanation && plan.loadAnalysis.planExplanation.length > 0 && (
@@ -794,6 +957,7 @@ export const Dashboard = ({
                       <div className="flex-1 min-w-0">
                         <div className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-70">Now · {b.type}</div>
                         <div className="font-display font-black text-xl leading-tight truncate">{b.subjectName}</div>
+                        <BlockDetail block={b} tone="light" />
                       </div>
                       <button onClick={() => onStartFocus(b)} className="bg-ink text-white font-bold text-sm px-5 py-3 rounded-2xl whitespace-nowrap hover:bg-ink3 transition-colors active:scale-95 flex items-center gap-2">
                         <Play size={15} fill="currentColor" strokeWidth={0} /> Start
@@ -819,6 +983,7 @@ export const Dashboard = ({
                     <div className="flex-1 min-w-0">
                       <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-zinc-500 flex items-center gap-2">Up next · {b.type}{b.tier === 'stretch' && <span className="text-yellow-400/70">· stretch</span>}</div>
                       <div className="font-bold text-lg leading-tight truncate text-white">{b.subjectName}</div>
+                      <BlockDetail block={b} />
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => onStartFocus(b)} aria-label="Start" title="Start" className="p-2.5 rounded-xl bg-orange-500/15 text-orange-400 hover:bg-orange-500/25 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"><Play size={18} strokeWidth={2.5} /></button>

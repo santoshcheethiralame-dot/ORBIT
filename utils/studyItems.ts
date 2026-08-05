@@ -52,6 +52,8 @@ export type IncomingItem = {
   /** CRUX flashcards arrive as a Q/A pair — the shape SM-2 was built for. */
   question?: string;
   answer?: string;
+  /** Realistic minutes for this topic, as measured by the source app. */
+  estimatedMinutes?: number;
   sourceUrl?: string;
   sourceApp?: string;
   sourcePath?: string;
@@ -198,6 +200,10 @@ export async function ingestStudyItems(raw: unknown): Promise<ImportResult> {
           // recall — which is the one thing SM-2 is actually for.
           question: item.question,
           answer: item.answer,
+          estimatedMinutes:
+            typeof item.estimatedMinutes === 'number' && item.estimatedMinutes > 0
+              ? Math.round(item.estimatedMinutes)
+              : undefined,
           sourceUrl: item.sourceUrl,
           sourceApp: item.sourceApp ?? env.source,
           sourcePath: item.sourcePath,

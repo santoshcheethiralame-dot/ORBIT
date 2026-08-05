@@ -478,19 +478,31 @@ const App = () => {
     SoundManager.playSuccess();
 
     try {
-      const result = await generateEnhancedPlan(ctx);
       const dateStr = getISTEffectiveDate();
 
-      const existingPlan = await db.plans.get(dateStr);
-      const completedPrior = existingPlan?.blocks.filter(b => b.completed) ?? [];
-      const isDuplicateOfCompleted = (nb: StudyBlock) =>
-        completedPrior.some(cb =>
+      // Tell the planner how much of today is already committed, so it plans
+      // around custom and completed blocks instead of on top of them.
+      const priorPlan = await db.plans.get(dateStr);
+      const reservedMinutes = (priorPlan?.blocks ?? [])
+        .filter(b => (b.completed || b.custom) && b.type !== 'break')
+        .reduce((sum, b) => sum + (b.duration || 0), 0);
+
+      const result = await generateEnhancedPlan({ ...ctx, reservedMinutes });
+
+      const existingPlan = priorPlan;
+      // Blocks the planner is not allowed to discard: anything already done,
+      // and anything the user added by hand. Regenerating used to wipe custom
+      // blocks, which made "add your own block" pointless the moment the day
+      // was reflowed.
+      const keptPrior = existingPlan?.blocks.filter(b => b.completed || b.custom) ?? [];
+      const isDuplicateOfKept = (nb: StudyBlock) =>
+        keptPrior.some(cb =>
           cb.subjectId === nb.subjectId &&
           cb.type === nb.type &&
           (cb.topicId || '') === (nb.topicId || '')
         );
-      const mergedBlocks = completedPrior.length
-        ? [...completedPrior, ...result.blocks.filter(b => !isDuplicateOfCompleted(b))]
+      const mergedBlocks = keptPrior.length
+        ? [...keptPrior, ...result.blocks.filter(b => !isDuplicateOfKept(b))]
         : result.blocks;
 
       const plan: DailyPlan = {

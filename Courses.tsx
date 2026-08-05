@@ -138,7 +138,16 @@ type TopicRow = { name: string; mastery: number; reviews: number; due: string; d
  * seeing without a click. Topics with no unit prefix fall back to a single
  * "All topics" group, so a hand-typed syllabus still behaves sensibly.
  */
-const TopicMasteryList = ({ rows }: { rows: TopicRow[] }) => {
+const TopicMasteryList = ({ rows, subjectId, onReviewed }: {
+  rows: TopicRow[];
+  subjectId: number;
+  onReviewed: (name: string, grade: 1 | 2 | 3 | 4) => Promise<void>;
+}) => {
+  // Which row is currently asking "how did it go?". Grading inline keeps the
+  // spacing honest — a blanket "done" would schedule a topic you barely
+  // remember exactly like one you know cold.
+  const [grading, setGrading] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const META = "text-[9px] font-mono uppercase tracking-[0.16em] text-mute";
 
   const groups = React.useMemo(() => {
@@ -237,7 +246,36 @@ const TopicMasteryList = ({ rows }: { rows: TopicRow[] }) => {
                         <div className="h-2 bg-white/10 rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: r.mastery + '%', background: c }} /></div>
                         <div className="text-[8px] font-mono uppercase tracking-[0.16em] text-mute mt-1 text-right">{r.mastery}% mastery</div>
                       </div>
-                      <span className={"text-[9px] font-mono uppercase tracking-[0.16em] px-2.5 py-1.5 rounded-lg shrink-0 w-20 md:w-24 text-center " + badgeC}>{badgeT}</span>
+                      {grading === r.name ? (
+                        <div className="flex items-center gap-1 shrink-0">
+                          {([['Again', 1], ['Good', 3], ['Easy', 4]] as const).map(([label, g]) => (
+                            <button
+                              key={label}
+                              disabled={busy === r.name}
+                              onClick={async () => {
+                                setBusy(r.name);
+                                try { await onReviewed(r.name, g as 1 | 3 | 4); setGrading(null); }
+                                finally { setBusy(null); }
+                              }}
+                              className={"text-[9px] font-mono font-bold uppercase tracking-[0.12em] px-2 py-1.5 rounded-lg border transition-colors disabled:opacity-50 " +
+                                (g === 1 ? "border-orange-500/40 text-orange-400 hover:bg-orange-500/15"
+                                  : g === 3 ? "border-yellow-400/40 text-yellow-300 hover:bg-yellow-400/15"
+                                    : "border-white/20 text-white hover:bg-white/10")}
+                            >{label}</button>
+                          ))}
+                          <button onClick={() => setGrading(null)} aria-label="Cancel" className="p-1.5 text-mute hover:text-white"><X size={13} /></button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className={"text-[9px] font-mono uppercase tracking-[0.16em] px-2.5 py-1.5 rounded-lg shrink-0 w-20 md:w-24 text-center " + badgeC}>{badgeT}</span>
+                          <button
+                            onClick={() => setGrading(r.name)}
+                            aria-label={`Mark ${r.name} reviewed`}
+                            title="Mark reviewed"
+                            className="p-2 rounded-lg text-mute hover:text-orange-400 hover:bg-white/5 transition-colors shrink-0"
+                          ><CheckSquare size={16} strokeWidth={2.5} /></button>
+                        </>
+                      )}
                     </div>
                   );
                 })}
@@ -860,7 +898,20 @@ export default function CoursesView_Enhanced() {
           {topicRows.length === 0 ? (
             <div className="text-sm text-mute py-6 text-center">Add syllabus units below — they become trackable topics, and mastery builds as you review.</div>
           ) : (
-            <TopicMasteryList rows={topicRows} />
+            <TopicMasteryList
+              rows={topicRows}
+              subjectId={selectedSubject.id!}
+              onReviewed={async (name, grade) => {
+                try {
+                  const { recordTopicReview } = await import('./tracking');
+                  await recordTopicReview(selectedSubject.id!, name, grade, 0, tdy);
+                  toast.success(`${name} reviewed`);
+                } catch (err) {
+                  console.error('Failed to record review:', err);
+                  toast.error("Couldn't record that review");
+                }
+              }}
+            />
           )}
         </div>
 
