@@ -839,7 +839,7 @@ const App = () => {
 
       <div className="hidden lg:block h-24" />
 
-      <main className="flex-1 min-h-screen pb-24 md:pb-0 overflow-x-clip">
+      <main className="flex-1 min-h-screen pb-24 md:pb-0">
         <div className="max-w-7xl mx-auto w-full animate-slide-up">
           {/* Keyed on the tab so switching away from a crashed view resets the
               boundary — otherwise one broken tab wedges the whole main area. */}

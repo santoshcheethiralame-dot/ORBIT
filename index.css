@@ -971,3 +971,59 @@ html:not(.light-mode) .text-zinc-600 { color: var(--os-fg-subtle); }
 }
 
 .os-meta { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--os-fg-subtle); }
+/* ─── Large-display scaling ──────────────────────────────────────────────────
+ *
+ * On a big monitor the app sat in a 1280px column with everything set at
+ * laptop sizes, so it read small and left most of the screen empty — the
+ * workaround was running the browser at 130%. This bakes that in.
+ *
+ * `zoom` rather than a root font-size: the codebase carries ~475 hardcoded
+ * pixel values (text-[10px], w-[84px], inline styles). rem scaling leaves every
+ * one of them behind, so the small labels would stay small while everything
+ * around them grew. `zoom` scales layout, type and borders uniformly, which is
+ * exactly what browser zoom does.
+ *
+ * Only above 1536px. Media queries still evaluate against the REAL viewport
+ * width, so zooming divides the usable CSS width without moving any breakpoint
+ * — fine when there is width to spare, cramped when there isn't. At 1920 the
+ * usable width is ~1477px, still comfortably past the 1280px container.
+ * Phones and laptops are deliberately untouched.
+ */
+@media (min-width: 1536px) {
+  body { zoom: 1.15; }
+}
+@media (min-width: 1800px) {
+  body { zoom: 1.3; }
+}
+
+/* `zoom` scales the element box but NOT viewport units, so anything sized in
+ * vh becomes 1.3x taller than the screen and introduces a phantom scroll.
+ * Divide it back out for the full-height cases. */
+@media (min-width: 1536px) {
+  .min-h-screen { min-height: calc(100vh / 1.15); }
+  .h-screen { height: calc(100vh / 1.15); }
+}
+@media (min-width: 1800px) {
+  .min-h-screen { min-height: calc(100vh / 1.3); }
+  .h-screen { height: calc(100vh / 1.3); }
+}
+
+/* Horizontal overflow is clipped on the document, NOT on <main>.
+ *
+ * `overflow: clip` establishes a containing block for position:fixed
+ * descendants (unlike `hidden`), so with it on <main> every modal rendered
+ * inside a view anchored to main's box instead of the viewport and sat ~28px
+ * low, clipped by the same amount at the bottom. Clipping here keeps wide
+ * content in check without capturing fixed elements — the viewport stays their
+ * containing block. Related: the note on .animate-slide-up in index.tsx. */
+html { overflow-x: clip; }
+
+/* A full-screen fixed overlay must never carry a margin.
+ *
+ * Tailwind's space-y-* puts margin-top on every child after the first, and it
+ * does not care whether that child is in the flow. Modals rendered inside a
+ * spaced container therefore inherited the gap: `fixed inset-0` sat 28px low
+ * and lost 28px off the bottom, so the backdrop no longer covered the screen.
+ * The overlay is positioned entirely by its insets, so a margin is always a
+ * bug — !important because the space-y selector outranks this one. */
+.fixed.inset-0 { margin: 0 !important; }
