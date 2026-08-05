@@ -1,4 +1,4 @@
-import { ingestStudyItems, type ImportResult } from './studyItems';
+import { ingestStudyItems, parseEnvelope, type ImportResult, type StudyItemEnvelope } from './studyItems';
 
 /**
  * The sending half of the ATLAS/CRUX bridge — no file, no export/import dance.
@@ -21,21 +21,35 @@ export const BRIDGE_APPS = {
 
 export type BridgeApp = keyof typeof BRIDGE_APPS;
 
-export type PullOutcome =
-  | { ok: true; result: ImportResult }
-  | { ok: false; reason: 'popup-blocked' | 'timeout' | 'remote-error' | 'bad-data'; message: string };
+export type PullFailure = {
+  ok: false;
+  reason: 'popup-blocked' | 'timeout' | 'remote-error' | 'bad-data';
+  message: string;
+};
+
+export type PullOutcome = { ok: true; result: ImportResult } | PullFailure;
+
+/** Fetched but NOT written — the caller decides what to keep. */
+export type FetchOutcome = { ok: true; envelope: StudyItemEnvelope } | PullFailure;
 
 /** How long to wait for the other app to answer before giving up. */
 const REPLY_TIMEOUT_MS = 30_000;
 
-export function pullStudyItems(
+/**
+ * Open the app and bring back its payload WITHOUT writing anything.
+ *
+ * Split out from pullStudyItems so onboarding can show the subjects and let the
+ * user choose. Ingesting first and asking later is not an option: the write is
+ * what creates the subjects, so there would be nothing to opt out of.
+ */
+export function fetchStudyItems(
   app: BridgeApp,
   opts: { includeUnstarted?: boolean } = {},
-): Promise<PullOutcome> {
+): Promise<FetchOutcome> {
   const origin = BRIDGE_APPS[app];
   const scope = opts.includeUnstarted === false ? 'finished' : 'all';
 
-  return new Promise<PullOutcome>((resolve) => {
+  return new Promise<FetchOutcome>((resolve) => {
     // Must be called synchronously from the click, or the popup is blocked.
     const popup = window.open(
       `${origin}/?handoff=orbit&scope=${scope}&origin=${encodeURIComponent(window.location.origin)}`,
@@ -52,7 +66,7 @@ export function pullStudyItems(
     }
 
     let settled = false;
-    const finish = (outcome: PullOutcome) => {
+    const finish = (outcome: FetchOutcome) => {
       if (settled) return;
       settled = true;
       window.removeEventListener('message', onMessage);
@@ -67,8 +81,8 @@ export function pullStudyItems(
 
       if (data?.kind === 'study-items/v1') {
         try {
-          const result = await ingestStudyItems(data);
-          finish({ ok: true, result });
+          // Validate here so a malformed payload fails before any UI is drawn.
+          finish({ ok: true, envelope: parseEnvelope(data) });
         } catch (err) {
           finish({
             ok: false,
@@ -88,5 +102,37 @@ export function pullStudyItems(
     );
 
     window.addEventListener('message', onMessage);
+  });
+}
+
+/**
+ * Fetch and write everything, in one step. This is the Settings behaviour —
+ * you already have your subjects and just want the latest topics pulled in.
+ */
+export async function pullStudyItems(
+  app: BridgeApp,
+  opts: { includeUnstarted?: boolean } = {},
+): Promise<PullOutcome> {
+  const fetched = await fetchStudyItems(app, opts);
+  if (!fetched.ok) return fetched;
+  try {
+    return { ok: true, result: await ingestStudyItems(fetched.envelope) };
+  } catch (err) {
+    return {
+      ok: false,
+      reason: 'bad-data',
+      message: err instanceof Error ? err.message : 'bad data',
+    };
+  }
+}
+
+/** Write only the subjects the user picked, matched by code. */
+export async function ingestSelected(
+  envelope: StudyItemEnvelope,
+  codes: Set<string>,
+): Promise<ImportResult> {
+  return ingestStudyItems({
+    ...envelope,
+    subjects: envelope.subjects.filter((s) => codes.has(s.code)),
   });
 }

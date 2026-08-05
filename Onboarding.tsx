@@ -8,8 +8,8 @@ import { OnboardingAuth } from "./CloudSync";
 import { snoozeCloudPrompt } from "./utils/cloudSync";
 import { formatLocalDate } from "./utils/time";
 import { validateSubjectName } from "./utils/validation";
-import { pullStudyItems, type BridgeApp } from "./utils/studyItemsBridge";
-import { describeImport } from "./utils/studyItems";
+import { fetchStudyItems, ingestSelected, type BridgeApp } from "./utils/studyItemsBridge";
+import type { StudyItemEnvelope } from "./utils/studyItems";
 
 // Every preference key worth carrying across a backup. The AI key is
 // deliberately excluded — a backup file gets emailed and synced around, and a
@@ -207,6 +207,11 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [pulling, setPulling] = useState<BridgeApp | null>(null);
+  // A fetched-but-not-yet-written payload, awaiting the user's picks.
+  const [imported, setImported] = useState<{ app: BridgeApp; envelope: StudyItemEnvelope } | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  // Kept so finish() can attach topics for whichever imported subjects survived.
+  const importedRef = useRef<{ app: BridgeApp; envelope: StudyItemEnvelope } | null>(null);
   const savingRef = useRef(false);
   const importingRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -295,45 +300,60 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   };
 
   /**
-   * Pull a whole syllabus out of CRUX/ATLAS instead of typing it.
+   * Fetch a syllabus from CRUX/ATLAS and offer it for picking.
    *
-   * The bridge writes subjects AND their topics straight to the DB (that's the
-   * point — it carries review items and deep links, not just names), so this
-   * cannot feed the wizard's local `subjects` state without creating two copies
-   * of everything at finish(). It therefore completes onboarding itself, the
-   * same way "Import backup" does. Credits and class times stay editable later
-   * in Courses and Schedule.
+   * Deliberately does NOT write anything yet. The subjects the user ticks are
+   * merged into the wizard's own list so they flow through the credits and
+   * timetable steps like anything typed by hand; their topics and deep links
+   * are attached at finish(), matched on subject code.
    */
   const pullFrom = async (app: BridgeApp) => {
-    if (savingRef.current) return;
-    savingRef.current = true;
+    if (pulling) return;
     setPulling(app);
     try {
-      const outcome = await pullStudyItems(app);
+      const outcome = await fetchStudyItems(app);
       if (!outcome.ok) {
-        // Timeout usually just means they closed the popup.
+        // A timeout usually just means they closed the popup.
         if (outcome.reason !== 'timeout') toast.error(`${app}: ${outcome.message}`);
         return;
       }
-      const { result } = outcome;
-      if (!result.subjectsCreated && !result.subjectsMatched) {
+      const incoming = outcome.envelope.subjects;
+      if (!incoming.length) {
         toast.info(`Nothing to import from ${app} yet.`);
         return;
       }
-
-      // The bridge creates subjects but knows nothing about terms, and the rest
-      // of the app expects one to exist.
-      if ((await db.semesters.count()) === 0) await db.semesters.add(buildSemester());
-
-      saveDbSnapshot();
-      clearDraft();
-      snoozeCloudPrompt();
-      toast.success(describeImport(result));
-      setTimeout(onComplete, 400);
+      setImported({ app, envelope: outcome.envelope });
+      importedRef.current = { app, envelope: outcome.envelope };
+      // Pre-tick everything — deselecting a few is less work than ticking all.
+      setPicked(new Set(incoming.map(x => x.code)));
     } finally {
       setPulling(null);
-      savingRef.current = false;
     }
+  };
+
+  /** Merge the ticked subjects into the wizard list, skipping ones already there. */
+  const confirmPicked = () => {
+    if (!imported) return;
+    const chosen = imported.envelope.subjects.filter(x => picked.has(x.code));
+    if (!chosen.length) { setImported(null); return; }
+
+    let added = 0;
+    setSubjects(prev => {
+      const next = [...prev];
+      let id = next.length ? Math.max(...next.map(x => x.id!)) + 1 : 1;
+      for (const inc of chosen) {
+        if (next.length >= MAX_SUBJECTS) break;
+        // Match on code first (the join key the importer uses), then name.
+        if (next.some(x => (x.code && x.code === inc.code) || x.name.toLowerCase() === inc.name.toLowerCase())) continue;
+        next.push({ id: id++, name: inc.name, code: inc.code, credits: 3, difficulty: 3 });
+        added++;
+      }
+      return next;
+    });
+
+    setImported(null);
+    setPicked(new Set());
+    toast.success(added ? `Added ${added} subject${added === 1 ? '' : 's'} from ${imported.app}.` : 'Those are already in your list.');
   };
 
   const buildSemester = (): Semester => {
@@ -378,6 +398,25 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
           .filter((x): x is { day: number; slot: number; subjectId: number } => x.subjectId != null);
         if (sched.length) await db.schedule.bulkAdd(sched as any);
       });
+      // Attach topics and deep links for any imported subjects that survived to
+      // the end. ingestStudyItems joins on subject code, so the rows created
+      // above are matched rather than duplicated — and subjects the user
+      // removed along the way are simply not in `codes`, so they stay out.
+      const carried = importedRef.current;
+      if (carried) {
+        const codes = new Set(subjects.map(s => s.code).filter(Boolean) as string[]);
+        if (codes.size) {
+          try {
+            await ingestSelected(carried.envelope, codes);
+          } catch (e) {
+            // The subjects are already saved; losing the topics is recoverable
+            // from Settings, so don't fail the whole setup over it.
+            console.error('Could not attach imported topics:', e);
+            toast.info('Subjects saved. Re-run the import in Settings to pull their topics.');
+          }
+        }
+      }
+
       saveDbSnapshot();
       clearDraft();
       // Sign-in was already offered on the welcome step — don't re-pitch it as
@@ -494,6 +533,59 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
     <div className="w-full min-h-screen bg-ink text-white flex flex-col-reverse lg:grid lg:grid-cols-2">
       <input ref={fileRef} type="file" accept="application/json,.json" onChange={onFile} className="hidden" aria-label="Choose an Orbit backup file" tabIndex={-1} />
 
+      {imported && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-label={`Choose subjects from ${imported.app}`}
+            className="w-full max-w-md bg-ink2 border border-white/10 rounded-3xl p-6 flex flex-col" style={{ maxHeight: "85vh" }}>
+            <h2 className="text-xl font-bold text-white mb-1">Which subjects?</h2>
+            <p className="text-sm text-zinc-400 mb-4">
+              Found {imported.envelope.subjects.length} in {imported.app}. Tick the ones you're studying — you'll set credits next.
+            </p>
+
+            <div className="flex items-center gap-3 mb-3">
+              <button type="button" onClick={() => setPicked(new Set(imported.envelope.subjects.map(x => x.code)))}
+                className="font-mono text-[10px] font-bold uppercase tracking-widest text-orange-400 hover:text-orange-300">Select all</button>
+              <button type="button" onClick={() => setPicked(new Set())}
+                className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-white">Clear</button>
+              <span className="ml-auto font-mono text-[10px] text-zinc-500">{picked.size} selected</span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto -mx-1 px-1 space-y-1.5">
+              {imported.envelope.subjects.map(sub => {
+                const on = picked.has(sub.code);
+                return (
+                  <label key={sub.code}
+                    className={`flex items-start gap-3 p-3 rounded-2xl border cursor-pointer transition ${on ? "bg-orange-500/10 border-orange-500/40" : "bg-ink3 border-white/10 hover:border-white/25"}`}>
+                    <input type="checkbox" checked={on}
+                      onChange={() => setPicked(prev => {
+                        const next = new Set(prev);
+                        if (next.has(sub.code)) next.delete(sub.code); else next.add(sub.code);
+                        return next;
+                      })}
+                      className="mt-0.5 w-4 h-4 accent-orange-500 shrink-0" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-bold text-white truncate">{sub.name}</span>
+                      <span className="block font-mono text-[10px] text-zinc-500 mt-0.5">
+                        {sub.code}{sub.items?.length ? ` · ${sub.items.length} topic${sub.items.length === 1 ? "" : "s"}` : ""}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-2.5 mt-5">
+              <button type="button" onClick={() => { setImported(null); setPicked(new Set()); }}
+                className="px-5 py-3 rounded-2xl bg-ink3 border border-white/10 text-mute font-bold text-sm hover:text-white">Cancel</button>
+              <button type="button" onClick={confirmPicked} disabled={picked.size === 0}
+                className={`flex-1 ${primaryBtn} py-3 text-sm disabled:bg-white/5 disabled:text-zinc-600 disabled:hover:scale-100`}>
+                Add {picked.size || ""} subject{picked.size === 1 ? "" : "s"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main aria-label="Orbit setup" className="bg-ink2 lg:border-r border-white/10 lg:h-screen flex flex-col justify-center relative px-6 sm:px-12 lg:px-16 xl:px-24 py-12">
         <div className="lg:absolute lg:top-9 lg:left-16 xl:left-24 flex items-center gap-2.5 mb-10 lg:mb-0">
           <div className="w-9 h-9 rounded-xl bg-orange-500 text-ink font-display flex items-center justify-center text-lg">O</div>
@@ -518,32 +610,6 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
                 <button type="button" onClick={() => fileRef.current?.click()} disabled={importing} className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-white disabled:opacity-50 flex items-center gap-1.5"><Upload size={11} aria-hidden="true" />{importing ? "Importing…" : "Import backup"}</button>
               </div>
 
-              {/* If the syllabus already exists in CRUX or ATLAS, typing it in
-                  again is busywork — and the bridge brings the topics and deep
-                  links across too, not just the names. */}
-              <div className="mt-8 pt-6 border-t border-white/10 max-w-md">
-                <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-3">Already using CRUX or ATLAS?</div>
-                <div className="flex flex-wrap gap-2.5">
-                  {(["CRUX", "ATLAS"] as BridgeApp[]).map(app => (
-                    <button
-                      key={app}
-                      type="button"
-                      onClick={() => void pullFrom(app)}
-                      disabled={pulling !== null || saving}
-                      className="flex items-center gap-2 bg-ink3 border border-white/15 text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:border-white/30 disabled:opacity-50 transition"
-                    >
-                      <Download size={14} aria-hidden="true" />
-                      {pulling === app ? `Pulling from ${app}…` : `Bring in my ${app} subjects`}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-zinc-500 mt-2.5">Opens the app in a small window to fetch your subjects and topics — nothing is typed twice.</p>
-              </div>
-              <div className="mt-8 pt-6 border-t border-white/10 max-w-md">
-                <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-3">Optional — sync across devices</div>
-                <OnboardingAuth />
-              </div>
-              <div className="mt-8 font-mono text-[10px] uppercase tracking-widest text-zinc-600">Takes ~2 minutes</div>
             </div>
           )}
 
@@ -593,6 +659,27 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
               )}
 
               <p id="onb-subject-hint" className="text-xs text-zinc-500">Tip · press Enter, or paste a list (one per line).</p>
+
+              {/* Pull from the sister apps rather than retyping a syllabus that
+                  already exists. Picked subjects join the list above and go
+                  through credits and timetable like any other. */}
+              <div className="mt-6 pt-5 border-t border-white/10">
+                <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-3">Or bring them in</div>
+                <div className="flex flex-wrap gap-2.5">
+                  {(["CRUX", "ATLAS"] as BridgeApp[]).map(app => (
+                    <button
+                      key={app}
+                      type="button"
+                      onClick={() => void pullFrom(app)}
+                      disabled={pulling !== null}
+                      className="flex items-center gap-2 bg-ink3 border border-white/15 text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:border-white/30 disabled:opacity-50 transition"
+                    >
+                      <Download size={14} aria-hidden="true" />
+                      {pulling === app ? `Opening ${app}…` : `From ${app}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <p aria-live="polite" className="sr-only">{subjects.length} subject{subjects.length === 1 ? "" : "s"} added</p>
 
               <div className="mt-10 flex gap-3">

@@ -120,6 +120,10 @@ async function push(uid: string): Promise<void> {
 async function adopt(uid: string, snap: CloudSnapshot): Promise<void> {
   await restoreAll(snap);
   setSynced(uid, await snapshotHash(snap));
+  // Their setup already exists in the cloud, so a half-filled wizard draft is
+  // stale — without this, signing in on a new device restored the draft and
+  // put them back in onboarding they had already completed elsewhere.
+  try { sessionStorage.removeItem('orbit-onboarding-draft'); } catch { /* ignore */ }
   // The whole DB was just swapped underneath React. Dexie live queries pick
   // that up on their own, but the App's plain useState copies (subjects, logs,
   // today's plan) do not — navigating alone left the user staring at an empty
@@ -143,8 +147,11 @@ async function reconcile(uid: string): Promise<void> {
     if (!navigator.onLine) { set({ status: 'offline' }); return; }
     set({ status: 'syncing', error: null });
 
-    const [{ snap: cloud, updatedAt: cloudAt }, localPrint] = await Promise.all([pull(uid), snapshotFingerprint()]);
+    // Serialize local once and reuse it — fingerprint and emptiness both need it.
+    const [{ snap: cloud, updatedAt: cloudAt }, localSnap] = await Promise.all([pull(uid), serializeAll()]);
+    const localPrint = await snapshotFingerprint(localSnap);
     const localHashNow = localPrint.hash;
+    const localEmpty = isEmptySnapshot(localSnap);
     const { hash: ancestor } = getSynced(uid);
 
     // An ancestor written before the SHA-256 switch is in the old format.
@@ -156,9 +163,21 @@ async function reconcile(uid: string): Promise<void> {
 
     // No cloud row yet → push local up (first time), unless local is empty.
     if (!cloud || isEmptySnapshot(cloud)) {
-      const localEmpty = (await serializeAll().then(isEmptySnapshot));
       if (!localEmpty) await push(uid);
       else setSynced(uid, localHashNow);
+      set({ status: 'synced' });
+      return;
+    }
+
+    // Nothing local to lose → take the cloud copy, no questions asked.
+    //
+    // This is the signing-in-on-a-new-device case, and without it the code fell
+    // through to the conflict branch: with no ancestor stored yet, BOTH sides
+    // count as "changed", so the user was asked to choose between their real
+    // data and an empty database — and picking "keep this device" wiped the
+    // cloud. An empty local copy is never worth keeping.
+    if (localEmpty) {
+      await adopt(uid, cloud);
       set({ status: 'synced' });
       return;
     }
@@ -173,7 +192,7 @@ async function reconcile(uid: string): Promise<void> {
     if (!localChanged && cloudChanged) { await adopt(uid, cloud); set({ status: 'synced' }); return; }
     if (localChanged && !cloudChanged) { await push(uid); set({ status: 'synced' }); return; }
 
-    // Both diverged (or first meeting of two populated devices) → user decides.
+    // Both genuinely populated and diverged → user decides.
     pendingCloud = cloud;
     set({ status: 'conflict', conflict: { cloudAt: cloudAt ?? Date.now(), localAt: Date.now() } });
   } catch (e: any) {
