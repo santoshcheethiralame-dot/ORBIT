@@ -3,7 +3,7 @@ import { SubjectReadiness, StudyBlock, Subject, StudyLog, DailyPlan, DailyContex
 import { BlockReason, PageHeader, MetaText, HeaderChip } from "./components";
 import { getISTTime, getISTEffectiveDate, effectiveDatePlus } from "./utils/time";
 import { EmptyBacklog, EmptyTodayPlan } from './EmptyStates';
-import { updateAssignmentProgress } from './brain';
+import { updateAssignmentProgress, needsWork } from './brain';
 import { getAllReadinessScores, getWeekForecast } from './brain-ultimate';
 import { useToast } from './Toast';
 import { safeDB, withToast } from './utils/dbErrorHandler';
@@ -578,7 +578,8 @@ export const Dashboard = ({
     name: subjects.find(s => s.id === Number(worstEntry[0]))?.name || 'Unknown',
     score: Math.round(worstEntry[1].score),
     days: worstEntry[1].lastStudiedDays,
-    critical: worstEntry[1].status === 'critical',
+    critical: needsWork(worstEntry[1].status),
+    fresh: worstEntry[1].status === 'fresh',
   } : null;
   const reviewsDueCount = dueToday.length;
   const weekDates = Array.from({ length: 7 }, (_, i) => effectiveDatePlus(-(6 - i)));
@@ -655,7 +656,7 @@ export const Dashboard = ({
               <h2 className="font-display font-black text-3xl md:text-4xl mt-2 leading-[0.95] truncate">{nextBlock.subjectName}</h2>
               <p className="text-sm text-zinc-400 mt-2">
                 {worst && worst.critical && nextBlock.subjectName === worst.name
-                  ? 'Your most-slipping subject — this block pulls it back.'
+                  ? (worst.fresh ? 'Your least-started subject — this block gets it going.' : 'Your most-slipping subject — this block pulls it back.')
                   : nextBlock.type === 'review'
                   ? 'Review while it’s fresh — that’s where retention is won.'
                   : nextBlock.type === 'recovery'
@@ -709,11 +710,15 @@ export const Dashboard = ({
           </div>
         </div>
         {worst && worst.critical ? (
-          <div className="rounded-4xl bg-yellow-400 text-ink p-6 flex flex-col justify-between min-h-[140px]">
-            <span className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-70">Critical subject</span>
+          <div className={`rounded-4xl p-6 flex flex-col justify-between min-h-[140px] ${worst.fresh ? 'bg-ink2 border border-white/10' : 'bg-yellow-400 text-ink'}`}>
+            <span className={`text-[9px] font-mono uppercase tracking-[0.18em] ${worst.fresh ? 'text-zinc-500' : 'opacity-70'}`}>
+              {worst.fresh ? 'Start here' : 'Critical subject'}
+            </span>
             <div>
-              <div className="font-display font-black text-2xl leading-none truncate">{worst.name}</div>
-              <div className="text-xs font-bold mt-1 opacity-80">Readiness {worst.score}% · {worst.days >= 365 ? 'not started yet' : `${worst.days}d since study`}</div>
+              <div className={`font-display font-black text-2xl leading-none truncate ${worst.fresh ? 'text-white' : ''}`}>{worst.name}</div>
+              <div className={`text-xs font-bold mt-1 ${worst.fresh ? 'text-zinc-500' : 'opacity-80'}`}>
+                {worst.fresh ? 'Not started yet' : `Readiness ${worst.score}% · ${worst.days}d since study`}
+              </div>
             </div>
           </div>
         ) : (
@@ -856,7 +861,13 @@ export const Dashboard = ({
             let headline = 'All clear.';
             let body = "You've cleared today's plan — rest is part of the process.";
             let action: { label: string; onClick: () => void } | null = null;
-            if (worst && worst.critical) {
+            if (worst && worst.fresh) {
+              // Never studied — there is nothing to pull back yet.
+              kicker = 'Coach · start here';
+              headline = `${worst.name} hasn't started yet.`;
+              body = 'A first block gets it on the board — readiness builds from there.';
+              if (nextBlock) action = { label: 'Start next block', onClick: () => onStartFocus(nextBlock) };
+            } else if (worst && worst.critical) {
               kicker = 'Coach · priority';
               headline = `${worst.name} is slipping.`;
               body = `Readiness ${worst.score}% — a focused block now pulls it back before it decays further.`;

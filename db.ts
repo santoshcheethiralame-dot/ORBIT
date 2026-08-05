@@ -151,6 +151,44 @@ export class OrbitDB extends Dexie {
         await tx.table("topics").put(t);
       }
     });
+
+    // v14: repair topic dates written as full ISO timestamps.
+    //
+    // The ATLAS/CRUX importer stored `nextReview`/`lastStudied` straight from
+    // the payload, so they could arrive as "2026-08-05T10:04:15.558Z". Every
+    // date routine here splits on "-" and expects YYYY-MM-DD, so those parsed
+    // to NaN — which propagated through topic retrievability into the subject's
+    // readiness and surfaced as a literal "NaN%". Anyone who imported before
+    // this needs the stored rows fixed, not just the importer.
+    this.version(14).stores({
+      semesters: "++id",
+      subjects: "++id, name, code",
+      projects: "++id, subjectId",
+      schedule: "++id, day, slot",
+      assignments: "id, subjectId, dueDate, estimatedEffort, progressMinutes, completed",
+      plans: "date",
+      logs: "++id, timestamp, date, subjectId, type, topicId",
+      topics: "++id, subjectId, name, nextReview",
+      blockOutcomes: "++id, blockId, subjectId, timestamp, date, completed, skipped, timeOfDay",
+      studyBlocks: "id, date, completed, subjectId, type",
+      exams: "++id, subjectId, examDate, examType, completed",
+      settings: "key",
+    }).upgrade(async (tx) => {
+      const asDay = (v: unknown): string | null => {
+        if (typeof v !== "string" || !v) return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return null; // already fine
+        const d = new Date(v);
+        if (Number.isNaN(d.getTime())) return null;
+        const p = (n: number) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+      };
+      await tx.table("topics").toCollection().modify((t: any) => {
+        const nr = asDay(t.nextReview);
+        const ls = asDay(t.lastStudied);
+        if (nr) t.nextReview = nr;
+        if (ls) t.lastStudied = ls;
+      });
+    });
   }
 }
 

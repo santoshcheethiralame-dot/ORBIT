@@ -123,6 +123,133 @@ const isPowerPoint = (type: string) =>
 const isDocx = (type: string) =>
   type.includes("wordprocessingml") || type.includes("msword");
 
+
+type TopicRow = { name: string; mastery: number; reviews: number; due: string; dueDays: number };
+
+/**
+ * Topic mastery, grouped and collapsed.
+ *
+ * An imported syllabus is easily 40+ topics, which rendered as one flat list
+ * was an endless scroll that buried the few topics actually due. Imported
+ * names carry their unit ("U1 · Keys & Weak Entity Sets"), so group on that and
+ * collapse each unit to a one-line summary.
+ *
+ * Units holding something due or overdue start open — that is the part worth
+ * seeing without a click. Topics with no unit prefix fall back to a single
+ * "All topics" group, so a hand-typed syllabus still behaves sensibly.
+ */
+const TopicMasteryList = ({ rows }: { rows: TopicRow[] }) => {
+  const META = "text-[9px] font-mono uppercase tracking-[0.16em] text-mute";
+
+  const groups = React.useMemo(() => {
+    const map = new Map<string, TopicRow[]>();
+    for (const r of rows) {
+      const m = r.name.match(/^\s*(U\d+|Unit\s*\d+)\s*[·:\-–]\s*/i);
+      const key = m ? m[1].toUpperCase().replace(/\s+/g, '') : 'All topics';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(r);
+    }
+    return [...map.entries()].map(([unit, items]) => ({
+      unit,
+      items,
+      // Strip the unit prefix inside a group — it is already the heading.
+      stripPrefix: unit !== 'All topics',
+      dueCount: items.filter(i => i.due === 'due' || i.due === 'overdue').length,
+      avg: Math.round(items.reduce((a, i) => a + i.mastery, 0) / items.length),
+    }));
+  }, [rows]);
+
+  const [open, setOpen] = useState<Set<string>>(() => {
+    // A short list is easier to just read — collapsing it adds clicks for
+    // nothing.
+    if (rows.length <= 12) return new Set(groups.map(g => g.unit));
+    // Otherwise open exactly one group: the first with something due, else the
+    // first. Opening "every unit with due work" sounds smarter but degenerates
+    // on a freshly imported syllabus, where every topic is due and nothing
+    // collapses at all — which is the endless scroll this exists to fix.
+    const first = groups.find(g => g.dueCount > 0) ?? groups[0];
+    return new Set(first ? [first.unit] : []);
+  });
+
+  const toggle = (unit: string) =>
+    setOpen(prev => { const n = new Set(prev); n.has(unit) ? n.delete(unit) : n.add(unit); return n; });
+
+  const allOpen = open.size === groups.length;
+
+  return (
+    <div className="space-y-2.5">
+      {groups.length > 1 && (
+        <div className="flex justify-end -mt-2 mb-1">
+          <button
+            onClick={() => setOpen(allOpen ? new Set() : new Set(groups.map(g => g.unit)))}
+            className="text-[9px] font-mono uppercase tracking-[0.16em] text-mute hover:text-white transition-colors"
+          >
+            {allOpen ? 'Collapse all' : 'Expand all'}
+          </button>
+        </div>
+      )}
+
+      {groups.map(g => {
+        const isOpen = open.has(g.unit);
+        const barColor = g.avg >= 70 ? '#F7F5EF' : g.avg >= 40 ? '#FFD60A' : '#FF5A1F';
+        return (
+          <div key={g.unit} className="rounded-xl bg-ink3 border-2 border-white/10 overflow-hidden">
+            <button
+              onClick={() => toggle(g.unit)}
+              aria-expanded={isOpen}
+              className="w-full flex items-center gap-3 md:gap-4 p-4 text-left hover:bg-white/[0.03] transition-colors"
+            >
+              <ChevronLeft
+                size={16}
+                className={"shrink-0 text-mute transition-transform " + (isOpen ? "-rotate-90" : "rotate-180")}
+                aria-hidden="true"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-white truncate">{g.unit}</div>
+                <div className={META + " mt-1"}>
+                  {g.items.length} topic{g.items.length === 1 ? '' : 's'}
+                  {g.dueCount > 0 && <span className="text-orange-400"> · {g.dueCount} due</span>}
+                </div>
+              </div>
+              <div className="w-24 md:w-40 shrink-0">
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: g.avg + '%', background: barColor }} />
+                </div>
+                <div className="text-[8px] font-mono uppercase tracking-[0.16em] text-mute mt-1 text-right">{g.avg}% avg</div>
+              </div>
+            </button>
+
+            {isOpen && (
+              <div className="px-3 pb-3 space-y-2">
+                {g.items.map((r, i) => {
+                  const c = r.mastery >= 70 ? '#F7F5EF' : r.mastery >= 40 ? '#FFD60A' : '#FF5A1F';
+                  const badgeC = r.due === 'overdue' ? 'text-orange-400 bg-orange-500/15' : r.due === 'due' ? 'text-yellow-400 bg-yellow-400/15' : 'text-mute bg-white/5';
+                  const borderC = r.due === 'overdue' ? 'border-orange-500/30' : r.due === 'due' ? 'border-yellow-400/25' : 'border-white/10';
+                  const badgeT = r.due === 'overdue' ? 'Overdue ' + Math.abs(r.dueDays) + 'd' : r.due === 'due' ? 'Due today' : r.due === 'scheduled' ? 'in ' + r.dueDays + 'd' : 'New';
+                  const label = g.stripPrefix ? r.name.replace(/^\s*(U\d+|Unit\s*\d+)\s*[·:\-–]\s*/i, '') : r.name;
+                  return (
+                    <div key={i} className={"flex items-center gap-3 md:gap-4 p-3.5 rounded-lg bg-ink2 border " + borderC}>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-white truncate">{label}</div>
+                        <div className={META + " mt-1"}>{r.reviews} review{r.reviews === 1 ? '' : 's'}</div>
+                      </div>
+                      <div className="w-24 md:w-40 shrink-0">
+                        <div className="h-2 bg-white/10 rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: r.mastery + '%', background: c }} /></div>
+                        <div className="text-[8px] font-mono uppercase tracking-[0.16em] text-mute mt-1 text-right">{r.mastery}% mastery</div>
+                      </div>
+                      <span className={"text-[9px] font-mono uppercase tracking-[0.16em] px-2.5 py-1.5 rounded-lg shrink-0 w-20 md:w-24 text-center " + badgeC}>{badgeT}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 export default function CoursesView_Enhanced() {
   const subjects = useLiveQuery(() => db.subjects.toArray()) || [];
   const logs = useLiveQuery(() => db.logs.toArray()) || [];
@@ -133,7 +260,7 @@ export default function CoursesView_Enhanced() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "difficulty" | "progress">("name");
-  const [statusFilter, setStatusFilter] = useState<'all' | 'critical' | 'maintaining' | 'mastered'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'fresh' | 'critical' | 'maintaining' | 'mastered'>('all');
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
   const [selectedResource, setSelectedResource] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -621,7 +748,7 @@ export default function CoursesView_Enhanced() {
     const readiness = readinessScores[selectedSubject.id!];
     const rScore = readiness ? Math.round(readiness.score) : 0;
     const rStatus = readiness ? readiness.status : 'maintaining';
-    const rColor = rStatus === 'critical' ? '#FF5A1F' : rStatus === 'mastered' ? '#F7F5EF' : '#FFD60A';
+    const rColor = rStatus === 'fresh' ? '#71717a' : rStatus === 'critical' ? '#FF5A1F' : rStatus === 'mastered' ? '#F7F5EF' : '#FFD60A';
     const ringCirc = 2 * Math.PI * 43;
     const ringOffset = ringCirc * (1 - Math.max(0, Math.min(1, rScore / 100)));
     const forecast = readiness ? predictReadiness(readiness, selectedSubject, 7, 1) : null;
@@ -733,27 +860,7 @@ export default function CoursesView_Enhanced() {
           {topicRows.length === 0 ? (
             <div className="text-sm text-mute py-6 text-center">Add syllabus units below — they become trackable topics, and mastery builds as you review.</div>
           ) : (
-            <div className="space-y-2.5">
-              {topicRows.map((r, i) => {
-                const barColor = r.mastery >= 70 ? '#F7F5EF' : r.mastery >= 40 ? '#FFD60A' : '#FF5A1F';
-                const badgeC = r.due === 'overdue' ? 'text-orange-400 bg-orange-500/15' : r.due === 'due' ? 'text-yellow-400 bg-yellow-400/15' : 'text-mute bg-white/5';
-                const borderC = r.due === 'overdue' ? 'border-orange-500/30' : r.due === 'due' ? 'border-yellow-400/25' : 'border-white/10';
-                const badgeT = r.due === 'overdue' ? 'Overdue ' + Math.abs(r.dueDays) + 'd' : r.due === 'due' ? 'Due today' : r.due === 'scheduled' ? 'in ' + r.dueDays + 'd' : 'New';
-                return (
-                  <div key={i} className={"flex items-center gap-3 md:gap-4 p-4 rounded-xl bg-ink3 border-2 " + borderC}>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-white truncate">{r.name}</div>
-                      <div className={META + " mt-1"}>{r.reviews} review{r.reviews === 1 ? '' : 's'}</div>
-                    </div>
-                    <div className="w-28 md:w-40 shrink-0">
-                      <div className="h-2 bg-white/10 rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: r.mastery + '%', background: barColor }} /></div>
-                      <div className="text-[8px] font-mono uppercase tracking-[0.16em] text-mute mt-1 text-right">{r.mastery}% mastery</div>
-                    </div>
-                    <span className={"text-[9px] font-mono uppercase tracking-[0.16em] px-2.5 py-1.5 rounded-lg shrink-0 w-20 md:w-24 text-center " + badgeC}>{badgeT}</span>
-                  </div>
-                );
-              })}
-            </div>
+            <TopicMasteryList rows={topicRows} />
           )}
         </div>
 
@@ -926,7 +1033,7 @@ export default function CoursesView_Enhanced() {
           />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {([{ k: 'all', label: 'All' }, { k: 'critical', label: 'Critical' }, { k: 'maintaining', label: 'Maintaining' }, { k: 'mastered', label: 'Mastered' }] as const).map(f => {
+          {([{ k: 'all', label: 'All' }, { k: 'fresh', label: 'Not started' }, { k: 'critical', label: 'Critical' }, { k: 'maintaining', label: 'Maintaining' }, { k: 'mastered', label: 'Mastered' }] as const).map(f => {
             const active = statusFilter === f.k;
             return (
               <button key={f.k} onClick={() => setStatusFilter(f.k)}
@@ -960,6 +1067,9 @@ export default function CoursesView_Enhanced() {
         )
       ) : (() => {
         const STATUS = {
+          // Never studied — deliberately calmer than "critical"; nothing has
+          // decayed, it just hasn't begun.
+          fresh:       { solid: 'bg-zinc-700',   text: 'text-zinc-300',   seg: 'bg-zinc-600',   pill: 'bg-white/10 text-zinc-300',       ring: '#71717a', label: 'Not started' },
           critical:    { solid: 'bg-orange-500', text: 'text-orange-400', seg: 'bg-orange-500', pill: 'bg-orange-500/15 text-orange-400', ring: '#FF5A1F', label: 'Critical' },
           maintaining: { solid: 'bg-yellow-400', text: 'text-yellow-300', seg: 'bg-yellow-400', pill: 'bg-yellow-400/15 text-yellow-300', ring: '#FFD60A', label: 'Maintaining' },
           mastered:    { solid: 'bg-paper',      text: 'text-white',      seg: 'bg-white',      pill: 'bg-white/10 text-white',          ring: '#F7F5EF', label: 'Mastered' },
@@ -974,7 +1084,7 @@ export default function CoursesView_Enhanced() {
         const meta = (s: any) => {
           const r: any = readinessScores[s.id];
           const score = r ? Math.round(r.score) : 0;
-          const status: 'critical' | 'maintaining' | 'mastered' = (r?.status || 'maintaining');
+          const status: keyof typeof STATUS = (r?.status ?? 'maintaining');
           return { score, status, st: STATUS[status], hours: getTotalHours(s.id), exam: examFor(s.id) };
         };
         const fuel = (score: number, segCls: string) => {
@@ -996,7 +1106,7 @@ export default function CoursesView_Enhanced() {
               {priority ? (
                 <div onClick={() => setSelectedSubjectId(priority.s.id)} className={`lg:col-span-2 rounded-5xl ${priority.m.st.solid} text-ink p-7 md:p-8 cursor-pointer relative overflow-hidden group`}>
                   <div className="flex items-center gap-2 mb-5">
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-[0.14em] bg-ink/90 text-white px-3 py-1.5 rounded-full">{priority.m.status === 'critical' ? <><AlertTriangle size={11} strokeWidth={2.5} /> Needs you most</> : <><Target size={11} strokeWidth={2.5} /> Focus next</>}</span>
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-[0.14em] bg-ink/90 text-white px-3 py-1.5 rounded-full">{priority.m.status === 'critical' ? <><AlertTriangle size={11} strokeWidth={2.5} /> Needs you most</> : <><Target size={11} strokeWidth={2.5} /> {priority.m.status === 'fresh' ? 'Start here' : 'Focus next'}</>}</span>
                     <span className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] opacity-70">{priority.m.st.label}</span>
                   </div>
                   <div className="flex items-start justify-between gap-6">

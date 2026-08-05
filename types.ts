@@ -171,8 +171,16 @@ export interface DailyPlan {
 export interface SubjectReadiness {
   score: number;
   decay: number;
-  status: "critical" | "maintaining" | "mastered";
+  /**
+   * "fresh" = never studied. Distinct from "critical" on purpose: a subject you
+   * have not opened yet has not decayed, it simply hasn't started, and telling
+   * someone it is "slipping" on the day they add it is both wrong and
+   * demoralising. Both still sort to the top of what to study next.
+   */
+  status: "fresh" | "critical" | "maintaining" | "mastered";
   lastStudiedDays: number;
+  /** True when there is no study history at all for this subject. */
+  neverStudied: boolean;
 }
 
 export interface StudyTopic {

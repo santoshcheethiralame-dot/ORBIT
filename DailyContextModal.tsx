@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Subject, DailyContext, ExamEntry, SubjectReadiness } from "./types";
 import { db } from "./db";
+import { needsWork } from "./brain";
 import { getAllReadinessScores } from "./brain-ultimate";
 
 const PLAN_STAGES = [
@@ -189,7 +190,7 @@ export const DailyContextModal = ({ subjects, onGenerate, onDismiss }: DailyCont
     if (subjects.length > 0) {
       getAllReadinessScores().then(scores => {
         setReadinessScores(scores);
-        const critical = Object.entries(scores).filter(([, r]) => r.status === "critical").sort((a, b) => a[1].score - b[1].score);
+        const critical = Object.entries(scores).filter(([, r]) => needsWork(r.status)).sort((a, b) => a[1].score - b[1].score);
         if (critical.length > 0) setFocusSubjectId(Number(critical[0][0]));
         else if (!focusSubjectId && subjects[0]?.id) setFocusSubjectId(subjects[0].id);
       });
@@ -277,7 +278,8 @@ export const DailyContextModal = ({ subjects, onGenerate, onDismiss }: DailyCont
     return true;
   };
 
-  const criticalList = Object.entries(readinessScores).filter(([, r]) => r.status === "critical");
+  const criticalList = Object.entries(readinessScores).filter(([, r]) => needsWork(r.status));
+  const allFresh = criticalList.length > 0 && criticalList.every(([, r]) => r.status === "fresh");
   const needsExamSubject = dayType === "isa" || dayType === "esa" || dayType === "pd";
 
   const now = new Date();
@@ -307,7 +309,7 @@ export const DailyContextModal = ({ subjects, onGenerate, onDismiss }: DailyCont
                   <div className="flex items-center gap-2 mb-2.5">
                     <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
                     <AlertCircle size={14} className="text-orange-400" />
-                    <span className="meta text-[10px] text-orange-400">{criticalList.length} subject{criticalList.length === 1 ? '' : 's'} slipping</span>
+                    <span className="meta text-[10px] text-orange-400">{criticalList.length} subject{criticalList.length === 1 ? '' : 's'} {allFresh ? 'to start' : 'slipping'}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {criticalList.map(([id, r]) => {

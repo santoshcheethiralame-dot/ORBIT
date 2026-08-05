@@ -52,6 +52,16 @@ const ISA_PREP_MIN = 45;
 const MIN_BLOCKS_FALLBACK = 3;
 
 const READINESS_GOAL_HOURS_PER_CREDIT = 10;
+/**
+ * "This subject needs attention" — decayed OR never started.
+ *
+ * Both score 0 and both belong at the front of the plan; only one of them has
+ * actually slipped. Use this for prioritising, and check the status directly
+ * when writing copy, so a new subject is never told it is decaying.
+ */
+export const needsWork = (status?: SubjectReadiness['status']): boolean =>
+  status === 'critical' || status === 'fresh';
+
 const READINESS_CRITICAL_THRESHOLD = 35;
 const READINESS_MAINTAINING_THRESHOLD = 70;
 
@@ -194,22 +204,32 @@ export function calculateReadiness(
   const difficultyMultiplier = subject.difficulty >= 4 ? 0.85 : 1.0;
   let decay = Math.max(0.1, baseDecay * difficultyMultiplier);
 
-  if (lastStudiedDays === 999) decay = 0;
+  const neverStudied = !lastStudy;
+  if (neverStudied) decay = 0;
 
   let score = Math.round(volume * 100 * decay);
 
-  let status: SubjectReadiness['status'] = "maintaining";
-  if (score < READINESS_CRITICAL_THRESHOLD) {
+  // A subject with no history is "fresh", not "critical". Both score 0 and both
+  // are top priority to study, but only one of them has actually decayed — and
+  // a brand-new subject reported as "slipping" is just wrong, which is exactly
+  // what every subject looked like on the first day after onboarding.
+  let status: SubjectReadiness['status'];
+  if (neverStudied) {
+    status = "fresh";
+  } else if (score < READINESS_CRITICAL_THRESHOLD) {
     status = "critical";
   } else if (score > READINESS_MAINTAINING_THRESHOLD) {
     status = "mastered";
+  } else {
+    status = "maintaining";
   }
 
   return {
     score,
     decay,
     status,
-    lastStudiedDays
+    lastStudiedDays,
+    neverStudied,
   };
 }
 
@@ -394,12 +414,19 @@ export async function recordTopicReview(
 }
 
 function topicRetrievability(t: StudyTopic, effectiveDate: string): number {
+  // One unparseable date used to make this NaN, which averaged into the
+  // subject's topicFactor and turned its whole readiness score into NaN —
+  // rendered to the user as "NaN%". A single bad row must not do that.
   const daysUntilDue = daysBetweenDates(t.nextReview, effectiveDate);
-  const dueR = daysUntilDue >= 0
-    ? Math.min(1, 0.6 + daysUntilDue / 20)
-    : Math.max(0, 0.6 + daysUntilDue / 10);
-  const efR = Math.max(0, Math.min(1, (t.easeFactor - 1.3) / (2.5 - 1.3)));
-  return Math.max(0, Math.min(1, dueR * 0.7 + efR * 0.3));
+  const dueR = !Number.isFinite(daysUntilDue)
+    ? 0.6 // treat unknown scheduling as neutral
+    : daysUntilDue >= 0
+      ? Math.min(1, 0.6 + daysUntilDue / 20)
+      : Math.max(0, 0.6 + daysUntilDue / 10);
+  const ef = Number.isFinite(t.easeFactor) ? t.easeFactor : 2.5;
+  const efR = Math.max(0, Math.min(1, (ef - 1.3) / (2.5 - 1.3)));
+  const r = dueR * 0.7 + efR * 0.3;
+  return Number.isFinite(r) ? Math.max(0, Math.min(1, r)) : 0.6;
 }
 
 function enhanceReadiness(
@@ -409,7 +436,9 @@ function enhanceReadiness(
   topics: StudyTopic[],
   effectiveDate: string
 ): SubjectReadiness {
-  if (base.lastStudiedDays === 999) return base;
+  // Never studied stays "fresh" — the enhancement below only re-derives
+  // critical/maintaining/mastered and would relabel it.
+  if (base.neverStudied) return base;
 
   const subjOutcomes = outcomes
     .filter(o => o.subjectId === subjectId && o.completed && typeof o.completionQuality === 'number')
@@ -428,7 +457,9 @@ function enhanceReadiness(
     topicFactor = 0.85 + avgR * 0.3;
   }
 
-  const score = Math.max(0, Math.min(100, Math.round(base.score * qualityFactor * topicFactor)));
+  const raw = base.score * qualityFactor * topicFactor;
+  // Belt and braces: never let a non-finite value reach the UI as "NaN%".
+  const score = Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : base.score;
   let status: SubjectReadiness['status'] = 'maintaining';
   if (score < READINESS_CRITICAL_THRESHOLD) status = 'critical';
   else if (score > READINESS_MAINTAINING_THRESHOLD) status = 'mastered';
@@ -707,10 +738,12 @@ function buildPlanExplanation(
   const urgent = studyBlocks.filter(b => b.type === 'assignment' && b.priority <= DOMINANCE.ASSIGNMENT_URGENT).length;
   if (urgent > 0) out.push(`${urgent} urgent assignment${urgent > 1 ? 's' : ''} due — prioritised`);
 
-  const critIds = [...new Set(studyBlocks.map(b => b.subjectId))].filter(id => readinessMap[id]?.status === 'critical');
-  if (critIds.length) {
-    const names = critIds.slice(0, 2).map(id => nameOf(id)).join(', ');
-    out.push(`Recovering weak subjects: ${names}`);
+  const weakIds = [...new Set(studyBlocks.map(b => b.subjectId))].filter(id => needsWork(readinessMap[id]?.status));
+  if (weakIds.length) {
+    const names = weakIds.slice(0, 2).map(id => nameOf(id)).join(', ');
+    // Don't call a subject you have never studied "weak".
+    const allFresh = weakIds.every(id => readinessMap[id]?.status === 'fresh');
+    out.push(allFresh ? `Getting started on: ${names}` : `Recovering weak subjects: ${names}`);
   }
 
   const reviews = studyBlocks.filter(b => b.type === 'review').length;
@@ -1011,7 +1044,7 @@ export const generateDailyPlan = async (
         if (!sub) continue;
 
         const readiness = readinessMap[sid];
-        if (readiness && readiness.status === "critical") {
+        if (readiness && needsWork(readiness.status)) {
           tryInsertWithDisplacement(
             blocks,
             createBlock(

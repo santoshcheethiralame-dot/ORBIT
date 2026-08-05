@@ -1,5 +1,6 @@
 import { db } from '../db';
 import type { StudyTopic, Subject } from '../types';
+import { formatLocalDate, getISTEffectiveDate } from './time';
 
 /**
  * Study-item import — the receiving half of the ATLAS/CRUX bridge.
@@ -105,9 +106,18 @@ export async function importStudyItems(file: File): Promise<ImportResult> {
 }
 
 /** Same thing when the caller has already parsed the JSON (e.g. to sniff it). */
+/** Normalise anything date-ish to YYYY-MM-DD, or undefined if unusable. */
+function toDayString(value?: string): string | undefined {
+  if (!value) return undefined;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : formatLocalDate(d);
+}
+
 export async function ingestStudyItems(raw: unknown): Promise<ImportResult> {
   const env = parseEnvelope(raw);
   const now = new Date().toISOString();
+  const today = getISTEffectiveDate();
 
   const result: ImportResult = {
     source: env.source || 'unknown',
@@ -175,8 +185,12 @@ export async function ingestStudyItems(raw: unknown): Promise<ImportResult> {
         fresh.push({
           subjectId,
           name: item.name,
-          lastStudied: item.lastStudied ?? now,
-          nextReview: item.nextReview ?? now,
+          // Dates MUST be YYYY-MM-DD. The rest of the app splits them on "-"
+          // (daysBetweenDates, the nextReview index, review-due queries); a full
+          // ISO timestamp parses to NaN there and silently poisons the whole
+          // subject's readiness score with NaN.
+          lastStudied: toDayString(item.lastStudied) ?? today,
+          nextReview: toDayString(item.nextReview) ?? today,
           easeFactor: item.easeFactor ?? 2.5,
           reviewCount: item.reviewCount ?? 0,
           comprehensionHistory: item.comprehensionHistory ?? [],
