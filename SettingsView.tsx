@@ -18,13 +18,8 @@ import { SoundManager } from './utils/sounds';
 import { NotificationManager } from './utils/notifications';
 import StressTestView from './StressTestView';
 import { getApiKey, setApiKey } from './gemini';
+import { BRIDGE_APPS, pullStudyItems, type BridgeApp } from './utils/studyItemsBridge';
 
-// The content apps Orbit can pull from directly, keyed by label. `origin` is
-// where each is deployed; update it here if an app moves to a custom domain.
-const BRIDGE_APPS = {
-  CRUX: 'https://ml-study-ten.vercel.app',
-  ATLAS: 'https://atlas-eight-azure.vercel.app',
-} as const;
 
 export const SettingsView = () => {
   const { settings, updateSetting, resetSettings } = useSettings();
@@ -213,61 +208,28 @@ export const SettingsView = () => {
   const [includeUnstarted, setIncludeUnstarted] = useState(true);
 
   /**
-   * Pull study items straight from CRUX/ATLAS — no file. Opens the app in a
-   * popup with ?handoff=orbit; it reads its own storage and posts the payload
-   * back (see each app's orbitHandoff). We only trust a message whose origin is
-   * the app we opened. scope=all pulls unstarted topics too (staggered).
+   * Pull study items straight from CRUX/ATLAS — no file. The popup/postMessage
+   * bridge lives in utils/studyItemsBridge so onboarding can use the same path.
    */
-  const pullFromApp = (label: keyof typeof BRIDGE_APPS) => {
-    const origin = BRIDGE_APPS[label];
-    const scope = includeUnstarted ? 'all' : 'finished';
-    const popup = window.open(
-      `${origin}/?handoff=orbit&scope=${scope}&origin=${encodeURIComponent(window.location.origin)}`,
-      'orbit-import',
-      'width=460,height=560',
-    );
-    if (!popup) {
-      toast.error('Popup blocked — allow popups for Orbit, or use Import file');
+  const pullFromApp = async (label: BridgeApp) => {
+    setPullingFrom(label);
+    const outcome = await pullStudyItems(label, { includeUnstarted });
+    setPullingFrom(null);
+
+    if (!outcome.ok) {
+      // A timeout usually means the user just closed the popup — not an error
+      // worth shouting about.
+      if (outcome.reason !== 'timeout') toast.error(`${label}: ${outcome.message}`);
       return;
     }
-
-    setPullingFrom(label);
-    let settled = false;
-    const finish = () => {
-      settled = true;
-      window.removeEventListener('message', onMessage);
-      setPullingFrom(null);
-      try { popup.close(); } catch { /* ignore */ }
-    };
-
-    const onMessage = async (e: MessageEvent) => {
-      if (e.origin !== origin) return; // only the app we opened
-      const data = e.data as any;
-      if (data?.kind === 'study-items/v1') {
-        finish();
-        try {
-          const result = await ingestStudyItems(data);
-          if (!result.itemsAdded && !result.itemsKept) {
-            toast.info(`Nothing finished in ${label} yet — tick some topics off first`);
-          } else {
-            toast.success(describeImport(result));
-            await loadStats();
-            setShowImportModal(false);
-          }
-        } catch (err) {
-          toast.error(`Couldn't import: ${err instanceof Error ? err.message : 'bad data'}`);
-        }
-      } else if (data?.handoffError) {
-        finish();
-        toast.error(`${label}: ${data.handoffError}`);
-      }
-    };
-
-    window.addEventListener('message', onMessage);
-    // If the user closes the popup, or it never answers, stop waiting.
-    window.setTimeout(() => {
-      if (!settled) { window.removeEventListener('message', onMessage); setPullingFrom(null); }
-    }, 30_000);
+    const { result } = outcome;
+    if (!result.itemsAdded && !result.itemsKept) {
+      toast.info(`Nothing finished in ${label} yet — tick some topics off first`);
+      return;
+    }
+    toast.success(describeImport(result));
+    await loadStats();
+    setShowImportModal(false);
   };
 
   const importData = async (file: File) => {

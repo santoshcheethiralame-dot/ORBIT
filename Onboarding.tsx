@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Semester, Subject } from "./types";
 import { db, saveDbSnapshot } from "./db";
-import { X, Plus, Minus, ChevronLeft, Upload, Sparkles } from "lucide-react";
+import { X, Plus, Minus, ChevronLeft, Upload, Sparkles, Download } from "lucide-react";
 import { useToast } from "./Toast";
 import { getSubjectColor, SUBJECT_COLOR_CLASSES } from "./components";
 import { OnboardingAuth } from "./CloudSync";
 import { snoozeCloudPrompt } from "./utils/cloudSync";
 import { formatLocalDate } from "./utils/time";
 import { validateSubjectName } from "./utils/validation";
+import { pullStudyItems, type BridgeApp } from "./utils/studyItemsBridge";
+import { describeImport } from "./utils/studyItems";
 
 // Every preference key worth carrying across a backup. The AI key is
 // deliberately excluded — a backup file gets emailed and synced around, and a
@@ -204,6 +206,7 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
   const [qa, setQa] = useState<{ day: number; slot: number; subjectId: string }>({ day: 0, slot: 3, subjectId: "" });
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [pulling, setPulling] = useState<BridgeApp | null>(null);
   const savingRef = useRef(false);
   const importingRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -288,6 +291,48 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
     } finally {
       importingRef.current = false;
       setImporting(false);
+    }
+  };
+
+  /**
+   * Pull a whole syllabus out of CRUX/ATLAS instead of typing it.
+   *
+   * The bridge writes subjects AND their topics straight to the DB (that's the
+   * point — it carries review items and deep links, not just names), so this
+   * cannot feed the wizard's local `subjects` state without creating two copies
+   * of everything at finish(). It therefore completes onboarding itself, the
+   * same way "Import backup" does. Credits and class times stay editable later
+   * in Courses and Schedule.
+   */
+  const pullFrom = async (app: BridgeApp) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setPulling(app);
+    try {
+      const outcome = await pullStudyItems(app);
+      if (!outcome.ok) {
+        // Timeout usually just means they closed the popup.
+        if (outcome.reason !== 'timeout') toast.error(`${app}: ${outcome.message}`);
+        return;
+      }
+      const { result } = outcome;
+      if (!result.subjectsCreated && !result.subjectsMatched) {
+        toast.info(`Nothing to import from ${app} yet.`);
+        return;
+      }
+
+      // The bridge creates subjects but knows nothing about terms, and the rest
+      // of the app expects one to exist.
+      if ((await db.semesters.count()) === 0) await db.semesters.add(buildSemester());
+
+      saveDbSnapshot();
+      clearDraft();
+      snoozeCloudPrompt();
+      toast.success(describeImport(result));
+      setTimeout(onComplete, 400);
+    } finally {
+      setPulling(null);
+      savingRef.current = false;
     }
   };
 
@@ -471,6 +516,28 @@ export const Onboarding = ({ onComplete }: { onComplete: () => void }) => {
               <div className="mt-10 flex flex-wrap items-center gap-4">
                 <button type="button" onClick={() => setStep(2)} className={`${primaryBtn} px-8 py-4 text-base`}>Get started →</button>
                 <button type="button" onClick={() => fileRef.current?.click()} disabled={importing} className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-white disabled:opacity-50 flex items-center gap-1.5"><Upload size={11} aria-hidden="true" />{importing ? "Importing…" : "Import backup"}</button>
+              </div>
+
+              {/* If the syllabus already exists in CRUX or ATLAS, typing it in
+                  again is busywork — and the bridge brings the topics and deep
+                  links across too, not just the names. */}
+              <div className="mt-8 pt-6 border-t border-white/10 max-w-md">
+                <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-3">Already using CRUX or ATLAS?</div>
+                <div className="flex flex-wrap gap-2.5">
+                  {(["CRUX", "ATLAS"] as BridgeApp[]).map(app => (
+                    <button
+                      key={app}
+                      type="button"
+                      onClick={() => void pullFrom(app)}
+                      disabled={pulling !== null || saving}
+                      className="flex items-center gap-2 bg-ink3 border border-white/15 text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:border-white/30 disabled:opacity-50 transition"
+                    >
+                      <Download size={14} aria-hidden="true" />
+                      {pulling === app ? `Pulling from ${app}…` : `Bring in my ${app} subjects`}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-zinc-500 mt-2.5">Opens the app in a small window to fetch your subjects and topics — nothing is typed twice.</p>
               </div>
               <div className="mt-8 pt-6 border-t border-white/10 max-w-md">
                 <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-3">Optional — sync across devices</div>
