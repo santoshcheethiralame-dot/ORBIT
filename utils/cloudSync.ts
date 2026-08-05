@@ -263,6 +263,36 @@ export async function signInWithProvider(provider: 'google' | 'github'): Promise
   if (error) throw error;
 }
 
+/**
+ * Erase the cloud copy, for "delete everything".
+ *
+ * Without this, deleting locally does nothing durable while signed in: the
+ * Supabase session lives under `sb-*` keys and survives a wipe of Orbit's own
+ * `orbit*` keys, so the next reconcile finds an empty local DB against a full
+ * cloud row and pulls it all straight back.
+ *
+ * It OVERWRITES the row with an empty snapshot rather than deleting it: the
+ * table's RLS grants select/insert/update but no delete, so a DELETE is
+ * silently refused and would report success having changed nothing.
+ *
+ * Signs out afterwards so no session is left that could repopulate the device.
+ */
+export async function wipeCloudCopy(): Promise<void> {
+  const { data } = await supabase.auth.getUser();
+  const uid = data.user?.id;
+  if (!uid) return;
+
+  const empty: CloudSnapshot = { version: 2, createdAt: new Date().toISOString(), tables: {} };
+  const { error } = await supabase.from(SNAPSHOT_TABLE).upsert({
+    user_id: uid, data: empty, updated_at: new Date().toISOString(), device: deviceId,
+  });
+  if (error) throw error;
+
+  ls.remove(hashKey(uid));
+  ls.remove(atKey(uid));
+  await signOutCloud();
+}
+
 export async function signOutCloud(): Promise<void> {
   await supabase.auth.signOut();
   currentUid = null;

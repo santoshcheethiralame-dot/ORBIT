@@ -19,6 +19,7 @@ import { NotificationManager } from './utils/notifications';
 import StressTestView from './StressTestView';
 import { getApiKey, setApiKey } from './gemini';
 import { BRIDGE_APPS, pullStudyItems, type BridgeApp } from './utils/studyItemsBridge';
+import { wipeCloudCopy, getSyncState, subscribeSync, type SyncState } from './utils/cloudSync';
 
 
 export const SettingsView = () => {
@@ -30,6 +31,11 @@ export const SettingsView = () => {
   const [stats, setStats] = useState({ subjects: 0, logs: 0, totalHours: 0 });
   const [expandedSection, setExpandedSection] = useState<string | null>('focus');
   const toast = useToast();
+
+  // Whether a cloud copy exists changes what "Delete everything" actually does,
+  // so the confirmation has to know.
+  const [sync, setSync] = useState<SyncState>(getSyncState());
+  useEffect(() => subscribeSync(setSync), []);
 
   const [apiKeyInput, setApiKeyInput] = useState<string>(() => getApiKey());
   const [showApiKey, setShowApiKey] = useState(false);
@@ -308,6 +314,18 @@ export const SettingsView = () => {
 
   const clearAllData = async () => {
     try {
+      // The cloud copy has to go first. Clearing only the local DB while a
+      // session is still live means the next sync sees an empty device against
+      // a full cloud row and restores everything — the delete looks like it
+      // silently did nothing.
+      try {
+        await wipeCloudCopy();
+      } catch (err) {
+        console.error('Could not clear the cloud copy:', err);
+        toast.error("Couldn't clear your cloud backup — nothing was deleted. Check your connection and try again.");
+        return;
+      }
+
       await db.transaction(
         'rw',
         [db.semesters, db.subjects, db.projects, db.schedule, db.logs, db.assignments, db.plans, db.topics, db.blockOutcomes, db.studyBlocks, db.exams, db.settings],
@@ -838,6 +856,12 @@ export const SettingsView = () => {
                       <div className="text-sm text-zinc-300">
                         <p className="font-bold text-base mb-2">This action cannot be undone</p>
                         <p className="text-zinc-400">All subjects, study logs, and settings will be permanently deleted.</p>
+                        {sync.status !== 'signed-out' && (
+                          <p className="text-zinc-400 mt-2">
+                            This includes your <b className="text-zinc-200">cloud backup</b>, so it will not come back on
+                            your other devices. You'll be signed out.
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
