@@ -87,10 +87,6 @@ function makeId(): string {
     .slice(2, 8)}`;
 }
 
-function clampDuration(d: number, max: number) {
-  return Math.min(d, max);
-}
-
 function daysBetweenDates(a: string, b: string) {
   const [ay, am, ad] = a.split("-").map(Number);
   const [by, bm, bd] = b.split("-").map(Number);
@@ -320,40 +316,20 @@ async function addSpacedRepetitionReviews(
   dbInstance: OrbitDB,
   focusSubjects: Set<number>
 ): Promise<void> {
+  // Only the subjects today is about, most urgent first.
+  //
+  // getTopicsDueForReview already orders by due date then ease, so the most
+  // overdue and shakiest material leads. There is deliberately no per-subject
+  // fairness here: the day goes deep on the one or two subjects pickFocusSubjects
+  // chose, and balance comes from rotating that choice across days rather than
+  // from handing every subject a token block every day.
   const dueTopics = (await getTopicsDueForReview(effectiveDate, dbInstance))
     .filter(t => focusSubjects.has(t.subjectId));
 
-  // Round-robin across subjects, not straight down the due list.
-  //
-  // Importing a syllabus lands dozens of topics due on the same day, all for
-  // one subject. Walking the list in order therefore filled the entire day with
-  // that subject and every other one silently never got scheduled — one import
-  // and the planner only ever said "study ML". Taking one topic per subject per
-  // pass keeps the day mixed however lopsided the backlog is.
-  const bySubject = new Map<number, typeof dueTopics>();
-  for (const t of dueTopics) {
-    if (!bySubject.has(t.subjectId)) bySubject.set(t.subjectId, []);
-    bySubject.get(t.subjectId)!.push(t);
-  }
-  // Fewest due first, so a subject with one straggler isn't starved by one
-  // carrying a whole imported curriculum.
-  const queues = [...bySubject.values()].sort((a, b) => a.length - b.length);
-
-  const interleaved: typeof dueTopics = [];
-  for (let i = 0; queues.some(q => i < q.length); i++) {
-    for (const q of queues) if (i < q.length) interleaved.push(q[i]);
-  }
-
-  // Within the day's focus subjects, most overdue first. No per-subject
-  // fairness here on purpose: the day is meant to go deep on one or two
-  // subjects, and balance comes from rotating which subjects those are (see
-  // pickFocusSubjects), not from giving everyone a token block every day.
-  for (const topic of interleaved) {
+  for (const topic of dueTopics) {
     const subject = subjects.find(s => s.id === topic.subjectId);
     if (!subject) continue;
-
     if (constraints.excludedSubjectIds.includes(subject.id!)) continue;
-
 
     const avgComprehension = topic.comprehensionHistory.length > 0
       ? topic.comprehensionHistory.reduce((a, b) => a + b, 0) / topic.comprehensionHistory.length
@@ -882,8 +858,10 @@ async function pickFocusSubjects(
   // completed logs — otherwise a day you never finished still counts as "not
   // your turn" forever and the rotation stalls.
   const recent = new Map<number, number>();
-  for (let i = 1; i <= ROTATION_WINDOW_DAYS; i++) {
-    const plan = await dbInstance.plans.get(effectiveDatePlus(-i)).catch(() => undefined);
+  const dates = Array.from({ length: ROTATION_WINDOW_DAYS }, (_, i) => effectiveDatePlus(-(i + 1)));
+  // One indexed read for the window rather than seven sequential round trips.
+  const pastPlans = await dbInstance.plans.bulkGet(dates).catch(() => []);
+  for (const plan of pastPlans) {
     if (!plan) continue;
     for (const b of plan.blocks) {
       if (b.type === 'break') continue;
