@@ -867,6 +867,7 @@ const App = () => {
               subjects={subjects}
               logs={logs}
               onRefresh={() => void loadData()}
+              onReplan={() => setNeedsContext(true)}
             />
           )}
           {/* No plan yet and the prompt was dismissed. Without this the

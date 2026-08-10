@@ -164,12 +164,14 @@ export const Dashboard = ({
   subjects,
   logs,
   onRefresh,
+  onReplan,
 }: {
   plan: DailyPlan;
   onStartFocus: (b: StudyBlock) => void;
   subjects: Subject[];
   logs: StudyLog[];
   onRefresh: () => void;
+  onReplan: () => void;
 }) => {
   const [backlog, setBacklog] = useState<StudyBlock[]>([]);
   const [animatedProgress, setAnimatedProgress] = useState(0);
@@ -919,6 +921,16 @@ export const Dashboard = ({
                 className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-[0.16em] text-orange-400 bg-orange-500/12 border-2 border-orange-500/30 px-3 py-2 rounded-xl hover:bg-orange-500/20 transition-colors"
               >
                 <Plus size={12} strokeWidth={3} /> Add block
+              </button>
+              {/* Rebuilding the day was only reachable from the rollover modal
+                  or the no-plan empty state, so once a plan existed there was
+                  no way back to the planner. */}
+              <button
+                onClick={onReplan}
+                title="Rebuild today's plan"
+                className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-[0.16em] text-zinc-400 bg-ink3 border-2 border-white/12 px-3 py-2 rounded-xl hover:text-white hover:border-white/25 transition-colors"
+              >
+                <RefreshCw size={12} strokeWidth={3} /> Replan
               </button>
             </div>
           </div>
