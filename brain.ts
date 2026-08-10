@@ -321,7 +321,28 @@ async function addSpacedRepetitionReviews(
 ): Promise<void> {
   const dueTopics = await getTopicsDueForReview(effectiveDate, dbInstance);
 
-  for (const topic of dueTopics) {
+  // Round-robin across subjects, not straight down the due list.
+  //
+  // Importing a syllabus lands dozens of topics due on the same day, all for
+  // one subject. Walking the list in order therefore filled the entire day with
+  // that subject and every other one silently never got scheduled — one import
+  // and the planner only ever said "study ML". Taking one topic per subject per
+  // pass keeps the day mixed however lopsided the backlog is.
+  const bySubject = new Map<number, typeof dueTopics>();
+  for (const t of dueTopics) {
+    if (!bySubject.has(t.subjectId)) bySubject.set(t.subjectId, []);
+    bySubject.get(t.subjectId)!.push(t);
+  }
+  // Fewest due first, so a subject with one straggler isn't starved by one
+  // carrying a whole imported curriculum.
+  const queues = [...bySubject.values()].sort((a, b) => a.length - b.length);
+
+  const interleaved: typeof dueTopics = [];
+  for (let i = 0; queues.some(q => i < q.length); i++) {
+    for (const q of queues) if (i < q.length) interleaved.push(q[i]);
+  }
+
+  for (const topic of interleaved) {
     const subject = subjects.find(s => s.id === topic.subjectId);
     if (!subject) continue;
 

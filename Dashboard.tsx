@@ -144,30 +144,17 @@ const getGreeting = () => {
 
 
 /**
- * What a block actually covers: the topic split the planner allocated, or the
- * user's own note for a custom block. Without this a block was just "45m of
- * Databases" with no indication of what to do in it.
+ * A custom block's own note. Blocks used to also list which topics to cover and
+ * for how many minutes; that told you how to spend time you would rather judge
+ * yourself, so the prescription is gone and only your own label remains.
  */
 const BlockDetail = ({ block, tone = 'dark' }: { block: StudyBlock; tone?: 'dark' | 'light' }) => {
+  if (!block.custom) return null;
   const muted = tone === 'light' ? 'opacity-70' : 'text-zinc-500';
-  const body = tone === 'light' ? 'opacity-90' : 'text-zinc-300';
-  if (block.custom) {
-    return (
-      <div className={`text-[10px] font-mono uppercase tracking-[0.14em] mt-1 ${muted}`}>
-        Yours{block.label ? ` · ${block.label}` : ''}
-      </div>
-    );
-  }
-  if (!block.topicPlan?.length) return null;
   return (
-    <ul className={`mt-2 space-y-0.5 text-xs ${body}`}>
-      {block.topicPlan.map((t) => (
-        <li key={t.topicId} className="flex items-baseline gap-2">
-          <span className={`font-mono text-[10px] tabular-nums shrink-0 ${muted}`}>{t.minutes}m</span>
-          <span className="truncate">{t.name}</span>
-        </li>
-      ))}
-    </ul>
+    <div className={`text-[10px] font-mono uppercase tracking-[0.14em] mt-1 ${muted}`}>
+      Yours{block.label ? ` · ${block.label}` : ''}
+    </div>
   );
 };
 
