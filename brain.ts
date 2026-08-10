@@ -342,29 +342,36 @@ async function addSpacedRepetitionReviews(
     for (const q of queues) if (i < q.length) interleaved.push(q[i]);
   }
 
-  // Cap the share of the day any one subject's backlog can take.
+  // Fairness floor first, then need.
   //
-  // Interleaving alone only helps when the OTHER subjects also have due topics.
-  // A syllabus imported for a single subject leaves the rest with none, so the
-  // queue is still all one subject and it consumed every slot — the day came
-  // out "study ML" five times while two other subjects went unscheduled.
-  // Leaving room lets the later per-subject and weakest-subject passes place
-  // work for subjects that carry no topics at all.
-  const perSubjectCap = Math.max(
-    1,
-    Math.floor(constraints.maxBlocks / Math.max(1, subjects.length)),
-  );
-  const usedPerSubject = new Map<number, number>();
+  // One subject's backlog used to take every slot: a syllabus imported for one
+  // subject leaves the others with nothing due, so the queue was all one
+  // subject and the day came out "study ML" five times over.
+  //
+  // A flat per-subject cap fixes that but is too blunt — it would give a
+  // subject with forty overdue topics and an exam on Friday exactly as much
+  // room as one with two. So: pass one guarantees every subject with anything
+  // due a single block, and pass two hands whatever capacity is left to the
+  // most overdue topics regardless of subject. Everyone gets a look in; the
+  // subject that actually needs the time still gets more of it.
+  const firstPass: typeof dueTopics = [];
+  const secondPass: typeof dueTopics = [];
+  const seenSubject = new Set<number>();
+  for (const t of interleaved) {
+    if (seenSubject.has(t.subjectId)) continue;
+    seenSubject.add(t.subjectId);
+    firstPass.push(t);
+  }
+  const takenIds = new Set(firstPass.map(t => t.id));
+  // dueTopics is already ordered by urgency, so the leftovers stay urgency-first.
+  for (const t of dueTopics) if (!takenIds.has(t.id)) secondPass.push(t);
 
-  for (const topic of interleaved) {
+  for (const topic of [...firstPass, ...secondPass]) {
     const subject = subjects.find(s => s.id === topic.subjectId);
     if (!subject) continue;
 
     if (constraints.excludedSubjectIds.includes(subject.id!)) continue;
 
-    const used = usedPerSubject.get(subject.id!) ?? 0;
-    if (used >= perSubjectCap) continue;
-    usedPerSubject.set(subject.id!, used + 1);
 
     const avgComprehension = topic.comprehensionHistory.length > 0
       ? topic.comprehensionHistory.reduce((a, b) => a + b, 0) / topic.comprehensionHistory.length
@@ -1079,13 +1086,27 @@ export const generateDailyPlan = async (
     }
 
     if (!context.isHoliday && !context.isSick) {
-      const todaySubs = Array.from(
+      let todaySubs = Array.from(
         new Set(
           schedule
             .filter((s) => Number(s.day) === todayIdx)
             .map((s) => Number(s.subjectId))
         )
       ).filter(sid => !constraints.excludedSubjectIds.includes(sid));
+
+      // With no timetable for today this pass did nothing, so a subject that is
+      // fresh or slipping but has no due topics was never scheduled by ANY
+      // pass — it only ever appeared if the day was otherwise thin enough for
+      // the weakest-subject fallback to fire. Plenty of people never fill in a
+      // timetable, so fall back to considering every subject that needs work,
+      // weakest first. Capacity and priority still decide what actually lands.
+      if (todaySubs.length === 0) {
+        todaySubs = subjects
+          .map((s) => Number(s.id))
+          .filter(sid => !constraints.excludedSubjectIds.includes(sid))
+          .filter(sid => needsWork(readinessMap[sid]?.status))
+          .sort((a, b) => (readinessMap[a]?.score ?? 100) - (readinessMap[b]?.score ?? 100));
+      }
 
       for (const sid of todaySubs) {
         const sub = subjects.find((s) => Number(s.id) === sid);
