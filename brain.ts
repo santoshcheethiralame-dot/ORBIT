@@ -342,11 +342,29 @@ async function addSpacedRepetitionReviews(
     for (const q of queues) if (i < q.length) interleaved.push(q[i]);
   }
 
+  // Cap the share of the day any one subject's backlog can take.
+  //
+  // Interleaving alone only helps when the OTHER subjects also have due topics.
+  // A syllabus imported for a single subject leaves the rest with none, so the
+  // queue is still all one subject and it consumed every slot — the day came
+  // out "study ML" five times while two other subjects went unscheduled.
+  // Leaving room lets the later per-subject and weakest-subject passes place
+  // work for subjects that carry no topics at all.
+  const perSubjectCap = Math.max(
+    1,
+    Math.floor(constraints.maxBlocks / Math.max(1, subjects.length)),
+  );
+  const usedPerSubject = new Map<number, number>();
+
   for (const topic of interleaved) {
     const subject = subjects.find(s => s.id === topic.subjectId);
     if (!subject) continue;
 
     if (constraints.excludedSubjectIds.includes(subject.id!)) continue;
+
+    const used = usedPerSubject.get(subject.id!) ?? 0;
+    if (used >= perSubjectCap) continue;
+    usedPerSubject.set(subject.id!, used + 1);
 
     const avgComprehension = topic.comprehensionHistory.length > 0
       ? topic.comprehensionHistory.reduce((a, b) => a + b, 0) / topic.comprehensionHistory.length
