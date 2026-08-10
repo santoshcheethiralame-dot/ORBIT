@@ -317,9 +317,11 @@ async function addSpacedRepetitionReviews(
   constraints: DayConstraints,
   usedMinutes: { value: number },
   effectiveDate: string,
-  dbInstance: OrbitDB
+  dbInstance: OrbitDB,
+  focusSubjects: Set<number>
 ): Promise<void> {
-  const dueTopics = await getTopicsDueForReview(effectiveDate, dbInstance);
+  const dueTopics = (await getTopicsDueForReview(effectiveDate, dbInstance))
+    .filter(t => focusSubjects.has(t.subjectId));
 
   // Round-robin across subjects, not straight down the due list.
   //
@@ -342,31 +344,11 @@ async function addSpacedRepetitionReviews(
     for (const q of queues) if (i < q.length) interleaved.push(q[i]);
   }
 
-  // Fairness floor first, then need.
-  //
-  // One subject's backlog used to take every slot: a syllabus imported for one
-  // subject leaves the others with nothing due, so the queue was all one
-  // subject and the day came out "study ML" five times over.
-  //
-  // A flat per-subject cap fixes that but is too blunt — it would give a
-  // subject with forty overdue topics and an exam on Friday exactly as much
-  // room as one with two. So: pass one guarantees every subject with anything
-  // due a single block, and pass two hands whatever capacity is left to the
-  // most overdue topics regardless of subject. Everyone gets a look in; the
-  // subject that actually needs the time still gets more of it.
-  const firstPass: typeof dueTopics = [];
-  const secondPass: typeof dueTopics = [];
-  const seenSubject = new Set<number>();
-  for (const t of interleaved) {
-    if (seenSubject.has(t.subjectId)) continue;
-    seenSubject.add(t.subjectId);
-    firstPass.push(t);
-  }
-  const takenIds = new Set(firstPass.map(t => t.id));
-  // dueTopics is already ordered by urgency, so the leftovers stay urgency-first.
-  for (const t of dueTopics) if (!takenIds.has(t.id)) secondPass.push(t);
-
-  for (const topic of [...firstPass, ...secondPass]) {
+  // Within the day's focus subjects, most overdue first. No per-subject
+  // fairness here on purpose: the day is meant to go deep on one or two
+  // subjects, and balance comes from rotating which subjects those are (see
+  // pickFocusSubjects), not from giving everyone a token block every day.
+  for (const topic of interleaved) {
     const subject = subjects.find(s => s.id === topic.subjectId);
     if (!subject) continue;
 
@@ -868,6 +850,71 @@ function finalizeSmartBlocks(
   return blocks.filter(b => b.tier !== 'stretch' || keep.has(b.id));
 }
 
+
+/** How many subjects a single day is allowed to cover. */
+const MAX_FOCUS_SUBJECTS = 2;
+/** Plans looked at when working out whose turn it is. */
+const ROTATION_WINDOW_DAYS = 7;
+
+/**
+ * Pick the one or two subjects today is actually about.
+ *
+ * Spreading every subject across every day sounds fair and studies badly: you
+ * skim four things for half an hour each instead of getting somewhere with one.
+ * So a day goes deep on a small number of subjects, and balance is achieved
+ * ACROSS days — whoever has been left alone longest comes up next.
+ *
+ * Turn is decided by how many blocks each subject received over the last week
+ * (fewest first), then by need as a tie-break. Exams inside a week ignore the
+ * rotation entirely: a deadline outranks whose turn it is.
+ */
+async function pickFocusSubjects(
+  subjects: Subject[],
+  readinessMap: Record<number, SubjectReadiness>,
+  exams: ExamEntry[],
+  effectiveDate: string,
+  dbInstance: OrbitDB,
+): Promise<Set<number>> {
+  const eligible = subjects.map(s => Number(s.id)).filter(Number.isFinite);
+  if (eligible.length <= MAX_FOCUS_SUBJECTS) return new Set(eligible);
+
+  // Recent share of attention, from the plans themselves rather than from
+  // completed logs — otherwise a day you never finished still counts as "not
+  // your turn" forever and the rotation stalls.
+  const recent = new Map<number, number>();
+  for (let i = 1; i <= ROTATION_WINDOW_DAYS; i++) {
+    const plan = await dbInstance.plans.get(effectiveDatePlus(-i)).catch(() => undefined);
+    if (!plan) continue;
+    for (const b of plan.blocks) {
+      if (b.type === 'break') continue;
+      recent.set(b.subjectId, (recent.get(b.subjectId) ?? 0) + 1);
+    }
+  }
+
+  const focus = new Set<number>();
+
+  // A near exam takes a slot regardless of turn.
+  const soon = exams
+    .filter(e => !e.completed && e.examDate >= effectiveDate && daysBetweenDates(e.examDate, effectiveDate) <= 7)
+    .sort((a, b) => a.examDate.localeCompare(b.examDate));
+  for (const e of soon) {
+    if (focus.size >= MAX_FOCUS_SUBJECTS) break;
+    if (eligible.includes(Number(e.subjectId))) focus.add(Number(e.subjectId));
+  }
+
+  const byTurn = eligible
+    .filter(id => !focus.has(id))
+    .sort((a, b) =>
+      (recent.get(a) ?? 0) - (recent.get(b) ?? 0) ||
+      (readinessMap[a]?.score ?? 100) - (readinessMap[b]?.score ?? 100));
+
+  for (const id of byTurn) {
+    if (focus.size >= MAX_FOCUS_SUBJECTS) break;
+    focus.add(id);
+  }
+  return focus;
+}
+
 export const generateDailyPlan = async (
   context: DailyContext,
   dbInstance: OrbitDB = db
@@ -885,20 +932,28 @@ export const generateDailyPlan = async (
       projects,
       logs,
       schedule,
-      outcomes
+      outcomes,
+      planExams
     ] = await Promise.all([
       dbInstance.subjects.toArray(),
       dbInstance.assignments.filter((a) => !a.completed).toArray(),
       dbInstance.projects.toArray(),
       dbInstance.logs.toArray(),
       dbInstance.schedule.toArray(),
-      dbInstance.blockOutcomes.toArray()
+      dbInstance.blockOutcomes.toArray(),
+      dbInstance.exams.toArray().catch(() => [] as ExamEntry[])
     ]);
 
     const readinessMap: Record<number, SubjectReadiness> = {};
     for (const subject of subjects) {
       readinessMap[Number(subject.id)] = calculateReadiness(subject, logs, effectiveDate);
     }
+
+    // Whose day is it? Everything subject-driven below is confined to this
+    // set, so the day goes deep instead of skimming everything.
+    const focusSubjects = await pickFocusSubjects(
+      subjects, readinessMap, planExams, effectiveDate, dbInstance,
+    );
 
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const recentOutcomes = outcomes.filter(o => o.timestamp >= thirtyDaysAgo);
@@ -1104,9 +1159,10 @@ export const generateDailyPlan = async (
         todaySubs = subjects
           .map((s) => Number(s.id))
           .filter(sid => !constraints.excludedSubjectIds.includes(sid))
-          .filter(sid => needsWork(readinessMap[sid]?.status))
-          .sort((a, b) => (readinessMap[a]?.score ?? 100) - (readinessMap[b]?.score ?? 100));
+          .filter(sid => needsWork(readinessMap[sid]?.status));
       }
+      // Whatever the source, keep the day to its focus subjects.
+      todaySubs = todaySubs.filter(sid => focusSubjects.has(sid));
 
       for (const sid of todaySubs) {
         const sub = subjects.find((s) => Number(s.id) === sid);
@@ -1139,7 +1195,8 @@ export const generateDailyPlan = async (
       constraints,
       usedMinutes,
       effectiveDate,
-      dbInstance
+      dbInstance,
+      focusSubjects
     );
 
     for (const asm of assignments) {
